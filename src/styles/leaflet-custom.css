@@ -1,0 +1,111 @@
+/* Leaflet Custom Styles for NeoRPAC */
+
+/* Fix para o z-index dos popups e controles do mapa */
+.leaflet-pane {
+  z-index: 400;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 1000;
+}
+
+.leaflet-popup {
+  z-index: 1100;
+}
+
+/* Estilo customizado para os markers */
+.custom-map-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Estilo dos popups para combinar com o tema */
+.leaflet-popup-content-wrapper {
+  background: rgba(16, 185, 129, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+}
+
+.leaflet-popup-content {
+  margin: 8px;
+  font-family: inherit;
+}
+
+.leaflet-popup-tip {
+  background: rgba(16, 185, 129, 0.95);
+}
+
+/* Controles de zoom com tema escuro */
+.leaflet-control-zoom a {
+  background-color: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  backdrop-filter: blur(8px);
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+/* Atribuição com tema escuro */
+.leaflet-control-attribution {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.leaflet-control-attribution a {
+  color: rgba(16, 185, 129, 0.8);
+}
+
+/* Container do mapa */
+.leaflet-container {
+  background: #0a0f0d;
+  font-family: inherit;
+}
+
+/* Fix para imagens de tiles */
+.leaflet-tile {
+  filter: brightness(0.8) contrast(1.1);
+}
+
+/* Animação suave para mudança de view */
+.leaflet-zoom-anim .leaflet-zoom-animated {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estilo para o marcador quando estiver sendo arrastado */
+.leaflet-marker-draggable {
+  cursor: move;
+}
+
+/* Remover borda azul de foco padrão */
+.leaflet-container a:focus {
+  outline: 2px solid rgba(16, 185, 129, 0.5);
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar para o Dialog */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(16, 185, 129, 0.05);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.5);
+}

@@ -1,0 +1,156 @@
+
+> Dashboard Redesign NeoPower@0.1.0 lint
+> eslint src --ext .ts,.tsx --max-warnings 0
+
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\App.tsx
+  57:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\AddLocationDialog.tsx
+   23:12  warning  'e' is defined but never used                                                                                                                                       @typescript-eslint/no-unused-vars
+  198:5   warning  'zoom' is defined but never used. Allowed unused args must match /^_/u                                                                                              @typescript-eslint/no-unused-vars
+  233:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\DashboardLayout.tsx
+  18:10  warning  'Button' is defined but never used                                                                                                                                  @typescript-eslint/no-unused-vars
+  84:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\DynamicMap.tsx
+  44:36  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\EnhancedTable.tsx
+  150:3  warning  'striped' is defined but never used. Allowed unused args must match /^_/u    @typescript-eslint/no-unused-vars
+  151:3  warning  'hoverable' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\MapWrapper.tsx
+  33:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  57:36  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                      react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ResponsiveTable.tsx
+  36:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  49:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\__tests__\DashboardLayout.test.tsx
+  3:10  warning  'BrowserRouter' is defined but never used  @typescript-eslint/no-unused-vars
+  5:10  warning  'AuthProvider' is defined but never used   @typescript-eslint/no-unused-vars
+  6:10  warning  'UserRole' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\__tests__\KPICard.test.tsx
+   30:15  warning  'container' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  145:13  warning  'periodElement' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\__tests__\ProtectedRoute.test.tsx
+    4:10  warning  'AuthProvider' is defined but never used  @typescript-eslint/no-unused-vars
+  203:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  235:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\badge.tsx
+  39:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\button.tsx
+  56:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\form.tsx
+  144:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\navigation-menu.tsx
+  160:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\sidebar.tsx
+  581:26  error    Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\sidebar.tsx:581:26
+  579 |   // Random width between 50 to 90%.
+  580 |   const width = React.useMemo(() => {
+> 581 |     return `${Math.floor(Math.random() * 40) + 50}%`;
+      |                          ^^^^^^^^^^^^^ Cannot call impure function
+  582 |   }, []);
+  583 |
+  584 |   return (  react-hooks/purity
+  687:3   warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\components\ui\toggle.tsx
+  45:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\lib\__tests__\api.test.ts
+  282:13  warning  'response' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\lib\__tests__\schemas.test.ts
+  9:3  warning  'cnpjSchema' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\lib\auth.tsx
+  299:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\FinancialReport.tsx
+  12:10  warning  'Label' is defined but never used                                                                                                                                   @typescript-eslint/no-unused-vars
+  37:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  38:6   warning  React Hook useEffect has a missing dependency: 'fetchReport'. Either include it or remove the dependency array                                                      react-hooks/exhaustive-deps
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Indicators.tsx
+  41:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Login.tsx
+  23:7  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Login.tsx:23:7
+  21 |   useEffect(() => {
+  22 |     if (searchParams.get('expired') === 'true') {
+> 23 |       setSessionExpired(true);
+     |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  24 |       // Limpar o parâmetro da URL
+  25 |       window.history.replaceState({}, '', '/login');
+  26 |     }  react-hooks/set-state-in-effect
+  35:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Operations.tsx
+   34:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+   35:36  warning  Promise returned in function argument where a void return was expected                                                                                              @typescript-eslint/no-misused-promises
+  108:13  warning  'result' is assigned a value but never used                                                                                                                         @typescript-eslint/no-unused-vars
+  127:13  warning  'result' is assigned a value but never used                                                                                                                         @typescript-eslint/no-unused-vars
+  152:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  157:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  162:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  170:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  179:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  187:7   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  201:9   warning  'getColorClasses' is assigned a value but never used                                                                                                                @typescript-eslint/no-unused-vars
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Overview.tsx
+   4:27  warning  'Users' is defined but never used                                                                                                                                   @typescript-eslint/no-unused-vars
+   6:10  warning  'format' is defined but never used                                                                                                                                  @typescript-eslint/no-unused-vars
+   6:18  warning  'startOfToday' is defined but never used                                                                                                                            @typescript-eslint/no-unused-vars
+   6:32  warning  'startOfMonth' is defined but never used                                                                                                                            @typescript-eslint/no-unused-vars
+   6:46  warning  'parseISO' is defined but never used                                                                                                                                @typescript-eslint/no-unused-vars
+  66:21  warning  Unexpected any. Specify a different type                                                                                                                            @typescript-eslint/no-explicit-any
+  74:5   warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Register.tsx
+  24:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Stations.tsx
+   80:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  100:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Transactions.tsx
+  36:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Users.tsx
+  56:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  57:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  92:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\willi\Documents\Projetos\Projeto_NeoPower\NeoRBAC\src\pages\Vouchers.tsx
+   60:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  123:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+  152:7  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+✖ 65 problems (2 errors, 63 warnings)
+
