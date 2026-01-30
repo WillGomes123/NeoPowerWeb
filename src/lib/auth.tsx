@@ -174,12 +174,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
+      // Compatível com base_ocpp: endpoint /auth/login e campo username
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email, password }),
       });
 
       // Tratar rate limit (429)
@@ -252,12 +253,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/register`, {
+      // Compatível com base_ocpp: endpoint /web-users e campos username/email
+      const response = await fetch(`${API_BASE_URL}/web-users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ username: name, email, password, role: 'VIEWER' }),
       });
 
       // Tratar rate limit (429)

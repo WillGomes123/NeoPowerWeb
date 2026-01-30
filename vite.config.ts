@@ -60,8 +60,8 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        // Usar IP da rede para que outras máquinas possam acessar
-        target: process.env.VITE_PROXY_TARGET ?? 'http://10.10.0.214:3000',
+        // Apontar para o base_ocpp CSMS (porta 8080)
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
       },
