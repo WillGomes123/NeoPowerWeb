@@ -55,13 +55,12 @@ export default defineConfig({
     sourcemap: false,
   },
   server: {
-    port: 5173,
+    port: 5173, // NeoRBAC - Dashboard Admin (OCPP_API)
     host: '0.0.0.0',
     open: true,
     proxy: {
       '/api': {
-        // Apontar para o OCPP_API (porta 3000) que tem os endpoints de locations
-        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000',
+        target: 'http://localhost:3000', // OCPP_API
         changeOrigin: true,
         secure: false,
       },
