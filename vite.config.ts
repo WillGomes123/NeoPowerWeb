@@ -60,8 +60,8 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        // Apontar para o base_ocpp CSMS (porta 8080)
-        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8080',
+        // Apontar para o OCPP_API (porta 3000) que tem os endpoints de locations
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
         secure: false,
       },
