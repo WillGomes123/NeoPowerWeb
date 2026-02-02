@@ -64,6 +64,11 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/socket.io': {
+        target: 'http://localhost:3000', // OCPP_API Socket.IO
+        changeOrigin: true,
+        ws: true, // Enable WebSocket proxy
+      },
     },
   },
 });

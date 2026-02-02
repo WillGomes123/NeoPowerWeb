@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env?.VITE_SOCKET_URL ?? 'http://localhost:3000';
+// Use relative URL to leverage Vite proxy (avoids CORS issues)
+// In production, set VITE_SOCKET_URL to the actual server URL
+const SOCKET_URL = import.meta.env?.VITE_SOCKET_URL ?? '';
 
 // Types for charger events
 interface ChargerStatusEvent {
