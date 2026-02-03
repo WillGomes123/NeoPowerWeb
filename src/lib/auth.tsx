@@ -31,6 +31,10 @@ const API_BASE_URL = import.meta.env?.VITE_API_URL ?? '/api';
 const normalizeRole = (role?: string | null): UserRole => {
   if (role === 'admin' || role === 'atem' || role === 'comum') return role;
   if (role === 'user') return 'comum';
+  // Map base_ocpp roles to NeoRBAC roles
+  if (role === 'ADMIN') return 'admin';
+  if (role === 'OPERATOR') return 'atem';
+  if (role === 'VIEWER') return 'comum';
   return 'comum';
 };
 
@@ -174,13 +178,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // OCPP_API: endpoint /users/login com campos email e password
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
+      // base_ocpp CSMS: endpoint /auth/login com campos username e password
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: email, password }),
       });
 
       // Tratar rate limit (429)
@@ -203,8 +207,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao fazer login.');
+      if (!response.ok || data.success === false) {
+        throw new Error(data.message || data.error || 'Erro ao fazer login.');
       }
 
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
@@ -212,20 +216,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const normalizedRole = normalizeRole(data.user.role);
       localStorage.setItem('userRole', normalizedRole);
 
+      // Map base_ocpp user fields to NeoRBAC format
+      // base_ocpp: { id, username, role, email, enabled }
+      // NeoRBAC: { id, name, email, role }
+      const userName = data.user.name || data.user.username || 'User';
+      const userEmail = data.user.email || email;
+
       // Armazenar dados do usuário no sessionStorage (limpo ao fechar navegador)
       sessionStorage.setItem(
         'userData',
         JSON.stringify({
           id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
+          name: userName,
+          email: userEmail,
         })
       );
 
       setUser({
         id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
+        name: userName,
+        email: userEmail,
         role: normalizedRole,
       });
 
