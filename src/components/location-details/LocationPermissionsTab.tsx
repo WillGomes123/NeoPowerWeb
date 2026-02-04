@@ -78,7 +78,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
 
   const fetchAvailableUsers = useCallback(async () => {
     try {
-      const response = await api.get('/users');
+      const response = await api.get('/admin/users');
       // Filtrar usuários que já têm permissão
       const existingUserIds = users.map(u => u.userId);
       const available = (response.data || []).filter(

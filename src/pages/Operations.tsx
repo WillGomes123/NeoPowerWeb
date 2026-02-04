@@ -210,6 +210,7 @@ export const Operations = () => {
   };
 
   // Execute command (supports GET and POST)
+  // If endpoint starts with '/', it's treated as an absolute path
   const executeCommand = async (
     cpId: string,
     endpoint: string,
@@ -221,7 +222,10 @@ export const Operations = () => {
 
     try {
       let response: Response;
-      const url = `/chargers/${encodeURIComponent(cpId)}/${endpoint}`;
+      // Support absolute paths (starting with /) or relative paths (charger-specific)
+      const url = endpoint.startsWith('/')
+        ? endpoint
+        : `/chargers/${encodeURIComponent(cpId)}/${endpoint}`;
 
       if (method === 'GET') {
         response = await api.get(url);
@@ -287,25 +291,29 @@ export const Operations = () => {
             await executeCommand(cpId, 'unlock', { connectorId: parseInt(params.connectorId) || 1 }, commandName);
             break;
           case 'getConfiguration':
-            await executeCommand(cpId, 'config', {}, commandName, 'GET');
+            await executeCommand(cpId, 'config', { key: params.keys ? params.keys.split(',').map((k: string) => k.trim()) : undefined }, commandName);
             break;
           case 'changeConfiguration':
-            await executeCommand(cpId, 'config', { key: params.key, value: params.value }, commandName);
+            await executeCommand(cpId, 'config/change', { key: params.key, value: params.value }, commandName);
             break;
           case 'triggerMessage':
-            await executeCommand(cpId, 'trigger', {
-              message: params.message,
+            await executeCommand(cpId, 'trigger-message', {
+              requestedMessage: params.message,
               connectorId: params.connectorId ? parseInt(params.connectorId) : undefined
             }, commandName);
             break;
           case 'remoteStartTransaction':
-            await executeCommand(cpId, 'start', {
+            await executeCommand(cpId, '/command/start', {
+              chargerId: cpId,
               idTag: params.idTag,
-              connectorId: params.connectorId ? parseInt(params.connectorId) : undefined
+              connectorId: params.connectorId ? parseInt(params.connectorId) : 1
             }, commandName);
             break;
           case 'remoteStopTransaction':
-            await executeCommand(cpId, 'stop', { transactionId: parseInt(params.transactionId) }, commandName);
+            await executeCommand(cpId, '/command/stop', {
+              chargerId: cpId,
+              transactionId: parseInt(params.transactionId)
+            }, commandName);
             break;
           case 'reserveNow':
             await executeCommand(cpId, 'reserve', {
@@ -374,16 +382,23 @@ export const Operations = () => {
             await executeCommand(cpId, 'get-log', {
               logType: params.logType || 'DiagnosticsLog',
               requestId: parseInt(params.requestId) || 1,
-              remoteLocation: params.remoteLocation
+              log: {
+                remoteLocation: params.remoteLocation,
+                oldestTimestamp: params.oldestTimestamp || undefined,
+                latestTimestamp: params.latestTimestamp || undefined
+              }
             }, commandName);
             break;
           case 'signedUpdateFirmware':
             await executeCommand(cpId, 'signed-update-firmware', {
               requestId: parseInt(params.requestId) || 1,
-              location: params.location,
-              retrieveDateTime: params.retrieveDateTime,
-              signingCertificate: params.signingCertificate,
-              signature: params.signature
+              firmware: {
+                location: params.location,
+                retrieveDateTime: params.retrieveDateTime || new Date().toISOString(),
+                installDateTime: params.installDateTime || undefined,
+                signingCertificate: params.signingCertificate || undefined,
+                signature: params.signature || undefined
+              }
             }, commandName);
             break;
           case 'installCertificate':
