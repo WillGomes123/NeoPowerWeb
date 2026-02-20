@@ -1,11 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-
-// WebSocket URL for notifications (base_ocpp uses /notifications path)
-const getWebSocketUrl = () => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = import.meta.env?.VITE_WS_HOST ?? window.location.host;
-  return `${protocol}//${host}/notifications`;
-};
+import { io, Socket } from 'socket.io-client';
 
 // Types for charger events
 interface ChargerStatusEvent {
@@ -31,13 +25,6 @@ interface MeterValueEvent {
   timestamp: string;
 }
 
-// Notification types from base_ocpp
-interface BaseNotification {
-  type: string;
-  sentAt?: string;
-  [key: string]: unknown;
-}
-
 // Hook return type
 interface UseSocketReturn {
   isConnected: boolean;
@@ -50,7 +37,7 @@ interface UseSocketReturn {
 }
 
 /**
- * Hook para gerenciar conexao WebSocket com o servidor base_ocpp CSMS
+ * Hook para gerenciar conexao Socket.IO com o servidor OCPP_API
  * Fornece atualizacoes em tempo real sobre status de carregadores e transacoes
  */
 export function useSocket(): UseSocketReturn {
@@ -60,208 +47,255 @@ export function useSocket(): UseSocketReturn {
   const [meterValues, setMeterValues] = useState<Map<string, MeterValueEvent>>(new Map());
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const subscribedChargers = useRef<Set<string>>(new Set());
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (socketRef.current?.connected) return;
 
-    const wsUrl = getWebSocketUrl();
-    console.log('Connecting to WebSocket:', wsUrl);
+    // Get auth token
+    const token = localStorage.getItem('token');
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    // Connect to Socket.IO server
+    const socket = io(window.location.origin, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
 
-    ws.onopen = () => {
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
       setIsConnected(true);
-      console.log('WebSocket connected to base_ocpp');
-
-      // Start ping interval to keep connection alive
-      pingIntervalRef.current = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }));
-        }
-      }, 30000);
+      console.log('Socket.IO connected to OCPP_API');
 
       // Re-subscribe to previously subscribed chargers
       subscribedChargers.current.forEach(chargerId => {
-        ws.send(JSON.stringify({ type: 'subscribe', events: [`charger:${chargerId}`] }));
+        socket.emit('subscribe', { charger: chargerId });
       });
-    };
+    });
 
-    ws.onclose = () => {
+    socket.on('disconnect', () => {
       setIsConnected(false);
-      console.log('WebSocket disconnected');
+      console.log('Socket.IO disconnected');
+    });
 
-      // Clear ping interval
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = null;
-      }
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+    });
 
-      // Reconnect after delay
-      reconnectTimeoutRef.current = setTimeout(() => {
-        console.log('Attempting to reconnect...');
-        connect();
-      }, 3000);
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data: BaseNotification = JSON.parse(event.data);
-        handleNotification(data);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-      }
-    };
-  }, []);
-
-  const handleNotification = useCallback((data: BaseNotification) => {
-    const timestamp = data.sentAt || new Date().toISOString();
-    setLastUpdate(new Date());
-
-    switch (data.type) {
-      case 'connected':
-        console.log('Connected to notification service:', data.message);
-        break;
-
-      case 'pong':
-        // Ping response, ignore
-        break;
-
-      case 'chargepoint:connected':
-      case 'chargepoint:disconnected': {
-        const chargerId = data.chargePointId as string;
-        if (chargerId) {
-          setChargerStatuses(prev => {
-            const newMap = new Map(prev);
-            const existing = newMap.get(chargerId);
-            newMap.set(chargerId, {
-              ...existing,
-              chargerId,
-              status: data.type === 'chargepoint:connected' ? 'Available' : 'Offline',
-              timestamp,
-            });
-            return newMap;
-          });
-        }
-        break;
-      }
-
-      case 'connector:status': {
-        const chargerId = data.chargePointId as string;
-        const connectorId = data.connectorId as number;
-        const status = data.status as string;
-        const errorCode = data.errorCode as string | undefined;
-
-        if (chargerId) {
-          setChargerStatuses(prev => {
-            const newMap = new Map(prev);
-            newMap.set(chargerId, {
-              chargerId,
-              status,
-              connectorId,
-              errorCode,
-              timestamp,
-            });
-            return newMap;
-          });
-        }
-        break;
-      }
-
-      case 'transaction:started': {
-        const txEvent: TransactionEvent = {
-          chargerId: data.chargePointId as string,
-          transactionId: data.transactionId as number,
-          status: 'started',
+    // OCPP_API events - charger connection
+    socket.on('charger_connected', (data: { id: string }) => {
+      const timestamp = new Date().toISOString();
+      setLastUpdate(new Date());
+      setChargerStatuses((prev: Map<string, ChargerStatusEvent>) => {
+        const newMap = new Map<string, ChargerStatusEvent>(prev);
+        const existing = newMap.get(data.id);
+        const updated: ChargerStatusEvent = {
+          chargerId: data.id,
+          status: 'Available',
           timestamp,
+          connectorId: existing?.connectorId,
+          errorCode: existing?.errorCode,
         };
-        setRecentTransactions(prev => [txEvent, ...prev.slice(0, 49)]);
-        break;
-      }
+        newMap.set(data.id, updated);
+        return newMap;
+      });
+    });
 
-      case 'transaction:updated': {
-        const txEvent: TransactionEvent = {
-          chargerId: data.chargePointId as string,
-          transactionId: data.transactionId as number,
-          meterValue: data.meterValue as number | undefined,
-          status: 'updated',
+    socket.on('charger_disconnected', (data: { id: string }) => {
+      const timestamp = new Date().toISOString();
+      setLastUpdate(new Date());
+      setChargerStatuses((prev: Map<string, ChargerStatusEvent>) => {
+        const newMap = new Map<string, ChargerStatusEvent>(prev);
+        const existing = newMap.get(data.id);
+        const updated: ChargerStatusEvent = {
+          chargerId: data.id,
+          status: 'Offline',
           timestamp,
+          connectorId: existing?.connectorId,
+          errorCode: existing?.errorCode,
         };
-        setRecentTransactions(prev => [txEvent, ...prev.slice(0, 49)]);
-        break;
-      }
+        newMap.set(data.id, updated);
+        return newMap;
+      });
+    });
 
-      case 'transaction:stopped': {
-        const txEvent: TransactionEvent = {
-          chargerId: data.chargePointId as string,
-          transactionId: data.transactionId as number,
-          status: 'stopped',
+    // Heartbeat event
+    socket.on('heartbeat', (data: { charger: string }) => {
+      setLastUpdate(new Date());
+      // Update last seen for the charger
+      setChargerStatuses((prev: Map<string, ChargerStatusEvent>) => {
+        const newMap = new Map<string, ChargerStatusEvent>(prev);
+        const existing = newMap.get(data.charger);
+        if (existing) {
+          const updated: ChargerStatusEvent = {
+            chargerId: existing.chargerId,
+            status: existing.status,
+            timestamp: new Date().toISOString(),
+            connectorId: existing.connectorId,
+            errorCode: existing.errorCode,
+          };
+          newMap.set(data.charger, updated);
+        }
+        return newMap;
+      });
+    });
+
+    // Boot notification
+    socket.on('boot_notification', (data: { chargerId: string; vendor?: string; model?: string }) => {
+      const timestamp = new Date().toISOString();
+      setLastUpdate(new Date());
+      setChargerStatuses((prev: Map<string, ChargerStatusEvent>) => {
+        const newMap = new Map<string, ChargerStatusEvent>(prev);
+        newMap.set(data.chargerId, {
+          chargerId: data.chargerId,
+          status: 'Available',
           timestamp,
-        };
-        setRecentTransactions(prev => [txEvent, ...prev.slice(0, 49)]);
-        break;
-      }
+        });
+        return newMap;
+      });
+    });
 
-      case 'meterValues': {
-        const chargerId = data.chargePointId as string;
-        if (chargerId) {
-          setMeterValues(prev => {
-            const newMap = new Map(prev);
-            newMap.set(chargerId, {
-              chargerId,
-              transactionId: data.transactionId as number,
-              meterValue: data.meterValue as number,
-              timestamp,
-            });
-            return newMap;
-          });
-        }
-        break;
-      }
+    // Status notification (connector status)
+    socket.on('status_notification', (data: {
+      chargerId: string;
+      connectorId: number;
+      status: string;
+      errorCode?: string
+    }) => {
+      const timestamp = new Date().toISOString();
+      setLastUpdate(new Date());
+      setChargerStatuses((prev: Map<string, ChargerStatusEvent>) => {
+        const newMap = new Map<string, ChargerStatusEvent>(prev);
+        newMap.set(data.chargerId, {
+          chargerId: data.chargerId,
+          status: data.status,
+          connectorId: data.connectorId,
+          errorCode: data.errorCode,
+          timestamp,
+        });
+        return newMap;
+      });
+    });
 
-      default:
-        // Log unknown events for debugging
-        if (!['stats', 'server:shutdown'].includes(data.type)) {
-          console.log('Unhandled notification type:', data.type, data);
-        }
-    }
+    // Meter value updates
+    socket.on('meter_value_update', (data: {
+      chargerId: string;
+      transactionId: number;
+      value?: number;
+      energy?: number;
+      power?: number;
+      current?: number;
+      voltage?: number;
+      soc?: number;
+      timestamp?: string;
+    }) => {
+      const timestamp = data.timestamp || new Date().toISOString();
+      setLastUpdate(new Date());
+      // Use energy if available, fallback to value
+      const meterValue = data.energy ?? data.value ?? 0;
+      setMeterValues((prev: Map<string, MeterValueEvent>) => {
+        const newMap = new Map<string, MeterValueEvent>(prev);
+        newMap.set(data.chargerId, {
+          chargerId: data.chargerId,
+          transactionId: data.transactionId,
+          meterValue,
+          timestamp,
+        });
+        return newMap;
+      });
+    });
+
+    // Transaction started
+    socket.on('transaction_started', (data: {
+      chargerId: string;
+      transactionId: number;
+      idTag?: string;
+      meterStart?: number;
+      timestamp?: string;
+    }) => {
+      const timestamp = data.timestamp || new Date().toISOString();
+      setLastUpdate(new Date());
+      const txEvent: TransactionEvent = {
+        chargerId: data.chargerId,
+        transactionId: data.transactionId,
+        status: 'started',
+        timestamp,
+      };
+      setRecentTransactions(prev => [txEvent, ...prev.slice(0, 49)]);
+    });
+
+    // Transaction stopped
+    socket.on('transaction_stopped', (data: {
+      chargerId: string;
+      transactionId: number;
+      meterStop?: number;
+      reason?: string;
+      consumedWh?: number;
+      totalCost?: number;
+      timestamp?: string;
+    }) => {
+      const timestamp = data.timestamp || new Date().toISOString();
+      setLastUpdate(new Date());
+      const txEvent: TransactionEvent = {
+        chargerId: data.chargerId,
+        transactionId: data.transactionId,
+        meterValue: data.meterStop,
+        status: 'stopped',
+        timestamp,
+      };
+      setRecentTransactions(prev => [txEvent, ...prev.slice(0, 49)]);
+    });
+
+    // Payment confirmed (wallet updated)
+    socket.on('payment_confirmed', (data: {
+      paymentId: number | string;
+      amount: number;
+      newBalance: number;
+      message: string;
+    }) => {
+      setLastUpdate(new Date());
+      console.log('Payment confirmed:', data);
+    });
+
+    // Wallet updated
+    socket.on('wallet_updated', (data: {
+      balance: number;
+      transactionType: string;
+      amount: number;
+    }) => {
+      setLastUpdate(new Date());
+      console.log('Wallet updated:', data);
+    });
+
   }, []);
 
   useEffect(() => {
     connect();
 
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
   }, [connect]);
 
   const subscribeToCharger = useCallback((chargerId: string) => {
     subscribedChargers.current.add(chargerId);
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'subscribe', events: [`charger:${chargerId}`] }));
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('subscribe', { charger: chargerId });
     }
   }, []);
 
   const unsubscribeFromCharger = useCallback((chargerId: string) => {
     subscribedChargers.current.delete(chargerId);
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'unsubscribe', events: [`charger:${chargerId}`] }));
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('unsubscribe', { charger: chargerId });
     }
   }, []);
 

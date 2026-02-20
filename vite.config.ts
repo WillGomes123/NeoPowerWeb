@@ -55,19 +55,19 @@ export default defineConfig({
     sourcemap: false,
   },
   server: {
-    port: 5173, // NeoRBAC - Dashboard Admin (base_ocpp CSMS)
+    port: 5173, // NeoRBAC - Dashboard Admin
     host: '0.0.0.0',
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // base_ocpp CSMS
+        target: 'http://localhost:3000', // OCPP_API
         changeOrigin: true,
         secure: false,
       },
-      '/notifications': {
-        target: 'ws://localhost:8080', // base_ocpp WebSocket notifications
+      '/socket.io': {
+        target: 'http://localhost:3000', // OCPP_API Socket.IO
         changeOrigin: true,
-        ws: true, // Enable WebSocket proxy
+        ws: true,
       },
     },
   },
