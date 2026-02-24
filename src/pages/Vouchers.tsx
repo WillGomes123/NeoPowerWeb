@@ -54,7 +54,7 @@ interface Voucher {
 interface Location {
   id: number;
   nomeDoLocal: string;
-  address: string;
+  endereco: string;
 }
 
 interface Charger {
@@ -80,10 +80,10 @@ export const Vouchers = () => {
 
   const fetchLocations = async () => {
     try {
-      const response = await api.get('/locations');
+      const response = await api.get('/locations/all');
       if (response.ok) {
         const data = await response.json();
-        setLocations(data);
+        setLocations(data.locations || []);
       }
     } catch (error) {
       console.error('Erro ao buscar locais:', error);
@@ -415,7 +415,7 @@ export const Vouchers = () => {
                         value={location.id.toString()}
                         className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
                       >
-                        {location.nomeDoLocal} - {location.address}
+                        {location.nomeDoLocal} - {location.endereco}
                       </SelectItem>
                     ))}
                   </SelectContent>

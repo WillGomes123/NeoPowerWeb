@@ -54,8 +54,10 @@ export const NotificationBell: React.FC = () => {
   const fetchNotifications = useCallback(async () => {
     try {
       const response = await api.get('/notifications');
-      setNotifications(response.data.notifications || []);
-      setUnreadCount(response.data.unreadCount || 0);
+      if (!response.ok) throw new Error('Erro ao carregar notificações');
+      const data = await response.json();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
@@ -72,15 +74,22 @@ export const NotificationBell: React.FC = () => {
     }
   }, []);
 
-  // Initial load
+  // Initial load - fetch notifications immediately
   useEffect(() => {
     fetchNotifications();
-    checkPushStatus();
 
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    // Poll for new notifications every 60 seconds
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
-  }, [fetchNotifications, checkPushStatus]);
+  }, [fetchNotifications]);
+
+  // Defer push status check - non-blocking, runs after initial render
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      checkPushStatus();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [checkPushStatus]);
 
   // Handle push toggle
   const handlePushToggle = async (enabled: boolean) => {

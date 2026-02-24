@@ -217,30 +217,76 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.cep || !formData.address) {
-      toast.error('Preencha todos os campos obrigatórios da Aba 1');
+    // Validação Aba 1: Localização
+    if (!formData.name || !formData.cep || !formData.address || !formData.numero || !formData.cidade || !formData.estado) {
+      toast.error('Preencha todos os campos obrigatórios da aba Localização');
       setActiveTab('info');
       return;
     }
 
+    if (formData.estado.length !== 2) {
+      toast.error('UF deve ter exatamente 2 caracteres (ex: SP)');
+      setActiveTab('info');
+      return;
+    }
+
+    // Validação Aba 2: Negócio
     if (!formData.razao_social || !formData.cnpj) {
-      toast.error('Preencha todos os campos obrigatórios da Aba 2');
+      toast.error('Preencha todos os campos obrigatórios da aba Negócio');
       setActiveTab('business');
       return;
     }
 
-    if (!formData.nome_responsavel || !formData.cpf_responsavel || !formData.email_responsavel) {
-      toast.error('Preencha todos os campos obrigatórios da Aba 3');
+    // Validar formato do CNPJ (deve ter máscara completa: 00.000.000/0000-00)
+    if (!/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(formData.cnpj)) {
+      toast.error('CNPJ deve estar no formato 00.000.000/0000-00');
+      setActiveTab('business');
+      return;
+    }
+
+    // Validação Aba 3: Responsável
+    if (!formData.nome_responsavel || !formData.cpf_responsavel || !formData.email_responsavel || !formData.telefone_responsavel) {
+      toast.error('Preencha todos os campos obrigatórios da aba Responsável');
+      setActiveTab('custom');
+      return;
+    }
+
+    // Validar formato do CPF (deve ter máscara completa: 000.000.000-00)
+    if (!/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(formData.cpf_responsavel)) {
+      toast.error('CPF deve estar no formato 000.000.000-00');
+      setActiveTab('custom');
+      return;
+    }
+
+    // Validar formato do telefone
+    if (!/^\(\d{2}\)\s?\d{4,5}-?\d{4}$/.test(formData.telefone_responsavel)) {
+      toast.error('Telefone deve estar no formato (00) 00000-0000');
       setActiveTab('custom');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await api.post('/locations', formData);
+      // Normalizar dados antes de enviar
+      const normalizedData = {
+        ...formData,
+        cep: formData.cep.replace(/\D/g, ''),
+        // Converter strings vazias para null em campos opcionais
+        complemento: formData.complemento || null,
+        logo_url: formData.logo_url || null,
+        imagem_local_url: formData.imagem_local_url || null,
+        observacoes: formData.observacoes || null,
+      };
+      const response = await api.post('/locations', normalizedData);
 
       if (!response.ok) {
         const errorData = await response.json();
+        if (errorData.details?.length) {
+          const fieldErrors = errorData.details
+            .map((d: { field: string; message: string }) => `${d.field}: ${d.message}`)
+            .join(', ');
+          throw new Error(fieldErrors);
+        }
         throw new Error(errorData.error || 'Erro ao criar local');
       }
 
@@ -483,10 +529,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Tipo Negócio</Label>
                     <Select value={formData.tipo_negocio} onValueChange={value => setFormData({ ...formData, tipo_negocio: value })}>
-                      <SelectTrigger className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm">
+                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-emerald-950 border-emerald-800/50">
+                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
                         <SelectItem value="comercial">Comercial</SelectItem>
                         <SelectItem value="condominio_residencial">Condomínio</SelectItem>
                         <SelectItem value="publico">Público</SelectItem>
@@ -498,10 +544,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Acesso</Label>
                     <Select value={formData.tipo_local} onValueChange={value => setFormData({ ...formData, tipo_local: value })}>
-                      <SelectTrigger className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm">
+                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-emerald-950 border-emerald-800/50">
+                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
                         <SelectItem value="publico">Público</SelectItem>
                         <SelectItem value="privado">Privado</SelectItem>
                       </SelectContent>
@@ -510,10 +556,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Estacionamento</Label>
                     <Select value={formData.tipo_estacionamento} onValueChange={value => setFormData({ ...formData, tipo_estacionamento: value })}>
-                      <SelectTrigger className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm">
+                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-emerald-950 border-emerald-800/50">
+                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
                         <SelectItem value="gratis">Grátis</SelectItem>
                         <SelectItem value="pago">Pago</SelectItem>
                       </SelectContent>
@@ -540,10 +586,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                           setFormData({ ...formData, horario_funcionamento: newHorarios });
                         }}
                       >
-                        <SelectTrigger className="bg-emerald-950/40 text-emerald-50 border-emerald-800/40 h-9 text-sm flex-1">
+                        <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-9 text-sm flex-1" style={{ backgroundColor: '#022c22' }}>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="bg-emerald-950 border-emerald-800/50">
+                        <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
                           <SelectItem value="24horas">24 horas</SelectItem>
                           <SelectItem value="customizado">Customizado</SelectItem>
                           <SelectItem value="fechado">Fechado</SelectItem>

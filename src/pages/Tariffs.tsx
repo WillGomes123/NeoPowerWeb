@@ -42,8 +42,8 @@ interface Tariff {
 
 interface Location {
   id: number;
-  name: string;
-  address: string;
+  nomeDoLocal: string;
+  endereco: string;
 }
 
 export const Tariffs = () => {
@@ -61,7 +61,7 @@ export const Tariffs = () => {
     try {
       const [tariffRes, locationsRes] = await Promise.all([
         api.get('/tariffs/current'),
-        api.get('/locations'),
+        api.get('/locations/all'),
       ]);
 
       if (tariffRes.ok) {
@@ -74,7 +74,7 @@ export const Tariffs = () => {
 
       if (locationsRes.ok) {
         const locationsData = await locationsRes.json();
-        setLocations(Array.isArray(locationsData) ? locationsData : locationsData.locations || []);
+        setLocations(locationsData.locations || []);
       }
     } catch {
       toast.error('Erro ao carregar dados de tarifas');
@@ -102,7 +102,7 @@ export const Tariffs = () => {
       if (selectedLocation !== 'global') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
         if (location) {
-          payload.locationAddress = location.address;
+          payload.locationAddress = location.endereco;
         }
       }
 
@@ -205,7 +205,7 @@ export const Tariffs = () => {
                         value={location.id.toString()}
                         className="text-white"
                       >
-                        {location.name}
+                        {location.nomeDoLocal}
                       </SelectItem>
                     ))}
                   </SelectContent>

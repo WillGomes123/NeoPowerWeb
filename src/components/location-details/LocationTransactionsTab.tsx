@@ -53,9 +53,11 @@ export function LocationTransactionsTab({ locationId }: Props) {
       }
 
       const response = await api.get(`/locations/${locationId}/transactions?${params}`);
-      setTransactions(response.data.transactions || []);
-      setTotalPages(response.data.totalPages || 1);
-      setTotal(response.data.total || 0);
+      if (!response.ok) throw new Error('Erro ao carregar transações');
+      const data = await response.json();
+      setTransactions(data.transactions || []);
+      setTotalPages(data.totalPages || 1);
+      setTotal(data.total || 0);
     } catch (error) {
       console.error('Erro ao carregar transações:', error);
       toast.error('Erro ao carregar transações');

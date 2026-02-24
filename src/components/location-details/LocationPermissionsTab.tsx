@@ -31,7 +31,7 @@ interface UserPermission {
 
 interface User {
   id: number;
-  nome: string;
+  name: string;
   email: string;
 }
 
@@ -67,7 +67,9 @@ export function LocationPermissionsTab({ locationId }: Props) {
     setIsLoading(true);
     try {
       const response = await api.get(`/locations/${locationId}/users`);
-      setUsers(response.data || []);
+      if (!response.ok) throw new Error('Erro ao carregar usuários');
+      const data = await response.json();
+      setUsers(data || []);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
       toast.error('Erro ao carregar permissões');
@@ -79,9 +81,11 @@ export function LocationPermissionsTab({ locationId }: Props) {
   const fetchAvailableUsers = useCallback(async () => {
     try {
       const response = await api.get('/admin/users');
+      if (!response.ok) throw new Error('Erro ao carregar usuários disponíveis');
+      const data = await response.json();
       // Filtrar usuários que já têm permissão
       const existingUserIds = users.map(u => u.userId);
-      const available = (response.data || []).filter(
+      const available = (data || []).filter(
         (u: User) => !existingUserIds.includes(u.id)
       );
       setAvailableUsers(available);
@@ -261,7 +265,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                   <option value="">Selecione...</option>
                   {availableUsers.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.nome} ({user.email})
+                      {user.name} ({user.email})
                     </option>
                   ))}
                 </select>

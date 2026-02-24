@@ -90,7 +90,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
           if (!diaHorario) return null;
 
           let texto = '';
-          if (diaHorario.tipo === '24h') {
+          if (diaHorario.tipo === '24horas') {
             texto = '24 horas';
           } else if (diaHorario.tipo === 'fechado') {
             texto = 'Fechado';
@@ -154,7 +154,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
               <div>
                 <label className="text-xs text-emerald-400/70 uppercase tracking-wider">Coordenadas</label>
                 <p className="text-emerald-50 font-medium mt-1">
-                  {location.latitude?.toFixed(6)}, {location.longitude?.toFixed(6)}
+                  {Number(location.latitude)?.toFixed(6)}, {Number(location.longitude)?.toFixed(6)}
                 </p>
               </div>
             </div>

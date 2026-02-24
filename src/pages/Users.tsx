@@ -43,7 +43,7 @@ interface User {
 interface Location {
   id: number;
   nomeDoLocal: string;
-  address: string;
+  endereco: string;
 }
 
 export const Users = () => {
@@ -78,10 +78,10 @@ export const Users = () => {
 
   const fetchLocations = async () => {
     try {
-      const response = await api.get('/locations');
+      const response = await api.get('/locations/all');
       if (!response.ok) throw new Error('Network response was not ok');
       const data = await response.json();
-      setLocations(data);
+      setLocations(data.locations || []);
     } catch (error) {
       console.error('Erro ao buscar locais:', error);
       toast.error('Erro ao buscar locais');
@@ -364,14 +364,14 @@ export const Users = () => {
                                   </SelectTrigger>
                                   <SelectContent className="bg-emerald-900 border-emerald-700">
                                     {locations
-                                      .filter(loc => !userLocations.includes(loc.address))
+                                      .filter(loc => !userLocations.includes(loc.endereco))
                                       .map(loc => (
                                         <SelectItem
                                           key={loc.id}
-                                          value={loc.address}
+                                          value={loc.endereco}
                                           className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
                                         >
-                                          {loc.nomeDoLocal} ({loc.address})
+                                          {loc.nomeDoLocal} ({loc.endereco})
                                         </SelectItem>
                                       ))}
                                   </SelectContent>

@@ -11,13 +11,24 @@ export interface User {
 }
 
 export interface Location {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  chargerCount: number;
-  pricePerKwh: number;
+  id: number;
+  nomeDoLocal: string;
+  endereco: string;
+  numero: string;
+  cidade: string;
+  estado: string;
+  cep: string;
+  latitude: number;
+  longitude: number;
+  razaoSocial: string;
+  cnpj: string;
+  tipoDeNegocio: string;
+  tipoDeLocal: string;
+  horarioFuncionamento: any;
+  nomeResponsavel: string;
+  emailResponsavel: string;
+  telefoneResponsavel: string;
+  chargePoints?: any[];
 }
 
 export interface Charger {

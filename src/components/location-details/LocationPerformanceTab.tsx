@@ -66,7 +66,9 @@ export function LocationPerformanceTab({ locationId }: Props) {
     setIsLoading(true);
     try {
       const response = await api.get(`/locations/${locationId}/performance?period=${period}`);
-      setData(response.data);
+      if (!response.ok) throw new Error('Erro ao carregar performance');
+      const result = await response.json();
+      setData(result);
     } catch (error) {
       console.error('Erro ao carregar performance:', error);
       toast.error('Erro ao carregar dados de performance');

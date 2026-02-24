@@ -151,8 +151,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (token && sessionData) {
       try {
         const userData = JSON.parse(sessionData);
+        if (!userData.id || !userData.email) {
+          throw new Error('Dados de sessão incompletos');
+        }
         setUser({
-          id: userData.id || '1',
+          id: userData.id,
           name: userData.name || 'User',
           email: userData.email,
           role: storedRole,
@@ -208,7 +211,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const data = await response.json();
 
       if (!response.ok || data.success === false) {
-        throw new Error(data.message || data.error || 'Erro ao fazer login.');
+        const errorMsg = data.message || data.error || 'Email ou senha incorretos.';
+        toast.error('Erro ao fazer login', { description: errorMsg });
+        return false;
       }
 
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
@@ -244,8 +249,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return true;
     } catch (err) {
-      // Use logger ao invés de console.error
-      if (process.env.NODE_ENV === 'development') {
+      const errorMsg = err instanceof Error ? err.message : 'Erro de conexão com o servidor.';
+      toast.error('Erro ao fazer login', { description: errorMsg });
+      if (import.meta.env.DEV) {
         console.error('Login error:', err);
       }
       return false;
@@ -292,8 +298,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Erro ao registrar.');
+      if (!response.ok || data.success === false) {
+        const errorMsg = data.message || data.error || 'Erro ao registrar.';
+        toast.error('Erro ao registrar', { description: errorMsg });
+        return false;
       }
 
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
@@ -323,7 +331,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return true;
     } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
+      const errorMsg = err instanceof Error ? err.message : 'Erro de conexão com o servidor.';
+      toast.error('Erro ao registrar', { description: errorMsg });
+      if (import.meta.env.DEV) {
         console.error('Registration error:', err);
       }
       return false;

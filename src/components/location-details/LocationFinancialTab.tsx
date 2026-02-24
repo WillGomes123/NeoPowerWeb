@@ -56,7 +56,9 @@ export function LocationFinancialTab({ locationId }: Props) {
     setIsLoading(true);
     try {
       const response = await api.get(`/locations/${locationId}/financial?period=${period}`);
-      setData(response.data);
+      if (!response.ok) throw new Error('Erro ao carregar dados financeiros');
+      const result = await response.json();
+      setData(result);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
       toast.error('Erro ao carregar dados financeiros');

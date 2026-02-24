@@ -19,16 +19,15 @@ import { toast } from 'sonner';
 interface ChargerStatus {
   id: number;
   chargePointId: string;
-  name: string;
+  model: string;
+  vendor: string;
+  isConnected: boolean;
+  isCharging: boolean;
   status: string;
-  lastHeartbeat: string;
-  connectorStatus: string;
-  currentTransaction: {
-    id: number;
-    startTime: string;
-    meterValue: number;
-  } | null;
-  uptime: number;
+  lastBootTime: string;
+  totalKwh: number;
+  totalRevenue: number;
+  totalSessions: number;
 }
 
 interface Props {
@@ -43,7 +42,9 @@ export function LocationMonitoringTab({ locationId }: Props) {
   const fetchChargers = useCallback(async () => {
     try {
       const response = await api.get(`/locations/${locationId}/chargers`);
-      setChargers(response.data || []);
+      if (!response.ok) throw new Error('Erro ao carregar carregadores');
+      const data = await response.json();
+      setChargers(data.chargers || []);
     } catch (error) {
       console.error('Erro ao carregar carregadores:', error);
       toast.error('Erro ao carregar status dos carregadores');
@@ -151,29 +152,11 @@ export function LocationMonitoringTab({ locationId }: Props) {
     return `${diffDays}d atrás`;
   };
 
-  const formatUptime = (uptime: number) => {
-    if (!uptime || uptime < 0) return '-';
-    return `${uptime.toFixed(1)}%`;
-  };
-
-  const formatChargingTime = (startTime: string) => {
-    if (!startTime) return '-';
-
-    const start = new Date(startTime);
-    const now = new Date();
-    const diffMs = now.getTime() - start.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-
-    return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
-  };
-
   // Contadores de status
   const statusCounts = {
-    online: chargers.filter(c => ['available', 'online', 'charging', 'occupied', 'preparing'].includes(c.status?.toLowerCase() || '')).length,
-    offline: chargers.filter(c => ['unavailable', 'offline'].includes(c.status?.toLowerCase() || '')).length,
-    charging: chargers.filter(c => ['charging', 'occupied'].includes(c.status?.toLowerCase() || '')).length,
+    online: chargers.filter(c => c.isConnected).length,
+    offline: chargers.filter(c => !c.isConnected).length,
+    charging: chargers.filter(c => c.isCharging).length,
     faulted: chargers.filter(c => c.status?.toLowerCase() === 'faulted').length
   };
 
@@ -286,7 +269,7 @@ export function LocationMonitoringTab({ locationId }: Props) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {chargers.map((charger) => {
-                const statusInfo = getStatusInfo(charger.connectorStatus || charger.status);
+                const statusInfo = getStatusInfo(charger.status);
                 const StatusIcon = statusInfo.icon;
 
                 return (
@@ -302,10 +285,10 @@ export function LocationMonitoringTab({ locationId }: Props) {
                           </div>
                           <div>
                             <h4 className="text-emerald-50 font-medium">
-                              {charger.name || charger.chargePointId}
-                            </h4>
-                            <p className="text-xs text-emerald-300/50 font-mono">
                               {charger.chargePointId}
+                            </h4>
+                            <p className="text-xs text-emerald-300/50">
+                              {charger.vendor} {charger.model}
                             </p>
                           </div>
                         </div>
@@ -318,44 +301,32 @@ export function LocationMonitoringTab({ locationId }: Props) {
                         <div className="flex items-center justify-between">
                           <span className="text-emerald-300/70 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            Último heartbeat
+                            Último boot
                           </span>
                           <span className="text-emerald-50">
-                            {formatLastHeartbeat(charger.lastHeartbeat)}
+                            {formatLastHeartbeat(charger.lastBootTime)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-300/70 flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            Energia total
+                          </span>
+                          <span className="text-amber-400">
+                            {(charger.totalKwh || 0).toFixed(2)} kWh
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
                           <span className="text-emerald-300/70 flex items-center gap-1">
                             <Activity className="w-3 h-3" />
-                            Uptime
+                            Sessões
                           </span>
                           <span className="text-emerald-50">
-                            {formatUptime(charger.uptime)}
+                            {charger.totalSessions || 0}
                           </span>
                         </div>
-
-                        {charger.currentTransaction && (
-                          <>
-                            <div className="border-t border-emerald-800/30 pt-2 mt-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-blue-400 flex items-center gap-1">
-                                  <Zap className="w-3 h-3" />
-                                  Carregando
-                                </span>
-                                <span className="text-blue-300">
-                                  {formatChargingTime(charger.currentTransaction.startTime)}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between mt-1">
-                                <span className="text-emerald-300/70">Energia</span>
-                                <span className="text-amber-400">
-                                  {((charger.currentTransaction.meterValue || 0) / 1000).toFixed(2)} kWh
-                                </span>
-                              </div>
-                            </div>
-                          </>
-                        )}
                       </div>
                     </CardContent>
                   </Card>
