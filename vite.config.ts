@@ -60,12 +60,12 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // base_ocpp CSMS
+        target: 'http://localhost:3000', // base_ocpp CSMS
         changeOrigin: true,
         secure: false,
       },
       '/notifications': {
-        target: 'ws://localhost:8080', // base_ocpp WebSocket notifications
+        target: 'ws://localhost:3000', // base_ocpp WebSocket notifications
         changeOrigin: true,
         ws: true, // Enable WebSocket proxy
       },
