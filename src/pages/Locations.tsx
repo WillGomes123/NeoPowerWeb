@@ -10,14 +10,14 @@ import { toast } from 'sonner';
 
 // Tipos
 interface Location {
-  location_id: number;
-  name: string;
-  address: string;
+  id: number;
+  nomeDoLocal: string;
+  endereco: string;
   cidade: string;
   estado: string;
   latitude: number;
   longitude: number;
-  charger_count?: number;
+  chargePoints?: any[];
 }
 
 interface Charger {
@@ -71,10 +71,10 @@ export const Locations = () => {
     setLoading(true);
     try {
       // Buscar locais
-      const locationsResponse = await api.get('/locations');
+      const locationsResponse = await api.get('/locations/all');
       if (locationsResponse.ok) {
         const locationsData = await locationsResponse.json();
-        setLocations(locationsData);
+        setLocations(locationsData.locations);
       }
 
       // Buscar carregadores
@@ -98,12 +98,12 @@ export const Locations = () => {
   // Ações
   const handleFocusMap = (loc: Location) => {
     if (loc.latitude && loc.longitude) {
-      setFocusedCoords([loc.latitude, loc.longitude]);
+      setFocusedCoords([Number(loc.latitude), Number(loc.longitude)]);
     }
   };
 
   const handleOpenDetails = (loc: Location) => {
-    navigate(`/locais/${loc.location_id}`);
+    navigate(`/locais/${loc.id}`);
   };
 
   const handleAddLocationSuccess = () => {
@@ -176,16 +176,16 @@ export const Locations = () => {
       {/* Layout de Mapa e Lista - Responsivo */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(300px,350px)_1fr] gap-6 flex-1 min-h-0">
         {/* Coluna da Lista */}
-        <div className={`overflow-y-auto pr-2 custom-scrollbar ${locations.length === 0 || loading ? 'flex' : 'space-y-3'}`}>
+        <div className={`overflow-y-auto pr-2 custom-scrollbar ${locations.length === 0 || loading ? 'flex' : 'space-y-4'}`}>
           {loading && (
-            <div className="flex flex-col items-center justify-center h-full w-full py-10 bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border border-emerald-800/30 rounded-lg">
+            <div className="flex flex-col items-center justify-center h-full w-full py-10 bg-gradient-to-br from-emerald-950/80 to-emerald-900/60 border border-emerald-800/50 rounded-lg">
               <div className="inline-block w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className="text-emerald-300">Carregando locais...</p>
             </div>
           )}
 
           {!loading && locations.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full w-full py-16 bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border border-emerald-800/30 rounded-lg">
+            <div className="flex flex-col items-center justify-center h-full w-full py-16 bg-gradient-to-br from-emerald-950/80 to-emerald-900/60 border border-emerald-800/50 rounded-lg">
               <svg
                 className="w-10 h-10 text-emerald-500/30 mb-3"
                 fill="none"
@@ -210,25 +210,27 @@ export const Locations = () => {
             </div>
           )}
 
-          {locations.map(loc => (
+          {locations.map(loc => {
+            const chargerCount = loc.chargePoints?.length || 0;
+            return (
             <div
-              key={loc.location_id}
-              className="group flex bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border border-emerald-800/30 rounded-lg overflow-hidden hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-900/20 transition-all duration-300 backdrop-blur-sm"
+              key={loc.id}
+              className="group flex bg-gradient-to-br from-emerald-950/80 to-emerald-900/60 border border-emerald-800/50 rounded-lg overflow-hidden hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-900/30 transition-all duration-300 backdrop-blur-sm"
             >
               {/* Área clicável do card */}
               <button
                 onClick={() => handleOpenDetails(loc)}
-                className="flex-1 p-5 text-left hover:bg-emerald-800/10 transition-colors"
+                className="flex-1 p-5 text-left hover:bg-emerald-800/20 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="text-lg font-bold text-emerald-50 group-hover:text-emerald-400 transition-colors">
-                    {loc.name}
+                    {loc.nomeDoLocal}
                   </h3>
-                  <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">
+                  <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2 py-1 rounded-full">
                     {loc.cidade}/{loc.estado}
                   </span>
                 </div>
-                <p className="text-sm text-emerald-300/70 mb-4 line-clamp-2">{loc.address}</p>
+                <p className="text-sm text-emerald-300/70 mb-4 line-clamp-2">{loc.endereco}</p>
                 <div className="flex items-center gap-2 text-emerald-300">
                   <svg
                     className="w-5 h-5 text-emerald-500"
@@ -244,7 +246,7 @@ export const Locations = () => {
                     />
                   </svg>
                   <span className="text-sm font-semibold">
-                    {loc.charger_count || 0} Carregador{(loc.charger_count || 0) !== 1 ? 'es' : ''}
+                    {chargerCount} Carregador{chargerCount !== 1 ? 'es' : ''}
                   </span>
                 </div>
               </button>
@@ -252,7 +254,7 @@ export const Locations = () => {
               {/* Botão do mapa */}
               <button
                 onClick={() => handleFocusMap(loc)}
-                className="w-14 bg-emerald-900/30 hover:bg-emerald-600 text-emerald-400 hover:text-white flex items-center justify-center transition-all duration-300 border-l border-emerald-800/30"
+                className="w-14 bg-emerald-900/50 hover:bg-emerald-600 text-emerald-400 hover:text-white flex items-center justify-center transition-all duration-300 border-l border-emerald-800/40"
                 title="Ver no mapa"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,7 +273,8 @@ export const Locations = () => {
                 </svg>
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Coluna do Mapa */}

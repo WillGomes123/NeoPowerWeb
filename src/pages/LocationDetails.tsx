@@ -92,12 +92,19 @@ export function LocationDetails() {
         api.get(`/locations/${id}/my-permissions`)
       ]);
 
-      setLocation(locationRes.data);
-      setPermissions(permissionsRes.data);
+      if (!locationRes.ok || !permissionsRes.ok) {
+        throw { status: !locationRes.ok ? locationRes.status : permissionsRes.status };
+      }
+
+      const locData = await locationRes.json();
+      const permData = await permissionsRes.json();
+
+      setLocation(locData.location);
+      setPermissions(permData);
 
       // Se não tem permissão para ver info, seleciona a primeira aba disponível
-      if (!permissionsRes.data.info) {
-        const firstAvailable = tabs.find(tab => permissionsRes.data[tab.permissionKey]);
+      if (!permData.info) {
+        const firstAvailable = tabs.find(tab => permData[tab.permissionKey]);
         if (firstAvailable) {
           setActiveTab(firstAvailable.id);
         }

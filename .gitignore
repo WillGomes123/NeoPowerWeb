@@ -1,16 +1,18 @@
 # Dependencies
-node_modules/
+
 
 # Environment variables
 .env
 .env.*
 !.env.example
 
+
 # Build outputs
 dist/
 build/
 out/
 .output/
+node_modules/
 
 # Vite
 .vite/

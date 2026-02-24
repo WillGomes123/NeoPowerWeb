@@ -112,7 +112,7 @@ export const PushNotifications = () => {
       const [campaignsRes, statsRes, locationsRes] = await Promise.all([
         api.get('/push/campaigns'),
         api.get('/push/stats'),
-        api.get('/locations')
+        api.get('/locations/all')
       ]);
 
       if (campaignsRes.ok) {
@@ -127,7 +127,7 @@ export const PushNotifications = () => {
 
       if (locationsRes.ok) {
         const data = await locationsRes.json();
-        setLocations(data || []);
+        setLocations(data.locations || []);
       }
     } catch (error) {
       console.error('Erro ao buscar dados:', error);

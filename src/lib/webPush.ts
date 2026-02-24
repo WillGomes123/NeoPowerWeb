@@ -55,7 +55,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 async function getVapidPublicKey(): Promise<string | null> {
   try {
     const response = await api.get('/notifications/push/vapid-key');
-    return response.data.publicKey;
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.publicKey;
   } catch (error) {
     console.error('Failed to get VAPID key:', error);
     return null;
@@ -198,9 +200,11 @@ export async function isSubscribedToPush(): Promise<boolean> {
 export async function getPushStatus(): Promise<{ subscribed: boolean; count: number }> {
   try {
     const response = await api.get('/notifications/push/status');
+    if (!response.ok) return { subscribed: false, count: 0 };
+    const data = await response.json();
     return {
-      subscribed: response.data.subscribed,
-      count: response.data.subscriptionCount
+      subscribed: data.subscribed,
+      count: data.subscriptionCount
     };
   } catch (error) {
     return { subscribed: false, count: 0 };

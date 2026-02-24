@@ -34,7 +34,7 @@ interface Charger {
 interface Location {
   id: number;
   nomeDoLocal: string;
-  address: string;
+  endereco: string;
 }
 
 export const Stations = () => {
@@ -50,7 +50,7 @@ export const Stations = () => {
     try {
       const [chargersRes, locationsRes] = await Promise.all([
         api.get('/chargers'),
-        api.get('/locations'),
+        api.get('/locations/all'),
       ]);
 
       if (!chargersRes.ok || !locationsRes.ok) {
@@ -61,7 +61,7 @@ export const Stations = () => {
       const locationsData = await locationsRes.json();
 
       setChargers(chargersData);
-      setLocations(locationsData);
+      setLocations(locationsData.locations || []);
 
       // Inicializa o estado dos dropdowns
       const initialSelections: { [key: string]: string } = {};
@@ -188,7 +188,7 @@ export const Stations = () => {
                               value={location.id.toString()}
                               className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
                             >
-                              {location.nomeDoLocal} ({location.address})
+                              {location.nomeDoLocal} ({location.endereco})
                             </SelectItem>
                           ))}
                         </SelectContent>

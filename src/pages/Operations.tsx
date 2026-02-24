@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useSocket } from '../lib/hooks/useSocket';
 
 // ============================================================================
 // Types
@@ -88,6 +89,16 @@ interface Operation {
   description: string;
   category: OperationCategory;
 }
+
+// Convert datetime-local value (YYYY-MM-DDTHH:mm) to ISO 8601 (YYYY-MM-DDTHH:mm:ss.000Z)
+const toISO = (datetimeLocal: string | undefined): string | undefined => {
+  if (!datetimeLocal) return undefined;
+  try {
+    return new Date(datetimeLocal).toISOString();
+  } catch {
+    return datetimeLocal;
+  }
+};
 
 // ============================================================================
 // Operations Definition
@@ -154,6 +165,7 @@ const categoryConfig: Record<OperationCategory, { label: string; color: string; 
 export const Operations = () => {
   const [chargePoints, setChargePoints] = useState<ChargePoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [selectedChargePoints, setSelectedChargePoints] = useState<string[]>([]);
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [showCommandDialog, setShowCommandDialog] = useState(false);
@@ -162,6 +174,23 @@ export const Operations = () => {
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
 
+  // Real-time socket connection for live charger status updates
+  const { isConnected: socketConnected, chargerStatuses } = useSocket();
+
+  // Merge REST data with real-time socket status
+  const mergedChargePoints = useMemo(() => {
+    if (chargerStatuses.size === 0) return chargePoints;
+    return chargePoints.map(cp => {
+      const socketStatus = chargerStatuses.get(cp.charge_point_id);
+      if (!socketStatus) return cp;
+      return {
+        ...cp,
+        isConnected: socketStatus.status !== 'Offline',
+        lastHeartbeat: socketStatus.timestamp,
+      };
+    });
+  }, [chargePoints, chargerStatuses]);
+
   // Fetch charge points
   const fetchChargePoints = useCallback(async () => {
     try {
@@ -169,7 +198,10 @@ export const Operations = () => {
       if (!response.ok) throw new Error('Failed to fetch chargers');
       const data = await response.json();
       setChargePoints(data);
+      setApiError(null);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro desconhecido';
+      setApiError(message === 'Unauthorized' ? 'Sessão expirada' : 'Sem conexão com o servidor (OCPP_API offline?)');
       console.error('Error fetching charge points:', err);
     } finally {
       setLoading(false);
@@ -192,7 +224,7 @@ export const Operations = () => {
   };
 
   const selectAllConnected = () => {
-    const connected = chargePoints.filter(cp => cp.isConnected).map(cp => cp.charge_point_id);
+    const connected = mergedChargePoints.filter(cp => cp.isConnected).map(cp => cp.charge_point_id);
     setSelectedChargePoints(connected);
   };
 
@@ -320,7 +352,7 @@ export const Operations = () => {
               connectorId: parseInt(params.connectorId) || 0,
               idTag: params.idTag,
               reservationId: parseInt(params.reservationId),
-              expiryDate: params.expiryDate
+              expiryDate: toISO(params.expiryDate) || new Date(Date.now() + 3600000).toISOString()
             }, commandName);
             break;
           case 'cancelReservation':
@@ -359,7 +391,7 @@ export const Operations = () => {
           case 'updateFirmware':
             await executeCommand(cpId, 'update-firmware', {
               location: params.location,
-              retrieveDate: params.retrieveDate || new Date().toISOString()
+              retrieveDate: toISO(params.retrieveDate) || new Date().toISOString()
             }, commandName);
             break;
           case 'getDiagnostics':
@@ -394,8 +426,8 @@ export const Operations = () => {
               requestId: parseInt(params.requestId) || 1,
               firmware: {
                 location: params.location,
-                retrieveDateTime: params.retrieveDateTime || new Date().toISOString(),
-                installDateTime: params.installDateTime || undefined,
+                retrieveDateTime: toISO(params.retrieveDateTime) || new Date().toISOString(),
+                installDateTime: toISO(params.installDateTime),
                 signingCertificate: params.signingCertificate || undefined,
                 signature: params.signature || undefined
               }
@@ -418,7 +450,9 @@ export const Operations = () => {
             }, commandName);
             break;
           case 'getInstalledCertificateIds':
-            await executeCommand(cpId, 'certificates', {}, commandName, 'GET');
+            await executeCommand(cpId, 'installed-certificates', {
+              certificateType: params.certificateType || 'CentralSystemRootCertificate'
+            }, commandName);
             break;
           default:
             throw new Error('Comando não implementado');
@@ -447,8 +481,8 @@ export const Operations = () => {
   const getOperationsByCategory = (category: OperationCategory) =>
     operations.filter(op => op.category === category);
 
-  const connectedCount = chargePoints.filter(cp => cp.isConnected).length;
-  const offlineCount = chargePoints.filter(cp => !cp.isConnected).length;
+  const connectedCount = mergedChargePoints.filter(cp => cp.isConnected).length;
+  const offlineCount = mergedChargePoints.filter(cp => !cp.isConnected).length;
 
   // ============================================================================
   // Render Command Form
@@ -853,10 +887,23 @@ export const Operations = () => {
           </>
         );
 
+      case 'getInstalledCertificateIds':
+        return (
+          <div className="space-y-2">
+            <Label>Certificate Type</Label>
+            <Select value={commandParams.certificateType || 'CentralSystemRootCertificate'} onValueChange={v => setCommandParams({ ...commandParams, certificateType: v })}>
+              <SelectTrigger className={inputClass}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CentralSystemRootCertificate">Central System Root Certificate</SelectItem>
+                <SelectItem value="ManufacturerRootCertificate">Manufacturer Root Certificate</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        );
+
       case 'clearCache':
       case 'getConfiguration':
       case 'getLocalListVersion':
-      case 'getInstalledCertificateIds':
         return (
           <p className="text-zinc-400 text-sm py-4">
             Este comando não requer parâmetros adicionais.
@@ -898,11 +945,46 @@ export const Operations = () => {
             Execute comandos OCPP nos carregadores conectados
           </p>
         </div>
-        <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-emerald-700 text-emerald-300 hover:bg-emerald-900/50">
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-700/50 bg-zinc-800/50">
+            {socketConnected ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+                <span className="text-xs text-emerald-300">Tempo real</span>
+              </>
+            ) : (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-500" />
+                </span>
+                <span className="text-xs text-zinc-400">Sem socket</span>
+              </>
+            )}
+          </div>
+          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-emerald-700 text-emerald-300 hover:bg-emerald-900/50">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Atualizar
+          </Button>
+        </div>
       </div>
+
+      {/* API Connection Error Banner */}
+      {apiError && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
+          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-300">{apiError}</p>
+            <p className="text-xs text-red-400/60 mt-0.5">Verifique se o OCPP_API está rodando na porta 3000</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => void fetchChargePoints()} className="border-red-700 text-red-300 hover:bg-red-900/50">
+            <RefreshCw className="w-3 h-3 mr-1" />
+            Reconectar
+          </Button>
+        </div>
+      )}
 
       {/* Status Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -913,7 +995,7 @@ export const Operations = () => {
             </div>
             <div>
               <p className="text-sm text-emerald-300/60">Total</p>
-              <p className="text-2xl font-bold text-emerald-400">{chargePoints.length}</p>
+              <p className="text-2xl font-bold text-emerald-400">{mergedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -979,7 +1061,7 @@ export const Operations = () => {
               <CardHeader className="pb-3">
                 <CardTitle className="text-zinc-100 text-lg">Carregadores</CardTitle>
                 <CardDescription className="text-zinc-400">
-                  {selectedChargePoints.length} de {chargePoints.length} selecionados
+                  {selectedChargePoints.length} de {mergedChargePoints.length} selecionados
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -993,7 +1075,7 @@ export const Operations = () => {
                 </div>
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-2 pr-4">
-                    {chargePoints.map(cp => (
+                    {mergedChargePoints.map(cp => (
                       <button
                         key={cp.charge_point_id}
                         onClick={() => toggleChargePointSelection(cp.charge_point_id)}
