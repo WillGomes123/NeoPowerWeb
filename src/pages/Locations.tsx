@@ -353,7 +353,7 @@ export const Locations = () => {
         .custom-div-icon {
           background: transparent;
           border: none;
-        }
+        } 
       `}</style>
     </div>
   );
