@@ -12,6 +12,10 @@ RUN npm install
 # Copia todo o código fonte
 COPY . .
 
+# Injeta a variável de ambiente para que o Vite incorpore na build (Railway)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Realiza o build do projeto (pasta build/)
 RUN npm run build
 
