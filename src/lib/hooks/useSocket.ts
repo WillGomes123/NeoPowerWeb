@@ -56,8 +56,14 @@ export function useSocket(): UseSocketReturn {
     // Get auth token
     const token = localStorage.getItem('token');
 
+    // Determine the Socket.IO URL based on the API base URL
+    const apiUrl = import.meta.env?.VITE_API_URL || '';
+    const wsUrl = apiUrl.startsWith('http')
+      ? apiUrl.replace('/api', '')
+      : window.location.origin;
+
     // Connect to Socket.IO server
-    const socket = io(window.location.origin, {
+    const socket = io(wsUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

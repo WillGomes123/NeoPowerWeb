@@ -69,7 +69,11 @@ export const fetchWithAuth = async (
   options: RequestInit = {},
   retryCount: number = 0
 ): Promise<Response> => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  // Evitar barra dupla que o navegador interpreta como URL de domínio (ex: //users/login virando https://users/login)
+  const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  const url = `${cleanBaseUrl}${cleanEndpoint}`;
   const headers = getAuthHeaders();
 
   try {
