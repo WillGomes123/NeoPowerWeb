@@ -152,6 +152,7 @@ export const Stations = () => {
                   <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
                   <EnhancedTableHead>Modelo</EnhancedTableHead>
                   <EnhancedTableHead>Fornecedor</EnhancedTableHead>
+                  <EnhancedTableHead>Potência</EnhancedTableHead>
                   <EnhancedTableHead>Local</EnhancedTableHead>
                   <EnhancedTableHead>Ação</EnhancedTableHead>
                 </EnhancedTableRow>
@@ -173,10 +174,12 @@ export const Stations = () => {
                     </EnhancedTableCell>
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
-                      {charger.power_kw ? <span className="text-xs text-emerald-400 ml-2">{charger.power_kw}kW</span> : null}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm text-emerald-300/70">
                       {charger.vendor || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm">
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
                     </EnhancedTableCell>
                     <EnhancedTableCell>
                       <Select
@@ -248,6 +251,7 @@ export const Stations = () => {
                   <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
                   <EnhancedTableHead>Modelo</EnhancedTableHead>
                   <EnhancedTableHead>Fornecedor</EnhancedTableHead>
+                  <EnhancedTableHead>Potência</EnhancedTableHead>
                   <EnhancedTableHead>Local</EnhancedTableHead>
                   <EnhancedTableHead>Status</EnhancedTableHead>
                   <EnhancedTableHead>Ações</EnhancedTableHead>
@@ -270,10 +274,12 @@ export const Stations = () => {
                     </EnhancedTableCell>
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
-                      {charger.power_kw ? <span className="text-xs text-emerald-400 ml-2">{charger.power_kw}kW</span> : null}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm text-emerald-300/70">
                       {charger.vendor || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm">
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
                     </EnhancedTableCell>
                     <EnhancedTableCell>
                       <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
