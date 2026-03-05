@@ -193,8 +193,8 @@ export const ChargerDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-white flex items-center gap-2">
             <Zap className="h-5 w-5 text-emerald-500" />
             Detalhes do Carregador
@@ -203,13 +203,13 @@ export const ChargerDetailsDialog = ({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex flex-1 items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
         ) : charger ? (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
             {/* Status Overview */}
-            <Card className="bg-zinc-800/50 border-zinc-700">
+            <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Activity className="h-4 w-4" />
@@ -235,7 +235,7 @@ export const ChargerDetailsDialog = ({
             </Card>
 
             {/* Charger Name & Connector Type (editable) */}
-            <Card className="bg-zinc-800/50 border-zinc-700">
+            <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-zinc-400 flex items-center justify-between">
                   <span className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export const ChargerDetailsDialog = ({
             </Card>
 
             {/* Device Info */}
-            <Card className="bg-zinc-800/50 border-zinc-700">
+            <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Info className="h-4 w-4" />
@@ -370,7 +370,7 @@ export const ChargerDetailsDialog = ({
 
             {/* Connectors */}
             {charger.connectors && charger.connectors.length > 0 && (
-              <Card className="bg-zinc-800/50 border-zinc-700">
+              <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
@@ -403,7 +403,7 @@ export const ChargerDetailsDialog = ({
             )}
 
             {/* Actions */}
-            <Card className="bg-zinc-800/50 border-zinc-700">
+            <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Power className="h-4 w-4" />
@@ -465,7 +465,7 @@ export const ChargerDetailsDialog = ({
             </Card>
           </div>
         ) : (
-          <div className="text-center py-12 text-zinc-400">Carregador não encontrado</div>
+          <div className="text-center py-12 text-zinc-400 flex-1">Carregador não encontrado</div>
         )}
       </DialogContent>
     </Dialog>
