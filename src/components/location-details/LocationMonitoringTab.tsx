@@ -19,8 +19,10 @@ import { toast } from 'sonner';
 interface ChargerStatus {
   id: number;
   chargePointId: string;
+  description?: string;
   model: string;
   vendor: string;
+  powerKw?: number;
   isConnected: boolean;
   isCharging: boolean;
   status: string;
@@ -285,10 +287,15 @@ export function LocationMonitoringTab({ locationId }: Props) {
                           </div>
                           <div>
                             <h4 className="text-emerald-50 font-medium">
-                              {charger.chargePointId}
+                              {charger.description || charger.chargePointId}
                             </h4>
+                            {charger.description && (
+                              <p className="text-[10px] bg-emerald-950/50 text-emerald-400 font-mono inline-block px-1 rounded mb-0.5">
+                                {charger.chargePointId}
+                              </p>
+                            )}
                             <p className="text-xs text-emerald-300/50">
-                              {charger.vendor} {charger.model}
+                              {charger.vendor} {charger.model} {charger.powerKw ? `- ${charger.powerKw}kW` : ''}
                             </p>
                           </div>
                         </div>

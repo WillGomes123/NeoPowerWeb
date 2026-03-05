@@ -26,6 +26,8 @@ interface Charger {
   charge_point_id: string;
   model?: string;
   vendor?: string;
+  description?: string;
+  power_kw?: number;
   locationId: number | null;
   isConnected: boolean;
   status?: string;
@@ -158,12 +160,20 @@ export const Stations = () => {
                 {pendingChargers.map((charger, index) => (
                   <EnhancedTableRow key={charger.charge_point_id} index={index}>
                     <EnhancedTableCell className="font-mono">
-                      <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        {charger.charge_point_id}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-emerald-300 font-medium">
+                          {charger.description || charger.charge_point_id}
+                        </span>
+                        {charger.description && (
+                          <span className="text-xs text-emerald-500/70 font-mono">
+                            {charger.charge_point_id}
+                          </span>
+                        )}
+                      </div>
                     </EnhancedTableCell>
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
+                      {charger.power_kw ? <span className="text-xs text-emerald-400 ml-2">{charger.power_kw}kW</span> : null}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm text-emerald-300/70">
                       {charger.vendor || 'N/A'}
@@ -232,57 +242,65 @@ export const Stations = () => {
               </p>
             </div>
           ) : (
-          <EnhancedTable striped hoverable>
-            <EnhancedTableHeader>
-              <EnhancedTableRow hoverable={false}>
-                <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
-                <EnhancedTableHead>Modelo</EnhancedTableHead>
-                <EnhancedTableHead>Fornecedor</EnhancedTableHead>
-                <EnhancedTableHead>Local</EnhancedTableHead>
-                <EnhancedTableHead>Status</EnhancedTableHead>
-                <EnhancedTableHead>Ações</EnhancedTableHead>
-              </EnhancedTableRow>
-            </EnhancedTableHeader>
-            <EnhancedTableBody>
-              {assignedChargers.map((charger, index) => (
-                <EnhancedTableRow key={charger.charge_point_id} index={index}>
-                  <EnhancedTableCell className="font-mono">
-                    <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                      {charger.charge_point_id}
-                    </span>
-                  </EnhancedTableCell>
-                  <EnhancedTableCell className="font-medium">
-                    {charger.model || 'N/A'}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell className="text-sm text-emerald-300/70">
-                    {charger.vendor || 'N/A'}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
-                      {getLocationName(charger.locationId)}
-                    </span>
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <StatusBadge status={charger.isConnected ? 'online' : 'offline'} />
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedCharger(charger.charge_point_id);
-                        setDetailsOpen(true);
-                      }}
-                      className="border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/40"
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Detalhes
-                    </Button>
-                  </EnhancedTableCell>
+            <EnhancedTable striped hoverable>
+              <EnhancedTableHeader>
+                <EnhancedTableRow hoverable={false}>
+                  <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
+                  <EnhancedTableHead>Modelo</EnhancedTableHead>
+                  <EnhancedTableHead>Fornecedor</EnhancedTableHead>
+                  <EnhancedTableHead>Local</EnhancedTableHead>
+                  <EnhancedTableHead>Status</EnhancedTableHead>
+                  <EnhancedTableHead>Ações</EnhancedTableHead>
                 </EnhancedTableRow>
-              ))}
-            </EnhancedTableBody>
-          </EnhancedTable>
+              </EnhancedTableHeader>
+              <EnhancedTableBody>
+                {assignedChargers.map((charger, index) => (
+                  <EnhancedTableRow key={charger.charge_point_id} index={index}>
+                    <EnhancedTableCell className="font-mono">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-emerald-300 font-medium">
+                          {charger.description || charger.charge_point_id}
+                        </span>
+                        {charger.description && (
+                          <span className="text-xs text-emerald-500/70 font-mono">
+                            {charger.charge_point_id}
+                          </span>
+                        )}
+                      </div>
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="font-medium">
+                      {charger.model || 'N/A'}
+                      {charger.power_kw ? <span className="text-xs text-emerald-400 ml-2">{charger.power_kw}kW</span> : null}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      {charger.vendor || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
+                        {getLocationName(charger.locationId)}
+                      </span>
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <StatusBadge status={charger.isConnected ? 'online' : 'offline'} />
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedCharger(charger.charge_point_id);
+                          setDetailsOpen(true);
+                        }}
+                        className="border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/40"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Detalhes
+                      </Button>
+                    </EnhancedTableCell>
+                  </EnhancedTableRow>
+                ))}
+              </EnhancedTableBody>
+            </EnhancedTable>
           )}
         </CardContent>
       </Card>

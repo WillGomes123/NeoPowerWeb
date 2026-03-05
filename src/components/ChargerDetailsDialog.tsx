@@ -53,6 +53,7 @@ export const ChargerDetailsDialog = ({
   const [saving, setSaving] = useState(false);
   const [editName, setEditName] = useState('');
   const [editConnectorType, setEditConnectorType] = useState('');
+  const [editPowerKw, setEditPowerKw] = useState('');
 
   useEffect(() => {
     if (open && chargePointId) {
@@ -72,6 +73,7 @@ export const ChargerDetailsDialog = ({
         setCharger(data);
         setEditName(data.description || '');
         setEditConnectorType(data.connector_type || '');
+        setEditPowerKw(data.power_kw ? String(data.power_kw) : '');
         setEditing(false);
       } else {
         toast.error('Erro ao carregar detalhes do carregador');
@@ -91,6 +93,7 @@ export const ChargerDetailsDialog = ({
       const response = await api.put(`/chargers/${chargePointId}/info`, {
         description: editName || null,
         connector_type: editConnectorType || null,
+        power_kw: editPowerKw ? Number(editPowerKw) : null,
       });
 
       if (response.ok) {
@@ -264,18 +267,30 @@ export const ChargerDetailsDialog = ({
                         className="bg-zinc-900 border-zinc-700 text-white"
                       />
                     </div>
-                    <div>
-                      <label className="text-xs text-zinc-500 mb-1 block">Tipo de conector</label>
-                      <Select value={editConnectorType} onValueChange={setEditConnectorType}>
-                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-700">
-                          {['CCS2', 'CCS1', 'CHAdeMO', 'Tipo 2', 'Tipo 1', 'GBT'].map((t) => (
-                            <SelectItem key={t} value={t} className="text-white">{t}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-1 block">Tipo de conector</label>
+                        <Select value={editConnectorType} onValueChange={setEditConnectorType}>
+                          <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-zinc-900 border-zinc-700">
+                            {['CCS2', 'CCS1', 'CHAdeMO', 'Tipo 2', 'Tipo 1', 'GBT'].map((t) => (
+                              <SelectItem key={t} value={t} className="text-white">{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-zinc-500 mb-1 block">Potência (kW)</label>
+                        <Input
+                          type="number"
+                          value={editPowerKw}
+                          onChange={(e) => setEditPowerKw(e.target.value)}
+                          placeholder="Ex: 50"
+                          className="bg-zinc-900 border-zinc-700 text-white"
+                        />
+                      </div>
                     </div>
                     <div className="flex gap-2 pt-1">
                       <Button
@@ -294,6 +309,7 @@ export const ChargerDetailsDialog = ({
                           setEditing(false);
                           setEditName(charger.description || '');
                           setEditConnectorType(charger.connector_type || '');
+                          setEditPowerKw(charger.power_kw ? String(charger.power_kw) : '');
                         }}
                         className="text-zinc-400"
                       >
@@ -302,7 +318,7 @@ export const ChargerDetailsDialog = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-xs text-zinc-500">Nome</p>
                       <p className="text-white">{charger.description || <span className="text-zinc-500 italic">Sem nome</span>}</p>
@@ -310,6 +326,10 @@ export const ChargerDetailsDialog = ({
                     <div>
                       <p className="text-xs text-zinc-500">Tipo de conector</p>
                       <p className="text-white">{charger.connector_type || <span className="text-zinc-500 italic">Não definido</span>}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Potência (kW)</p>
+                      <p className="text-white">{charger.power_kw ? `${charger.power_kw} kW` : <span className="text-zinc-500 italic">Não definida</span>}</p>
                     </div>
                   </div>
                 )}

@@ -64,7 +64,7 @@ export const Overview = () => {
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
   // Real-time stats from WebSocket
-  const { isConnected, onlineChargers, activeTransactions, lastUpdate } = useRealtimeStats();
+  const { isConnected, lastUpdate } = useRealtimeStats();
 
   const fetchOverview = async () => {
     setLoading(true);
@@ -171,11 +171,10 @@ export const Overview = () => {
         </div>
         {/* Real-time connection indicator */}
         <div className="flex items-center gap-4">
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-            isConnected
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isConnected
               ? 'bg-emerald-500/10 border border-emerald-500/30'
               : 'bg-emerald-900/30 border border-emerald-800/30'
-          }`}>
+            }`}>
             {isConnected ? (
               <>
                 <Wifi className="w-4 h-4 text-emerald-400" />
