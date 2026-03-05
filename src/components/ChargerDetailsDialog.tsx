@@ -5,8 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Zap, RefreshCw, Power, MapPin, Info, Activity, Clock } from 'lucide-react';
+import { Zap, RefreshCw, Power, MapPin, Info, Activity, Clock, Save, Pencil } from 'lucide-react';
 
 interface ChargerDetails {
   charge_point_id: string;
@@ -14,6 +15,9 @@ interface ChargerDetails {
   vendor?: string;
   serial_number?: string;
   firmware_version?: string;
+  description?: string;
+  connector_type?: string;
+  power_kw?: number;
   locationId: number | null;
   isConnected: boolean;
   status?: string;
@@ -45,6 +49,10 @@ export const ChargerDetailsDialog = ({
   const [resetting, setResetting] = useState(false);
   const [changingAvailability, setChangingAvailability] = useState(false);
   const [resetType, setResetType] = useState<'Soft' | 'Hard'>('Soft');
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editConnectorType, setEditConnectorType] = useState('');
 
   useEffect(() => {
     if (open && chargePointId) {
@@ -62,6 +70,9 @@ export const ChargerDetailsDialog = ({
       if (response.ok) {
         const data = await response.json();
         setCharger(data);
+        setEditName(data.description || '');
+        setEditConnectorType(data.connector_type || '');
+        setEditing(false);
       } else {
         toast.error('Erro ao carregar detalhes do carregador');
       }
@@ -69,6 +80,31 @@ export const ChargerDetailsDialog = ({
       toast.error('Erro ao carregar detalhes do carregador');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveInfo = async () => {
+    if (!chargePointId) return;
+
+    setSaving(true);
+    try {
+      const response = await api.put(`/chargers/${chargePointId}/info`, {
+        description: editName || null,
+        connector_type: editConnectorType || null,
+      });
+
+      if (response.ok) {
+        toast.success('Informações atualizadas!');
+        setEditing(false);
+        void fetchChargerDetails();
+        onUpdate?.();
+      } else {
+        toast.error('Erro ao salvar informações');
+      }
+    } catch {
+      toast.error('Erro ao salvar informações');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -192,6 +228,91 @@ export const ChargerDetailsDialog = ({
                   <Clock className="h-4 w-4" />
                   Último heartbeat: {formatDate(charger.last_heartbeat)}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Charger Name & Connector Type (editable) */}
+            <Card className="bg-zinc-800/50 border-zinc-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-zinc-400 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Pencil className="h-4 w-4" />
+                    Identificação
+                  </span>
+                  {!editing && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEditing(true)}
+                      className="text-zinc-400 hover:text-white h-7 px-2"
+                    >
+                      <Pencil className="h-3 w-3 mr-1" />
+                      Editar
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {editing ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Nome do carregador</label>
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Ex: Carregador 1, Estação A..."
+                        className="bg-zinc-900 border-zinc-700 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-zinc-500 mb-1 block">Tipo de conector</label>
+                      <Select value={editConnectorType} onValueChange={setEditConnectorType}>
+                        <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-zinc-900 border-zinc-700">
+                          {['CCS2', 'CCS1', 'CHAdeMO', 'Tipo 2', 'Tipo 1', 'GBT'].map((t) => (
+                            <SelectItem key={t} value={t} className="text-white">{t}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveInfo}
+                        disabled={saving}
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                      >
+                        <Save className="h-3 w-3 mr-1" />
+                        {saving ? 'Salvando...' : 'Salvar'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditing(false);
+                          setEditName(charger.description || '');
+                          setEditConnectorType(charger.connector_type || '');
+                        }}
+                        className="text-zinc-400"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-zinc-500">Nome</p>
+                      <p className="text-white">{charger.description || <span className="text-zinc-500 italic">Sem nome</span>}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-zinc-500">Tipo de conector</p>
+                      <p className="text-white">{charger.connector_type || <span className="text-zinc-500 italic">Não definido</span>}</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
