@@ -193,7 +193,7 @@ export const ChargerDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-white flex items-center gap-2">
             <Zap className="h-5 w-5 text-emerald-500" />
@@ -207,7 +207,7 @@ export const ChargerDetailsDialog = ({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
         ) : charger ? (
-          <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1">
+          <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1 min-h-0">
             {/* Status Overview */}
             <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
               <CardHeader className="pb-2">
