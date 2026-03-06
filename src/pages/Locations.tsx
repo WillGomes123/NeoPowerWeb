@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddLocationForm } from '../components/AddLocationForm';
 import { DynamicMap } from '../components/DynamicMap';
@@ -7,6 +7,7 @@ import L from 'leaflet';
 import '../styles/leaflet-custom.css';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { useSocket } from '../lib/hooks/useSocket';
 
 // Tipos
 interface Location {
@@ -67,6 +68,20 @@ export const Locations = () => {
   const [loading, setLoading] = useState(true);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [focusedCoords, setFocusedCoords] = useState<[number, number] | null>(null);
+  const { chargerStatuses } = useSocket();
+
+  // Merge REST data with real-time socket status
+  const mergedChargers = useMemo(() => {
+    if (chargerStatuses.size === 0) return chargers;
+    return chargers.map(charger => {
+      const socketStatus = chargerStatuses.get(charger.charge_point_id);
+      if (!socketStatus) return charger;
+      return {
+        ...charger,
+        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
+      };
+    });
+  }, [chargers, chargerStatuses]);
 
   // Buscar dados
   const fetchData = useCallback(async () => {
@@ -290,7 +305,7 @@ export const Locations = () => {
             <ChangeMapView center={focusedCoords} zoom={mapZoom} />
 
             {/* Markers dos carregadores */}
-            {chargers
+            {mergedChargers
               .filter(c => c.latitude && c.longitude)
               .map(charger => {
                 const icon = createIcon(charger.isConnected ? 'online' : 'offline');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   EnhancedTable,
@@ -21,6 +21,7 @@ import { ChargerDetailsDialog } from '../components/ChargerDetailsDialog';
 import { toast } from 'sonner';
 import { Zap, CheckCircle2, Eye } from 'lucide-react';
 import { api } from '../lib/api';
+import { useSocket } from '../lib/hooks/useSocket';
 
 interface Charger {
   charge_point_id: string;
@@ -46,6 +47,20 @@ export const Stations = () => {
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const { chargerStatuses } = useSocket();
+
+  // Merge REST data with real-time socket status
+  const mergedChargers = useMemo(() => {
+    if (chargerStatuses.size === 0) return chargers;
+    return chargers.map(charger => {
+      const socketStatus = chargerStatuses.get(charger.charge_point_id);
+      if (!socketStatus) return charger;
+      return {
+        ...charger,
+        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
+      };
+    });
+  }, [chargers, chargerStatuses]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -114,8 +129,8 @@ export const Stations = () => {
     return locations.find(l => l.id === locationId)?.nomeDoLocal || 'Desconhecido';
   };
 
-  const pendingChargers = chargers.filter(c => !c.locationId);
-  const assignedChargers = chargers.filter(c => c.locationId);
+  const pendingChargers = mergedChargers.filter(c => !c.locationId);
+  const assignedChargers = mergedChargers.filter(c => c.locationId);
 
   if (loading) {
     return (

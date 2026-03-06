@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { DollarSign, Zap, Ticket, Receipt, Wifi, WifiOff, RefreshCw, LayoutDashboard, Wallet, TrendingUp } from 'lucide-react';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
-import { useRealtimeStats } from '../lib/hooks/useSocket';
+import { useSocket } from '../lib/hooks/useSocket';
 import { toast } from 'sonner';
 
 // Lazy load Recharts components
@@ -64,7 +64,19 @@ export const Overview = () => {
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
   // Real-time stats from WebSocket
-  const { isConnected, lastUpdate } = useRealtimeStats();
+  const { isConnected, chargerStatuses, lastUpdate } = useSocket();
+
+  // Re-fetch quando status de conexão de chargers mudar (não em heartbeats)
+  const chargerCountRef = React.useRef(0);
+  useEffect(() => {
+    const onlineCount = Array.from(chargerStatuses.values()).filter(
+      s => s.status !== 'Offline' && s.status !== 'Unavailable'
+    ).length;
+    if (chargerCountRef.current !== onlineCount && chargerCountRef.current !== 0) {
+      void fetchOverview();
+    }
+    chargerCountRef.current = onlineCount;
+  }, [chargerStatuses]);
 
   const fetchOverview = async () => {
     setLoading(true);
