@@ -17,6 +17,7 @@ import {
   Tag,
   Wallet,
   Megaphone,
+  Mail,
 } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import {
@@ -61,6 +62,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/tarifas', label: 'Tarifas', icon: Tag, roles: ['admin'] },
     { path: '/carteiras', label: 'Carteiras', icon: Wallet, roles: ['admin'] },
     { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin'] },
+    { path: '/email', label: 'Email', icon: Mail, roles: ['admin', 'atem', 'comum'] },
   ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
@@ -110,11 +112,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isActive
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
                     ? 'bg-emerald-500/10 text-emerald-400'
                     : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-sm">{item.label}</span>

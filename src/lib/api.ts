@@ -74,7 +74,12 @@ export const fetchWithAuth = async (
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
   const url = `${cleanBaseUrl}${cleanEndpoint}`;
-  const headers = getAuthHeaders();
+  const headers = getAuthHeaders() as Record<string, string>;
+
+  // Remover application/json se for um envio de MultiPart para o navegador criar o Boundary sozinho
+  if (options.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
 
   try {
     const response = await fetch(url, {
@@ -134,24 +139,27 @@ export const api = {
     return fetchWithAuth(endpoint, { method: 'GET' });
   },
 
-  post: async <T = unknown>(endpoint: string, data?: T) => {
+  post: async <T = unknown>(endpoint: string, data?: T | FormData) => {
+    const isFormData = data instanceof FormData;
     return fetchWithAuth(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   },
 
-  put: async <T = unknown>(endpoint: string, data?: T) => {
+  put: async <T = unknown>(endpoint: string, data?: T | FormData) => {
+    const isFormData = data instanceof FormData;
     return fetchWithAuth(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(data),
+      body: isFormData ? data : JSON.stringify(data),
     });
   },
 
-  delete: async <T = unknown>(endpoint: string, data?: T) => {
+  delete: async <T = unknown>(endpoint: string, data?: T | FormData) => {
+    const isFormData = data instanceof FormData;
     return fetchWithAuth(endpoint, {
       method: 'DELETE',
-      body: data ? JSON.stringify(data) : undefined,
+      body: isFormData ? data : (data ? JSON.stringify(data) : undefined),
     });
   },
 };

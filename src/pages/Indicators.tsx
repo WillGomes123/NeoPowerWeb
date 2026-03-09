@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, ComponentType } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   TrendingUp,
@@ -16,19 +16,19 @@ import {
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 
-// Lazy load Recharts components
-const LineChart = lazy(() => import('recharts').then(mod => ({ default: mod.LineChart })));
-const AreaChart = lazy(() => import('recharts').then(mod => ({ default: mod.AreaChart })));
-const BarChart = lazy(() => import('recharts').then(mod => ({ default: mod.BarChart })));
-const Bar = lazy(() => import('recharts').then(mod => ({ default: mod.Bar })));
-const Line = lazy(() => import('recharts').then(mod => ({ default: mod.Line })));
-const Area = lazy(() => import('recharts').then(mod => ({ default: mod.Area })));
-const XAxis = lazy(() => import('recharts').then(mod => ({ default: mod.XAxis })));
-const YAxis = lazy(() => import('recharts').then(mod => ({ default: mod.YAxis })));
-const CartesianGrid = lazy(() => import('recharts').then(mod => ({ default: mod.CartesianGrid })));
-const Tooltip = lazy(() => import('recharts').then(mod => ({ default: mod.Tooltip })));
-const Legend = lazy(() => import('recharts').then(mod => ({ default: mod.Legend })));
-const ResponsiveContainer = lazy(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer })));
+// Lazy load Recharts components with explicit 'any' cast to bypass strict generic type errors
+const LineChart = lazy(() => import('recharts').then(mod => ({ default: mod.LineChart as unknown as ComponentType<any> })));
+const AreaChart = lazy(() => import('recharts').then(mod => ({ default: mod.AreaChart as unknown as ComponentType<any> })));
+const BarChart = lazy(() => import('recharts').then(mod => ({ default: mod.BarChart as unknown as ComponentType<any> })));
+const Bar = lazy(() => import('recharts').then(mod => ({ default: mod.Bar as unknown as ComponentType<any> })));
+const Line = lazy(() => import('recharts').then(mod => ({ default: mod.Line as unknown as ComponentType<any> })));
+const Area = lazy(() => import('recharts').then(mod => ({ default: mod.Area as unknown as ComponentType<any> })));
+const XAxis = lazy(() => import('recharts').then(mod => ({ default: mod.XAxis as unknown as ComponentType<any> })));
+const YAxis = lazy(() => import('recharts').then(mod => ({ default: mod.YAxis as unknown as ComponentType<any> })));
+const CartesianGrid = lazy(() => import('recharts').then(mod => ({ default: mod.CartesianGrid as unknown as ComponentType<any> })));
+const Tooltip = lazy(() => import('recharts').then(mod => ({ default: mod.Tooltip as unknown as ComponentType<any> })));
+const Legend = lazy(() => import('recharts').then(mod => ({ default: mod.Legend as unknown as ComponentType<any> })));
+const ResponsiveContainer = lazy(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer as unknown as ComponentType<any> })));
 
 type MetricType = 'sessions' | 'revenue' | 'energy' | 'users';
 type PeriodType = '7d' | '30d' | '90d';
@@ -173,7 +173,7 @@ export const Indicators = () => {
           stroke="#71717a"
           tick={{ fill: '#a1a1aa', fontSize: 12 }}
           axisLine={{ stroke: '#27272a' }}
-          tickFormatter={(value) => {
+          tickFormatter={(value: string | number) => {
             if (selectedMetric === 'revenue') return `R$${value}`;
             if (selectedMetric === 'energy') return `${value}kWh`;
             return value;
@@ -226,8 +226,8 @@ export const Indicators = () => {
             {gridAndAxes}
             <defs>
               <linearGradient id={`gradient-${selectedMetric}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={config.gradient[0]} stopOpacity={0.4}/>
-                <stop offset="95%" stopColor={config.gradient[1]} stopOpacity={0}/>
+                <stop offset="5%" stopColor={config.gradient[0]} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={config.gradient[1]} stopOpacity={0} />
               </linearGradient>
             </defs>
             <Area
@@ -287,11 +287,10 @@ export const Indicators = () => {
           return (
             <Card
               key={metricKey}
-              className={`cursor-pointer transition-all duration-300 ${
-                isSelected
-                  ? 'bg-gradient-to-br from-emerald-600/30 to-emerald-800/20 border-emerald-500 shadow-lg shadow-emerald-900/30'
-                  : 'bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 hover:border-emerald-600/50 hover:shadow-lg hover:shadow-emerald-900/20'
-              }`}
+              className={`cursor-pointer transition-all duration-300 ${isSelected
+                ? 'bg-gradient-to-br from-emerald-600/30 to-emerald-800/20 border-emerald-500 shadow-lg shadow-emerald-900/30'
+                : 'bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 hover:border-emerald-600/50 hover:shadow-lg hover:shadow-emerald-900/20'
+                }`}
               onClick={() => setSelectedMetric(metricKey)}
             >
               <CardContent className="p-5">
@@ -348,11 +347,10 @@ export const Indicators = () => {
                   <button
                     key={option.value}
                     onClick={() => setSelectedPeriod(option.value as PeriodType)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      selectedPeriod === option.value
-                        ? 'bg-emerald-600 text-white'
-                        : 'text-emerald-300/70 hover:text-emerald-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${selectedPeriod === option.value
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-emerald-300/70 hover:text-emerald-200'
+                      }`}
                   >
                     {option.label.replace('Últimos ', '')}
                   </button>
