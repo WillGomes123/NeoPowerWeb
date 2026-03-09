@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddLocationForm } from '../components/AddLocationForm';
 import { DynamicMap } from '../components/DynamicMap';
@@ -7,6 +7,7 @@ import L from 'leaflet';
 import '../styles/leaflet-custom.css';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { useSocket } from '../lib/hooks/useSocket';
 
 // Tipos
 interface Location {
@@ -22,6 +23,8 @@ interface Location {
 
 interface Charger {
   charge_point_id: string;
+  description?: string;
+  model?: string;
   address: string;
   latitude: number;
   longitude: number;
@@ -65,6 +68,20 @@ export const Locations = () => {
   const [loading, setLoading] = useState(true);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [focusedCoords, setFocusedCoords] = useState<[number, number] | null>(null);
+  const { chargerStatuses } = useSocket();
+
+  // Merge REST data with real-time socket status
+  const mergedChargers = useMemo(() => {
+    if (chargerStatuses.size === 0) return chargers;
+    return chargers.map(charger => {
+      const socketStatus = chargerStatuses.get(charger.charge_point_id);
+      if (!socketStatus) return charger;
+      return {
+        ...charger,
+        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
+      };
+    });
+  }, [chargers, chargerStatuses]);
 
   // Buscar dados
   const fetchData = useCallback(async () => {
@@ -213,66 +230,66 @@ export const Locations = () => {
           {locations.map(loc => {
             const chargerCount = loc.chargePoints?.length || 0;
             return (
-            <div
-              key={loc.id}
-              className="group flex bg-gradient-to-br from-emerald-950/80 to-emerald-900/60 border border-emerald-800/50 rounded-lg overflow-hidden hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-900/30 transition-all duration-300 backdrop-blur-sm"
-            >
-              {/* Área clicável do card */}
-              <button
-                onClick={() => handleOpenDetails(loc)}
-                className="flex-1 p-5 text-left hover:bg-emerald-800/20 transition-colors"
+              <div
+                key={loc.id}
+                className="group flex bg-gradient-to-br from-emerald-950/80 to-emerald-900/60 border border-emerald-800/50 rounded-lg overflow-hidden hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-900/30 transition-all duration-300 backdrop-blur-sm"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-bold text-emerald-50 group-hover:text-emerald-400 transition-colors">
-                    {loc.nomeDoLocal}
-                  </h3>
-                  <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2 py-1 rounded-full">
-                    {loc.cidade}/{loc.estado}
-                  </span>
-                </div>
-                <p className="text-sm text-emerald-300/70 mb-4 line-clamp-2">{loc.endereco}</p>
-                <div className="flex items-center gap-2 text-emerald-300">
-                  <svg
-                    className="w-5 h-5 text-emerald-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                {/* Área clicável do card */}
+                <button
+                  onClick={() => handleOpenDetails(loc)}
+                  className="flex-1 p-5 text-left hover:bg-emerald-800/20 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-bold text-emerald-50 group-hover:text-emerald-400 transition-colors">
+                      {loc.nomeDoLocal}
+                    </h3>
+                    <span className="text-xs bg-emerald-500/30 text-emerald-300 px-2 py-1 rounded-full">
+                      {loc.cidade}/{loc.estado}
+                    </span>
+                  </div>
+                  <p className="text-sm text-emerald-300/70 mb-4 line-clamp-2">{loc.endereco}</p>
+                  <div className="flex items-center gap-2 text-emerald-300">
+                    <svg
+                      className="w-5 h-5 text-emerald-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                    <span className="text-sm font-semibold">
+                      {chargerCount} Carregador{chargerCount !== 1 ? 'es' : ''}
+                    </span>
+                  </div>
+                </button>
+
+                {/* Botão do mapa */}
+                <button
+                  onClick={() => handleFocusMap(loc)}
+                  className="w-14 bg-emerald-900/50 hover:bg-emerald-600 text-emerald-400 hover:text-white flex items-center justify-center transition-all duration-300 border-l border-emerald-800/40"
+                  title="Ver no mapa"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                     />
                   </svg>
-                  <span className="text-sm font-semibold">
-                    {chargerCount} Carregador{chargerCount !== 1 ? 'es' : ''}
-                  </span>
-                </div>
-              </button>
-
-              {/* Botão do mapa */}
-              <button
-                onClick={() => handleFocusMap(loc)}
-                className="w-14 bg-emerald-900/50 hover:bg-emerald-600 text-emerald-400 hover:text-white flex items-center justify-center transition-all duration-300 border-l border-emerald-800/40"
-                title="Ver no mapa"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </button>
-            </div>
+                </button>
+              </div>
             );
           })}
         </div>
@@ -288,7 +305,7 @@ export const Locations = () => {
             <ChangeMapView center={focusedCoords} zoom={mapZoom} />
 
             {/* Markers dos carregadores */}
-            {chargers
+            {mergedChargers
               .filter(c => c.latitude && c.longitude)
               .map(charger => {
                 const icon = createIcon(charger.isConnected ? 'online' : 'offline');
@@ -300,10 +317,20 @@ export const Locations = () => {
                   >
                     <Popup>
                       <div className="text-gray-900 p-2">
-                        <strong className="block mb-2 text-lg text-emerald-700">
-                          {charger.charge_point_id}
+                        <strong className="block mb-1 text-lg text-emerald-700">
+                          {charger.description || charger.charge_point_id}
                         </strong>
-                        <p className="text-sm text-gray-700 mb-2">{charger.address}</p>
+                        {charger.description && (
+                          <div className="text-xs text-gray-500 mb-2 font-mono">
+                            {charger.charge_point_id}
+                          </div>
+                        )}
+                        {charger.model && (
+                          <div className="text-sm font-medium text-gray-700 mb-1">
+                            Modelo: {charger.model}
+                          </div>
+                        )}
+                        <p className="text-sm text-gray-700 mb-2 mt-1">{charger.address}</p>
                         <div className="flex items-center gap-2">
                           <span
                             className={`inline-block w-2 h-2 rounded-full ${charger.isConnected ? 'bg-green-500' : 'bg-gray-400'}`}

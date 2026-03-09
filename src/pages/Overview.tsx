@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { DollarSign, Zap, Ticket, Receipt, Wifi, WifiOff, RefreshCw, LayoutDashboard, Wallet, TrendingUp } from 'lucide-react';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
-import { useRealtimeStats } from '../lib/hooks/useSocket';
+import { useSocket } from '../lib/hooks/useSocket';
 import { toast } from 'sonner';
 
 // Lazy load Recharts components
@@ -64,7 +64,19 @@ export const Overview = () => {
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
   // Real-time stats from WebSocket
-  const { isConnected, onlineChargers, activeTransactions, lastUpdate } = useRealtimeStats();
+  const { isConnected, chargerStatuses, lastUpdate } = useSocket();
+
+  // Re-fetch quando status de conexão de chargers mudar (não em heartbeats)
+  const chargerCountRef = React.useRef(0);
+  useEffect(() => {
+    const onlineCount = Array.from(chargerStatuses.values()).filter(
+      s => s.status !== 'Offline' && s.status !== 'Unavailable'
+    ).length;
+    if (chargerCountRef.current !== onlineCount && chargerCountRef.current !== 0) {
+      void fetchOverview();
+    }
+    chargerCountRef.current = onlineCount;
+  }, [chargerStatuses]);
 
   const fetchOverview = async () => {
     setLoading(true);
@@ -171,11 +183,10 @@ export const Overview = () => {
         </div>
         {/* Real-time connection indicator */}
         <div className="flex items-center gap-4">
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-            isConnected
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isConnected
               ? 'bg-emerald-500/10 border border-emerald-500/30'
               : 'bg-emerald-900/30 border border-emerald-800/30'
-          }`}>
+            }`}>
             {isConnected ? (
               <>
                 <Wifi className="w-4 h-4 text-emerald-400" />

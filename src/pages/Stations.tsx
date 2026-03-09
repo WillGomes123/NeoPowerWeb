@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   EnhancedTable,
@@ -21,11 +21,14 @@ import { ChargerDetailsDialog } from '../components/ChargerDetailsDialog';
 import { toast } from 'sonner';
 import { Zap, CheckCircle2, Eye } from 'lucide-react';
 import { api } from '../lib/api';
+import { useSocket } from '../lib/hooks/useSocket';
 
 interface Charger {
   charge_point_id: string;
   model?: string;
   vendor?: string;
+  description?: string;
+  power_kw?: number;
   locationId: number | null;
   isConnected: boolean;
   status?: string;
@@ -44,6 +47,20 @@ export const Stations = () => {
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const { chargerStatuses } = useSocket();
+
+  // Merge REST data with real-time socket status
+  const mergedChargers = useMemo(() => {
+    if (chargerStatuses.size === 0) return chargers;
+    return chargers.map(charger => {
+      const socketStatus = chargerStatuses.get(charger.charge_point_id);
+      if (!socketStatus) return charger;
+      return {
+        ...charger,
+        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
+      };
+    });
+  }, [chargers, chargerStatuses]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -112,8 +129,8 @@ export const Stations = () => {
     return locations.find(l => l.id === locationId)?.nomeDoLocal || 'Desconhecido';
   };
 
-  const pendingChargers = chargers.filter(c => !c.locationId);
-  const assignedChargers = chargers.filter(c => c.locationId);
+  const pendingChargers = mergedChargers.filter(c => !c.locationId);
+  const assignedChargers = mergedChargers.filter(c => c.locationId);
 
   if (loading) {
     return (
@@ -150,6 +167,7 @@ export const Stations = () => {
                   <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
                   <EnhancedTableHead>Modelo</EnhancedTableHead>
                   <EnhancedTableHead>Fornecedor</EnhancedTableHead>
+                  <EnhancedTableHead>Potência</EnhancedTableHead>
                   <EnhancedTableHead>Local</EnhancedTableHead>
                   <EnhancedTableHead>Ação</EnhancedTableHead>
                 </EnhancedTableRow>
@@ -158,15 +176,25 @@ export const Stations = () => {
                 {pendingChargers.map((charger, index) => (
                   <EnhancedTableRow key={charger.charge_point_id} index={index}>
                     <EnhancedTableCell className="font-mono">
-                      <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        {charger.charge_point_id}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-emerald-300 font-medium">
+                          {charger.description || charger.charge_point_id}
+                        </span>
+                        {charger.description && (
+                          <span className="text-xs text-emerald-500/70 font-mono">
+                            {charger.charge_point_id}
+                          </span>
+                        )}
+                      </div>
                     </EnhancedTableCell>
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm text-emerald-300/70">
                       {charger.vendor || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm">
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
                     </EnhancedTableCell>
                     <EnhancedTableCell>
                       <Select
@@ -232,57 +260,68 @@ export const Stations = () => {
               </p>
             </div>
           ) : (
-          <EnhancedTable striped hoverable>
-            <EnhancedTableHeader>
-              <EnhancedTableRow hoverable={false}>
-                <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
-                <EnhancedTableHead>Modelo</EnhancedTableHead>
-                <EnhancedTableHead>Fornecedor</EnhancedTableHead>
-                <EnhancedTableHead>Local</EnhancedTableHead>
-                <EnhancedTableHead>Status</EnhancedTableHead>
-                <EnhancedTableHead>Ações</EnhancedTableHead>
-              </EnhancedTableRow>
-            </EnhancedTableHeader>
-            <EnhancedTableBody>
-              {assignedChargers.map((charger, index) => (
-                <EnhancedTableRow key={charger.charge_point_id} index={index}>
-                  <EnhancedTableCell className="font-mono">
-                    <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                      {charger.charge_point_id}
-                    </span>
-                  </EnhancedTableCell>
-                  <EnhancedTableCell className="font-medium">
-                    {charger.model || 'N/A'}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell className="text-sm text-emerald-300/70">
-                    {charger.vendor || 'N/A'}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
-                      {getLocationName(charger.locationId)}
-                    </span>
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <StatusBadge status={charger.isConnected ? 'online' : 'offline'} />
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedCharger(charger.charge_point_id);
-                        setDetailsOpen(true);
-                      }}
-                      className="border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/40"
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Detalhes
-                    </Button>
-                  </EnhancedTableCell>
+            <EnhancedTable striped hoverable>
+              <EnhancedTableHeader>
+                <EnhancedTableRow hoverable={false}>
+                  <EnhancedTableHead>Charge Point ID</EnhancedTableHead>
+                  <EnhancedTableHead>Modelo</EnhancedTableHead>
+                  <EnhancedTableHead>Fornecedor</EnhancedTableHead>
+                  <EnhancedTableHead>Potência</EnhancedTableHead>
+                  <EnhancedTableHead>Local</EnhancedTableHead>
+                  <EnhancedTableHead>Status</EnhancedTableHead>
+                  <EnhancedTableHead>Ações</EnhancedTableHead>
                 </EnhancedTableRow>
-              ))}
-            </EnhancedTableBody>
-          </EnhancedTable>
+              </EnhancedTableHeader>
+              <EnhancedTableBody>
+                {assignedChargers.map((charger, index) => (
+                  <EnhancedTableRow key={charger.charge_point_id} index={index}>
+                    <EnhancedTableCell className="font-mono">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-emerald-300 font-medium">
+                          {charger.description || charger.charge_point_id}
+                        </span>
+                        {charger.description && (
+                          <span className="text-xs text-emerald-500/70 font-mono">
+                            {charger.charge_point_id}
+                          </span>
+                        )}
+                      </div>
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="font-medium">
+                      {charger.model || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      {charger.vendor || 'N/A'}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell className="text-sm">
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
+                        {getLocationName(charger.locationId)}
+                      </span>
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <StatusBadge status={charger.isConnected ? 'online' : 'offline'} />
+                    </EnhancedTableCell>
+                    <EnhancedTableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedCharger(charger.charge_point_id);
+                          setDetailsOpen(true);
+                        }}
+                        className="border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/40"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Detalhes
+                      </Button>
+                    </EnhancedTableCell>
+                  </EnhancedTableRow>
+                ))}
+              </EnhancedTableBody>
+            </EnhancedTable>
           )}
         </CardContent>
       </Card>
