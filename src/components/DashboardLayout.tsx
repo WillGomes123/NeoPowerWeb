@@ -18,6 +18,7 @@ import {
   Wallet,
   Megaphone,
   Mail,
+  Palette,
 } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import {
@@ -62,6 +63,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/tarifas', label: 'Tarifas', icon: Tag, roles: ['admin'] },
     { path: '/carteiras', label: 'Carteiras', icon: Wallet, roles: ['admin'] },
     { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin'] },
+    { path: '/branding', label: 'White Label', icon: Palette, roles: ['admin'] },
     { path: '/email', label: 'Email', icon: Mail, roles: ['admin', 'atem', 'comum'] },
   ];
 

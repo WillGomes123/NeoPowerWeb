@@ -28,6 +28,7 @@ const Tariffs = lazy(() => import('./pages/Tariffs').then(m => ({ default: m.Tar
 const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wallets })));
 const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m => ({ default: m.PushNotifications })));
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
+const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
 
 // Loading Component
 const PageLoader = () => (
@@ -94,6 +95,7 @@ const AppRoutes = () => {
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications, true)} />
       <Route path="/email" element={createProtectedRoute(Email)} />
+      <Route path="/branding" element={createProtectedRoute(Branding, true)} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
