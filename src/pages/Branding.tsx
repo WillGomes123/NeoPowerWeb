@@ -23,7 +23,9 @@ import {
   DialogTrigger,
 } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { Palette, Plus, Trash2, Edit2, Globe, Image as ImageIcon, Upload, Loader2, Box, Users, X } from 'lucide-react';
+import { Checkbox } from '../components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Palette, Plus, Trash2, Edit2, Globe, Image as ImageIcon, Upload, Loader2, Box, Users, X, Search, UserPlus, UserMinus } from 'lucide-react';
 
 interface BrandingConfig {
   clientId: string;
@@ -267,8 +269,55 @@ export const Branding = () => {
     }
   };
 
+  const [userSearchFilter, setUserSearchFilter] = useState('');
+  const [usersTab, setUsersTab] = useState<'associated' | 'available'>('associated');
+
   // Users not already assigned to this branding
   const availableUsers = allUsers.filter(u => !brandingUsers.some(bu => bu.id === u.id));
+
+  const filterBySearch = (user: { name: string | null; email: string | null }) => {
+    if (!userSearchFilter) return true;
+    const q = userSearchFilter.toLowerCase();
+    return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+  };
+
+  const filteredAssociated = brandingUsers.filter(filterBySearch);
+  const filteredAvailable = availableUsers.filter(filterBySearch);
+
+  const toggleUserSelection = (userId: number) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAllAvailable = () => {
+    const visibleIds = filteredAvailable.map(u => u.id);
+    const allSelected = visibleIds.every(id => selectedUserIds.includes(id));
+    if (allSelected) {
+      setSelectedUserIds(prev => prev.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedUserIds(prev => [...new Set([...prev, ...visibleIds])]);
+    }
+  };
+
+  const roleLabel = (role: string | null) => {
+    switch (role) {
+      case 'admin': return 'Admin';
+      case 'atem': return 'ATEM';
+      case 'comum': return 'Comum';
+      case 'blocked': return 'Bloqueado';
+      default: return role || '-';
+    }
+  };
+
+  const roleBadgeClass = (role: string | null) => {
+    switch (role) {
+      case 'admin': return 'border-amber-500/50 text-amber-400';
+      case 'atem': return 'border-blue-500/50 text-blue-400';
+      case 'blocked': return 'border-red-500/50 text-red-400';
+      default: return 'border-zinc-600 text-zinc-400';
+    }
+  };
 
   if (loading) {
     return (
@@ -540,110 +589,194 @@ export const Branding = () => {
         </CardContent>
       </Card>
       {/* Users Management Dialog */}
-      <Dialog open={isUsersDialogOpen} onOpenChange={setIsUsersDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[600px]">
-          <DialogHeader>
+      <Dialog open={isUsersDialogOpen} onOpenChange={(open) => {
+        setIsUsersDialogOpen(open);
+        if (!open) { setUserSearchFilter(''); setUsersTab('associated'); }
+      }}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[800px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-white flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-400" />
-              Usuários da Marca: {usersDialogClientId}
+              Gerenciar Usuários — {configs.find(c => c.clientId === usersDialogClientId)?.companyName || usersDialogClientId}
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Associe usuários a esta marca. Ao fazer login, o app carregará o branding deste cliente.
+              Associe usuários a esta marca. Usuários associados verão o branding deste cliente ao abrir o app.
             </DialogDescription>
           </DialogHeader>
 
           {loadingUsers ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Current users */}
-              <div>
-                <Label className="text-zinc-300 text-sm font-medium">Usuários associados ({brandingUsers.length})</Label>
-                {brandingUsers.length > 0 ? (
-                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-                    {brandingUsers.map(user => (
-                      <div key={user.id} className="flex items-center justify-between bg-zinc-800/50 rounded-md px-3 py-2">
-                        <div>
-                          <span className="text-white text-sm">{user.name || 'Sem nome'}</span>
-                          <span className="text-zinc-500 text-xs ml-2">{user.email}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-zinc-500 hover:text-red-400"
-                          onClick={() => handleRemoveBrandingUser(user.id)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-zinc-500 text-sm mt-1 italic">Nenhum usuário associado</p>
-                )}
+            <div className="flex flex-col gap-4 min-h-0 flex-1">
+              {/* Search bar */}
+              <div className="relative shrink-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <Input
+                  placeholder="Buscar por nome ou email..."
+                  value={userSearchFilter}
+                  onChange={e => setUserSearchFilter(e.target.value)}
+                  className="bg-zinc-800 border-zinc-700 text-white pl-9"
+                />
               </div>
 
-              {/* Add users */}
-              <div>
-                <Label className="text-zinc-300 text-sm font-medium">Adicionar usuários</Label>
-                {availableUsers.length > 0 ? (
-                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
-                    {availableUsers.map(user => (
-                      <label
-                        key={user.id}
-                        className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
-                          selectedUserIds.includes(user.id) ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-zinc-800/30 hover:bg-zinc-800/60'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedUserIds.includes(user.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedUserIds(prev => [...prev, user.id]);
-                            } else {
-                              setSelectedUserIds(prev => prev.filter(id => id !== user.id));
-                            }
-                          }}
-                          className="rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-white text-sm">{user.name || 'Sem nome'}</span>
-                          <span className="text-zinc-500 text-xs ml-2">{user.email}</span>
-                        </div>
-                        {user.clientId && (
-                          <Badge variant="outline" className="border-zinc-600 text-zinc-400 text-xs shrink-0">
-                            {user.clientId}
-                          </Badge>
-                        )}
-                      </label>
-                    ))}
+              {/* Tabs */}
+              <Tabs value={usersTab} onValueChange={v => setUsersTab(v as any)} className="flex flex-col min-h-0 flex-1">
+                <TabsList className="bg-zinc-800/50 border border-zinc-700/50 shrink-0">
+                  <TabsTrigger value="associated" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-zinc-400">
+                    <UserMinus className="h-4 w-4 mr-2" />
+                    Associados ({brandingUsers.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="available" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-zinc-400">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Disponíveis ({availableUsers.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Associated Users Tab */}
+                <TabsContent value="associated" className="mt-3 min-h-0 flex-1">
+                  <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                    <div className="max-h-[380px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-zinc-800 hover:bg-transparent bg-zinc-800/50">
+                            <TableHead className="text-zinc-400 w-[200px]">Nome</TableHead>
+                            <TableHead className="text-zinc-400">Email</TableHead>
+                            <TableHead className="text-zinc-400 w-[100px]">Função</TableHead>
+                            <TableHead className="text-zinc-400 w-[80px] text-right">Remover</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredAssociated.length > 0 ? filteredAssociated.map(user => (
+                            <TableRow key={user.id} className="border-zinc-800/50 hover:bg-zinc-800/30">
+                              <TableCell className="text-white font-medium">{user.name || 'Sem nome'}</TableCell>
+                              <TableCell className="text-zinc-400 text-sm">{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={`text-xs ${roleBadgeClass(user.role)}`}>
+                                  {roleLabel(user.role)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-900/20"
+                                  onClick={() => handleRemoveBrandingUser(user.id)}
+                                  title="Remover da marca"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )) : (
+                            <TableRow className="border-zinc-800/50">
+                              <TableCell colSpan={4} className="text-center text-zinc-500 py-8 italic">
+                                {userSearchFilter ? 'Nenhum usuário associado corresponde à busca' : 'Nenhum usuário associado a esta marca'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-zinc-500 text-sm mt-1 italic">Todos os usuários já estão associados</p>
-                )}
-              </div>
+                </TabsContent>
+
+                {/* Available Users Tab */}
+                <TabsContent value="available" className="mt-3 min-h-0 flex-1">
+                  <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                    <div className="max-h-[380px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-zinc-800 hover:bg-transparent bg-zinc-800/50">
+                            <TableHead className="text-zinc-400 w-[50px]">
+                              <Checkbox
+                                checked={filteredAvailable.length > 0 && filteredAvailable.every(u => selectedUserIds.includes(u.id))}
+                                onCheckedChange={toggleSelectAllAvailable}
+                                className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                              />
+                            </TableHead>
+                            <TableHead className="text-zinc-400 w-[200px]">Nome</TableHead>
+                            <TableHead className="text-zinc-400">Email</TableHead>
+                            <TableHead className="text-zinc-400 w-[100px]">Função</TableHead>
+                            <TableHead className="text-zinc-400 w-[120px]">Marca Atual</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredAvailable.length > 0 ? filteredAvailable.map(user => (
+                            <TableRow
+                              key={user.id}
+                              className={`border-zinc-800/50 cursor-pointer transition-colors ${
+                                selectedUserIds.includes(user.id) ? 'bg-blue-900/20 hover:bg-blue-900/30' : 'hover:bg-zinc-800/30'
+                              }`}
+                              onClick={() => toggleUserSelection(user.id)}
+                            >
+                              <TableCell>
+                                <Checkbox
+                                  checked={selectedUserIds.includes(user.id)}
+                                  onCheckedChange={() => toggleUserSelection(user.id)}
+                                  className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                />
+                              </TableCell>
+                              <TableCell className="text-white font-medium">{user.name || 'Sem nome'}</TableCell>
+                              <TableCell className="text-zinc-400 text-sm">{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className={`text-xs ${roleBadgeClass(user.role)}`}>
+                                  {roleLabel(user.role)}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {user.clientId ? (
+                                  <Badge variant="outline" className="border-zinc-600 text-zinc-400 text-xs">
+                                    {user.clientId}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-zinc-600 text-xs">Padrão</span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )) : (
+                            <TableRow className="border-zinc-800/50">
+                              <TableCell colSpan={5} className="text-center text-zinc-500 py-8 italic">
+                                {userSearchFilter ? 'Nenhum usuário disponível corresponde à busca' : 'Todos os usuários já estão associados'}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
           )}
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsUsersDialogOpen(false)}
-              className="border-zinc-700 text-zinc-300"
-            >
-              Fechar
-            </Button>
-            {selectedUserIds.length > 0 && (
-              <Button
-                onClick={handleAssignUsers}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                Associar {selectedUserIds.length} usuário(s)
-              </Button>
-            )}
+          <DialogFooter className="shrink-0 border-t border-zinc-800 pt-4">
+            <div className="flex items-center justify-between w-full">
+              <div className="text-sm text-zinc-500">
+                {selectedUserIds.length > 0 && (
+                  <span className="text-blue-400 font-medium">{selectedUserIds.length} selecionado(s)</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsUsersDialogOpen(false)}
+                  className="border-zinc-700 text-zinc-300"
+                >
+                  Fechar
+                </Button>
+                {selectedUserIds.length > 0 && (
+                  <Button
+                    onClick={handleAssignUsers}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Associar {selectedUserIds.length} usuário(s)
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
