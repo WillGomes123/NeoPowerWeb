@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
-import { Palette, Plus, Trash2, Edit2, Globe, Image as ImageIcon, Upload, Loader2, Box } from 'lucide-react';
+import { Palette, Plus, Trash2, Edit2, Globe, Image as ImageIcon, Upload, Loader2, Box, Users, X } from 'lucide-react';
 
 interface BrandingConfig {
   clientId: string;
@@ -35,6 +35,21 @@ interface BrandingConfig {
   updatedAt?: string;
 }
 
+interface BrandingUser {
+  id: number;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+}
+
+interface AllUser {
+  id: number;
+  name: string | null;
+  email: string | null;
+  role: string | null;
+  clientId: string | null;
+}
+
 export const Branding = () => {
   const [configs, setConfigs] = useState<BrandingConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +57,14 @@ export const Branding = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [buildingClientId, setBuildingClientId] = useState<string | null>(null);
+
+  // Users management state
+  const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
+  const [usersDialogClientId, setUsersDialogClientId] = useState<string>('');
+  const [brandingUsers, setBrandingUsers] = useState<BrandingUser[]>([]);
+  const [allUsers, setAllUsers] = useState<AllUser[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState<Partial<BrandingConfig>>({
@@ -186,6 +209,66 @@ export const Branding = () => {
     setFormData(config);
     setIsDialogOpen(true);
   };
+
+  const handleOpenUsersDialog = async (clientId: string) => {
+    setUsersDialogClientId(clientId);
+    setIsUsersDialogOpen(true);
+    setLoadingUsers(true);
+    setSelectedUserIds([]);
+    try {
+      const [usersRes, allUsersRes] = await Promise.all([
+        api.get(`/admin/branding/${encodeURIComponent(clientId)}/users`),
+        api.get('/admin/users')
+      ]);
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        setBrandingUsers(data.payload || []);
+      }
+      if (allUsersRes.ok) {
+        const data = await allUsersRes.json();
+        setAllUsers(data);
+      }
+    } catch {
+      toast.error('Erro ao carregar usuários');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleAssignUsers = async () => {
+    if (selectedUserIds.length === 0) {
+      toast.error('Selecione pelo menos um usuário');
+      return;
+    }
+    try {
+      const response = await api.post(`/admin/branding/${encodeURIComponent(usersDialogClientId)}/users`, { userIds: selectedUserIds });
+      if (response.ok) {
+        toast.success(`${selectedUserIds.length} usuário(s) associado(s)`);
+        setSelectedUserIds([]);
+        void handleOpenUsersDialog(usersDialogClientId);
+      } else {
+        const err = await response.json();
+        toast.error(err.error || 'Erro ao associar usuários');
+      }
+    } catch {
+      toast.error('Erro ao conectar com o servidor');
+    }
+  };
+
+  const handleRemoveBrandingUser = async (userId: number) => {
+    try {
+      const response = await api.delete(`/admin/branding/${encodeURIComponent(usersDialogClientId)}/users/${userId}`);
+      if (response.ok) {
+        toast.success('Usuário removido da marca');
+        void handleOpenUsersDialog(usersDialogClientId);
+      }
+    } catch {
+      toast.error('Erro ao remover usuário');
+    }
+  };
+
+  // Users not already assigned to this branding
+  const availableUsers = allUsers.filter(u => !brandingUsers.some(bu => bu.id === u.id));
 
   if (loading) {
     return (
@@ -403,9 +486,18 @@ export const Branding = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-zinc-400 hover:text-blue-400"
+                            title="Gerenciar usuários desta marca"
+                            onClick={() => handleOpenUsersDialog(config.clientId)}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-zinc-400 hover:text-emerald-400"
                             title="Gerar build do App (EAS)"
                             disabled={buildingClientId !== null}
@@ -417,17 +509,17 @@ export const Branding = () => {
                             <Box className="h-4 w-4" />
                           )}
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-zinc-400 hover:text-white"
                             onClick={() => handleEdit(config)}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-zinc-400 hover:text-red-400"
                             disabled={config.clientId === 'neopower-default'}
                             onClick={() => handleDelete(config.clientId)}
@@ -447,6 +539,114 @@ export const Branding = () => {
           )}
         </CardContent>
       </Card>
+      {/* Users Management Dialog */}
+      <Dialog open={isUsersDialogOpen} onOpenChange={setIsUsersDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-400" />
+              Usuários da Marca: {usersDialogClientId}
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Associe usuários a esta marca. Ao fazer login, o app carregará o branding deste cliente.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingUsers ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-500" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Current users */}
+              <div>
+                <Label className="text-zinc-300 text-sm font-medium">Usuários associados ({brandingUsers.length})</Label>
+                {brandingUsers.length > 0 ? (
+                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                    {brandingUsers.map(user => (
+                      <div key={user.id} className="flex items-center justify-between bg-zinc-800/50 rounded-md px-3 py-2">
+                        <div>
+                          <span className="text-white text-sm">{user.name || 'Sem nome'}</span>
+                          <span className="text-zinc-500 text-xs ml-2">{user.email}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-zinc-500 hover:text-red-400"
+                          onClick={() => handleRemoveBrandingUser(user.id)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-zinc-500 text-sm mt-1 italic">Nenhum usuário associado</p>
+                )}
+              </div>
+
+              {/* Add users */}
+              <div>
+                <Label className="text-zinc-300 text-sm font-medium">Adicionar usuários</Label>
+                {availableUsers.length > 0 ? (
+                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
+                    {availableUsers.map(user => (
+                      <label
+                        key={user.id}
+                        className={`flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors ${
+                          selectedUserIds.includes(user.id) ? 'bg-emerald-900/30 border border-emerald-700/50' : 'bg-zinc-800/30 hover:bg-zinc-800/60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedUserIds(prev => [...prev, user.id]);
+                            } else {
+                              setSelectedUserIds(prev => prev.filter(id => id !== user.id));
+                            }
+                          }}
+                          className="rounded border-zinc-600 bg-zinc-800 text-emerald-500 focus:ring-emerald-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-white text-sm">{user.name || 'Sem nome'}</span>
+                          <span className="text-zinc-500 text-xs ml-2">{user.email}</span>
+                        </div>
+                        {user.clientId && (
+                          <Badge variant="outline" className="border-zinc-600 text-zinc-400 text-xs shrink-0">
+                            {user.clientId}
+                          </Badge>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-zinc-500 text-sm mt-1 italic">Todos os usuários já estão associados</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsUsersDialogOpen(false)}
+              className="border-zinc-700 text-zinc-300"
+            >
+              Fechar
+            </Button>
+            {selectedUserIds.length > 0 && (
+              <Button
+                onClick={handleAssignUsers}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Associar {selectedUserIds.length} usuário(s)
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

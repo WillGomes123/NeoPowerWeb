@@ -37,6 +37,7 @@ interface User {
   email: string;
   phone: string | null;
   role: ManagedRole;
+  clientId?: string | null;
   locationIds?: string[];
 }
 
@@ -217,6 +218,7 @@ export const Users = () => {
                 <EnhancedTableHead>Email</EnhancedTableHead>
                 <EnhancedTableHead>Telefone</EnhancedTableHead>
                 <EnhancedTableHead>Função</EnhancedTableHead>
+                <EnhancedTableHead>Marca</EnhancedTableHead>
                 <EnhancedTableHead>Locais</EnhancedTableHead>
                 <EnhancedTableHead>Ações</EnhancedTableHead>
               </EnhancedTableRow>
@@ -317,6 +319,15 @@ export const Users = () => {
                         {user.role === 'blocked' && 'Sem acesso ao dashboard'}
                       </p>
                     </div>
+                  </EnhancedTableCell>
+                  <EnhancedTableCell>
+                    {user.clientId ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/30 text-xs font-mono">
+                        {user.clientId}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-300/40 text-xs">Padrão</span>
+                    )}
                   </EnhancedTableCell>
                   <EnhancedTableCell>
                     {user.locationIds ? (
