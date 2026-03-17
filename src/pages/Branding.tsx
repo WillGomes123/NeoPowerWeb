@@ -25,7 +25,22 @@ import {
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Palette, Plus, Trash2, Edit2, Globe, Image as ImageIcon, Upload, Loader2, Box, Users, X, Search, UserPlus, UserMinus } from 'lucide-react';
+import {
+  Palette,
+  Plus,
+  Trash2,
+  Edit2,
+  Globe,
+  Image as ImageIcon,
+  Upload,
+  Loader2,
+  Box,
+  Users,
+  X,
+  Search,
+  UserPlus,
+  UserMinus,
+} from 'lucide-react';
 
 interface BrandingConfig {
   clientId: string;
@@ -60,6 +75,11 @@ export const Branding = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [buildingClientId, setBuildingClientId] = useState<string | null>(null);
 
+  // Build Dialog State
+  const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false);
+  const [selectedBuildClient, setSelectedBuildClient] = useState<BrandingConfig | null>(null);
+  const [buildPlatform, setBuildPlatform] = useState<'android' | 'ios' | 'all'>('android');
+
   // Users management state
   const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
   const [usersDialogClientId, setUsersDialogClientId] = useState<string>('');
@@ -67,7 +87,7 @@ export const Branding = () => {
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  
+
   // Form State
   const [formData, setFormData] = useState<Partial<BrandingConfig>>({
     clientId: '',
@@ -75,7 +95,7 @@ export const Branding = () => {
     slogan: '',
     logoType: 'programmatic',
     logoUri: '',
-    primaryColor: '#00FF88'
+    primaryColor: '#00FF88',
   });
 
   const fetchConfigs = async () => {
@@ -111,12 +131,12 @@ export const Branding = () => {
         toast.success('Configuração de marca salva com sucesso!');
         setIsDialogOpen(false);
         setFormData({
-            clientId: '',
-            companyName: '',
-            slogan: '',
-            logoType: 'programmatic',
-            logoUri: '',
-            primaryColor: '#00FF88'
+          clientId: '',
+          companyName: '',
+          slogan: '',
+          logoType: 'programmatic',
+          logoUri: '',
+          primaryColor: '#00FF88',
         });
         void fetchConfigs();
       } else {
@@ -132,8 +152,8 @@ export const Branding = () => {
 
   const handleDelete = async (clientId: string) => {
     if (clientId === 'neopower-default') {
-        toast.error('Não é possível excluir a marca padrão');
-        return;
+      toast.error('Não é possível excluir a marca padrão');
+      return;
     }
 
     if (!confirm('Tem certeza que deseja excluir esta configuração?')) return;
@@ -184,18 +204,30 @@ export const Branding = () => {
     }
   };
 
-  const handleTriggerBuild = async (clientId: string) => {
-    if (!confirm(`Deseja iniciar o build do App para o cliente "${clientId}"? Isso pode levar alguns minutos na Expo.`)) return;
-    
-    setBuildingClientId(clientId);
+  const openBuildDialog = (config: BrandingConfig) => {
+    setSelectedBuildClient(config);
+    setBuildPlatform('android'); // reset to default
+    setIsBuildDialogOpen(true);
+  };
+
+  const executeTriggerBuild = async () => {
+    if (!selectedBuildClient) return;
+
+    setIsBuildDialogOpen(false);
+    setBuildingClientId(selectedBuildClient.clientId);
     try {
-      const response = await api.post(`/admin/branding/${encodeURIComponent(clientId)}/build`, {
-        platform: 'android',
-        profile: 'preview' // Build de teste/instalação direta
-      });
-      
+      const response = await api.post(
+        `/admin/branding/${encodeURIComponent(selectedBuildClient.clientId)}/build`,
+        {
+          platform: buildPlatform,
+          profile: 'preview', // Build de teste/instalação direta
+        }
+      );
+
       if (response.ok) {
-        toast.success('Build iniciado com sucesso! Verifique o painel da Expo.');
+        toast.success(
+          `Build para ${buildPlatform.toUpperCase()} iniciado com sucesso! Verifique o painel da Expo.`
+        );
       } else {
         const err = await response.json();
         toast.error(err.error || 'Erro ao iniciar build');
@@ -220,7 +252,7 @@ export const Branding = () => {
     try {
       const [usersRes, allUsersRes] = await Promise.all([
         api.get(`/admin/branding/${encodeURIComponent(clientId)}/users`),
-        api.get('/admin/users')
+        api.get('/admin/users'),
       ]);
       if (usersRes.ok) {
         const data = await usersRes.json();
@@ -243,7 +275,10 @@ export const Branding = () => {
       return;
     }
     try {
-      const response = await api.post(`/admin/branding/${encodeURIComponent(usersDialogClientId)}/users`, { userIds: selectedUserIds });
+      const response = await api.post(
+        `/admin/branding/${encodeURIComponent(usersDialogClientId)}/users`,
+        { userIds: selectedUserIds }
+      );
       if (response.ok) {
         toast.success(`${selectedUserIds.length} usuário(s) associado(s)`);
         setSelectedUserIds([]);
@@ -259,7 +294,9 @@ export const Branding = () => {
 
   const handleRemoveBrandingUser = async (userId: number) => {
     try {
-      const response = await api.delete(`/admin/branding/${encodeURIComponent(usersDialogClientId)}/users/${userId}`);
+      const response = await api.delete(
+        `/admin/branding/${encodeURIComponent(usersDialogClientId)}/users/${userId}`
+      );
       if (response.ok) {
         toast.success('Usuário removido da marca');
         void handleOpenUsersDialog(usersDialogClientId);
@@ -278,7 +315,9 @@ export const Branding = () => {
   const filterBySearch = (user: { name: string | null; email: string | null }) => {
     if (!userSearchFilter) return true;
     const q = userSearchFilter.toLowerCase();
-    return (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q);
+    return (
+      (user.name || '').toLowerCase().includes(q) || (user.email || '').toLowerCase().includes(q)
+    );
   };
 
   const filteredAssociated = brandingUsers.filter(filterBySearch);
@@ -302,20 +341,29 @@ export const Branding = () => {
 
   const roleLabel = (role: string | null) => {
     switch (role) {
-      case 'admin': return 'Admin';
-      case 'atem': return 'ATEM';
-      case 'comum': return 'Comum';
-      case 'blocked': return 'Bloqueado';
-      default: return role || '-';
+      case 'admin':
+        return 'Admin';
+      case 'atem':
+        return 'ATEM';
+      case 'comum':
+        return 'Comum';
+      case 'blocked':
+        return 'Bloqueado';
+      default:
+        return role || '-';
     }
   };
 
   const roleBadgeClass = (role: string | null) => {
     switch (role) {
-      case 'admin': return 'border-amber-500/50 text-amber-400';
-      case 'atem': return 'border-blue-500/50 text-blue-400';
-      case 'blocked': return 'border-red-500/50 text-red-400';
-      default: return 'border-zinc-600 text-zinc-400';
+      case 'admin':
+        return 'border-amber-500/50 text-amber-400';
+      case 'atem':
+        return 'border-blue-500/50 text-blue-400';
+      case 'blocked':
+        return 'border-red-500/50 text-red-400';
+      default:
+        return 'border-zinc-600 text-zinc-400';
     }
   };
 
@@ -336,14 +384,19 @@ export const Branding = () => {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setFormData({
-                clientId: '',
-                companyName: '',
-                slogan: '',
-                logoType: 'programmatic',
-                logoUri: '',
-                primaryColor: '#00FF88'
-            })}>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={() =>
+                setFormData({
+                  clientId: '',
+                  companyName: '',
+                  slogan: '',
+                  logoType: 'programmatic',
+                  logoUri: '',
+                  primaryColor: '#00FF88',
+                })
+              }
+            >
               <Plus className="mr-2 h-4 w-4" />
               Nova Marca
             </Button>
@@ -358,29 +411,35 @@ export const Branding = () => {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="clientId" className="text-zinc-300">ID do Cliente (Slug)</Label>
-                    <Input
-                        id="clientId"
-                        placeholder="ex: cliente-xyz"
-                        value={formData.clientId}
-                        onChange={e => setFormData({ ...formData, clientId: e.target.value })}
-                        className="bg-zinc-800 border-zinc-700 text-white"
-                    />
+                  <Label htmlFor="clientId" className="text-zinc-300">
+                    ID do Cliente (Slug)
+                  </Label>
+                  <Input
+                    id="clientId"
+                    placeholder="ex: cliente-xyz"
+                    value={formData.clientId}
+                    onChange={e => setFormData({ ...formData, clientId: e.target.value })}
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                  />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="companyName" className="text-zinc-300">Nome da Empresa</Label>
-                    <Input
-                        id="companyName"
-                        placeholder="Nome Exibido"
-                        value={formData.companyName}
-                        onChange={e => setFormData({ ...formData, companyName: e.target.value })}
-                        className="bg-zinc-800 border-zinc-700 text-white"
-                    />
+                  <Label htmlFor="companyName" className="text-zinc-300">
+                    Nome da Empresa
+                  </Label>
+                  <Input
+                    id="companyName"
+                    placeholder="Nome Exibido"
+                    value={formData.companyName}
+                    onChange={e => setFormData({ ...formData, companyName: e.target.value })}
+                    className="bg-zinc-800 border-zinc-700 text-white"
+                  />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="slogan" className="text-zinc-300">Slogan (Opcional)</Label>
+                <Label htmlFor="slogan" className="text-zinc-300">
+                  Slogan (Opcional)
+                </Label>
                 <Input
                   id="slogan"
                   value={formData.slogan}
@@ -391,78 +450,86 @@ export const Branding = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-zinc-300">Tipo de Logo</Label>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant={formData.logoType === 'programmatic' ? 'default' : 'outline'}
-                            className={formData.logoType === 'programmatic' ? 'bg-emerald-600' : 'border-zinc-700'}
-                            onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
-                        >
-                            Ícone App
-                        </Button>
-                        <Button 
-                            variant={formData.logoType === 'image' ? 'default' : 'outline'}
-                            className={formData.logoType === 'image' ? 'bg-emerald-600' : 'border-zinc-700'}
-                            onClick={() => setFormData({ ...formData, logoType: 'image' })}
-                        >
-                            Imagem/URL
-                        </Button>
-                    </div>
+                  <Label className="text-zinc-300">Tipo de Logo</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={formData.logoType === 'programmatic' ? 'default' : 'outline'}
+                      className={
+                        formData.logoType === 'programmatic' ? 'bg-emerald-600' : 'border-zinc-700'
+                      }
+                      onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
+                    >
+                      Ícone App
+                    </Button>
+                    <Button
+                      variant={formData.logoType === 'image' ? 'default' : 'outline'}
+                      className={
+                        formData.logoType === 'image' ? 'bg-emerald-600' : 'border-zinc-700'
+                      }
+                      onClick={() => setFormData({ ...formData, logoType: 'image' })}
+                    >
+                      Imagem/URL
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="color" className="text-zinc-300">Cor Primária</Label>
-                    <div className="flex gap-2">
-                        <Input
-                            id="color"
-                            type="color"
-                            value={formData.primaryColor}
-                            onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
-                            className="w-12 h-10 p-1 bg-zinc-800 border-zinc-700"
-                        />
-                        <Input
-                            value={formData.primaryColor}
-                            onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
-                            className="bg-zinc-800 border-zinc-700 text-white font-mono"
-                        />
-                    </div>
+                  <Label htmlFor="color" className="text-zinc-300">
+                    Cor Primária
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="color"
+                      type="color"
+                      value={formData.primaryColor}
+                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
+                      className="w-12 h-10 p-1 bg-zinc-800 border-zinc-700"
+                    />
+                    <Input
+                      value={formData.primaryColor}
+                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-white font-mono"
+                    />
+                  </div>
                 </div>
               </div>
 
               {formData.logoType === 'image' && (
                 <div className="space-y-2">
-                    <Label htmlFor="logoUri" className="text-zinc-300">Logo (URL ou Upload)</Label>
-                    <div className="flex gap-2">
-                        <Input
-                            id="logoUri"
-                            placeholder="https://..."
-                            value={formData.logoUri}
-                            onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
-                            className="bg-zinc-800 border-zinc-700 text-white flex-1"
-                        />
-                        <div className="relative">
-                            <input
-                                type="file"
-                                id="logo-upload"
-                                className="hidden"
-                                accept="image/*"
-                                onChange={handleFileUpload}
-                                disabled={uploadingLogo}
-                            />
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                                onClick={() => document.getElementById('logo-upload')?.click()}
-                                disabled={uploadingLogo}
-                            >
-                                {uploadingLogo ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Upload className="h-4 w-4" />
-                                )}
-                            </Button>
-                        </div>
+                  <Label htmlFor="logoUri" className="text-zinc-300">
+                    Logo (URL ou Upload)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="logoUri"
+                      placeholder="https://..."
+                      value={formData.logoUri}
+                      onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-white flex-1"
+                    />
+                    <div className="relative">
+                      <input
+                        type="file"
+                        id="logo-upload"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        disabled={uploadingLogo}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                        onClick={() => document.getElementById('logo-upload')?.click()}
+                        disabled={uploadingLogo}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -515,20 +582,28 @@ export const Branding = () => {
                     <TableCell className="text-white font-medium">{config.companyName}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div 
-                          className="w-4 h-4 rounded-full border border-zinc-700" 
+                        <div
+                          className="w-4 h-4 rounded-full border border-zinc-700"
                           style={{ backgroundColor: config.primaryColor }}
                         />
-                        <span className="text-zinc-400 text-xs font-mono">{config.primaryColor}</span>
+                        <span className="text-zinc-400 text-xs font-mono">
+                          {config.primaryColor}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       {config.logoType === 'programmatic' ? (
-                        <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 flex w-fit gap-1">
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/50 text-emerald-400 flex w-fit gap-1"
+                        >
                           <Globe className="h-3 w-3" /> App Icon
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="border-blue-500/50 text-blue-400 flex w-fit gap-1">
+                        <Badge
+                          variant="outline"
+                          className="border-blue-500/50 text-blue-400 flex w-fit gap-1"
+                        >
                           <ImageIcon className="h-3 w-3" /> Imagem
                         </Badge>
                       )}
@@ -536,21 +611,21 @@ export const Branding = () => {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-blue-400"
-                            title="Gerenciar usuários desta marca"
-                            onClick={() => handleOpenUsersDialog(config.clientId)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-zinc-400 hover:text-blue-400"
+                          title="Gerenciar usuários desta marca"
+                          onClick={() => handleOpenUsersDialog(config.clientId)}
                         >
                           <Users className="h-4 w-4" />
                         </Button>
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-emerald-400"
-                            title="Gerar build do App (EAS)"
-                            disabled={buildingClientId !== null}
-                            onClick={() => handleTriggerBuild(config.clientId)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-zinc-400 hover:text-emerald-400"
+                          title="Gerar build do App (EAS)"
+                          disabled={buildingClientId !== null}
+                          onClick={() => openBuildDialog(config)}
                         >
                           {buildingClientId === config.clientId ? (
                             <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
@@ -559,19 +634,19 @@ export const Branding = () => {
                           )}
                         </Button>
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-white"
-                            onClick={() => handleEdit(config)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-zinc-400 hover:text-white"
+                          onClick={() => handleEdit(config)}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-zinc-400 hover:text-red-400"
-                            disabled={config.clientId === 'neopower-default'}
-                            onClick={() => handleDelete(config.clientId)}
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-zinc-400 hover:text-red-400"
+                          disabled={config.clientId === 'neopower-default'}
+                          onClick={() => handleDelete(config.clientId)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -583,24 +658,35 @@ export const Branding = () => {
             </Table>
           ) : (
             <div className="text-center py-12">
-                <p className="text-zinc-500 italic">Nenhuma configuração encontrada no banco de dados.</p>
+              <p className="text-zinc-500 italic">
+                Nenhuma configuração encontrada no banco de dados.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
       {/* Users Management Dialog */}
-      <Dialog open={isUsersDialogOpen} onOpenChange={(open) => {
-        setIsUsersDialogOpen(open);
-        if (!open) { setUserSearchFilter(''); setUsersTab('associated'); }
-      }}>
+      <Dialog
+        open={isUsersDialogOpen}
+        onOpenChange={open => {
+          setIsUsersDialogOpen(open);
+          if (!open) {
+            setUserSearchFilter('');
+            setUsersTab('associated');
+          }
+        }}
+      >
         <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[800px] max-h-[85vh] flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle className="text-white flex items-center gap-2">
               <Users className="h-5 w-5 text-blue-400" />
-              Gerenciar Usuários — {configs.find(c => c.clientId === usersDialogClientId)?.companyName || usersDialogClientId}
+              Gerenciar Usuários —{' '}
+              {configs.find(c => c.clientId === usersDialogClientId)?.companyName ||
+                usersDialogClientId}
             </DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Associe usuários a esta marca. Usuários associados verão o branding deste cliente ao abrir o app.
+              Associe usuários a esta marca. Usuários associados verão o branding deste cliente ao
+              abrir o app.
             </DialogDescription>
           </DialogHeader>
 
@@ -622,13 +708,23 @@ export const Branding = () => {
               </div>
 
               {/* Tabs */}
-              <Tabs value={usersTab} onValueChange={v => setUsersTab(v as any)} className="flex flex-col min-h-0 flex-1">
+              <Tabs
+                value={usersTab}
+                onValueChange={v => setUsersTab(v as any)}
+                className="flex flex-col min-h-0 flex-1"
+              >
                 <TabsList className="bg-zinc-800/50 border border-zinc-700/50 shrink-0">
-                  <TabsTrigger value="associated" className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-zinc-400">
+                  <TabsTrigger
+                    value="associated"
+                    className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-zinc-400"
+                  >
                     <UserMinus className="h-4 w-4 mr-2" />
                     Associados ({brandingUsers.length})
                   </TabsTrigger>
-                  <TabsTrigger value="available" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-zinc-400">
+                  <TabsTrigger
+                    value="available"
+                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-zinc-400"
+                  >
                     <UserPlus className="h-4 w-4 mr-2" />
                     Disponíveis ({availableUsers.length})
                   </TabsTrigger>
@@ -644,35 +740,54 @@ export const Branding = () => {
                             <TableHead className="text-zinc-400 w-[200px]">Nome</TableHead>
                             <TableHead className="text-zinc-400">Email</TableHead>
                             <TableHead className="text-zinc-400 w-[100px]">Função</TableHead>
-                            <TableHead className="text-zinc-400 w-[80px] text-right">Remover</TableHead>
+                            <TableHead className="text-zinc-400 w-[80px] text-right">
+                              Remover
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredAssociated.length > 0 ? filteredAssociated.map(user => (
-                            <TableRow key={user.id} className="border-zinc-800/50 hover:bg-zinc-800/30">
-                              <TableCell className="text-white font-medium">{user.name || 'Sem nome'}</TableCell>
-                              <TableCell className="text-zinc-400 text-sm">{user.email}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={`text-xs ${roleBadgeClass(user.role)}`}>
-                                  {roleLabel(user.role)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-900/20"
-                                  onClick={() => handleRemoveBrandingUser(user.id)}
-                                  title="Remover da marca"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )) : (
+                          {filteredAssociated.length > 0 ? (
+                            filteredAssociated.map(user => (
+                              <TableRow
+                                key={user.id}
+                                className="border-zinc-800/50 hover:bg-zinc-800/30"
+                              >
+                                <TableCell className="text-white font-medium">
+                                  {user.name || 'Sem nome'}
+                                </TableCell>
+                                <TableCell className="text-zinc-400 text-sm">
+                                  {user.email}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${roleBadgeClass(user.role)}`}
+                                  >
+                                    {roleLabel(user.role)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-900/20"
+                                    onClick={() => handleRemoveBrandingUser(user.id)}
+                                    title="Remover da marca"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
                             <TableRow className="border-zinc-800/50">
-                              <TableCell colSpan={4} className="text-center text-zinc-500 py-8 italic">
-                                {userSearchFilter ? 'Nenhum usuário associado corresponde à busca' : 'Nenhum usuário associado a esta marca'}
+                              <TableCell
+                                colSpan={4}
+                                className="text-center text-zinc-500 py-8 italic"
+                              >
+                                {userSearchFilter
+                                  ? 'Nenhum usuário associado corresponde à busca'
+                                  : 'Nenhum usuário associado a esta marca'}
                               </TableCell>
                             </TableRow>
                           )}
@@ -691,7 +806,10 @@ export const Branding = () => {
                           <TableRow className="border-zinc-800 hover:bg-transparent bg-zinc-800/50">
                             <TableHead className="text-zinc-400 w-[50px]">
                               <Checkbox
-                                checked={filteredAvailable.length > 0 && filteredAvailable.every(u => selectedUserIds.includes(u.id))}
+                                checked={
+                                  filteredAvailable.length > 0 &&
+                                  filteredAvailable.every(u => selectedUserIds.includes(u.id))
+                                }
                                 onCheckedChange={toggleSelectAllAvailable}
                                 className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                               />
@@ -703,42 +821,61 @@ export const Branding = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredAvailable.length > 0 ? filteredAvailable.map(user => (
-                            <TableRow
-                              key={user.id}
-                              className={`border-zinc-800/50 cursor-pointer transition-colors ${
-                                selectedUserIds.includes(user.id) ? 'bg-blue-900/20 hover:bg-blue-900/30' : 'hover:bg-zinc-800/30'
-                              }`}
-                              onClick={() => toggleUserSelection(user.id)}
-                            >
-                              <TableCell>
-                                <Checkbox
-                                  checked={selectedUserIds.includes(user.id)}
-                                  onCheckedChange={() => toggleUserSelection(user.id)}
-                                  className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-                                />
-                              </TableCell>
-                              <TableCell className="text-white font-medium">{user.name || 'Sem nome'}</TableCell>
-                              <TableCell className="text-zinc-400 text-sm">{user.email}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={`text-xs ${roleBadgeClass(user.role)}`}>
-                                  {roleLabel(user.role)}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                {user.clientId ? (
-                                  <Badge variant="outline" className="border-zinc-600 text-zinc-400 text-xs">
-                                    {user.clientId}
+                          {filteredAvailable.length > 0 ? (
+                            filteredAvailable.map(user => (
+                              <TableRow
+                                key={user.id}
+                                className={`border-zinc-800/50 cursor-pointer transition-colors ${
+                                  selectedUserIds.includes(user.id)
+                                    ? 'bg-blue-900/20 hover:bg-blue-900/30'
+                                    : 'hover:bg-zinc-800/30'
+                                }`}
+                                onClick={() => toggleUserSelection(user.id)}
+                              >
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedUserIds.includes(user.id)}
+                                    onCheckedChange={() => toggleUserSelection(user.id)}
+                                    className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-white font-medium">
+                                  {user.name || 'Sem nome'}
+                                </TableCell>
+                                <TableCell className="text-zinc-400 text-sm">
+                                  {user.email}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs ${roleBadgeClass(user.role)}`}
+                                  >
+                                    {roleLabel(user.role)}
                                   </Badge>
-                                ) : (
-                                  <span className="text-zinc-600 text-xs">Padrão</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          )) : (
+                                </TableCell>
+                                <TableCell>
+                                  {user.clientId ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-zinc-600 text-zinc-400 text-xs"
+                                    >
+                                      {user.clientId}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-zinc-600 text-xs">Padrão</span>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
                             <TableRow className="border-zinc-800/50">
-                              <TableCell colSpan={5} className="text-center text-zinc-500 py-8 italic">
-                                {userSearchFilter ? 'Nenhum usuário disponível corresponde à busca' : 'Todos os usuários já estão associados'}
+                              <TableCell
+                                colSpan={5}
+                                className="text-center text-zinc-500 py-8 italic"
+                              >
+                                {userSearchFilter
+                                  ? 'Nenhum usuário disponível corresponde à busca'
+                                  : 'Todos os usuários já estão associados'}
                               </TableCell>
                             </TableRow>
                           )}
@@ -755,7 +892,9 @@ export const Branding = () => {
             <div className="flex items-center justify-between w-full">
               <div className="text-sm text-zinc-500">
                 {selectedUserIds.length > 0 && (
-                  <span className="text-blue-400 font-medium">{selectedUserIds.length} selecionado(s)</span>
+                  <span className="text-blue-400 font-medium">
+                    {selectedUserIds.length} selecionado(s)
+                  </span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -767,16 +906,122 @@ export const Branding = () => {
                   Fechar
                 </Button>
                 {selectedUserIds.length > 0 && (
-                  <Button
-                    onClick={handleAssignUsers}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
+                  <Button onClick={handleAssignUsers} className="bg-blue-600 hover:bg-blue-700">
                     <UserPlus className="h-4 w-4 mr-2" />
                     Associar {selectedUserIds.length} usuário(s)
                   </Button>
                 )}
               </div>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Build Options Dialog */}
+      <Dialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Box className="h-5 w-5 text-emerald-500" />
+              Gerar Build Nativo (EAS)
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400 text-sm mt-1.5">
+              Escolha para qual plataforma deseja compilar o aplicativo de{' '}
+              <strong className="text-emerald-400 font-medium">
+                {selectedBuildClient?.companyName}
+              </strong>
+              .
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="space-y-4">
+              <Label className="text-zinc-300 font-medium">Plataforma</Label>
+              <div className="grid grid-cols-1 gap-3">
+                <div
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'android' ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  onClick={() => setBuildPlatform('android')}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'android' ? 'border-emerald-500' : 'border-zinc-500'}`}
+                  >
+                    {buildPlatform === 'android' && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p
+                      className={`font-medium text-sm ${buildPlatform === 'android' ? 'text-emerald-400' : 'text-zinc-300'}`}
+                    >
+                      Android (.apk / .aab)
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'ios' ? 'bg-blue-900/20 border-blue-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  onClick={() => setBuildPlatform('ios')}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'ios' ? 'border-blue-500' : 'border-zinc-500'}`}
+                  >
+                    {buildPlatform === 'ios' && (
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p
+                      className={`font-medium text-sm ${buildPlatform === 'ios' ? 'text-blue-400' : 'text-zinc-300'}`}
+                    >
+                      iPhone (.ipa)
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'all' ? 'bg-amber-900/20 border-amber-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  onClick={() => setBuildPlatform('all')}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'all' ? 'border-amber-500' : 'border-zinc-500'}`}
+                  >
+                    {buildPlatform === 'all' && (
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p
+                      className={`font-medium text-sm ${buildPlatform === 'all' ? 'text-amber-400' : 'text-zinc-300'}`}
+                    >
+                      Ambos (Android e iOS)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-amber-950/30 border border-amber-900/50 rounded p-3 mt-2">
+              <p className="text-amber-500/90 text-[13px] leading-relaxed">
+                <strong className="font-semibold block mb-1">Nota importante:</strong>O processo
+                pode levar de 5 a 15 minutos dependendo da fila na Expo. Verifique o painel do
+                GitHub Actions para progresso.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBuildDialogOpen(false)}
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={executeTriggerBuild}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              Confirmar Disparo
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
