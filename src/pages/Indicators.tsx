@@ -2,12 +2,10 @@ import { useState, useEffect, lazy, Suspense, ComponentType } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   TrendingUp,
-  TrendingDown,
   Activity,
   DollarSign,
   Zap,
   Users,
-  Calendar,
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
@@ -27,7 +25,6 @@ const XAxis = lazy(() => import('recharts').then(mod => ({ default: mod.XAxis as
 const YAxis = lazy(() => import('recharts').then(mod => ({ default: mod.YAxis as unknown as ComponentType<any> })));
 const CartesianGrid = lazy(() => import('recharts').then(mod => ({ default: mod.CartesianGrid as unknown as ComponentType<any> })));
 const Tooltip = lazy(() => import('recharts').then(mod => ({ default: mod.Tooltip as unknown as ComponentType<any> })));
-const Legend = lazy(() => import('recharts').then(mod => ({ default: mod.Legend as unknown as ComponentType<any> })));
 const ResponsiveContainer = lazy(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer as unknown as ComponentType<any> })));
 
 type MetricType = 'sessions' | 'revenue' | 'energy' | 'users';
@@ -87,9 +84,7 @@ export const Indicators = () => {
 
       if (perfResponse.ok) {
         const data = await perfResponse.json();
-        // Filter based on selected period
-        const filteredData = data.slice(-days);
-        setPerformanceData(filteredData);
+        setPerformanceData(data);
       }
 
       if (statsResponse.ok) {
@@ -181,10 +176,10 @@ export const Indicators = () => {
           stroke="#71717a"
           tick={{ fill: '#a1a1aa', fontSize: 12 }}
           axisLine={{ stroke: '#27272a' }}
-          tickFormatter={(value: string | number) => {
+          tickFormatter={(value: number) => {
             if (selectedMetric === 'revenue') return `R$${value}`;
             if (selectedMetric === 'energy') return `${value}kWh`;
-            return value;
+            return String(value);
           }}
         />
         <Tooltip
