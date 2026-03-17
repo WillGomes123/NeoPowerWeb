@@ -300,7 +300,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Entrada Bruta Total</p>
                 <p className="text-xl font-bold text-emerald-50 mt-1">
-                  R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-emerald-300/40 mt-1">Recargas + Depósitos</p>
               </div>
@@ -317,7 +317,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Receita Líquida</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">
-                  R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-emerald-300/40 mt-1">Após taxas (MP + outras)</p>
               </div>
@@ -334,7 +334,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-red-300/60 font-medium uppercase tracking-wide">Total Taxas</p>
                 <p className="text-xl font-bold text-red-400 mt-1">
-                  -R$ {taxasTotais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  -R$ {taxasTotais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-red-300/40 mt-1">Recargas + MP (1%)</p>
               </div>
@@ -351,7 +351,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-purple-300/60 font-medium uppercase tracking-wide">Depósitos Líquidos</p>
                 <p className="text-xl font-bold text-purple-400 mt-1">
-                  R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-purple-300/40 mt-1">{deposits.length} depósito(s)</p>
               </div>
@@ -371,7 +371,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-blue-300/60 font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
                 <p className="text-xl font-bold text-blue-400 mt-1">
-                  R$ {valorPagoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {valorPagoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-blue-300/40 mt-1">70% do líquido de recargas</p>
               </div>
@@ -388,7 +388,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">
-                  R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-emerald-300/40 mt-1">20% do líquido de recargas</p>
               </div>
@@ -405,7 +405,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-cyan-300/60 font-medium uppercase tracking-wide">Manutenção do Site</p>
                 <p className="text-xl font-bold text-cyan-400 mt-1">
-                  R$ {manutencaoSite.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {manutencaoSite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-xs text-cyan-300/40 mt-1">10% do líquido de recargas</p>
               </div>
@@ -433,7 +433,7 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                 <p className="text-xs text-purple-300/60 font-medium uppercase">Total Depósitos</p>
               </div>
-              <p className="text-lg font-bold text-purple-300">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-lg font-bold text-purple-300">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-purple-400/70 mt-1">{deposits.length} depósitos</p>
             </div>
 
@@ -442,7 +442,7 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <p className="text-xs text-red-300/60 font-medium uppercase">Taxa Mercado Pago</p>
               </div>
-              <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-red-400/70 mt-1">1% sobre depósitos</p>
             </div>
 
@@ -451,7 +451,7 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase">Depósitos Líquidos</p>
               </div>
-              <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <p className="text-xs text-emerald-400/70 mt-1">Valor disponível</p>
             </div>
 
@@ -461,7 +461,7 @@ export const FinancialReport = () => {
                 <p className="text-xs text-blue-300/60 font-medium uppercase">Média por Depósito</p>
               </div>
               <p className="text-lg font-bold text-blue-400">
-                R$ {deposits.length > 0 ? (totalDeposits / deposits.length).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                R$ {deposits.length > 0 ? (totalDeposits / deposits.length).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
               </p>
               <p className="text-xs text-blue-400/70 mt-1">Valor médio</p>
             </div>
@@ -494,13 +494,13 @@ export const FinancialReport = () => {
                         {new Date(deposit.createdAt).toLocaleString('pt-BR')}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-right font-mono text-purple-400">
-                        R$ {deposit.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {deposit.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-right font-mono text-red-400/70">
-                        -R$ {(deposit.amount * 0.01).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        -R$ {(deposit.amount * 0.01).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-right font-mono text-emerald-400">
-                        R$ {(deposit.amount * 0.99).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {(deposit.amount * 0.99).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-sm text-emerald-300/50">
                         {deposit.referenceId || '-'}
@@ -538,15 +538,15 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase">Entrada Bruta Total</p>
               </div>
-              <p className="text-xl font-bold text-emerald-50">R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-emerald-50">R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="mt-2 space-y-1 text-xs">
                 <div className="flex justify-between text-emerald-300/70">
                   <span>Depósitos:</span>
-                  <span>R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-emerald-300/70">
                   <span>Recargas:</span>
-                  <span>R$ {grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>R$ {grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
@@ -557,15 +557,15 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <p className="text-xs text-red-300/60 font-medium uppercase">Total Taxas Descontadas</p>
               </div>
-              <p className="text-xl font-bold text-red-400">-R$ {taxasTotais.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-red-400">-R$ {taxasTotais.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="mt-2 space-y-1 text-xs">
                 <div className="flex justify-between text-red-300/70">
                   <span>Taxa MP (1% depósitos):</span>
-                  <span>-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-red-300/70">
                   <span>Taxas recargas (14.26%):</span>
-                  <span>-R$ {taxasRecargas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>-R$ {taxasRecargas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
@@ -576,15 +576,15 @@ export const FinancialReport = () => {
                 <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                 <p className="text-xs text-emerald-300/60 font-medium uppercase">Receita Líquida Total</p>
               </div>
-              <p className="text-xl font-bold text-emerald-400">R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-emerald-400">R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="mt-2 space-y-1 text-xs">
                 <div className="flex justify-between text-emerald-300/70">
                   <span>Depósitos líquidos:</span>
-                  <span>R$ {liquidoDepositos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>R$ {liquidoDepositos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-emerald-300/70">
                   <span>Recargas líquidas:</span>
-                  <span>R$ {liquidoRecargas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>R$ {liquidoRecargas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
@@ -600,7 +600,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                     <p className="text-xs text-blue-300/60 font-medium uppercase">Dono da Estação (Cliente)</p>
                   </div>
-                  <p className="text-lg font-bold text-blue-400">R$ {valorPagoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-blue-400">R$ {valorPagoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-blue-400/70 mt-1">70% do líquido (~60% do bruto)</p>
                 </div>
 
@@ -609,7 +609,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                     <p className="text-xs text-emerald-300/60 font-medium uppercase">Lucro NeoPower</p>
                   </div>
-                  <p className="text-lg font-bold text-emerald-400">R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-emerald-400">R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-emerald-400/70 mt-1">20% do líquido (~17.1% do bruto)</p>
                 </div>
 
@@ -618,7 +618,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
                     <p className="text-xs text-cyan-300/60 font-medium uppercase">Manutenção do Site</p>
                   </div>
-                  <p className="text-lg font-bold text-cyan-400">R$ {manutencaoSite.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-cyan-400">R$ {manutencaoSite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-cyan-400/70 mt-1">10% do líquido (~8.6% do bruto)</p>
                 </div>
 
@@ -693,7 +693,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                     <p className="text-xs text-purple-300/60 font-medium uppercase">Depósito Bruto</p>
                   </div>
-                  <p className="text-lg font-bold text-purple-400">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-purple-400">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-purple-400/70 mt-1">Valor depositado pelo cliente</p>
                 </div>
 
@@ -702,7 +702,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <p className="text-xs text-red-300/60 font-medium uppercase">Taxa Mercado Pago</p>
                   </div>
-                  <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-red-400/70 mt-1">1% sobre depósitos</p>
                 </div>
 
@@ -711,7 +711,7 @@ export const FinancialReport = () => {
                     <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
                     <p className="text-xs text-emerald-300/60 font-medium uppercase">Depósito Líquido</p>
                   </div>
-                  <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   <p className="text-xs text-emerald-400/70 mt-1">Saldo na carteira do cliente</p>
                 </div>
               </div>

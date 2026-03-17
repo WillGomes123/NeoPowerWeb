@@ -79,22 +79,30 @@ export const Indicators = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
       const [perfResponse, statsResponse] = await Promise.all([
-        api.get('/performance-data'),
+        api.get(`/performance-data?days=${days}`),
         api.get('/dashboard-stats')
       ]);
 
       if (perfResponse.ok) {
         const data = await perfResponse.json();
         // Filter based on selected period
-        const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
         const filteredData = data.slice(-days);
         setPerformanceData(filteredData);
       }
 
       if (statsResponse.ok) {
         const stats = await statsResponse.json();
-        setDashboardStats(stats);
+        // Backend returns { kpis: {...}, dailyConsumption: [...] }
+        const kpis = stats.kpis || stats;
+        setDashboardStats({
+          totalTransactions: kpis.totalTransactions ?? 0,
+          totalRevenue: kpis.totalRevenue ?? 0,
+          totalEnergy: kpis.totalKwh ?? kpis.totalEnergy ?? 0,
+          activeChargers: kpis.onlineStations ?? kpis.activeChargers ?? 0,
+          totalUsers: kpis.totalUsers ?? 0,
+        });
       }
     } catch (error) {
       console.error('Erro ao buscar dados de performance:', error);
