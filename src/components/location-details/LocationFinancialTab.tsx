@@ -115,15 +115,15 @@ export function LocationFinancialTab({ locationId }: Props) {
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-500/20 rounded-lg">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Receita Total</p>
-                <p className="text-xl font-bold text-emerald-50">
+                <p className="text-xs text-zinc-400 uppercase">Receita Total</p>
+                <p className="text-xl font-bold text-white">
                   R$ {(data?.totalRevenue || 0).toFixed(2)}
                 </p>
               </div>
@@ -131,15 +131,15 @@ export function LocationFinancialTab({ locationId }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500/20 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Média Diária</p>
-                <p className="text-xl font-bold text-emerald-50">
+                <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
+                <p className="text-xl font-bold text-white">
                   R$ {(data?.averageDailyRevenue || 0).toFixed(2)}
                 </p>
               </div>
@@ -147,29 +147,29 @@ export function LocationFinancialTab({ locationId }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <Activity className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Sessões</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totalSessions || 0}</p>
+                <p className="text-xs text-zinc-400 uppercase">Sessões</p>
+                <p className="text-xl font-bold text-white">{data?.totalSessions || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500/20 rounded-lg">
                 <Zap className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Energia Total</p>
-                <p className="text-xl font-bold text-emerald-50">
+                <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
+                <p className="text-xl font-bold text-white">
                   {((data?.totalEnergy || 0) / 1000).toFixed(1)} kWh
                 </p>
               </div>
@@ -177,15 +177,15 @@ export function LocationFinancialTab({ locationId }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-cyan-500/20 rounded-lg">
                 <DollarSign className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Preço/kWh</p>
-                <p className="text-xl font-bold text-emerald-50">
+                <p className="text-xs text-zinc-400 uppercase">Preço/kWh</p>
+                <p className="text-xl font-bold text-white">
                   R$ {(data?.pricePerKwh || 0).toFixed(2)}
                 </p>
               </div>
@@ -195,17 +195,17 @@ export function LocationFinancialTab({ locationId }: Props) {
       </div>
 
       {/* Gráfico de Receita */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
-        <CardHeader className="border-b border-emerald-800/30 pb-4">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle className="text-lg text-emerald-50 flex items-center gap-2">
+            <CardTitle className="text-lg text-white flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-400" />
               Receita ao Longo do Tempo
             </CardTitle>
 
             <div className="flex items-center gap-2">
               {/* Seletor de Período */}
-              <div className="flex rounded-lg bg-emerald-950/50 p-1">
+              <div className="flex rounded-lg bg-zinc-800 p-1">
                 {(['7d', '30d', '90d'] as Period[]).map((p) => (
                   <button
                     key={p}
@@ -213,7 +213,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       period === p
                         ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-emerald-300/70 hover:text-emerald-300'
+                        : 'text-zinc-400 hover:text-zinc-300'
                     }`}
                   >
                     {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : '90 dias'}
@@ -226,7 +226,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                 size="sm"
                 onClick={fetchData}
                 disabled={isLoading}
-                className="text-emerald-300 hover:bg-emerald-800/30"
+                className="text-zinc-300 hover:bg-zinc-800"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
@@ -236,13 +236,13 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="h-[300px] flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-white0 animate-spin" />
             </div>
           ) : (
             <div className="h-[300px]">
               <Suspense fallback={
                 <div className="h-full flex items-center justify-center">
-                  <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
+                  <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
                 </div>
               }>
                 <ResponsiveContainer width="100%" height="100%">
@@ -284,14 +284,14 @@ export function LocationFinancialTab({ locationId }: Props) {
       </Card>
 
       {/* Receita por Carregador */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
-        <CardHeader className="border-b border-emerald-800/30 pb-4">
-          <CardTitle className="text-lg text-emerald-50 flex items-center justify-between">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
+          <CardTitle className="text-lg text-white flex items-center justify-between">
             <span className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-emerald-400" />
               Receita por Carregador
             </span>
-            <span className="text-sm font-normal text-emerald-300/70">
+            <span className="text-sm font-normal text-zinc-400">
               {data?.revenueByCharger?.length || 0} carregadores
             </span>
           </CardTitle>
@@ -299,30 +299,30 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
+              <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
             </div>
           ) : !data?.revenueByCharger?.length ? (
-            <div className="text-center py-12 text-emerald-300/70">
+            <div className="text-center py-12 text-zinc-400">
               Nenhum carregador encontrado
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-emerald-800/30">
-                    <th className="text-left py-3 px-4 text-xs text-emerald-400/70 uppercase tracking-wider">Carregador</th>
-                    <th className="text-left py-3 px-4 text-xs text-emerald-400/70 uppercase tracking-wider">Sessões</th>
-                    <th className="text-left py-3 px-4 text-xs text-emerald-400/70 uppercase tracking-wider">Energia</th>
-                    <th className="text-left py-3 px-4 text-xs text-emerald-400/70 uppercase tracking-wider">Receita</th>
+                  <tr className="border-b border-zinc-800">
+                    <th className="text-left py-3 px-4 text-xs text-zinc-500 uppercase tracking-wider">Carregador</th>
+                    <th className="text-left py-3 px-4 text-xs text-zinc-500 uppercase tracking-wider">Sessões</th>
+                    <th className="text-left py-3 px-4 text-xs text-zinc-500 uppercase tracking-wider">Energia</th>
+                    <th className="text-left py-3 px-4 text-xs text-zinc-500 uppercase tracking-wider">Receita</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.revenueByCharger.map((charger) => (
-                    <tr key={charger.chargerId} className="border-b border-emerald-800/20 hover:bg-emerald-800/10">
-                      <td className="py-3 px-4 text-emerald-50 font-medium">
+                    <tr key={charger.chargerId} className="border-b border-zinc-700 hover:bg-zinc-800">
+                      <td className="py-3 px-4 text-white font-medium">
                         {charger.chargerName || charger.chargerId}
                       </td>
-                      <td className="py-3 px-4 text-emerald-300/70">
+                      <td className="py-3 px-4 text-zinc-400">
                         {charger.sessions}
                       </td>
                       <td className="py-3 px-4 text-amber-400 flex items-center gap-1">
@@ -342,19 +342,19 @@ export function LocationFinancialTab({ locationId }: Props) {
       </Card>
 
       {/* Botões de Exportação */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-emerald-50 font-medium">Exportar Relatório Financeiro</h3>
-              <p className="text-sm text-emerald-300/70">Baixe os dados financeiros em diferentes formatos</p>
+              <h3 className="text-white font-medium">Exportar Relatório Financeiro</h3>
+              <p className="text-sm text-zinc-400">Baixe os dados financeiros em diferentes formatos</p>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('csv')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 CSV
@@ -363,7 +363,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('excel')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Excel
@@ -372,7 +372,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('pdf')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 PDF

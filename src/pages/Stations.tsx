@@ -135,7 +135,7 @@ export const Stations = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-emerald-400">Carregando estações...</div>
+        <div className="text-zinc-400">Carregando estações...</div>
       </div>
     );
   }
@@ -143,22 +143,22 @@ export const Stations = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-emerald-50 flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
           <Zap className="w-8 h-8 text-emerald-400" />
           Estações de Recarga
         </h1>
-        <p className="text-emerald-300/60 mt-1">Gerenciamento de carregadores</p>
+        <p className="text-zinc-400 mt-1">Gerenciamento de carregadores</p>
       </div>
 
       {/* Pending Chargers */}
       {pendingChargers.length > 0 && (
-        <Card className="bg-gradient-to-br from-amber-950/40 to-emerald-900/20 border-amber-700/30 backdrop-blur-sm shadow-2xl shadow-amber-900/10">
-          <CardHeader className="border-b border-amber-700/30 pb-6">
-            <CardTitle className="text-amber-50 flex items-center gap-2">
+        <Card className="bg-zinc-900/50 border-amber-700/30">
+          <CardHeader className="border-b border-zinc-800 pb-6">
+            <CardTitle className="text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-400" />
               Carregadores Pendentes
             </CardTitle>
-            <p className="text-sm text-amber-300/60">Associe estes carregadores a um local</p>
+            <p className="text-sm text-zinc-400">Associe estes carregadores a um local</p>
           </CardHeader>
           <CardContent className="pt-6">
             <EnhancedTable hoverable>
@@ -177,11 +177,11 @@ export const Stations = () => {
                   <EnhancedTableRow key={charger.charge_point_id} index={index}>
                     <EnhancedTableCell className="font-mono">
                       <div className="flex flex-col gap-1">
-                        <span className="text-emerald-300 font-medium">
+                        <span className="text-zinc-300 font-medium">
                           {charger.description || charger.charge_point_id}
                         </span>
                         {charger.description && (
-                          <span className="text-xs text-emerald-500/70 font-mono">
+                          <span className="text-xs text-zinc-500 font-mono">
                             {charger.charge_point_id}
                           </span>
                         )}
@@ -190,11 +190,11 @@ export const Stations = () => {
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm text-emerald-300/70">
+                    <EnhancedTableCell className="text-sm text-zinc-400">
                       {charger.vendor || 'N/A'}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm">
-                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-zinc-500">—</span>}
                     </EnhancedTableCell>
                     <EnhancedTableCell>
                       <Select
@@ -206,15 +206,15 @@ export const Stations = () => {
                           }))
                         }
                       >
-                        <SelectTrigger className="w-[250px] bg-emerald-900/40 border-emerald-700/50 text-emerald-50 hover:bg-emerald-800/60">
+                        <SelectTrigger className="w-[250px] bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700">
                           <SelectValue placeholder="Selecione um local" />
                         </SelectTrigger>
-                        <SelectContent className="bg-emerald-900 border-emerald-700">
+                        <SelectContent className="bg-zinc-800 border-zinc-700">
                           {locations.map(location => (
                             <SelectItem
                               key={location.id}
                               value={location.id.toString()}
-                              className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                              className="text-white focus:bg-zinc-700 focus:text-white"
                             >
                               {location.nomeDoLocal} ({location.endereco})
                             </SelectItem>
@@ -226,7 +226,7 @@ export const Stations = () => {
                       <Button
                         size="sm"
                         onClick={() => handleAssignCharger(charger.charge_point_id)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 transition-all"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white transition-all"
                       >
                         Salvar
                       </Button>
@@ -240,20 +240,20 @@ export const Stations = () => {
       )}
 
       {/* Assigned Chargers */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
-        <CardHeader className="border-b border-emerald-800/30 pb-6">
-          <CardTitle className="text-emerald-50 flex items-center gap-2">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-6">
+          <CardTitle className="text-white flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             Carregadores Atribuídos
           </CardTitle>
-          <p className="text-sm text-emerald-300/60">Carregadores já associados a locais</p>
+          <p className="text-sm text-zinc-400">Carregadores já associados a locais</p>
         </CardHeader>
         <CardContent className="pt-6">
           {assignedChargers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Zap className="w-16 h-16 text-emerald-500/30 mb-4" />
-              <p className="text-xl text-emerald-300 font-semibold">Nenhuma estação atribuída</p>
-              <p className="text-base text-emerald-400/60 mt-2">
+              <Zap className="w-16 h-16 text-zinc-600 mb-4" />
+              <p className="text-xl text-zinc-300 font-semibold">Nenhuma estação atribuída</p>
+              <p className="text-base text-zinc-500 mt-2">
                 {pendingChargers.length > 0
                   ? 'Atribua os carregadores pendentes acima a um local'
                   : 'Conecte um carregador OCPP para começar'}
@@ -277,11 +277,11 @@ export const Stations = () => {
                   <EnhancedTableRow key={charger.charge_point_id} index={index}>
                     <EnhancedTableCell className="font-mono">
                       <div className="flex flex-col gap-1">
-                        <span className="text-emerald-300 font-medium">
+                        <span className="text-zinc-300 font-medium">
                           {charger.description || charger.charge_point_id}
                         </span>
                         {charger.description && (
-                          <span className="text-xs text-emerald-500/70 font-mono">
+                          <span className="text-xs text-zinc-500 font-mono">
                             {charger.charge_point_id}
                           </span>
                         )}
@@ -290,14 +290,14 @@ export const Stations = () => {
                     <EnhancedTableCell className="font-medium">
                       {charger.model || 'N/A'}
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm text-emerald-300/70">
+                    <EnhancedTableCell className="text-sm text-zinc-400">
                       {charger.vendor || 'N/A'}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm">
-                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-emerald-500/50">—</span>}
+                      {charger.power_kw ? <span className="text-emerald-400">{charger.power_kw} kW</span> : <span className="text-zinc-500">—</span>}
                     </EnhancedTableCell>
                     <EnhancedTableCell>
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30 text-sm">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 text-sm">
                         {getLocationName(charger.locationId)}
                       </span>
                     </EnhancedTableCell>
@@ -312,7 +312,7 @@ export const Stations = () => {
                           setSelectedCharger(charger.charge_point_id);
                           setDetailsOpen(true);
                         }}
-                        className="border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/40"
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         Detalhes

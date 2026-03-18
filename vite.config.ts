@@ -64,8 +64,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
       '/notifications': {
-        target: 'ws://localhost:3000', // base_ocpp WebSocket notifications
+        target: 'ws://localhost:3000',
         changeOrigin: true,
         ws: true,
       },

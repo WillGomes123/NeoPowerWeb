@@ -48,6 +48,8 @@ interface BrandingConfig {
   slogan?: string;
   logoType: 'programmatic' | 'image';
   logoUri?: string;
+  splashUri?: string;
+  splashBgColor?: string;
   primaryColor?: string;
   updatedAt?: string;
 }
@@ -95,6 +97,8 @@ export const Branding = () => {
     slogan: '',
     logoType: 'programmatic',
     logoUri: '',
+    splashUri: '',
+    splashBgColor: '#000000',
     primaryColor: '#00FF88',
   });
 
@@ -136,6 +140,8 @@ export const Branding = () => {
           slogan: '',
           logoType: 'programmatic',
           logoUri: '',
+          splashUri: '',
+          splashBgColor: '#000000',
           primaryColor: '#00FF88',
         });
         void fetchConfigs();
@@ -393,6 +399,8 @@ export const Branding = () => {
                   slogan: '',
                   logoType: 'programmatic',
                   logoUri: '',
+                  splashUri: '',
+                  splashBgColor: '#000000',
                   primaryColor: '#00FF88',
                 })
               }
@@ -401,154 +409,182 @@ export const Branding = () => {
               Nova Marca
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="text-white">Configurar Marca</DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Defina os elementos visuais que o App assumirá para este cliente.
+          <DialogContent className="bg-zinc-900 border-zinc-800 !p-0 overflow-hidden" style={{ maxWidth: '420px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="p-5 border-b border-zinc-800 shrink-0">
+              <DialogTitle className="text-white flex items-center gap-2">
+                <Palette className="w-5 h-5 text-emerald-400" />
+                Configurar Marca
+              </DialogTitle>
+              <DialogDescription className="text-zinc-500 text-sm mt-1">
+                Identidade visual do cliente no App
               </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="clientId" className="text-zinc-300">
-                    ID do Cliente (Slug)
-                  </Label>
-                  <Input
-                    id="clientId"
-                    placeholder="ex: cliente-xyz"
-                    value={formData.clientId}
-                    onChange={e => setFormData({ ...formData, clientId: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="companyName" className="text-zinc-300">
-                    Nome da Empresa
-                  </Label>
-                  <Input
-                    id="companyName"
-                    placeholder="Nome Exibido"
-                    value={formData.companyName}
-                    onChange={e => setFormData({ ...formData, companyName: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
-                </div>
-              </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="slogan" className="text-zinc-300">
-                  Slogan (Opcional)
-                </Label>
-                <Input
-                  id="slogan"
-                  value={formData.slogan}
-                  onChange={e => setFormData({ ...formData, slogan: e.target.value })}
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-zinc-300">Tipo de Logo</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={formData.logoType === 'programmatic' ? 'default' : 'outline'}
-                      className={
-                        formData.logoType === 'programmatic' ? 'bg-emerald-600' : 'border-zinc-700'
-                      }
-                      onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
-                    >
-                      Ícone App
-                    </Button>
-                    <Button
-                      variant={formData.logoType === 'image' ? 'default' : 'outline'}
-                      className={
-                        formData.logoType === 'image' ? 'bg-emerald-600' : 'border-zinc-700'
-                      }
-                      onClick={() => setFormData({ ...formData, logoType: 'image' })}
-                    >
-                      Imagem/URL
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="color" className="text-zinc-300">
-                    Cor Primária
-                  </Label>
-                  <div className="flex gap-2">
+            <div className="overflow-y-auto flex-1 min-h-0 p-5 space-y-5">
+              {/* Identidade */}
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Identidade</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-zinc-400 text-xs">ID (Slug)</Label>
                     <Input
-                      id="color"
-                      type="color"
-                      value={formData.primaryColor}
-                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
-                      className="w-12 h-10 p-1 bg-zinc-800 border-zinc-700"
+                      placeholder="cliente-xyz"
+                      value={formData.clientId}
+                      onChange={e => setFormData({ ...formData, clientId: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-zinc-400 text-xs">Empresa</Label>
                     <Input
-                      value={formData.primaryColor}
-                      onChange={e => setFormData({ ...formData, primaryColor: e.target.value })}
-                      className="bg-zinc-800 border-zinc-700 text-white font-mono"
+                      placeholder="Nome Exibido"
+                      value={formData.companyName}
+                      onChange={e => setFormData({ ...formData, companyName: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
                     />
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-400 text-xs">Slogan (Opcional)</Label>
+                  <Input
+                    value={formData.slogan}
+                    onChange={e => setFormData({ ...formData, slogan: e.target.value })}
+                    className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+                  />
+                </div>
               </div>
 
-              {formData.logoType === 'image' && (
+              {/* Logo */}
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Logo do App</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border ${formData.logoType === 'programmatic' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'}`}
+                  >
+                    Padrão
+                  </button>
+                  <button
+                    onClick={() => setFormData({ ...formData, logoType: 'image' })}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border ${formData.logoType === 'image' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'}`}
+                  >
+                    Upload
+                  </button>
+                </div>
+                {formData.logoType === 'image' && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="URL da logo ou faça upload"
+                        value={formData.logoUri}
+                        onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
+                        className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm flex-1"
+                      />
+                      <div className="relative">
+                        <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploadingLogo} />
+                        <Button
+                          type="button" variant="outline" size="sm"
+                          className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
+                          onClick={() => document.getElementById('logo-upload')?.click()}
+                          disabled={uploadingLogo}
+                        >
+                          {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                    {formData.logoUri && (
+                      <div className="flex items-center gap-3 p-2 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                        <img src={formData.logoUri} alt="Logo" className="w-10 h-10 rounded object-contain bg-zinc-900" />
+                        <span className="text-xs text-zinc-400 truncate flex-1">{formData.logoUri}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Splash Screen */}
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Splash Screen</p>
                 <div className="space-y-2">
-                  <Label htmlFor="logoUri" className="text-zinc-300">
-                    Logo (URL ou Upload)
-                  </Label>
                   <div className="flex gap-2">
                     <Input
-                      id="logoUri"
-                      placeholder="https://..."
-                      value={formData.logoUri}
-                      onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
-                      className="bg-zinc-800 border-zinc-700 text-white flex-1"
+                      placeholder="URL da splash ou faça upload"
+                      value={formData.splashUri || ''}
+                      onChange={e => setFormData({ ...formData, splashUri: e.target.value })}
+                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm flex-1"
                     />
                     <div className="relative">
                       <input
-                        type="file"
-                        id="logo-upload"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        disabled={uploadingLogo}
+                        type="file" id="splash-upload" className="hidden" accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
+                          if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5MB'); return; }
+                          setUploadingLogo(true);
+                          const fd = new FormData();
+                          fd.append('files', file);
+                          try {
+                            const res = await api.post('/admin/branding/upload', fd);
+                            if (res.ok) {
+                              const data = await res.json();
+                              setFormData(prev => ({ ...prev, splashUri: data.payload.url }));
+                              toast.success('Splash enviada!');
+                            } else { toast.error('Erro no upload'); }
+                          } catch { toast.error('Erro no upload'); }
+                          finally { setUploadingLogo(false); }
+                        }}
                       />
                       <Button
-                        type="button"
-                        variant="outline"
-                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                        onClick={() => document.getElementById('logo-upload')?.click()}
+                        type="button" variant="outline" size="sm"
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
+                        onClick={() => document.getElementById('splash-upload')?.click()}
                         disabled={uploadingLogo}
                       >
-                        {uploadingLogo ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
+                        {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                       </Button>
                     </div>
                   </div>
+                  {formData.splashUri && (
+                    <div className="flex items-center gap-3 p-2 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                      <img src={formData.splashUri} alt="Splash" className="w-8 h-14 rounded object-contain bg-zinc-900" />
+                      <span className="text-xs text-zinc-400 truncate flex-1">{formData.splashUri}</span>
+                      <button onClick={() => setFormData({ ...formData, splashUri: '' })} className="text-zinc-500 hover:text-red-400"><X className="w-4 h-4" /></button>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Cores */}
+              <div className="space-y-3">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Cores</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-zinc-400 text-xs">Cor Primária</Label>
+                    <div className="flex gap-2">
+                      <input type="color" value={formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="w-10 h-9 rounded border border-zinc-700 bg-zinc-800 cursor-pointer" style={{ padding: '2px' }} />
+                      <Input value={formData.primaryColor} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="bg-zinc-800 border-zinc-700 text-white font-mono h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-zinc-400 text-xs">Fundo Splash</Label>
+                    <div className="flex gap-2">
+                      <input type="color" value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="w-10 h-9 rounded border border-zinc-700 bg-zinc-800 cursor-pointer" style={{ padding: '2px' }} />
+                      <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-zinc-800 border-zinc-700 text-white font-mono h-9 text-sm" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                className="border-zinc-700 text-zinc-300"
-              >
+
+            <div className="flex justify-end gap-2 p-4 border-t border-zinc-800 shrink-0">
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="border-zinc-700 text-zinc-300 h-9">
                 Cancelar
               </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {submitting ? 'Salvando...' : 'Salvar Configuração'}
+              <Button onClick={handleSubmit} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 h-9">
+                {submitting ? 'Salvando...' : 'Salvar'}
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -918,25 +954,24 @@ export const Branding = () => {
       </Dialog>
       {/* Build Options Dialog */}
       <Dialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[425px]">
-          <DialogHeader>
+        <DialogContent className="bg-zinc-900 border-zinc-800 !p-0 overflow-hidden" style={{ maxWidth: '340px', width: '90vw' }}>
+          <div className="p-5 border-b border-zinc-800">
             <DialogTitle className="text-white flex items-center gap-2">
               <Box className="h-5 w-5 text-emerald-500" />
-              Gerar Build Nativo (EAS)
+              Gerar Build (EAS)
             </DialogTitle>
-            <DialogDescription className="text-zinc-400 text-sm mt-1.5">
-              Escolha para qual plataforma deseja compilar o aplicativo de{' '}
-              <strong className="text-emerald-400 font-medium">
+            <DialogDescription className="text-zinc-500 text-sm mt-1">
+              Compilar app de{' '}
+              <strong className="text-emerald-400">
                 {selectedBuildClient?.companyName}
               </strong>
-              .
             </DialogDescription>
-          </DialogHeader>
+          </div>
 
-          <div className="grid gap-4 py-4">
-            <div className="space-y-4">
-              <Label className="text-zinc-300 font-medium">Plataforma</Label>
-              <div className="grid grid-cols-1 gap-3">
+          <div className="p-5 space-y-4">
+            <div className="space-y-2.5">
+              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Plataforma</p>
+              <div className="space-y-2">
                 <div
                   className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'android' ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
                   onClick={() => setBuildPlatform('android')}
@@ -999,30 +1034,21 @@ export const Branding = () => {
               </div>
             </div>
 
-            <div className="bg-amber-950/30 border border-amber-900/50 rounded p-3 mt-2">
-              <p className="text-amber-500/90 text-[13px] leading-relaxed">
-                <strong className="font-semibold block mb-1">Nota importante:</strong>O processo
-                pode levar de 5 a 15 minutos dependendo da fila na Expo. Verifique o painel do
-                GitHub Actions para progresso.
+            <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg p-3">
+              <p className="text-amber-500/80 text-xs leading-relaxed">
+                O processo pode levar de 5 a 15 min. Verifique o GitHub Actions.
               </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsBuildDialogOpen(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-            >
+          <div className="flex justify-end gap-2 p-4 border-t border-zinc-800">
+            <Button variant="outline" onClick={() => setIsBuildDialogOpen(false)} className="border-zinc-700 text-zinc-300 h-9">
               Cancelar
             </Button>
-            <Button
-              onClick={executeTriggerBuild}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              Confirmar Disparo
+            <Button onClick={executeTriggerBuild} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+              Confirmar
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

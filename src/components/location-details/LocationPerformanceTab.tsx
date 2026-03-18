@@ -189,71 +189,71 @@ export function LocationPerformanceTab({ locationId }: Props) {
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-500/20 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Taxa Ocupação</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totals.avgOccupancy || 0}%</p>
+                <p className="text-xs text-zinc-400 uppercase">Taxa Ocupação</p>
+                <p className="text-xl font-bold text-white">{data?.totals.avgOccupancy || 0}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500/20 rounded-lg">
                 <Zap className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Energia Total</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totals.totalEnergy.toFixed(1) || 0} kWh</p>
+                <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
+                <p className="text-xl font-bold text-white">{data?.totals.totalEnergy.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <Clock className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Disponibilidade</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totals.avgAvailability || 0}%</p>
+                <p className="text-xs text-zinc-400 uppercase">Disponibilidade</p>
+                <p className="text-xl font-bold text-white">{data?.totals.avgAvailability || 0}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500/20 rounded-lg">
                 <Activity className="w-5 h-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Sessões</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totals.totalSessions || 0}</p>
+                <p className="text-xs text-zinc-400 uppercase">Sessões</p>
+                <p className="text-xl font-bold text-white">{data?.totals.totalSessions || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-cyan-500/20 rounded-lg">
                 <BarChart3 className="w-5 h-5 text-cyan-400" />
               </div>
               <div>
-                <p className="text-xs text-emerald-300/60 uppercase">Média Diária</p>
-                <p className="text-xl font-bold text-emerald-50">{data?.totals.avgUtilization.toFixed(1) || 0} kWh</p>
+                <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
+                <p className="text-xl font-bold text-white">{data?.totals.avgUtilization.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
@@ -261,17 +261,17 @@ export function LocationPerformanceTab({ locationId }: Props) {
       </div>
 
       {/* Gráfico Principal */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
-        <CardHeader className="border-b border-emerald-800/30 pb-4">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle className="text-lg text-emerald-50 flex items-center gap-2">
+            <CardTitle className="text-lg text-white flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-emerald-400" />
               Performance
             </CardTitle>
 
             <div className="flex flex-wrap items-center gap-2">
               {/* Seletor de Métrica */}
-              <div className="flex rounded-lg bg-emerald-950/50 p-1">
+              <div className="flex rounded-lg bg-zinc-800/50 p-1">
                 {(Object.keys(metricsConfig) as MetricType[]).map((metric) => (
                   <button
                     key={metric}
@@ -279,7 +279,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       selectedMetric === metric
                         ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-emerald-300/70 hover:text-emerald-300'
+                        : 'text-zinc-400 hover:text-zinc-300'
                     }`}
                   >
                     {metricsConfig[metric].label.split(' ')[0]}
@@ -288,7 +288,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
               </div>
 
               {/* Seletor de Período */}
-              <div className="flex rounded-lg bg-emerald-950/50 p-1">
+              <div className="flex rounded-lg bg-zinc-800/50 p-1">
                 {(['7d', '30d', '90d'] as Period[]).map((p) => (
                   <button
                     key={p}
@@ -296,7 +296,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       period === p
                         ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-emerald-300/70 hover:text-emerald-300'
+                        : 'text-zinc-400 hover:text-zinc-300'
                     }`}
                   >
                     {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : '90 dias'}
@@ -305,7 +305,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
               </div>
 
               {/* Seletor de Tipo de Gráfico */}
-              <div className="flex rounded-lg bg-emerald-950/50 p-1">
+              <div className="flex rounded-lg bg-zinc-800/50 p-1">
                 {(['area', 'bar', 'line'] as ChartType[]).map((type) => (
                   <button
                     key={type}
@@ -313,7 +313,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                     className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
                       chartType === type
                         ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-emerald-300/70 hover:text-emerald-300'
+                        : 'text-zinc-400 hover:text-zinc-300'
                     }`}
                   >
                     {type === 'area' ? 'Área' : type === 'bar' ? 'Barras' : 'Linha'}
@@ -327,7 +327,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 size="sm"
                 onClick={fetchData}
                 disabled={isLoading}
-                className="text-emerald-300 hover:bg-emerald-800/30"
+                className="text-zinc-300 hover:bg-zinc-700"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
@@ -337,13 +337,13 @@ export function LocationPerformanceTab({ locationId }: Props) {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="h-[400px] flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-white0 animate-spin" />
             </div>
           ) : (
             <div className="h-[400px]">
               <Suspense fallback={
                 <div className="h-full flex items-center justify-center">
-                  <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
+                  <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
                 </div>
               }>
                 <ResponsiveContainer width="100%" height="100%">
@@ -356,19 +356,19 @@ export function LocationPerformanceTab({ locationId }: Props) {
       </Card>
 
       {/* Botões de Exportação */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-emerald-50 font-medium">Exportar Relatório</h3>
-              <p className="text-sm text-emerald-300/70">Baixe os dados de performance em diferentes formatos</p>
+              <h3 className="text-white font-medium">Exportar Relatório</h3>
+              <p className="text-sm text-zinc-400">Baixe os dados de performance em diferentes formatos</p>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('csv')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 CSV
@@ -377,7 +377,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('excel')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Excel
@@ -386,7 +386,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('pdf')}
-                className="border-emerald-700/50 text-emerald-300"
+                className="border-zinc-700 text-zinc-300"
               >
                 <Download className="w-4 h-4 mr-2" />
                 PDF

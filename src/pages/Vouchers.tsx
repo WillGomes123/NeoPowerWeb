@@ -209,7 +209,7 @@ export const Vouchers = () => {
   if (loading && !isEditing) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-emerald-400">Carregando vouchers...</div>
+        <div className="text-zinc-400">Carregando vouchers...</div>
       </div>
     );
   }
@@ -221,7 +221,7 @@ export const Vouchers = () => {
           <Button
             onClick={handleCancel}
             variant="ghost"
-            className="text-emerald-300 hover:text-emerald-100 hover:bg-emerald-900/30"
+            className="text-zinc-300 hover:text-white hover:bg-zinc-800"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Voltar
@@ -229,45 +229,45 @@ export const Vouchers = () => {
         </div>
 
         <div>
-          <h1 className="text-emerald-50">
+          <h1 className="text-2xl font-bold text-white">
             {editingVoucher.id ? 'Editar Voucher' : 'Criar Voucher'}
           </h1>
-          <p className="text-emerald-300/60 mt-1">Preencha os dados do voucher</p>
+          <p className="text-zinc-400 mt-1">Preencha os dados do voucher</p>
         </div>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="code" className="text-emerald-200">
+                <Label htmlFor="code" className="text-zinc-300">
                   Código do Voucher
                 </Label>
                 <Input
                   id="code"
                   value={editingVoucher.code}
                   onChange={e => setEditingVoucher({ ...editingVoucher, code: e.target.value })}
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                   placeholder="CODIGO123"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-emerald-200">
+                <Label htmlFor="name" className="text-zinc-300">
                   Nome do Voucher
                 </Label>
                 <Input
                   id="name"
                   value={editingVoucher.name}
                   onChange={e => setEditingVoucher({ ...editingVoucher, name: e.target.value })}
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                   placeholder="Nome descritivo"
                   required
                 />
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="description" className="text-emerald-200">
+                <Label htmlFor="description" className="text-zinc-300">
                   Descrição
                 </Label>
                 <Textarea
@@ -276,14 +276,14 @@ export const Vouchers = () => {
                   onChange={e =>
                     setEditingVoucher({ ...editingVoucher, description: e.target.value })
                   }
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                   placeholder="Descrição do voucher"
                   rows={3}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="type" className="text-emerald-200">
+                <Label htmlFor="type" className="text-zinc-300">
                   Tipo de Desconto
                 </Label>
                 <Select
@@ -292,25 +292,25 @@ export const Vouchers = () => {
                     setEditingVoucher({ ...editingVoucher, type: value })
                   }
                 >
-                  <SelectTrigger className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600">
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-emerald-900 border-emerald-700">
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
                     <SelectItem
                       value="percent"
-                      className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                      className="text-white focus:bg-zinc-700 focus:text-white"
                     >
                       Percentagem (%)
                     </SelectItem>
                     <SelectItem
                       value="fixed"
-                      className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                      className="text-white focus:bg-zinc-700 focus:text-white"
                     >
                       Reais (R$)
                     </SelectItem>
                     <SelectItem
                       value="kwh"
-                      className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                      className="text-white focus:bg-zinc-700 focus:text-white"
                     >
                       Quilowatt-hora (kWh)
                     </SelectItem>
@@ -319,7 +319,7 @@ export const Vouchers = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="value" className="text-emerald-200">
+                <Label htmlFor="value" className="text-zinc-300">
                   Valor
                 </Label>
                 <Input
@@ -330,13 +330,13 @@ export const Vouchers = () => {
                   onChange={e =>
                     setEditingVoucher({ ...editingVoucher, value: parseFloat(e.target.value) || 0 })
                   }
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="start_date" className="text-emerald-200">
+                <Label htmlFor="start_date" className="text-zinc-300">
                   Data de Início
                 </Label>
                 <Input
@@ -346,12 +346,12 @@ export const Vouchers = () => {
                   onChange={e =>
                     setEditingVoucher({ ...editingVoucher, start_date: e.target.value })
                   }
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="end_date" className="text-emerald-200">
+                <Label htmlFor="end_date" className="text-zinc-300">
                   Válido Até
                 </Label>
                 <Input
@@ -359,12 +359,12 @@ export const Vouchers = () => {
                   type="date"
                   value={editingVoucher.end_date || ''}
                   onChange={e => setEditingVoucher({ ...editingVoucher, end_date: e.target.value })}
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_quantity" className="text-emerald-200">
+                <Label htmlFor="total_quantity" className="text-zinc-300">
                   Quantidade Total (deixe em branco para ilimitado)
                 </Label>
                 <Input
@@ -377,13 +377,13 @@ export const Vouchers = () => {
                       total_quantity: e.target.value ? parseInt(e.target.value) : null,
                     })
                   }
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600"
+                  className="bg-zinc-800 border-zinc-700 text-white focus:ring-1 focus:ring-emerald-500/50"
                   placeholder="Ilimitado"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location_id" className="text-emerald-200">
+                <Label htmlFor="location_id" className="text-zinc-300">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-emerald-400" />
                     Restringir a Local (opcional)
@@ -399,13 +399,13 @@ export const Vouchers = () => {
                     })
                   }
                 >
-                  <SelectTrigger className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600">
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                     <SelectValue placeholder="Todos os locais" />
                   </SelectTrigger>
-                  <SelectContent className="bg-emerald-900 border-emerald-700">
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
                     <SelectItem
                       value="none"
-                      className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                      className="text-white focus:bg-zinc-700 focus:text-white"
                     >
                       Todos os locais
                     </SelectItem>
@@ -413,20 +413,20 @@ export const Vouchers = () => {
                       <SelectItem
                         key={location.id}
                         value={location.id.toString()}
-                        className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                        className="text-white focus:bg-zinc-700 focus:text-white"
                       >
                         {location.nomeDoLocal} - {location.endereco}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-emerald-300/50">
+                <p className="text-xs text-zinc-500">
                   Se selecionado, o voucher só pode ser usado neste local
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="charger_id" className="text-emerald-200">
+                <Label htmlFor="charger_id" className="text-zinc-300">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-emerald-400" />
                     Restringir a Carregador (opcional)
@@ -442,13 +442,13 @@ export const Vouchers = () => {
                     })
                   }
                 >
-                  <SelectTrigger className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 focus:border-emerald-600">
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                     <SelectValue placeholder="Todos os carregadores" />
                   </SelectTrigger>
-                  <SelectContent className="bg-emerald-900 border-emerald-700">
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
                     <SelectItem
                       value="none"
-                      className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                      className="text-white focus:bg-zinc-700 focus:text-white"
                     >
                       Todos os carregadores
                     </SelectItem>
@@ -456,20 +456,20 @@ export const Vouchers = () => {
                       <SelectItem
                         key={charger.chargerId}
                         value={charger.chargerId}
-                        className="text-emerald-50 focus:bg-emerald-800 focus:text-emerald-50"
+                        className="text-white focus:bg-zinc-700 focus:text-white"
                       >
                         {charger.chargerId} {charger.model ? `(${charger.model})` : ''} {charger.locationAddress ? `- ${charger.locationAddress}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-emerald-300/50">
+                <p className="text-xs text-zinc-500">
                   Se selecionado, o voucher só pode ser usado neste carregador específico
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="is_active" className="text-emerald-200">
+                <Label htmlFor="is_active" className="text-zinc-300">
                   Ativar Voucher
                 </Label>
                 <div className="flex items-center space-x-2 mt-2">
@@ -481,7 +481,7 @@ export const Vouchers = () => {
                     }
                     className="data-[state=checked]:bg-emerald-600"
                   />
-                  <Label htmlFor="is_active" className="text-emerald-300/70 cursor-pointer">
+                  <Label htmlFor="is_active" className="text-zinc-400 cursor-pointer">
                     {editingVoucher.is_active ? 'Ativo' : 'Inativo'}
                   </Label>
                 </div>
@@ -492,13 +492,13 @@ export const Vouchers = () => {
               <Button
                 onClick={handleCancel}
                 variant="outline"
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/50"
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSave}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/30"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 Salvar Voucher
               </Button>
@@ -513,21 +513,21 @@ export const Vouchers = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-emerald-50">Vouchers</h1>
-          <p className="text-emerald-300/60 mt-1">Gerenciamento de cupons e descontos</p>
+          <h1 className="text-2xl font-bold text-white">Vouchers</h1>
+          <p className="text-zinc-400 mt-1">Gerenciamento de cupons e descontos</p>
         </div>
         <Button
           onClick={handleCreate}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-900/30"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           <Plus className="w-4 h-4 mr-2" />
           Novo Voucher
         </Button>
       </div>
 
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader>
-          <CardTitle className="text-emerald-50 flex items-center gap-2">
+          <CardTitle className="text-white flex items-center gap-2">
             <Ticket className="w-5 h-5 text-emerald-400" />
             Lista de Vouchers
           </CardTitle>
@@ -535,9 +535,9 @@ export const Vouchers = () => {
         <CardContent>
           {vouchers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Ticket className="w-16 h-16 text-emerald-500/30 mb-4" />
-              <p className="text-xl text-emerald-300 font-semibold">Nenhum voucher criado</p>
-              <p className="text-base text-emerald-400/60 mt-2">Clique em "Novo Voucher" para criar cupons de desconto</p>
+              <Ticket className="w-16 h-16 text-zinc-600 mb-4" />
+              <p className="text-xl text-zinc-300 font-semibold">Nenhum voucher criado</p>
+              <p className="text-base text-zinc-500 mt-2">Clique em "Novo Voucher" para criar cupons de desconto</p>
             </div>
           ) : (
           <EnhancedTable>
@@ -571,7 +571,7 @@ export const Vouchers = () => {
                     </EnhancedTableCell>
                     <EnhancedTableCell className="font-medium">{voucher.name}</EnhancedTableCell>
                     <EnhancedTableCell>
-                      <span className="capitalize inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">
+                      <span className="capitalize inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700">
                         {voucher.type === 'percent' && '%'}
                         {voucher.type === 'fixed' && 'R$'}
                         {voucher.type === 'kwh' && 'kWh'}
@@ -600,18 +600,18 @@ export const Vouchers = () => {
                           )}
                         </div>
                       ) : (
-                        <span className="text-emerald-300/50 text-sm">Sem restrição</span>
+                        <span className="text-zinc-500 text-sm">Sem restrição</span>
                       )}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-emerald-300/70">
+                        <span className="text-zinc-400">
                           De:{' '}
                           {voucher.start_date
                             ? new Date(voucher.start_date).toLocaleDateString('pt-BR')
                             : 'N/A'}
                         </span>
-                        <span className="text-emerald-300/70">
+                        <span className="text-zinc-400">
                           Até:{' '}
                           {voucher.end_date
                             ? new Date(voucher.end_date).toLocaleDateString('pt-BR')
@@ -621,7 +621,7 @@ export const Vouchers = () => {
                     </EnhancedTableCell>
                     <EnhancedTableCell>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-emerald-950/50 rounded-full h-2 overflow-hidden border border-emerald-700/30">
+                        <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden border border-zinc-700">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
                             style={{
@@ -646,7 +646,7 @@ export const Vouchers = () => {
                             e.stopPropagation();
                             handleEdit(voucher);
                           }}
-                          className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 border border-transparent hover:border-emerald-500/30"
+                          className="text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all border border-transparent hover:border-zinc-700"
                         >
                           <Edit className="w-4 h-4" />
                         </Button>

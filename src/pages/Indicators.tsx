@@ -309,31 +309,27 @@ export const Indicators = () => {
               onClick={() => setSelectedMetric(metricKey)}
             >
               <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg" style={{ backgroundColor: `${metricConfig.color}20` }}>
-                        <Icon className="w-4 h-4" style={{ color: metricConfig.color }} />
-                      </div>
-                      <span className="text-sm text-zinc-400 font-medium">{metricConfig.label}</span>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-zinc-400 font-medium">{metricConfig.label}</span>
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${metricConfig.color}20` }}>
+                    <Icon className="w-4 h-4" style={{ color: metricConfig.color }} />
+                  </div>
+                </div>
+                <div className="flex items-end justify-between">
+                  <p className="text-2xl font-bold text-white">
+                    {formatValue(metrics.total, metricKey)}
+                  </p>
+                  {metrics.trend === 'up' ? (
+                    <div className="flex items-center gap-0.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full">
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      <span className="text-xs font-semibold">+{Math.abs(metrics.growth).toFixed(1)}%</span>
                     </div>
-                    <p className="text-2xl font-bold text-white">
-                      {formatValue(metrics.total, metricKey)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    {metrics.trend === 'up' ? (
-                      <div className="flex items-center gap-0.5 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full">
-                        <ArrowUpRight className="w-3.5 h-3.5" />
-                        <span className="text-xs font-semibold">+{Math.abs(metrics.growth).toFixed(1)}%</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-0.5 text-red-400 bg-red-400/10 px-2 py-1 rounded-full">
-                        <ArrowDownRight className="w-3.5 h-3.5" />
-                        <span className="text-xs font-semibold">{metrics.growth.toFixed(1)}%</span>
-                      </div>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-0.5 text-red-400 bg-red-400/10 px-2 py-1 rounded-full">
+                      <ArrowDownRight className="w-3.5 h-3.5" />
+                      <span className="text-xs font-semibold">{metrics.growth.toFixed(1)}%</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

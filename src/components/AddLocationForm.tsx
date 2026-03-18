@@ -301,7 +301,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border border-emerald-800/30 rounded-xl overflow-hidden shadow-2xl shadow-emerald-900/30 backdrop-blur-sm">
+    <div className="flex flex-col h-full bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
       {/* Header */}
       <div className="relative px-6 py-5 border-b border-emerald-800/30 bg-gradient-to-r from-emerald-900/50 via-emerald-950/30 to-transparent flex-shrink-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-emerald-500/15 via-transparent to-transparent" />
@@ -314,13 +314,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h2 className="text-xl text-emerald-50 font-bold flex items-center gap-3">
+              <h2 className="text-xl text-white font-bold flex items-center gap-3">
                 <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
                   <MapPin className="w-5 h-5 text-emerald-400" />
                 </div>
                 Adicionar Novo Local
               </h2>
-              <p className="text-emerald-300/60 text-sm mt-1 ml-[52px]">Preencha as informações do eletroposto</p>
+              <p className="text-zinc-400 text-sm mt-1 ml-[52px]">Preencha as informações do eletroposto</p>
             </div>
           </div>
           <button
@@ -338,21 +338,21 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         <TabsList className="flex w-full bg-emerald-950/50 px-6 gap-2 border-b border-emerald-800/30 h-auto justify-start rounded-none py-3 flex-shrink-0">
           <TabsTrigger
             value="info"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-900/50 data-[state=active]:border-emerald-500 text-emerald-300/70 hover:bg-emerald-900/40 hover:text-emerald-200 rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
+            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
           >
             <MapPin className="w-4 h-4" />
             <span>Localização</span>
           </TabsTrigger>
           <TabsTrigger
             value="business"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-900/50 data-[state=active]:border-emerald-500 text-emerald-300/70 hover:bg-emerald-900/40 hover:text-emerald-200 rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
+            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
           >
             <Building className="w-4 h-4" />
             <span>Negócio</span>
           </TabsTrigger>
           <TabsTrigger
             value="custom"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-emerald-900/50 data-[state=active]:border-emerald-500 text-emerald-300/70 hover:bg-emerald-900/40 hover:text-emerald-200 rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
+            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
           >
             <User className="w-4 h-4" />
             <span>Responsável</span>
@@ -360,7 +360,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         </TabsList>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 bg-gradient-to-b from-emerald-950/20 to-zinc-950/40">
+        <div className="flex-1 overflow-y-auto px-6 py-6 bg-zinc-950/30">
           {/* ABA 1: LOCALIZAÇÃO */}
           <TabsContent value="info" className="space-y-5 mt-0" data-state={activeTab === 'info' ? 'active' : 'inactive'}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -375,7 +375,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ex: Shopping Center Norte"
-                    className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                   />
                 </div>
 
@@ -395,7 +395,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onBlur={handleCepBlur}
                       placeholder="00000-000"
                       maxLength={9}
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div className="col-span-2">
@@ -407,7 +407,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.address}
                       onChange={e => setFormData({ ...formData, address: e.target.value })}
                       placeholder="Rua, Avenida..."
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                 </div>
@@ -423,7 +423,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onChange={e => setFormData({ ...formData, numero: e.target.value })}
                       onBlur={handleNumeroBlur}
                       placeholder="123"
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div>
@@ -435,7 +435,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.complemento}
                       onChange={e => setFormData({ ...formData, complemento: e.target.value })}
                       placeholder="Sala 1"
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div>
@@ -447,7 +447,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.cidade}
                       onChange={e => setFormData({ ...formData, cidade: e.target.value })}
                       placeholder="São Paulo"
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div>
@@ -460,7 +460,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onChange={e => setFormData({ ...formData, estado: e.target.value.toUpperCase() })}
                       placeholder="SP"
                       maxLength={2}
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm uppercase placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm uppercase placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                 </div>
@@ -476,7 +476,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
               </div>
 
               {/* Coluna do mapa */}
-              <div className="h-[300px] lg:h-full min-h-[300px] rounded-xl border border-emerald-800/40 overflow-hidden shadow-lg shadow-emerald-900/20">
+              <div className="h-[300px] lg:h-full min-h-[300px] rounded-xl border border-zinc-800 overflow-hidden">
                 <DynamicMap center={mapCenter} zoom={4} className="z-0 h-full w-full">
                   <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -504,7 +504,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     value={formData.razao_social}
                     onChange={e => setFormData({ ...formData, razao_social: e.target.value })}
                     placeholder="Empresa LTDA"
-                    className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                   />
                 </div>
                 <div>
@@ -521,7 +521,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     }}
                     placeholder="00.000.000/0000-00"
                     maxLength={18}
-                    className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                   />
                 </div>
 
@@ -529,10 +529,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Tipo Negócio</Label>
                     <Select value={formData.tipo_negocio} onValueChange={value => setFormData({ ...formData, tipo_negocio: value })}>
-                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
+                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
+                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
                         <SelectItem value="comercial">Comercial</SelectItem>
                         <SelectItem value="condominio_residencial">Condomínio</SelectItem>
                         <SelectItem value="publico">Público</SelectItem>
@@ -544,10 +544,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Acesso</Label>
                     <Select value={formData.tipo_local} onValueChange={value => setFormData({ ...formData, tipo_local: value })}>
-                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
+                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
+                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
                         <SelectItem value="publico">Público</SelectItem>
                         <SelectItem value="privado">Privado</SelectItem>
                       </SelectContent>
@@ -556,10 +556,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <div>
                     <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Estacionamento</Label>
                     <Select value={formData.tipo_estacionamento} onValueChange={value => setFormData({ ...formData, tipo_estacionamento: value })}>
-                      <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-11 text-sm" style={{ backgroundColor: '#022c22' }}>
+                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
+                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
                         <SelectItem value="gratis">Grátis</SelectItem>
                         <SelectItem value="pago">Pago</SelectItem>
                       </SelectContent>
@@ -586,10 +586,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                           setFormData({ ...formData, horario_funcionamento: newHorarios });
                         }}
                       >
-                        <SelectTrigger className="text-emerald-50 border-emerald-800/50 h-9 text-sm flex-1" style={{ backgroundColor: '#022c22' }}>
+                        <SelectTrigger className="text-white border-zinc-700 h-9 text-sm flex-1" style={{ backgroundColor: '#18181b' }}>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="text-emerald-50" style={{ backgroundColor: '#022c22', borderColor: '#047857' }}>
+                        <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
                           <SelectItem value="24horas">24 horas</SelectItem>
                           <SelectItem value="customizado">Customizado</SelectItem>
                           <SelectItem value="fechado">Fechado</SelectItem>
@@ -616,7 +616,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.nome_responsavel}
                       onChange={e => setFormData({ ...formData, nome_responsavel: e.target.value })}
                       placeholder="Nome completo"
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div>
@@ -633,7 +633,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       }}
                       placeholder="000.000.000-00"
                       maxLength={14}
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                 </div>
@@ -649,7 +649,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.email_responsavel}
                       onChange={e => setFormData({ ...formData, email_responsavel: e.target.value })}
                       placeholder="email@empresa.com"
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                   <div>
@@ -668,7 +668,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       }}
                       placeholder="(00) 00000-0000"
                       maxLength={15}
-                      className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 h-11 text-sm placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
                 </div>
@@ -683,7 +683,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     onChange={e => setFormData({ ...formData, observacoes: e.target.value })}
                     placeholder="Informações adicionais..."
                     rows={4}
-                    className="bg-emerald-950/30 text-emerald-50 border-emerald-800/50 text-sm resize-none placeholder:text-emerald-300/30 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-zinc-800 text-white border-zinc-700 text-sm resize-none placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                   />
                 </div>
               </div>
@@ -706,13 +706,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     <Input
                       value={formData.cor_fundo}
                       onChange={e => setFormData({ ...formData, cor_fundo: e.target.value })}
-                      className="w-32 bg-emerald-950/40 text-emerald-50 border-emerald-800/50 h-10 text-sm font-mono"
+                      className="w-32 bg-zinc-800 text-white border-zinc-700 h-10 text-sm font-mono"
                     />
                   </div>
                 </div>
 
                 <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                  <p className="text-emerald-300/60 text-sm">
+                  <p className="text-zinc-400 text-sm">
                     <span className="text-emerald-400 font-medium">Dica:</span> Após criar o local, você poderá adicionar carregadores e conectores através da página de detalhes do local.
                   </p>
                 </div>
@@ -722,7 +722,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-emerald-800/30 bg-gradient-to-r from-emerald-950/50 to-transparent flex-shrink-0">
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50 flex-shrink-0">
           <p className="text-sm text-emerald-300/40">* Campos obrigatórios</p>
           <div className="flex items-center gap-3">
             <Button
@@ -736,7 +736,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
             <Button
               onClick={handleSubmit}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white h-11 px-8 text-sm font-semibold shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 transition-all duration-300 disabled:opacity-50"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white h-11 px-8 text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all duration-300 disabled:opacity-50"
             >
               {loading ? (
                 <>

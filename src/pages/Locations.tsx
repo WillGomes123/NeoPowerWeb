@@ -1,16 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddLocationForm } from '../components/AddLocationForm';
-import { DynamicMap } from '../components/DynamicMap';
-import { TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import '../styles/leaflet-custom.css';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { useSocket } from '../lib/hooks/useSocket';
-import { MapPin, Plus, Search, Zap, Loader2, ChevronRight, RefreshCw } from 'lucide-react';
+import { MapPin, Plus, Search, Zap, Loader2, ChevronRight, RefreshCw, X } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent } from '../components/ui/dialog';
 
 interface Location {
   id: number;
@@ -34,34 +31,14 @@ interface Charger {
   locationId?: number;
 }
 
-const createIcon = (status: 'online' | 'offline' | 'mixed') => {
-  if (!L) return null;
-  const colors = { online: '#10b981', offline: '#6b7280', mixed: '#f59e0b' };
-  const color = colors[status];
-  return L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
-    popupAnchor: [0, -12],
-  });
-};
-
-function ChangeMapView({ center, zoom }: { center: [number, number] | null; zoom: number }) {
-  const map = useMap();
-  React.useEffect(() => {
-    if (center) map.setView(center, zoom);
-  }, [center, zoom, map]);
-  return null;
-}
-
 export const Locations = () => {
   const navigate = useNavigate();
   const [locations, setLocations] = useState<Location[]>([]);
   const [chargers, setChargers] = useState<Charger[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingLocation, setIsAddingLocation] = useState(false);
-  const [focusedCoords, setFocusedCoords] = useState<[number, number] | null>(null);
+  const [mapDialogOpen, setMapDialogOpen] = useState(false);
+  const [mapDialogLocation, setMapDialogLocation] = useState<Location | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { chargerStatuses } = useSocket();
 
@@ -119,22 +96,10 @@ export const Locations = () => {
     );
   }, [locations, searchQuery]);
 
-  // Map markers based on locations (not individual chargers)
-  const locationMarkers = useMemo(() => {
-    return locations
-      .filter(loc => loc.latitude && loc.longitude)
-      .map(loc => {
-        const stats = getLocationChargerStats(loc);
-        let status: 'online' | 'offline' | 'mixed' = 'offline';
-        if (stats.online > 0 && stats.online === stats.total) status = 'online';
-        else if (stats.online > 0) status = 'mixed';
-        return { ...loc, status, stats };
-      });
-  }, [locations, getLocationChargerStats]);
-
   const handleFocusMap = (loc: Location) => {
     if (loc.latitude && loc.longitude) {
-      setFocusedCoords([Number(loc.latitude), Number(loc.longitude)]);
+      setMapDialogLocation(loc);
+      setMapDialogOpen(true);
     }
   };
 
@@ -145,9 +110,6 @@ export const Locations = () => {
     fetchData();
     toast.success('Local adicionado com sucesso!');
   };
-
-  const mapCenter: [number, number] = focusedCoords || [-14.235, -51.925];
-  const mapZoom = focusedCoords ? 16 : 4;
 
   const totalChargers = locations.reduce((sum, loc) => sum + (loc.chargePoints?.length || 0), 0);
   const totalOnline = mergedChargers.filter(c => c.isConnected).length;
@@ -164,9 +126,9 @@ export const Locations = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <MapPin className="w-7 h-7 text-emerald-400" />
@@ -199,14 +161,13 @@ export const Locations = () => {
       </div>
 
       {/* Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 flex-1 min-h-0">
-        {/* List Column */}
-        <div className="flex flex-col min-h-0">
+      <div>
+        <div>
           {/* Search */}
           <div className="relative mb-3 shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <Input
-              placeholder="Buscar local..."
+              placeholder=""
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="bg-zinc-800 border-zinc-700 text-white pl-9 h-9 text-sm"
@@ -214,7 +175,7 @@ export const Locations = () => {
           </div>
 
           {/* Location Cards */}
-          <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+          <div className="space-y-2">
             {loading && (
               <div className="flex flex-col items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-3" />
@@ -288,42 +249,36 @@ export const Locations = () => {
           </div>
         </div>
 
-        {/* Map Column */}
-        <div className="rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 min-h-[400px]">
-          <DynamicMap center={mapCenter} zoom={mapZoom} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            />
-            <ChangeMapView center={focusedCoords} zoom={mapZoom} />
-
-            {locationMarkers.map(loc => {
-              const icon = createIcon(loc.status);
-              return icon ? (
-                <Marker
-                  key={loc.id}
-                  position={[Number(loc.latitude), Number(loc.longitude)]}
-                  icon={icon}
-                  eventHandlers={{ click: () => handleOpenDetails(loc) }}
-                >
-                  <Popup>
-                    <div className="text-gray-900 min-w-[180px]">
-                      <strong className="block text-sm text-gray-800 mb-1">{loc.nomeDoLocal}</strong>
-                      <p className="text-xs text-gray-500 mb-2">
-                        {loc.endereco}{loc.cidade ? `, ${loc.cidade}` : ''}
-                      </p>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span className="text-emerald-600 font-medium">{loc.stats.online} online</span>
-                        <span className="text-gray-400">{loc.stats.offline} offline</span>
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ) : null;
-            })}
-          </DynamicMap>
-        </div>
       </div>
+
+      {/* Map Dialog */}
+      <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 !p-0 overflow-hidden" style={{ maxWidth: '600px', width: '95vw', height: '80vh', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+          {mapDialogLocation && (
+            <>
+              <div className="p-4 border-b border-zinc-800 shrink-0">
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-400" />
+                  {mapDialogLocation.nomeDoLocal}
+                </h3>
+                <p className="text-zinc-400 text-sm mt-0.5">
+                  {mapDialogLocation.endereco}{mapDialogLocation.cidade ? `, ${mapDialogLocation.cidade}` : ''}{mapDialogLocation.estado ? ` - ${mapDialogLocation.estado}` : ''}
+                </p>
+              </div>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <iframe
+                  title="Mapa do local"
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ border: 0, display: 'block' }}
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(mapDialogLocation.longitude) - 0.005}%2C${Number(mapDialogLocation.latitude) - 0.003}%2C${Number(mapDialogLocation.longitude) + 0.005}%2C${Number(mapDialogLocation.latitude) + 0.003}&layer=mapnik&marker=${Number(mapDialogLocation.latitude)}%2C${Number(mapDialogLocation.longitude)}`}
+                />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

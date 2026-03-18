@@ -16,13 +16,7 @@ export const EnhancedTable = ({
   hoverable = true,
 }: EnhancedTableProps) => {
   return (
-    <div className="relative overflow-hidden rounded-xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-950/60 via-emerald-900/40 to-emerald-950/60 shadow-2xl shadow-emerald-900/50 backdrop-blur-sm">
-      {/* Brilho no topo */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-
-      {/* Efeito de brilho ambiente */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(16,185,129,0.1),transparent_50%)] pointer-events-none" />
-
+    <div className="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/50">
       <div className="overflow-x-auto relative">
         <Table
           className={cn('relative', className)}
@@ -32,9 +26,6 @@ export const EnhancedTable = ({
           {children}
         </Table>
       </div>
-
-      {/* Brilho inferior */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent" />
     </div>
   );
 };
@@ -48,8 +39,7 @@ export const EnhancedTableHeader = ({ children, className }: EnhancedTableHeader
   return (
     <TableHeader
       className={cn(
-        'bg-gradient-to-r from-emerald-900/80 via-emerald-800/70 to-emerald-900/80 backdrop-blur-md border-b-2 border-emerald-500/30 relative',
-        'before:absolute before:inset-0 before:bg-gradient-to-b before:from-emerald-400/10 before:to-transparent before:pointer-events-none',
+        'bg-zinc-800/60 border-b border-zinc-700',
         className
       )}
     >
@@ -73,16 +63,13 @@ export const EnhancedTableRow = ({
   hoverable = true,
   index = 0,
 }: EnhancedTableRowProps) => {
-  // Fixed: Removed div elements that were causing DOM nesting warnings
   return (
     <TableRow
       className={cn(
-        'border-b border-emerald-800/30 transition-all duration-300 ease-out relative group',
-        striped && index % 2 === 1 && 'bg-emerald-950/30',
+        'border-b border-zinc-800/50 transition-colors duration-200 relative group',
+        striped && index % 2 === 1 && 'bg-zinc-800/20',
         hoverable && [
-          'hover:bg-gradient-to-r hover:from-emerald-900/50 hover:via-emerald-800/40 hover:to-emerald-900/50',
-          'hover:border-emerald-600/50',
-          'hover:shadow-lg hover:shadow-emerald-500/10',
+          'hover:bg-zinc-800/50',
           'cursor-pointer',
         ],
         className
@@ -102,12 +89,11 @@ export const EnhancedTableHead = ({ children, className }: EnhancedTableHeadProp
   return (
     <TableHead
       className={cn(
-        'text-emerald-200 font-bold tracking-wider uppercase text-xs py-4 relative',
-        'after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-emerald-400/40 after:to-transparent',
+        'text-zinc-400 font-semibold tracking-wider uppercase text-xs py-4',
         className
       )}
     >
-      <span className="relative z-10 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]">{children}</span>
+      {children}
     </TableHead>
   );
 };
@@ -116,19 +102,22 @@ interface EnhancedTableCellProps {
   children: React.ReactNode;
   className?: string;
   highlight?: boolean;
+  colSpan?: number;
 }
 
 export const EnhancedTableCell = ({
   children,
   className,
   highlight = false,
+  colSpan,
 }: EnhancedTableCellProps) => {
   return (
     <TableCell
+      colSpan={colSpan}
       className={cn(
-        'text-emerald-50/90 py-4 transition-colors duration-300',
-        'group-hover:text-emerald-50',
-        highlight && 'text-emerald-400 font-semibold drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]',
+        'text-zinc-300 py-4 transition-colors duration-200',
+        'group-hover:text-white',
+        highlight && 'text-emerald-400 font-semibold',
         className
       )}
     >

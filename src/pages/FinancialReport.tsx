@@ -256,7 +256,7 @@ export const FinancialReport = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-emerald-300/60">Gerando relatório financeiro...</p>
+        <p className="text-zinc-400">Gerando relatório financeiro...</p>
       </div>
     );
   }
@@ -266,17 +266,17 @@ export const FinancialReport = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-emerald-50 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <FileText className="w-8 h-8 text-emerald-400" />
             Relatório Financeiro
           </h1>
-          <p className="text-emerald-300/60 mt-1">Análise detalhada de receitas, custos e lucros</p>
+          <p className="text-zinc-400 mt-1">Análise detalhada de receitas, custos e lucros</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-900/30 hover:bg-emerald-800/50 border border-emerald-800/30 rounded-lg text-emerald-300 transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-zinc-300 transition-all"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Atualizar
@@ -284,7 +284,7 @@ export const FinancialReport = () => {
           <button
             onClick={handleExportCSV}
             disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-medium transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             Exportar CSV
@@ -294,15 +294,15 @@ export const FinancialReport = () => {
 
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Entrada Bruta Total</p>
-                <p className="text-xl font-bold text-emerald-50 mt-1">
+                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Entrada Bruta Total</p>
+                <p className="text-xl font-bold text-white mt-1">
                   R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-emerald-300/40 mt-1">Recargas + Depósitos</p>
+                <p className="text-xs text-zinc-500 mt-1">Recargas + Depósitos</p>
               </div>
               <div className="p-2.5 bg-emerald-500/20 rounded-lg">
                 <DollarSign className="w-5 h-5 text-emerald-400" />
@@ -311,15 +311,15 @@ export const FinancialReport = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Receita Líquida</p>
+                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Receita Líquida</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">
                   R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-emerald-300/40 mt-1">Após taxas (MP + outras)</p>
+                <p className="text-xs text-zinc-500 mt-1">Após taxas (MP + outras)</p>
               </div>
               <div className="p-2.5 bg-emerald-500/20 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -328,7 +328,7 @@ export const FinancialReport = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-red-950/40 to-emerald-900/20 border-red-800/30">
+        <Card className="bg-zinc-900/50 border-red-800/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -345,7 +345,7 @@ export const FinancialReport = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-950/40 to-emerald-900/20 border-purple-800/30">
+        <Card className="bg-zinc-900/50 border-purple-800/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -365,7 +365,7 @@ export const FinancialReport = () => {
 
       {/* Distribuição de Receita - Cards Resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-blue-950/40 to-emerald-900/20 border-blue-800/30">
+        <Card className="bg-zinc-900/50 border-blue-800/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -382,15 +382,15 @@ export const FinancialReport = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-500/30">
+        <Card className="bg-zinc-900/50 border-emerald-500/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase tracking-wide">Lucro NeoPower</p>
+                <p className="text-xs text-zinc-400 font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-xl font-bold text-emerald-400 mt-1">
                   R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-emerald-300/40 mt-1">20% do líquido de recargas</p>
+                <p className="text-xs text-zinc-500 mt-1">20% do líquido de recargas</p>
               </div>
               <div className="p-2.5 bg-emerald-500/20 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -399,7 +399,7 @@ export const FinancialReport = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-cyan-950/40 to-emerald-900/20 border-cyan-800/30">
+        <Card className="bg-zinc-900/50 border-cyan-800/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -418,44 +418,44 @@ export const FinancialReport = () => {
       </div>
 
       {/* Depósitos em Carteira */}
-      <Card className="bg-gradient-to-br from-purple-950/40 to-emerald-900/20 border-purple-800/30">
-        <CardHeader className="border-b border-purple-800/30 pb-4">
-          <CardTitle className="text-xl text-emerald-50 flex items-center gap-2">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
+          <CardTitle className="text-xl text-white flex items-center gap-2">
             <Wallet className="w-5 h-5 text-purple-400" />
             Depósitos em Carteira
           </CardTitle>
-          <p className="text-sm text-emerald-300/60 mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
+          <p className="text-sm text-zinc-400 mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 rounded-lg bg-purple-950/30 border border-purple-800/20">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-purple-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                 <p className="text-xs text-purple-300/60 font-medium uppercase">Total Depósitos</p>
               </div>
               <p className="text-lg font-bold text-purple-300">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-xs text-purple-400/70 mt-1">{deposits.length} depósitos</p>
+              <p className="text-xs text-zinc-500 mt-1">{deposits.length} depósitos</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/20">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-red-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <p className="text-xs text-red-300/60 font-medium uppercase">Taxa Mercado Pago</p>
               </div>
               <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-xs text-red-400/70 mt-1">1% sobre depósitos</p>
+              <p className="text-xs text-zinc-500 mt-1">1% sobre depósitos</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-500/30">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-emerald-500/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase">Depósitos Líquidos</p>
+                <p className="text-xs text-zinc-400 font-medium uppercase">Depósitos Líquidos</p>
               </div>
               <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <p className="text-xs text-emerald-400/70 mt-1">Valor disponível</p>
+              <p className="text-xs text-zinc-500 mt-1">Valor disponível</p>
             </div>
 
-            <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/20">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-blue-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                 <p className="text-xs text-blue-300/60 font-medium uppercase">Média por Depósito</p>
@@ -463,7 +463,7 @@ export const FinancialReport = () => {
               <p className="text-lg font-bold text-blue-400">
                 R$ {deposits.length > 0 ? (totalDeposits / deposits.length).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0,00'}
               </p>
-              <p className="text-xs text-blue-400/70 mt-1">Valor médio</p>
+              <p className="text-xs text-zinc-500 mt-1">Valor médio</p>
             </div>
           </div>
 
@@ -484,13 +484,13 @@ export const FinancialReport = () => {
                 <EnhancedTableBody>
                   {deposits.slice(0, 10).map((deposit, index) => (
                     <EnhancedTableRow key={deposit.id} index={index}>
-                      <EnhancedTableCell className="font-medium text-emerald-50">
+                      <EnhancedTableCell className="font-medium text-white">
                         <div>
                           <p>{deposit.userName}</p>
-                          <p className="text-xs text-emerald-300/50">{deposit.userEmail}</p>
+                          <p className="text-xs text-zinc-400">{deposit.userEmail}</p>
                         </div>
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {new Date(deposit.createdAt).toLocaleString('pt-BR')}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-right font-mono text-purple-400">
@@ -502,7 +502,7 @@ export const FinancialReport = () => {
                       <EnhancedTableCell className="text-right font-mono text-emerald-400">
                         R$ {(deposit.amount * 0.99).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/50">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {deposit.referenceId || '-'}
                       </EnhancedTableCell>
                     </EnhancedTableRow>
@@ -510,41 +510,41 @@ export const FinancialReport = () => {
                 </EnhancedTableBody>
               </EnhancedTable>
               {deposits.length > 10 && (
-                <p className="text-sm text-emerald-300/50 mt-4 text-center">
+                <p className="text-sm text-zinc-400 mt-4 text-center">
                   Mostrando 10 de {deposits.length} depósitos
                 </p>
               )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12">
-              <Wallet className="w-12 h-12 text-purple-800/50 mb-3" />
-              <p className="text-emerald-300/60">Nenhum depósito encontrado no período.</p>
+              <Wallet className="w-12 h-12 text-zinc-600 mb-3" />
+              <p className="text-zinc-500">Nenhum depósito encontrado no período.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Distribuição de Receita Total */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
-        <CardHeader className="border-b border-emerald-800/30 pb-4">
-          <CardTitle className="text-xl text-emerald-50">Distribuição de Receita Total</CardTitle>
-          <p className="text-sm text-emerald-300/60 mt-1">Depósitos + Recargas - como o dinheiro é distribuído</p>
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
+          <CardTitle className="text-xl text-white">Distribuição de Receita Total</CardTitle>
+          <p className="text-sm text-zinc-400 mt-1">Depósitos + Recargas - como o dinheiro é distribuído</p>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Entrada Bruta */}
-            <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-zinc-700">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase">Entrada Bruta Total</p>
+                <p className="text-xs text-zinc-400 font-medium uppercase">Entrada Bruta Total</p>
               </div>
-              <p className="text-xl font-bold text-emerald-50">R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              <p className="text-xl font-bold text-white">R$ {(grossRevenue + totalDeposits).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="mt-2 space-y-1 text-xs">
-                <div className="flex justify-between text-emerald-300/70">
+                <div className="flex justify-between text-zinc-400">
                   <span>Depósitos:</span>
                   <span>R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex justify-between text-emerald-300/70">
+                <div className="flex justify-between text-zinc-400">
                   <span>Recargas:</span>
                   <span>R$ {grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
@@ -552,7 +552,7 @@ export const FinancialReport = () => {
             </div>
 
             {/* Taxas Totais */}
-            <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/20">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-red-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-red-500"></div>
                 <p className="text-xs text-red-300/60 font-medium uppercase">Total Taxas Descontadas</p>
@@ -571,18 +571,18 @@ export const FinancialReport = () => {
             </div>
 
             {/* Valor Líquido Total */}
-            <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-500/30">
+            <div className="p-4 rounded-lg bg-zinc-800/50 border border-emerald-500/30">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                <p className="text-xs text-emerald-300/60 font-medium uppercase">Receita Líquida Total</p>
+                <p className="text-xs text-zinc-400 font-medium uppercase">Receita Líquida Total</p>
               </div>
               <p className="text-xl font-bold text-emerald-400">R$ {liquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className="mt-2 space-y-1 text-xs">
-                <div className="flex justify-between text-emerald-300/70">
+                <div className="flex justify-between text-zinc-400">
                   <span>Depósitos líquidos:</span>
                   <span>R$ {liquidoDepositos.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex justify-between text-emerald-300/70">
+                <div className="flex justify-between text-zinc-400">
                   <span>Recargas líquidas:</span>
                   <span>R$ {liquidoRecargas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
@@ -593,36 +593,36 @@ export const FinancialReport = () => {
           {/* Distribuição do Lucro Total (Recargas + Depósitos) */}
           {entradaBrutaTotal > 0 && (
             <>
-              <h4 className="text-sm font-semibold text-emerald-300 mb-3 mt-6">Distribuição da Receita Total</h4>
+              <h4 className="text-sm font-semibold text-zinc-300 mb-3 mt-6">Distribuição da Receita Total</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4 rounded-lg bg-blue-950/20 border border-blue-800/20">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-blue-800/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                     <p className="text-xs text-blue-300/60 font-medium uppercase">Dono da Estação (Cliente)</p>
                   </div>
                   <p className="text-lg font-bold text-blue-400">R$ {valorPagoCliente.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-blue-400/70 mt-1">70% do líquido (~60% do bruto)</p>
+                  <p className="text-xs text-zinc-500 mt-1">70% do líquido (~60% do bruto)</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-500/30">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-emerald-500/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                    <p className="text-xs text-emerald-300/60 font-medium uppercase">Lucro NeoPower</p>
+                    <p className="text-xs text-zinc-400 font-medium uppercase">Lucro NeoPower</p>
                   </div>
                   <p className="text-lg font-bold text-emerald-400">R$ {lucroNeoPower.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-emerald-400/70 mt-1">20% do líquido (~17.1% do bruto)</p>
+                  <p className="text-xs text-zinc-500 mt-1">20% do líquido (~17.1% do bruto)</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-cyan-950/20 border border-cyan-800/20">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-cyan-800/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
                     <p className="text-xs text-cyan-300/60 font-medium uppercase">Manutenção do Site</p>
                   </div>
                   <p className="text-lg font-bold text-cyan-400">R$ {manutencaoSite.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-cyan-400/70 mt-1">10% do líquido (~8.6% do bruto)</p>
+                  <p className="text-xs text-zinc-500 mt-1">10% do líquido (~8.6% do bruto)</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-amber-950/20 border border-amber-800/20">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-amber-800/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-amber-500"></div>
                     <p className="text-xs text-amber-300/60 font-medium uppercase">Margem Total</p>
@@ -630,13 +630,13 @@ export const FinancialReport = () => {
                   <p className={`text-lg font-bold ${profitMargin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
                     {profitMargin.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-amber-400/70 mt-1">NeoPower + Manutenção / Bruto</p>
+                  <p className="text-xs text-zinc-500 mt-1">NeoPower + Manutenção / Bruto</p>
                 </div>
               </div>
 
               {/* Barra de progresso visual */}
               <div className="mt-6">
-                <p className="text-xs text-emerald-300/60 mb-2">Distribuição da Receita Total (% do bruto):</p>
+                <p className="text-xs text-zinc-400 mb-2">Distribuição da Receita Total (% do bruto):</p>
                 {(() => {
                   const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
                   const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
@@ -644,7 +644,7 @@ export const FinancialReport = () => {
                   const percManutencao = entradaBrutaTotal > 0 ? (manutencaoSite / entradaBrutaTotal) * 100 : 0;
                   return (
                     <>
-                      <div className="h-6 rounded-full overflow-hidden flex bg-emerald-950/50">
+                      <div className="h-6 rounded-full overflow-hidden flex bg-zinc-800">
                         <div className="h-full bg-red-500 flex items-center justify-center" style={{ width: `${percTaxas}%` }} title={`Taxas (${percTaxas.toFixed(1)}%)`}>
                           <span className="text-[10px] text-white font-medium">{percTaxas.toFixed(1)}%</span>
                         </div>
@@ -669,7 +669,7 @@ export const FinancialReport = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                          <span className="text-emerald-300/70">NeoPower ({percNeoPower.toFixed(1)}%)</span>
+                          <span className="text-zinc-400">NeoPower ({percNeoPower.toFixed(1)}%)</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
@@ -688,41 +688,41 @@ export const FinancialReport = () => {
             <>
               <h4 className="text-sm font-semibold text-purple-300 mb-3 mt-6">Distribuição dos Depósitos</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-purple-950/20 border border-purple-800/20">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-purple-800/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                     <p className="text-xs text-purple-300/60 font-medium uppercase">Depósito Bruto</p>
                   </div>
                   <p className="text-lg font-bold text-purple-400">R$ {totalDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-purple-400/70 mt-1">Valor depositado pelo cliente</p>
+                  <p className="text-xs text-zinc-500 mt-1">Valor depositado pelo cliente</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-red-950/20 border border-red-800/20">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-red-800/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <p className="text-xs text-red-300/60 font-medium uppercase">Taxa Mercado Pago</p>
                   </div>
                   <p className="text-lg font-bold text-red-400">-R$ {mercadoPagoFeeDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-red-400/70 mt-1">1% sobre depósitos</p>
+                  <p className="text-xs text-zinc-500 mt-1">1% sobre depósitos</p>
                 </div>
 
-                <div className="p-4 rounded-lg bg-emerald-950/30 border border-emerald-500/30">
+                <div className="p-4 rounded-lg bg-zinc-800/50 border border-emerald-500/30">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
-                    <p className="text-xs text-emerald-300/60 font-medium uppercase">Depósito Líquido</p>
+                    <p className="text-xs text-zinc-400 font-medium uppercase">Depósito Líquido</p>
                   </div>
                   <p className="text-lg font-bold text-emerald-400">R$ {netDeposits.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  <p className="text-xs text-emerald-400/70 mt-1">Saldo na carteira do cliente</p>
+                  <p className="text-xs text-zinc-500 mt-1">Saldo na carteira do cliente</p>
                 </div>
               </div>
 
               {/* Barra de progresso visual depósitos */}
               <div className="mt-4">
-                <div className="h-3 rounded-full overflow-hidden flex bg-purple-950/50">
+                <div className="h-3 rounded-full overflow-hidden flex bg-zinc-800">
                   <div className="h-full bg-red-500" style={{ width: '1%' }} title="Taxa MP (1%)"></div>
                   <div className="h-full bg-emerald-500" style={{ width: '99%' }} title="Saldo Cliente (99%)"></div>
                 </div>
-                <div className="flex justify-between mt-2 text-xs text-emerald-300/60">
+                <div className="flex justify-between mt-2 text-xs text-zinc-400">
                   <span>Taxa MP (1%)</span>
                   <span>Saldo Cliente (99%)</span>
                 </div>
@@ -733,25 +733,25 @@ export const FinancialReport = () => {
       </Card>
 
       {/* Filters */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-4">
           <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px]">
-              <label className="text-xs text-emerald-300/60 font-medium mb-1.5 block">ID da Estação</label>
+              <label className="text-xs text-zinc-400 font-medium mb-1.5 block">ID da Estação</label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500/50" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <Input
                   type="text"
                   placeholder="Filtrar por estação..."
                   value={filterId}
                   onChange={e => setFilterId(e.target.value)}
-                  className="pl-10 bg-emerald-950/30 border-emerald-800/50 text-emerald-50 placeholder:text-emerald-300/30 focus:border-emerald-500"
+                  className="pl-10 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-emerald-300/60 font-medium mb-1.5 block">Período</label>
+              <label className="text-xs text-zinc-400 font-medium mb-1.5 block">Período</label>
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
@@ -767,7 +767,7 @@ export const FinancialReport = () => {
 
             <Button
               type="submit"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/30 h-10"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white h-10"
             >
               <Search className="w-4 h-4 mr-2" />
               Filtrar
@@ -778,7 +778,7 @@ export const FinancialReport = () => {
                 type="button"
                 variant="outline"
                 onClick={handleClearFilters}
-                className="border-emerald-800/50 text-emerald-300 hover:bg-emerald-900/30 h-10"
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 h-10"
               >
                 <X className="w-4 h-4 mr-2" />
                 Limpar Estação
@@ -789,12 +789,12 @@ export const FinancialReport = () => {
       </Card>
 
       {/* Data Table */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
-        <CardHeader className="border-b border-emerald-800/30 pb-4">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl text-emerald-50">Detalhamento por Transação</CardTitle>
-              <p className="text-sm text-emerald-300/60 mt-1">
+              <CardTitle className="text-xl text-white">Detalhamento por Transação</CardTitle>
+              <p className="text-sm text-zinc-400 mt-1">
                 {reportData.length} {reportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
               </p>
             </div>
@@ -820,13 +820,13 @@ export const FinancialReport = () => {
                 {reportData.length > 0 ? (
                   reportData.map((row, index) => (
                     <EnhancedTableRow key={index} index={index}>
-                      <EnhancedTableCell className="font-medium text-emerald-50">
+                      <EnhancedTableCell className="font-medium text-white">
                         {row['Estação']}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {row['Início']}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {row['Fim']}
                       </EnhancedTableCell>
                       <EnhancedTableCell className="text-right font-mono text-amber-400">
@@ -853,8 +853,8 @@ export const FinancialReport = () => {
                   <EnhancedTableRow index={0}>
                     <EnhancedTableCell colSpan={9} className="text-center py-12">
                       <div className="flex flex-col items-center gap-3">
-                        <FileText className="w-12 h-12 text-emerald-800/50" />
-                        <p className="text-emerald-300/60">Nenhum dado encontrado para os filtros selecionados.</p>
+                        <FileText className="w-12 h-12 text-zinc-600" />
+                        <p className="text-zinc-500">Nenhum dado encontrado para os filtros selecionados.</p>
                       </div>
                     </EnhancedTableCell>
                   </EnhancedTableRow>
@@ -865,26 +865,26 @@ export const FinancialReport = () => {
 
           {/* Totals Footer */}
           {reportData.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-emerald-800/30">
+            <div className="mt-6 pt-6 border-t border-zinc-800">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
-                  <p className="text-xs text-emerald-300/60 mb-1">Total Transações</p>
-                  <p className="text-lg font-bold text-emerald-50">{reportData.length}</p>
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">Total Transações</p>
+                  <p className="text-lg font-bold text-white">{reportData.length}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
-                  <p className="text-xs text-emerald-300/60 mb-1">Energia Total</p>
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">Energia Total</p>
                   <p className="text-lg font-bold text-amber-400">{totals.energy.toFixed(2)} kWh</p>
                 </div>
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
-                  <p className="text-xs text-emerald-300/60 mb-1">Receita Total</p>
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">Receita Total</p>
                   <p className="text-lg font-bold text-emerald-400">R$ {totals.revenue.toFixed(2)}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
-                  <p className="text-xs text-emerald-300/60 mb-1">Total Taxas</p>
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">Total Taxas</p>
                   <p className="text-lg font-bold text-red-400">R$ {totals.fees.toFixed(2)}</p>
                 </div>
-                <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/20">
-                  <p className="text-xs text-emerald-300/60 mb-1">Lucro Líquido</p>
+                <div className="p-3 rounded-lg bg-zinc-800/50 border border-zinc-700">
+                  <p className="text-xs text-zinc-400 mb-1">Lucro Líquido</p>
                   <p className={`text-lg font-bold ${platformProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     R$ {platformProfit.toFixed(2)}
                   </p>

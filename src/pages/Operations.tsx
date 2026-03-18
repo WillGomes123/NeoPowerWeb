@@ -148,7 +148,7 @@ const operations: Operation[] = [
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  basic: { label: 'Comandos Básicos', color: 'text-emerald-400', bgColor: 'from-emerald-950/40 to-emerald-900/20', borderColor: 'border-emerald-800/30' },
+  basic: { label: 'Comandos Básicos', color: 'text-emerald-400', bgColor: 'from-zinc-900/50 to-zinc-800/50', borderColor: 'border-zinc-800' },
   configuration: { label: 'Configuração', color: 'text-blue-400', bgColor: 'from-blue-950/40 to-blue-900/20', borderColor: 'border-blue-800/30' },
   transactions: { label: 'Transações', color: 'text-green-400', bgColor: 'from-green-950/40 to-green-900/20', borderColor: 'border-green-800/30' },
   reservations: { label: 'Reservas', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-orange-900/20', borderColor: 'border-orange-800/30' },
@@ -927,7 +927,7 @@ export const Operations = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
-        <p className="text-emerald-300/60">Carregando carregadores...</p>
+        <p className="text-zinc-400">Carregando carregadores...</p>
       </div>
     );
   }
@@ -937,11 +937,11 @@ export const Operations = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-50 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <Server className="w-8 h-8 text-emerald-400" />
             Centro de Operações OCPP
           </h1>
-          <p className="text-emerald-300/60 mt-1">
+          <p className="text-zinc-400 mt-1">
             Execute comandos OCPP nos carregadores conectados
           </p>
         </div>
@@ -953,7 +953,7 @@ export const Operations = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                 </span>
-                <span className="text-xs text-emerald-300">Tempo real</span>
+                <span className="text-xs text-zinc-300">Tempo real</span>
               </>
             ) : (
               <>
@@ -964,7 +964,7 @@ export const Operations = () => {
               </>
             )}
           </div>
-          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-emerald-700 text-emerald-300 hover:bg-emerald-900/50">
+          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar
           </Button>
@@ -988,25 +988,25 @@ export const Operations = () => {
 
       {/* Status Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
               <Server className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-emerald-300/60">Total</p>
+              <p className="text-sm text-zinc-400">Total</p>
               <p className="text-2xl font-bold text-emerald-400">{mergedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
               <Wifi className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-emerald-300/60">Online</p>
+              <p className="text-sm text-zinc-400">Online</p>
               <p className="text-2xl font-bold text-emerald-400">{connectedCount}</p>
             </div>
           </CardContent>
@@ -1039,7 +1039,7 @@ export const Operations = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-emerald-950/50 border border-emerald-800/30">
+        <TabsList className="bg-zinc-800/50 border border-zinc-700">
           <TabsTrigger value="operations" className="data-[state=active]:bg-emerald-600">
             <Zap className="w-4 h-4 mr-2" />
             Operações
@@ -1048,7 +1048,7 @@ export const Operations = () => {
             <Activity className="w-4 h-4 mr-2" />
             Resultados
             {results.length > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-300">{results.length}</Badge>
+              <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-400">{results.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -1066,7 +1066,7 @@ export const Operations = () => {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={selectAllConnected} className="flex-1 border-emerald-700 text-emerald-300 hover:bg-emerald-900/50 text-xs">
+                  <Button size="sm" variant="outline" onClick={selectAllConnected} className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs">
                     Online ({connectedCount})
                   </Button>
                   <Button size="sm" variant="outline" onClick={clearSelection} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs">
@@ -1147,7 +1147,7 @@ export const Operations = () => {
               </div>
 
               {/* Execute Button */}
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-950/50 to-transparent rounded-xl border border-emerald-800/30">
+              <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-700">
                 <div className="flex items-center gap-4 flex-wrap">
                   {selectedOperation && (
                     <Badge variant="outline" className="border-emerald-500 text-emerald-300 bg-emerald-500/10">
@@ -1155,7 +1155,7 @@ export const Operations = () => {
                     </Badge>
                   )}
                   {selectedChargePoints.length > 0 && (
-                    <span className="text-sm text-emerald-300/60">
+                    <span className="text-sm text-zinc-400">
                       {selectedChargePoints.length} carregador(es)
                     </span>
                   )}

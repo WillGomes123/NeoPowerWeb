@@ -193,7 +193,7 @@ export const ChargerDetailsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <DialogContent className="bg-zinc-900 border-zinc-800 max-w-2xl !max-h-[75vh] !flex !flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="text-white flex items-center gap-2">
             <Zap className="h-5 w-5 text-emerald-500" />
@@ -207,16 +207,16 @@ export const ChargerDetailsDialog = ({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
         ) : charger ? (
-          <div className="space-y-4 overflow-y-auto pr-2 custom-scrollbar flex-1 min-h-0">
+          <div className="space-y-3 overflow-y-auto pr-2 flex-1 min-h-0" style={{ maxHeight: 'calc(75vh - 120px)' }}>
             {/* Status Overview */}
             <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Activity className="h-4 w-4" />
                   Status
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center justify-between">
+              <CardContent className="flex items-center justify-between px-4 pb-3 pt-1">
                 <div className="flex items-center gap-3">
                   <Badge
                     className={`${charger.isConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}
@@ -236,7 +236,7 @@ export const ChargerDetailsDialog = ({
 
             {/* Charger Name & Connector Type (editable) */}
             <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-sm text-zinc-400 flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Pencil className="h-4 w-4" />
@@ -255,7 +255,7 @@ export const ChargerDetailsDialog = ({
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-3 pt-1">
                 {editing ? (
                   <div className="space-y-3">
                     <div>
@@ -338,14 +338,14 @@ export const ChargerDetailsDialog = ({
 
             {/* Device Info */}
             <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Info className="h-4 w-4" />
                   Informações do Dispositivo
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+              <CardContent className="px-4 pb-3 pt-1">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs text-zinc-500">Modelo</p>
                     <p className="text-white">{charger.model || 'N/A'}</p>
@@ -371,13 +371,13 @@ export const ChargerDetailsDialog = ({
             {/* Connectors */}
             {charger.connectors && charger.connectors.length > 0 && (
               <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
-                <CardHeader className="pb-2">
+                <CardHeader className="pb-1 pt-3 px-4">
                   <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                     <MapPin className="h-4 w-4" />
                     Conectores
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 pb-3 pt-1">
                   <div className="space-y-2">
                     {charger.connectors.map(connector => (
                       <div
@@ -404,13 +404,13 @@ export const ChargerDetailsDialog = ({
 
             {/* Actions */}
             <Card className="bg-zinc-800/50 border-zinc-700 shrink-0">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-1 pt-3 px-4">
                 <CardTitle className="text-sm text-zinc-400 flex items-center gap-2">
                   <Power className="h-4 w-4" />
                   Ações
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 px-4 pb-3 pt-1">
                 {/* Reset */}
                 <div className="flex items-center gap-3">
                   <Select

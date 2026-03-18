@@ -224,7 +224,7 @@ export const PushNotifications = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-emerald-400">Carregando...</div>
+        <div className="text-zinc-400">Carregando...</div>
       </div>
     );
   }
@@ -233,11 +233,11 @@ export const PushNotifications = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-50 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <Megaphone className="w-8 h-8 text-emerald-400" />
             Push Notifications
           </h1>
-          <p className="text-emerald-300/60 mt-1">
+          <p className="text-zinc-400 mt-1">
             Envie notificações para usuários do aplicativo
           </p>
         </div>
@@ -249,56 +249,56 @@ export const PushNotifications = () => {
               Nova Campanha
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-gradient-to-br from-emerald-950/95 to-emerald-900/95 border-emerald-800/50 text-emerald-50 max-w-lg">
+          <DialogContent className="bg-zinc-900 border-zinc-800 text-white max-w-lg">
             <DialogHeader>
-              <DialogTitle className="text-emerald-50 flex items-center gap-2">
+              <DialogTitle className="text-white flex items-center gap-2">
                 <Bell className="w-5 h-5 text-emerald-400" />
                 Nova Campanha de Notificação
               </DialogTitle>
-              <DialogDescription className="text-emerald-300/60">
+              <DialogDescription className="text-zinc-400">
                 Crie uma notificação para enviar aos usuários do aplicativo
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <label className="text-sm text-emerald-200">Título da Notificação</label>
+                <label className="text-sm text-zinc-300">Título da Notificação</label>
                 <Input
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="Ex: Promoção Especial!"
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50"
+                  className="bg-zinc-800 border-zinc-700 text-white"
                   maxLength={100}
                 />
-                <p className="text-xs text-emerald-400/60">{title.length}/100 caracteres</p>
+                <p className="text-xs text-zinc-500">{title.length}/100 caracteres</p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-emerald-200">Mensagem</label>
+                <label className="text-sm text-zinc-300">Mensagem</label>
                 <Textarea
                   value={message}
                   onChange={e => setMessage(e.target.value)}
                   placeholder="Digite a mensagem da notificação..."
-                  className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 min-h-[100px]"
+                  className="bg-zinc-800 border-zinc-700 text-white min-h-[100px]"
                   maxLength={500}
                 />
-                <p className="text-xs text-emerald-400/60">{message.length}/500 caracteres</p>
+                <p className="text-xs text-zinc-500">{message.length}/500 caracteres</p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm text-emerald-200">Público-Alvo</label>
+                <label className="text-sm text-zinc-300">Público-Alvo</label>
                 <Select value={targetAudience} onValueChange={setTargetAudience}>
-                  <SelectTrigger className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50">
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-emerald-900 border-emerald-700">
-                    <SelectItem value="all_users" className="text-emerald-50 focus:bg-emerald-800">
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="all_users" className="text-white focus:bg-zinc-700">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" />
                         Todos os Usuários
                       </div>
                     </SelectItem>
-                    <SelectItem value="specific_location" className="text-emerald-50 focus:bg-emerald-800">
+                    <SelectItem value="specific_location" className="text-white focus:bg-zinc-700">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
                         Local Específico
@@ -310,17 +310,17 @@ export const PushNotifications = () => {
 
               {targetAudience === 'specific_location' && (
                 <div className="space-y-2">
-                  <label className="text-sm text-emerald-200">Selecione o Local</label>
+                  <label className="text-sm text-zinc-300">Selecione o Local</label>
                   <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                    <SelectTrigger className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50">
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                       <SelectValue placeholder="Escolha um local" />
                     </SelectTrigger>
-                    <SelectContent className="bg-emerald-900 border-emerald-700">
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
                       {locations.map(loc => (
                         <SelectItem
                           key={loc.id}
                           value={loc.id.toString()}
-                          className="text-emerald-50 focus:bg-emerald-800"
+                          className="text-white focus:bg-zinc-700"
                         >
                           {loc.nomeDoLocal}
                         </SelectItem>
@@ -349,11 +349,11 @@ export const PushNotifications = () => {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4 border-t border-emerald-800/30">
+            <div className="flex justify-end gap-2 pt-4 border-t border-zinc-800">
               <Button
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-50 hover:bg-emerald-800/60"
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
               >
                 Cancelar
               </Button>
@@ -371,57 +371,57 @@ export const PushNotifications = () => {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+          <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center">
                   <Users className="w-6 h-6 text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-emerald-50">{stats.activeTokens}</p>
-                  <p className="text-sm text-emerald-300/60">Dispositivos Ativos</p>
+                  <p className="text-2xl font-bold text-white">{stats.activeTokens}</p>
+                  <p className="text-sm text-zinc-400">Dispositivos Ativos</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+          <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center">
                   <Megaphone className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-emerald-50">{stats.totalCampaigns}</p>
-                  <p className="text-sm text-emerald-300/60">Total de Campanhas</p>
+                  <p className="text-2xl font-bold text-white">{stats.totalCampaigns}</p>
+                  <p className="text-sm text-zinc-400">Total de Campanhas</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+          <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-emerald-50">{stats.totalSent}</p>
-                  <p className="text-sm text-emerald-300/60">Enviadas com Sucesso</p>
+                  <p className="text-2xl font-bold text-white">{stats.totalSent}</p>
+                  <p className="text-sm text-zinc-400">Enviadas com Sucesso</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+          <Card className="bg-zinc-900/50 border-zinc-800">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-500/20 rounded-lg flex items-center justify-center">
                   <XCircle className="w-6 h-6 text-red-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-emerald-50">{stats.totalFailed}</p>
-                  <p className="text-sm text-emerald-300/60">Falhas</p>
+                  <p className="text-2xl font-bold text-white">{stats.totalFailed}</p>
+                  <p className="text-sm text-zinc-400">Falhas</p>
                 </div>
               </div>
             </CardContent>
@@ -430,16 +430,16 @@ export const PushNotifications = () => {
       )}
 
       {/* Campaigns Table */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
-        <CardHeader className="border-b border-emerald-800/30 pb-6">
-          <CardTitle className="text-emerald-50 flex items-center gap-2">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-6">
+          <CardTitle className="text-white flex items-center gap-2">
             <Bell className="w-5 h-5 text-emerald-400" />
             Campanhas
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           {campaigns.length === 0 ? (
-            <div className="text-center py-12 text-emerald-300/60">
+            <div className="text-center py-12 text-zinc-500">
               <Megaphone className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>Nenhuma campanha criada ainda</p>
               <p className="text-sm mt-1">Clique em "Nova Campanha" para começar</p>
@@ -462,13 +462,13 @@ export const PushNotifications = () => {
                   const StatusIcon = statusConfig[campaign.status].icon;
                   return (
                     <EnhancedTableRow key={campaign.id} index={index}>
-                      <EnhancedTableCell className="font-semibold text-emerald-100">
+                      <EnhancedTableCell className="font-semibold text-white">
                         {campaign.title}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70 max-w-xs truncate">
+                      <EnhancedTableCell className="text-sm text-zinc-400 max-w-xs truncate">
                         {campaign.message}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {audienceLabels[campaign.targetAudience]}
                       </EnhancedTableCell>
                       <EnhancedTableCell>
@@ -483,7 +483,7 @@ export const PushNotifications = () => {
                           <span className="text-red-400 ml-1">/ {campaign.failedCount} falhas</span>
                         )}
                       </EnhancedTableCell>
-                      <EnhancedTableCell className="text-sm text-emerald-300/70">
+                      <EnhancedTableCell className="text-sm text-zinc-400">
                         {formatDate(campaign.sentAt || campaign.createdAt)}
                       </EnhancedTableCell>
                       <EnhancedTableCell>

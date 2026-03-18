@@ -128,22 +128,22 @@ export const Transactions = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-emerald-50 flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
           <Receipt className="w-8 h-8 text-emerald-400" />
           Histórico de Transações
         </h1>
-        <p className="text-emerald-300/60 mt-1">Visualize todas as transações realizadas</p>
+        <p className="text-zinc-400 mt-1">Visualize todas as transações realizadas</p>
       </div>
 
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
-        <CardHeader className="border-b border-emerald-800/30 pb-6">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-6">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-emerald-50 flex items-center gap-2">
+              <CardTitle className="text-white flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-emerald-400" />
                 Transacoes
               </CardTitle>
-              <p className="text-sm text-emerald-300/60 mt-1">
+              <p className="text-sm text-zinc-400 mt-1">
                 Total de {transactions.length} transacoes
               </p>
             </div>
@@ -196,7 +196,7 @@ export const Transactions = () => {
                       ? parseFloat(tx.total_cost.toString()).toFixed(2)
                       : '0.00'}
                   </EnhancedTableCell>
-                  <EnhancedTableCell className="text-sm text-emerald-300/70">
+                  <EnhancedTableCell className="text-sm text-zinc-400">
                     {tx.address || 'N/A'}
                   </EnhancedTableCell>
                   <EnhancedTableCell>
@@ -208,8 +208,8 @@ export const Transactions = () => {
           </EnhancedTable>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-emerald-800/30">
-            <div className="text-sm text-emerald-300/70">
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-800">
+            <div className="text-sm text-zinc-400">
               Página {currentPage} de {totalPages} ({transactions.length} transações)
             </div>
             <div className="flex gap-2">
@@ -218,7 +218,7 @@ export const Transactions = () => {
                 variant="outline"
                 onClick={handlePrevious}
                 disabled={currentPage === 1}
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60 hover:border-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Anterior
@@ -228,7 +228,7 @@ export const Transactions = () => {
                 variant="outline"
                 onClick={handleNext}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60 hover:border-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
               >
                 Próxima
                 <ChevronRight className="w-4 h-4 ml-1" />

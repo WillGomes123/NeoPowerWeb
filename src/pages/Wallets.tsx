@@ -169,16 +169,16 @@ export const Wallets = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-emerald-50 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <Wallet className="w-8 h-8 text-emerald-400" />
             Carteiras Digitais
           </h1>
-          <p className="text-emerald-300/60 mt-1">Gerencie as carteiras e transacoes dos usuarios</p>
+          <p className="text-zinc-400 mt-1">Gerencie as carteiras e transacoes dos usuarios</p>
         </div>
         <Button
           onClick={fetchData}
           variant="outline"
-          className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60"
+          className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
           Atualizar
@@ -187,23 +187,23 @@ export const Wallets = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-300/60 text-sm">Saldo Total</p>
-                <p className="text-2xl font-bold text-emerald-50">{formatCurrency(totalBalance)}</p>
+                <p className="text-zinc-400 text-sm">Saldo Total</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(totalBalance)}</p>
               </div>
               <Wallet className="w-10 h-10 text-emerald-400/50" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-300/60 text-sm">Total Depositos</p>
+                <p className="text-zinc-400 text-sm">Total Depositos</p>
                 <p className="text-2xl font-bold text-emerald-400">{formatCurrency(totalDeposits)}</p>
               </div>
               <ArrowUpCircle className="w-10 h-10 text-emerald-400/50" />
@@ -211,11 +211,11 @@ export const Wallets = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-300/60 text-sm">Total Cobrado</p>
+                <p className="text-zinc-400 text-sm">Total Cobrado</p>
                 <p className="text-2xl font-bold text-orange-400">{formatCurrency(totalCharges)}</p>
               </div>
               <ArrowDownCircle className="w-10 h-10 text-orange-400/50" />
@@ -231,7 +231,7 @@ export const Wallets = () => {
           variant={activeTab === 'wallets' ? 'default' : 'outline'}
           className={activeTab === 'wallets'
             ? 'bg-emerald-600 hover:bg-emerald-700'
-            : 'bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60'}
+            : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'}
         >
           <Wallet className="w-4 h-4 mr-2" />
           Carteiras ({wallets.length})
@@ -241,7 +241,7 @@ export const Wallets = () => {
           variant={activeTab === 'transactions' ? 'default' : 'outline'}
           className={activeTab === 'transactions'
             ? 'bg-emerald-600 hover:bg-emerald-700'
-            : 'bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60'}
+            : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'}
         >
           <ArrowUpCircle className="w-4 h-4 mr-2" />
           Transacoes ({transactions.length})
@@ -249,11 +249,11 @@ export const Wallets = () => {
       </div>
 
       {/* Content */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 backdrop-blur-sm shadow-2xl shadow-emerald-900/20">
-        <CardHeader className="border-b border-emerald-800/30 pb-6">
+      <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardHeader className="border-b border-zinc-800 pb-6">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-emerald-50 flex items-center gap-2">
+              <CardTitle className="text-white flex items-center gap-2">
                 {activeTab === 'wallets' ? (
                   <>
                     <Wallet className="w-5 h-5 text-emerald-400" />
@@ -266,7 +266,7 @@ export const Wallets = () => {
                   </>
                 )}
               </CardTitle>
-              <p className="text-sm text-emerald-300/60 mt-1">
+              <p className="text-sm text-zinc-400 mt-1">
                 {activeTab === 'wallets'
                   ? `${wallets.length} carteiras cadastradas`
                   : `${transactions.length} transacoes realizadas`}
@@ -304,7 +304,7 @@ export const Wallets = () => {
                     <EnhancedTableCell className="font-medium">
                       {wallet.userName}
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-emerald-300/70">
+                    <EnhancedTableCell className="text-zinc-400">
                       {wallet.userEmail}
                     </EnhancedTableCell>
                     <EnhancedTableCell highlight>
@@ -354,13 +354,13 @@ export const Wallets = () => {
                         {tx.type === 'deposit' || tx.type === 'refund' ? '+' : '-'}{formatCurrency(tx.amount)}
                       </span>
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-emerald-300/70">
+                    <EnhancedTableCell className="text-zinc-400">
                       {formatCurrency(tx.balanceBefore)}
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-emerald-300/70">
+                    <EnhancedTableCell className="text-zinc-400">
                       {formatCurrency(tx.balanceAfter)}
                     </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm text-emerald-300/70 max-w-[200px] truncate">
+                    <EnhancedTableCell className="text-sm text-zinc-400 max-w-[200px] truncate">
                       {tx.description || '---'}
                     </EnhancedTableCell>
                     <EnhancedTableCell className="text-sm">
@@ -373,8 +373,8 @@ export const Wallets = () => {
           )}
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-emerald-800/30">
-            <div className="text-sm text-emerald-300/70">
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-800">
+            <div className="text-sm text-zinc-400">
               Pagina {currentPage} de {totalPages || 1} ({currentItems.length} itens)
             </div>
             <div className="flex gap-2">
@@ -383,7 +383,7 @@ export const Wallets = () => {
                 variant="outline"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60 hover:border-emerald-600 disabled:opacity-30"
+                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Anterior
@@ -393,7 +393,7 @@ export const Wallets = () => {
                 variant="outline"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="bg-emerald-900/40 border-emerald-700/50 text-emerald-100 hover:bg-emerald-800/60 hover:border-emerald-600 disabled:opacity-30"
+                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30"
               >
                 Proxima
                 <ChevronRight className="w-4 h-4 ml-1" />

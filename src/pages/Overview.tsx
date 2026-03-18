@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { KPICard } from '../components/KPICard';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -8,23 +8,10 @@ import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
 import { toast } from 'sonner';
-
-// Lazy load Recharts components
-const LineChart = lazy(() => import('recharts').then(mod => ({ default: mod.LineChart })));
-const Line = lazy(() => import('recharts').then(mod => ({ default: mod.Line })));
-const BarChart = lazy(() => import('recharts').then(mod => ({ default: mod.BarChart })));
-const Bar = lazy(() => import('recharts').then(mod => ({ default: mod.Bar })));
-const PieChart = lazy(() => import('recharts').then(mod => ({ default: mod.PieChart })));
-const Pie = lazy(() => import('recharts').then(mod => ({ default: mod.Pie })));
-const Cell = lazy(() => import('recharts').then(mod => ({ default: mod.Cell })));
-const XAxis = lazy(() => import('recharts').then(mod => ({ default: mod.XAxis })));
-const YAxis = lazy(() => import('recharts').then(mod => ({ default: mod.YAxis })));
-const CartesianGrid = lazy(() => import('recharts').then(mod => ({ default: mod.CartesianGrid })));
-const Tooltip = lazy(() => import('recharts').then(mod => ({ default: mod.Tooltip })));
-const ResponsiveContainer = lazy(() =>
-  import('recharts').then(mod => ({ default: mod.ResponsiveContainer }))
-);
-const Legend = lazy(() => import('recharts').then(mod => ({ default: mod.Legend })));
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 
 interface ChartPoint {
   date: string;
@@ -175,17 +162,17 @@ export const Overview = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-emerald-50 flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
             <LayoutDashboard className="w-8 h-8 text-emerald-400" />
             Visão Geral
           </h1>
-          <p className="text-emerald-300/60 mt-1">Dashboard principal de monitoramento</p>
+          <p className="text-zinc-400 mt-1">Dashboard principal de monitoramento</p>
         </div>
         {/* Real-time connection indicator */}
         <div className="flex items-center gap-4">
           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isConnected
               ? 'bg-emerald-500/10 border border-emerald-500/30'
-              : 'bg-emerald-900/30 border border-emerald-800/30'
+              : 'bg-zinc-800 border border-zinc-700'
             }`}>
             {isConnected ? (
               <>
@@ -195,13 +182,13 @@ export const Overview = () => {
               </>
             ) : (
               <>
-                <WifiOff className="w-4 h-4 text-emerald-500/50" />
-                <span className="text-sm text-emerald-500/50">Offline</span>
+                <WifiOff className="w-4 h-4 text-zinc-500" />
+                <span className="text-sm text-zinc-500">Offline</span>
               </>
             )}
           </div>
           {lastUpdate && (
-            <div className="flex items-center gap-2 text-xs text-emerald-300/50">
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
               <RefreshCw className="w-3 h-3" />
               Atualizado: {lastUpdate.toLocaleTimeString('pt-BR')}
             </div>
@@ -210,11 +197,11 @@ export const Overview = () => {
       </div>
 
       {/* Date Filters */}
-      <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div>
-              <label className="text-xs text-emerald-300/60 font-medium mb-1.5 block">Período</label>
+              <label className="text-xs text-zinc-400 font-medium mb-1.5 block">Período</label>
               <DateRangePicker
                 startDate={startDate}
                 endDate={endDate}
@@ -226,7 +213,7 @@ export const Overview = () => {
             </div>
 
             {(startDate || endDate) && (
-              <div className="text-sm text-emerald-300/60 pt-5">
+              <div className="text-sm text-zinc-400 pt-5">
                 Exibindo: {startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}
               </div>
             )}
@@ -289,24 +276,31 @@ export const Overview = () => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-emerald-50">Receita (Últimos 7 Dias)</CardTitle>
+            <CardTitle className="text-white">
+              {startDate || endDate ? 'Receita (Período Selecionado)' : 'Receita (Últimos 7 Dias)'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<div className="h-96 bg-emerald-900/30 animate-pulse rounded-lg" />}>
+            {(!data.last7DaysRevenue || data.last7DaysRevenue.length === 0) ? (
+              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
+                <DollarSign className="w-12 h-12 text-zinc-700" />
+                <p className="text-zinc-500">Sem dados de receita no período</p>
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={data.last7DaysRevenue}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#064e3b33" />
-                  <XAxis dataKey="date" stroke="#6ee7b7" />
-                  <YAxis stroke="#6ee7b7" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
+                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#022c22',
-                      border: '1px solid #065f46',
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
                       borderRadius: '8px',
                     }}
-                    labelStyle={{ color: '#6ee7b7' }}
+                    labelStyle={{ color: '#a1a1aa' }}
                     itemStyle={{ color: '#10b981' }}
                   />
                   <Line
@@ -318,78 +312,90 @@ export const Overview = () => {
                   />
                 </LineChart>
               </ResponsiveContainer>
-            </Suspense>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30">
+        <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader>
-            <CardTitle className="text-emerald-50">Consumo de Energia (Últimos 7 Dias)</CardTitle>
+            <CardTitle className="text-white">
+              {startDate || endDate ? 'Consumo de Energia (Período Selecionado)' : 'Consumo de Energia (Últimos 7 Dias)'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<div className="h-96 bg-emerald-900/30 animate-pulse rounded-lg" />}>
+            {(!data.last7DaysKwh || data.last7DaysKwh.length === 0) ? (
+              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
+                <Zap className="w-12 h-12 text-zinc-700" />
+                <p className="text-zinc-500">Sem dados de energia no período</p>
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={data.last7DaysKwh}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#064e3b33" />
-                  <XAxis dataKey="date" stroke="#6ee7b7" />
-                  <YAxis stroke="#6ee7b7" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
+                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
+                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#022c22',
-                      border: '1px solid #065f46',
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
                       borderRadius: '8px',
                     }}
-                    labelStyle={{ color: '#6ee7b7' }}
+                    labelStyle={{ color: '#a1a1aa' }}
                     itemStyle={{ color: '#3b82f6' }}
                   />
                   <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </Suspense>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Status Chart and Mini Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 border-emerald-800/30 lg:col-span-2">
+        <Card className="bg-zinc-900/50 border-zinc-800 lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-emerald-50">Status das Estações</CardTitle>
+            <CardTitle className="text-white">Status das Estações</CardTitle>
           </CardHeader>
           <CardContent>
-            <Suspense fallback={<div className="h-96 bg-emerald-900/30 animate-pulse rounded-lg" />}>
+            {statusData.every(d => d.value === 0) ? (
+              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
+                <Zap className="w-12 h-12 text-zinc-700" />
+                <p className="text-zinc-500">Nenhuma estação registrada</p>
+              </div>
+            ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={statusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={entry => `${entry.name}: ${entry.value}`}
-                  >
-                    {statusData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[entry.name as keyof typeof COLORS]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#022c22',
-                      border: '1px solid #065f46',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#6ee7b7' }}
-                  />
-                  <Legend wrapperStyle={{ color: '#6ee7b7' }} iconType="circle" />
-                </PieChart>
-              </ResponsiveContainer>
-            </Suspense>
+                  <PieChart>
+                    <Pie
+                      data={statusData.filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={entry => `${entry.name}: ${entry.value}`}
+                    >
+                      {statusData.filter(d => d.value > 0).map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[entry.name as keyof typeof COLORS]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#18181b',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                      }}
+                      labelStyle={{ color: '#a1a1aa' }}
+                    />
+                    <Legend wrapperStyle={{ color: '#a1a1aa' }} iconType="circle" />
+                  </PieChart>
+                </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
