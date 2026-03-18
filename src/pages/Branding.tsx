@@ -568,8 +568,16 @@ export const Branding = () => {
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-zinc-400 text-xs">Fundo Splash</Label>
-                    <div className="flex gap-2">
-                      <input type="color" value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="w-10 h-9 rounded border border-zinc-700 bg-zinc-800 cursor-pointer" style={{ padding: '2px' }} />
+                    <div className="flex gap-2 items-center">
+                      <label className="relative w-10 h-9 shrink-0 cursor-pointer">
+                        <input
+                          type="color"
+                          value={formData.splashBgColor || '#000000'}
+                          onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })}
+                          className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+                        />
+                        <div className="w-full h-full rounded border border-zinc-700" style={{ backgroundColor: formData.splashBgColor || '#000000' }} />
+                      </label>
                       <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-zinc-800 border-zinc-700 text-white font-mono h-9 text-sm" />
                     </div>
                   </div>
