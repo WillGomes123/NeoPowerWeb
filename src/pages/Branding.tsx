@@ -108,8 +108,7 @@ export const Branding = () => {
       const response = await api.get('/admin/branding');
       if (response.ok) {
         const data = await response.json();
-        // Fix: Use data.payload based on API response structure
-        setConfigs(data.payload || []);
+        setConfigs(Array.isArray(data) ? data : (data.payload || []));
       }
     } catch {
       toast.error('Erro ao carregar configurações de marca');
@@ -197,7 +196,7 @@ export const Branding = () => {
       const response = await api.post('/admin/branding/upload', formDataUpload);
       if (response.ok) {
         const data = await response.json();
-        setFormData(prev => ({ ...prev, logoUri: data.payload.url }));
+        setFormData(prev => ({ ...prev, logoUri: data.url || data.payload?.url }));
         toast.success('Logo enviado com sucesso!');
       } else {
         const err = await response.json();
@@ -262,7 +261,7 @@ export const Branding = () => {
       ]);
       if (usersRes.ok) {
         const data = await usersRes.json();
-        setBrandingUsers(data.payload || []);
+        setBrandingUsers(Array.isArray(data) ? data : (data.payload || []));
       }
       if (allUsersRes.ok) {
         const data = await allUsersRes.json();
@@ -528,7 +527,7 @@ export const Branding = () => {
                             const res = await api.post('/admin/branding/upload', fd);
                             if (res.ok) {
                               const data = await res.json();
-                              setFormData(prev => ({ ...prev, splashUri: data.payload.url }));
+                              setFormData(prev => ({ ...prev, splashUri: data.url || data.payload?.url }));
                               toast.success('Splash enviada!');
                             } else { toast.error('Erro no upload'); }
                           } catch { toast.error('Erro no upload'); }

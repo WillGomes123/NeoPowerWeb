@@ -63,6 +63,20 @@ const showRateLimitNotification = (retryAfter?: number) => {
   }, 30000);
 };
 
+// Função auxiliar para desembrulhar o payload da API
+const wrapResponseJson = (response: Response): Response => {
+  const originalJson = response.json.bind(response);
+  response.json = async () => {
+    const data = await originalJson();
+    // Se a API retornou um envelope { success: true/false, data: { ... } }, extrai o data
+    if (data && typeof data === 'object' && 'success' in data && 'data' in data) {
+      return data.data;
+    }
+    return data;
+  };
+  return response;
+};
+
 // Generic fetch wrapper with authentication and retry logic
 export const fetchWithAuth = async (
   endpoint: string,
@@ -110,7 +124,7 @@ export const fetchWithAuth = async (
         showRateLimitNotification();
       }
       // Retornar a response para que o código chamador possa tratar também
-      return response;
+      return wrapResponseJson(response);
     }
 
     // Se o erro é retryable e ainda temos tentativas
@@ -120,7 +134,7 @@ export const fetchWithAuth = async (
       return fetchWithAuth(endpoint, options, retryCount + 1);
     }
 
-    return response;
+    return wrapResponseJson(response);
   } catch (error) {
     // Erro de rede (sem conexão, timeout, etc)
     if (error instanceof TypeError && retryCount < RETRY_CONFIG.maxRetries) {

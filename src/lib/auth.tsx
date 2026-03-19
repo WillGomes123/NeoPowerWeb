@@ -208,37 +208,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
 
-      if (!response.ok || data.success === false) {
-        const errorMsg = data.message || data.error || 'Email ou senha incorretos.';
+      if (!response.ok || responseData.success === false) {
+        const errorMsg = responseData.message || responseData.error || 'Email ou senha incorretos.';
         toast.error('Erro ao fazer login', { description: errorMsg });
         return false;
       }
 
+      const payload = responseData.data || responseData;
+
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
-      localStorage.setItem('token', data.token);
-      const normalizedRole = normalizeRole(data.user.role);
+      localStorage.setItem('token', payload.token);
+      const normalizedRole = normalizeRole(payload.user.role);
       localStorage.setItem('userRole', normalizedRole);
 
       // Map base_ocpp user fields to NeoRBAC format
       // base_ocpp: { id, username, role, email, enabled }
       // NeoRBAC: { id, name, email, role }
-      const userName = data.user.name || data.user.username || 'User';
-      const userEmail = data.user.email || email;
+      const userName = payload.user.name || payload.user.username || 'User';
+      const userEmail = payload.user.email || email;
 
       // Armazenar dados do usuário no sessionStorage (limpo ao fechar navegador)
       sessionStorage.setItem(
         'userData',
         JSON.stringify({
-          id: data.user.id,
+          id: payload.user.id,
           name: userName,
           email: userEmail,
         })
       );
 
       setUser({
-        id: data.user.id,
+        id: payload.user.id,
         name: userName,
         email: userEmail,
         role: normalizedRole,
@@ -296,33 +298,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
 
-      const data = await response.json();
+      const responseData = await response.json();
 
-      if (!response.ok || data.success === false) {
-        const errorMsg = data.message || data.error || 'Erro ao registrar.';
+      if (!response.ok || responseData.success === false) {
+        const errorMsg = responseData.message || responseData.error || 'Erro ao registrar.';
         toast.error('Erro ao registrar', { description: errorMsg });
         return false;
       }
 
+      const payload = responseData.data || responseData;
+
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
-      localStorage.setItem('token', data.token);
-      const normalizedRole = normalizeRole(data.user.role);
+      localStorage.setItem('token', payload.token);
+      const normalizedRole = normalizeRole(payload.user.role);
       localStorage.setItem('userRole', normalizedRole);
 
       // Armazenar dados do usuário no sessionStorage
       sessionStorage.setItem(
         'userData',
         JSON.stringify({
-          id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
+          id: payload.user.id,
+          name: payload.user.name,
+          email: payload.user.email,
         })
       );
 
       setUser({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
+        id: payload.user.id,
+        name: payload.user.name,
+        email: payload.user.email,
         role: normalizedRole,
       });
 

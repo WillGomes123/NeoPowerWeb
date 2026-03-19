@@ -31,7 +31,7 @@ import {
 } from '../components/ui/alert-dialog';
 import { Switch } from '../components/ui/switch';
 import { StatusBadge } from '../components/StatusBadge';
-import { Plus, Edit, Trash2, ArrowLeft, Ticket, MapPin, Zap } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Ticket, MapPin, Zap, Search, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 
@@ -71,6 +71,11 @@ export const Vouchers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [deleteVoucherId, setDeleteVoucherId] = useState<number | null>(null);
+
+  // Filters
+  const [filterCode, setFilterCode] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterLocation, setFilterLocation] = useState<string>('all');
 
   useEffect(() => {
     void fetchVouchers();
@@ -509,9 +514,16 @@ export const Vouchers = () => {
     );
   }
 
+  const filteredVouchers = vouchers.filter(v => {
+    const matchesCode = v.code.toLowerCase().includes(filterCode.toLowerCase()) || v.name.toLowerCase().includes(filterCode.toLowerCase());
+    const matchesStatus = filterStatus === 'all' ? true : filterStatus === 'active' ? v.is_active : !v.is_active;
+    const matchesLocation = filterLocation === 'all' ? true : v.location_id?.toString() === filterLocation;
+    return matchesCode && matchesStatus && matchesLocation;
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Vouchers</h1>
           <p className="text-zinc-400 mt-1">Gerenciamento de cupons e descontos</p>
@@ -526,18 +538,56 @@ export const Vouchers = () => {
       </div>
 
       <Card className="bg-zinc-900/50 border-zinc-800">
+        <CardContent className="p-4 flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+            <Input
+              type="text"
+              placeholder="Buscar por código ou nome..."
+              value={filterCode}
+              onChange={e => setFilterCode(e.target.value)}
+              className="pl-9 bg-zinc-800 border-zinc-700 focus:ring-1 focus:ring-emerald-500/50 text-white"
+            />
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-full md:w-[180px] bg-zinc-800 border-zinc-700 text-white">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="all" className="text-white hover:bg-zinc-700 focus:bg-zinc-700 focus:text-white">Todos os Status</SelectItem>
+              <SelectItem value="active" className="text-white hover:bg-zinc-700 focus:bg-zinc-700 focus:text-white">Ativos</SelectItem>
+              <SelectItem value="inactive" className="text-white hover:bg-zinc-700 focus:bg-zinc-700 focus:text-white">Inativos</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterLocation} onValueChange={setFilterLocation}>
+            <SelectTrigger className="w-full md:w-[200px] bg-zinc-800 border-zinc-700 text-white">
+              <SelectValue placeholder="Local" />
+            </SelectTrigger>
+            <SelectContent className="bg-zinc-800 border-zinc-700">
+              <SelectItem value="all" className="text-white hover:bg-zinc-700 focus:bg-zinc-700 focus:text-white">Todos os Locais</SelectItem>
+              {locations.map(loc => (
+                <SelectItem key={loc.id} value={loc.id.toString()} className="text-white hover:bg-zinc-700 focus:bg-zinc-700 focus:text-white">
+                  {loc.nomeDoLocal}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Ticket className="w-5 h-5 text-emerald-400" />
-            Lista de Vouchers
+            Lista de Vouchers ({filteredVouchers.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {vouchers.length === 0 ? (
+          {filteredVouchers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16">
               <Ticket className="w-16 h-16 text-zinc-600 mb-4" />
-              <p className="text-xl text-zinc-300 font-semibold">Nenhum voucher criado</p>
-              <p className="text-base text-zinc-500 mt-2">Clique em "Novo Voucher" para criar cupons de desconto</p>
+              <p className="text-xl text-zinc-300 font-semibold">{vouchers.length === 0 ? 'Nenhum voucher criado' : 'Nenhum voucher encontrado'}</p>
+              <p className="text-base text-zinc-500 mt-2">{vouchers.length === 0 ? 'Clique em "Novo Voucher" para criar cupons de desconto' : 'Altere os filtros de busca acima'}</p>
             </div>
           ) : (
           <EnhancedTable>
@@ -555,7 +605,7 @@ export const Vouchers = () => {
               </EnhancedTableRow>
             </EnhancedTableHeader>
             <EnhancedTableBody>
-              {vouchers.map((voucher, index) => {
+              {filteredVouchers.map((voucher, index) => {
                 const typeLabels = {
                   percent: '%',
                   fixed: 'R$',

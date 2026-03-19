@@ -9,7 +9,7 @@ import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
 import { toast } from 'sonner';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
 
@@ -158,15 +158,16 @@ export const Overview = () => {
   if (!data) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-8 animate-in fade-in zoom-in-[0.98] duration-500 pb-12">
+      {/* Header Premium */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <LayoutDashboard className="w-8 h-8 text-emerald-400" />
+        <div className="relative">
+          <div className="absolute -inset-1 rounded-full bg-emerald-500/20 blur-2xl opacity-50" />
+          <h1 className="relative text-3xl font-bold text-white flex items-center gap-3 tracking-tight">
+            <LayoutDashboard className="w-9 h-9 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
             Visão Geral
           </h1>
-          <p className="text-zinc-400 mt-1">Dashboard principal de monitoramento</p>
+          <p className="text-zinc-400 mt-2 font-medium">Monitoramento do desempenho e receita da sua rede em tempo real.</p>
         </div>
         {/* Real-time connection indicator */}
         <div className="flex items-center gap-4">
@@ -290,27 +291,37 @@ export const Overview = () => {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data.last7DaysRevenue}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
-                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
+                <AreaChart data={data.last7DaysRevenue}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(val) => `R$${val}`} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#18181b',
-                      border: '1px solid #3f3f46',
-                      borderRadius: '8px',
+                      backgroundColor: 'rgba(24, 24, 27, 0.9)',
+                      border: '1px solid rgba(63, 63, 70, 0.5)',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
+                      backdropFilter: 'blur(8px)',
                     }}
-                    labelStyle={{ color: '#a1a1aa' }}
-                    itemStyle={{ color: '#10b981' }}
+                    labelStyle={{ color: '#a1a1aa', fontWeight: 600, marginBottom: '4px' }}
+                    itemStyle={{ color: '#10b981', fontWeight: 700 }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="value"
                     stroke="#10b981"
-                    strokeWidth={2}
-                    dot={{ fill: '#10b981' }}
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
+                    activeDot={{ r: 6, fill: '#10b981', stroke: '#18181b', strokeWidth: 2 }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             )}
           </CardContent>
@@ -330,20 +341,29 @@ export const Overview = () => {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.last7DaysKwh}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
-                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa' }} />
+                <BarChart data={data.last7DaysKwh} barSize={28}>
+                  <defs>
+                    <linearGradient id="colorKwh" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity={0.6} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
+                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(val) => `${val} kW`} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#18181b',
-                      border: '1px solid #3f3f46',
-                      borderRadius: '8px',
+                      backgroundColor: 'rgba(24, 24, 27, 0.9)',
+                      border: '1px solid rgba(63, 63, 70, 0.5)',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
+                      backdropFilter: 'blur(8px)',
                     }}
-                    labelStyle={{ color: '#a1a1aa' }}
-                    itemStyle={{ color: '#3b82f6' }}
+                    labelStyle={{ color: '#a1a1aa', fontWeight: 600, marginBottom: '4px' }}
+                    itemStyle={{ color: '#3b82f6', fontWeight: 700 }}
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                   />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="url(#colorKwh)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}

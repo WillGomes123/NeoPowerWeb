@@ -63,7 +63,7 @@ export const Email = () => {
             const res = await api.get(`/email/inbox?${queryParams}`);
             if (res.ok) {
                 const data = await res.json();
-                setEmails(data.payload || []);
+                setEmails(data.emails || data.payload || []);
                 setTotalEmails(data.total || 0);
             } else {
                 toast.error('Erro ao buscar emails');
