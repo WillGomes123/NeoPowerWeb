@@ -99,10 +99,20 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Sidebar */}
       <aside className="w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col">
         <div className="p-6 border-b border-zinc-800">
-          <h1 className="text-xl text-white flex items-center gap-2">
-            <Zap className="w-6 h-6 text-emerald-500" />
-            NeoPower
-          </h1>
+          <div className="flex items-center gap-3">
+            {user?.branding?.logoType === 'image' && user.branding.logoUri ? (
+              <img 
+                src={user.branding.logoUri} 
+                alt="Logo" 
+                className="w-8 h-8 rounded-md object-contain shrink-0 bg-white" 
+              />
+            ) : (
+              <Zap className="w-6 h-6 text-emerald-500 shrink-0" />
+            )}
+            <h1 className="text-xl text-white font-semibold truncate">
+              {user?.branding?.companyName || 'NeoPower'}
+            </h1>
+          </div>
           <p className="text-xs text-zinc-500 mt-1">Gerenciamento de Estações</p>
         </div>
 

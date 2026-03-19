@@ -8,7 +8,7 @@ import React, {
   useRef,
 } from 'react';
 import { toast } from 'sonner';
-import { User, UserRole } from '../types';
+import { User, UserRole, BrandingConfig } from '../types';
 
 // Session timeout em milissegundos (30 minutos)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -38,13 +38,31 @@ const normalizeRole = (role?: string | null): UserRole => {
   return 'comum';
 };
 
-const applyThemeForRole = (role?: UserRole | null) => {
+const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig | null) => {
   if (typeof document === 'undefined') return;
   document.body.classList.remove('theme-atem', 'theme-default');
   if (role === 'atem') {
     document.body.classList.add('theme-atem');
   } else {
     document.body.classList.add('theme-default');
+  }
+
+  // Inject dynamic primary color CSS override if branding is available
+  const existingStyle = document.getElementById('dynamic-branding-style');
+  if (existingStyle) existingStyle.remove();
+
+  if (branding?.primaryColor) {
+    const style = document.createElement('style');
+    style.id = 'dynamic-branding-style';
+    style.innerHTML = `
+      :root {
+        --color-emerald-400: ${branding.primaryColor} !important;
+        --color-emerald-500: ${branding.primaryColor} !important;
+        --color-emerald-600: ${branding.primaryColor} !important;
+        --theme-primary: ${branding.primaryColor} !important;
+      }
+    `;
+    document.head.appendChild(style);
   }
 };
 
@@ -78,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeForRole(null);
+    applyThemeAndBranding(null, null);
     // Redirecionar para login com mensagem
     if (typeof window !== 'undefined') {
       window.location.href = '/login?expired=true';
@@ -140,7 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeForRole(null);
+        applyThemeAndBranding(null, null);
         return;
       }
     }
@@ -159,6 +177,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: userData.name || 'User',
           email: userData.email,
           role: storedRole,
+          branding: userData.branding || null,
         });
         // Atualizar timestamp de atividade ao restaurar sessão
         localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
@@ -168,16 +187,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeForRole(null);
+        applyThemeAndBranding(null, null);
       }
     } else {
-      applyThemeForRole(null);
+      applyThemeAndBranding(null, null);
     }
   }, []);
 
   useEffect(() => {
-    applyThemeForRole(user?.role);
-  }, [user?.role]);
+    applyThemeAndBranding(user?.role, user?.branding);
+  }, [user?.role, user?.branding]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -236,6 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: payload.user.id,
           name: userName,
           email: userEmail,
+          branding: payload.user.branding || null,
         })
       );
 
@@ -244,6 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: userName,
         email: userEmail,
         role: normalizedRole,
+        branding: payload.user.branding || null,
       });
 
       // Inicializar timestamp de atividade para o timeout de sessão
@@ -266,7 +287,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeForRole(null);
+    applyThemeAndBranding(null, null);
   };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
@@ -320,6 +341,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: payload.user.id,
           name: payload.user.name,
           email: payload.user.email,
+          branding: payload.user.branding || null,
         })
       );
 
@@ -328,6 +350,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: payload.user.name,
         email: payload.user.email,
         role: normalizedRole,
+        branding: payload.user.branding || null,
       });
 
       // Inicializar timestamp de atividade para o timeout de sessão
@@ -348,7 +371,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       setUser({ ...user, role });
       localStorage.setItem('userRole', role);
-      applyThemeForRole(role);
+      applyThemeAndBranding(role, user.branding);
     }
   };
 

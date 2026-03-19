@@ -8,6 +8,15 @@ export interface User {
   email: string;
   role: UserRole;
   locationIds?: string[];
+  branding?: BrandingConfig | null;
+}
+
+export interface BrandingConfig {
+  clientId: string;
+  companyName: string;
+  logoType: 'programmatic' | 'image';
+  logoUri?: string;
+  primaryColor: string;
 }
 
 export interface Location {
