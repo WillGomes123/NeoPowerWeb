@@ -90,10 +90,10 @@ const AppRoutes = () => {
       <Route path="/operacoes" element={createProtectedRoute(Operations, true)} />
       <Route path="/relatorio-financeiro" element={createProtectedRoute(FinancialReport, true)} />
       <Route path="/usuarios" element={createProtectedRoute(Users, true)} />
-      <Route path="/vouchers" element={createProtectedRoute(Vouchers, true)} />
-      <Route path="/tarifas" element={createProtectedRoute(Tariffs, true)} />
+      <Route path="/vouchers" element={createProtectedRoute(Vouchers)} />
+      <Route path="/tarifas" element={createProtectedRoute(Tariffs)} />
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
-      <Route path="/notificacoes" element={createProtectedRoute(PushNotifications, true)} />
+      <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
       <Route path="/email" element={createProtectedRoute(Email)} />
       <Route path="/branding" element={createProtectedRoute(Branding, true)} />
 

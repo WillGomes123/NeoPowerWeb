@@ -92,6 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Logout por inatividade
   const handleInactivityLogout = useCallback(() => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
@@ -155,6 +156,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (now - lastActivityTime > SESSION_TIMEOUT_MS) {
         // Sessão expirada, limpar dados
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
@@ -184,6 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch {
         // Se falhar ao parsear, fazer logout
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
@@ -239,6 +242,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
       localStorage.setItem('token', payload.token);
+      if (payload.refreshToken) {
+        localStorage.setItem('refreshToken', payload.refreshToken);
+      }
       const normalizedRole = normalizeRole(payload.user.role);
       localStorage.setItem('userRole', normalizedRole);
 
@@ -283,6 +289,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
@@ -331,6 +338,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // SECURITY: Token em localStorage, dados sensíveis em sessionStorage
       localStorage.setItem('token', payload.token);
+      if (payload.refreshToken) {
+        localStorage.setItem('refreshToken', payload.refreshToken);
+      }
       const normalizedRole = normalizeRole(payload.user.role);
       localStorage.setItem('userRole', normalizedRole);
 

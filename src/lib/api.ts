@@ -15,6 +15,55 @@ const RETRY_CONFIG = {
 let rateLimitToastShown = false;
 let rateLimitToastTimeout: ReturnType<typeof setTimeout> | null = null;
 
+// Flag para evitar múltiplos refreshes simultâneos
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+// Tenta renovar o token usando o refresh token
+const tryRefreshToken = async (): Promise<boolean> => {
+  // Se já tem um refresh em andamento, espera ele terminar
+  if (isRefreshing && refreshPromise) {
+    return refreshPromise;
+  }
+
+  const refreshToken = localStorage.getItem('refreshToken');
+  if (!refreshToken) return false;
+
+  isRefreshing = true;
+  refreshPromise = (async () => {
+    try {
+      const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+      const response = await fetch(`${cleanBaseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!response.ok) return false;
+
+      const responseData = await response.json();
+      const payload = responseData.data || responseData;
+
+      if (payload.token) {
+        localStorage.setItem('token', payload.token);
+      }
+      if (payload.refreshToken) {
+        localStorage.setItem('refreshToken', payload.refreshToken);
+      }
+      // Atualizar timestamp de atividade ao renovar token
+      localStorage.setItem('lastActivity', Date.now().toString());
+      return true;
+    } catch {
+      return false;
+    } finally {
+      isRefreshing = false;
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+};
+
 // Get token from localStorage
 const getAuthToken = (): string | null => {
   return localStorage.getItem('token');
@@ -104,15 +153,34 @@ export const fetchWithAuth = async (
       },
     });
 
-    // If unauthorized, redirect to login (não fazer retry)
-    if (response.status === 401 || response.status === 403) {
+    // Se 401, tenta renovar o token antes de desistir
+    if (response.status === 401) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        // Token renovado — refaz a requisição original com o novo token
+        return fetchWithAuth(endpoint, options, retryCount);
+      }
+      // Refresh falhou — agora sim, logout
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userId');
+      window.location.href = '/login?expired=true';
+      throw new Error('Unauthorized');
+    }
+
+    // 403 é permissão negada, não token expirado — não tenta refresh
+    if (response.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userId');
       window.location.href = '/login';
-      throw new Error('Unauthorized');
+      throw new Error('Forbidden');
     }
 
     // Tratar rate limit (429) - mostrar mensagem e NÃO fazer retry automático

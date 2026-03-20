@@ -59,10 +59,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: ['admin'],
     },
     { path: '/usuarios', label: 'Usuários', icon: Users, roles: ['admin'] },
-    { path: '/vouchers', label: 'Vouchers', icon: Ticket, roles: ['admin'] },
-    { path: '/tarifas', label: 'Tarifas', icon: Tag, roles: ['admin'] },
+    { path: '/vouchers', label: 'Vouchers', icon: Ticket, roles: ['admin', 'atem', 'comum'] },
+    { path: '/tarifas', label: 'Tarifas', icon: Tag, roles: ['admin', 'atem', 'comum'] },
     { path: '/carteiras', label: 'Carteiras', icon: Wallet, roles: ['admin'] },
-    { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin'] },
+    { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin', 'atem', 'comum'] },
     { path: '/branding', label: 'White Label', icon: Palette, roles: ['admin'] },
     { path: '/email', label: 'Email', icon: Mail, roles: ['admin', 'atem', 'comum'] },
   ];
