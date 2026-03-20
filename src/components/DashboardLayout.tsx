@@ -64,7 +64,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/carteiras', label: 'Carteiras', icon: Wallet, roles: ['admin'] },
     { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin', 'atem', 'comum'] },
     { path: '/branding', label: 'White Label', icon: Palette, roles: ['admin'] },
-    { path: '/email', label: 'Email', icon: Mail, roles: ['admin', 'atem', 'comum'] },
+    { path: '/email', label: 'Email', icon: Mail, roles: ['admin'] },
   ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));

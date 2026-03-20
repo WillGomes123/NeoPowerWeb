@@ -94,7 +94,7 @@ const AppRoutes = () => {
       <Route path="/tarifas" element={createProtectedRoute(Tariffs)} />
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
-      <Route path="/email" element={createProtectedRoute(Email)} />
+      <Route path="/email" element={createProtectedRoute(Email, true)} />
       <Route path="/branding" element={createProtectedRoute(Branding, true)} />
 
       {/* Catch all */}
