@@ -20,7 +20,6 @@ import {
   Mail,
   Palette,
 } from 'lucide-react';
-import { NotificationBell } from './NotificationBell';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +28,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { ThemeToggle } from './ThemeToggle';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -75,7 +73,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     comum: 'Comum',
   };
 
-  const roleCycle: UserRole[] = ['admin', 'atem', 'comum'];
+  const roleCycle: UserRole[] = ['admin', 'comum'];
   const currentRole = user?.role || 'comum';
   const nextRole = roleCycle[(roleCycle.indexOf(currentRole) + 1) % roleCycle.length];
 
@@ -116,7 +114,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <p className="text-xs text-zinc-500 mt-1">Gerenciamento de Estações</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="sidebar-nav flex-1 overflow-y-auto p-4 space-y-1">
           {visibleNavItems.map(item => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -136,14 +134,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-zinc-800 space-y-3">
-          {/* Theme Toggle & Notifications */}
-          <div className="flex items-center justify-center gap-2">
-            <NotificationBell />
-            <ThemeToggle />
-          </div>
-
-          {/* User Menu ddd*/}
+        <div className="shrink-0 p-4 border-t border-zinc-800">
+          {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full flex items-center justify-start gap-3 px-3 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
               <UserCircle className="w-5 h-5" />
