@@ -66,6 +66,14 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
 
     style.innerHTML = `
       :root {
+        /* Base Variables (Traditional) */
+        --primary: ${branding.primaryColor} !important;
+        --ring: ${branding.primaryColor} !important;
+        --chart-1: ${branding.primaryColor} !important;
+        --sidebar-primary: ${branding.primaryColor} !important;
+        --sidebar-ring: ${branding.primaryColor} !important;
+
+        /* Tailwind v4 CSS Variables (Tokens) */
         --color-primary: ${branding.primaryColor} !important;
         --color-primary-dim: ${containerHex} !important;
         --color-primary-container: ${branding.primaryColor} !important;

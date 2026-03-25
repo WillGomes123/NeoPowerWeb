@@ -90,9 +90,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
             />
           ) : (
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(142,255,113,0.4)]">
+            <div 
+              className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"
+              style={{ boxShadow: '0 0 15px color-mix(in srgb, var(--primary), transparent 60%)' }}
+            >
               <span
-                className="material-symbols-outlined text-[#0d6100] text-xl"
+                className="material-symbols-outlined text-primary-foreground text-xl"
                 style={{ fontVariationSettings: "'FILL' 1" }}
               >
                 bolt

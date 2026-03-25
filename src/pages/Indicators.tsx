@@ -27,7 +27,7 @@ interface DashboardStats {
 }
 
 const metricsConfig = {
-  sessions: { label: 'Sessões', unit: '', color: '#8eff71', icon: 'bolt', colorClass: 'text-primary', bgClass: 'bg-primary/10' },
+  sessions: { label: 'Sessões', unit: '', color: 'var(--primary)', icon: 'bolt', colorClass: 'text-primary', bgClass: 'bg-primary/10' },
   revenue: { label: 'Receita', unit: 'R$', color: '#90f9a3', icon: 'payments', colorClass: 'text-secondary', bgClass: 'bg-secondary/10' },
   energy: { label: 'Energia', unit: 'kWh', color: '#88f6ff', icon: 'electric_bolt', colorClass: 'text-tertiary', bgClass: 'bg-tertiary/10' },
   users: { label: 'Usuários Ativos', unit: '', color: '#00deea', icon: 'group', colorClass: 'text-tertiary-dim', bgClass: 'bg-tertiary-dim/10' },

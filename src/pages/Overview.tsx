@@ -97,9 +97,9 @@ export const Overview = () => {
   }, [data]);
 
   const statusData = [
-    { name: 'Online', value: statusCounts.online, color: '#8eff71' },
+    { name: 'Online', value: statusCounts.online, color: 'var(--primary)' },
     { name: 'Offline', value: statusCounts.offline, color: '#777575' },
-    { name: 'Carregando', value: statusCounts.charging, color: '#88f6ff' },
+    { name: 'Carregando', value: statusCounts.charging, color: 'var(--color-tertiary)' },
   ];
 
   const netRevenue = (data?.revenueTotal || 0) + (data?.totalDepositsNet || 0);
@@ -161,7 +161,7 @@ export const Overview = () => {
           />
           <button
             onClick={() => void fetchOverview()}
-            className="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold text-sm shadow-[0_8px_20px_rgba(57,255,20,0.2)] hover:scale-[1.02] active:scale-95 transition-all"
+            className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm shadow-[0_8px_20px_color-mix(in srgb,var(--primary),transparent_80%)] hover:scale-[1.02] active:scale-95 transition-all"
           >
             <span className="material-symbols-outlined text-base align-middle mr-1">refresh</span>
             ATUALIZAR
@@ -222,8 +222,8 @@ export const Overview = () => {
             </div>
             <div className="w-full bg-surface/50 h-1.5 rounded-full mt-4">
               <div
-                className="bg-primary h-full rounded-full shadow-[0_0_8px_rgba(57,255,20,0.6)]"
-                style={{ width: `${depositQuota}%` }}
+                className="bg-primary h-full rounded-full"
+                style={{ width: `${depositQuota}%`, boxShadow: '0 0 8px var(--primary)' }}
               />
             </div>
             <p className="text-[10px] text-on-surface-variant mt-2 text-right font-medium">
@@ -287,8 +287,8 @@ export const Overview = () => {
               <AreaChart data={data.last7DaysRevenue}>
                 <defs>
                   <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8eff71" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="#8eff71" stopOpacity={0} />
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.2} vertical={false} />
@@ -297,9 +297,9 @@ export const Overview = () => {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
                   labelStyle={{ color: '#adaaaa', fontWeight: 600 }}
-                  itemStyle={{ color: '#8eff71', fontWeight: 700 }}
+                  itemStyle={{ color: 'var(--primary)', fontWeight: 700 }}
                 />
-                <Area type="monotone" dataKey="value" stroke="#8eff71" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" activeDot={{ r: 5, fill: '#8eff71', stroke: '#0e0e0e', strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" activeDot={{ r: 5, fill: 'var(--primary)', stroke: '#0e0e0e', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -420,7 +420,7 @@ function MetricPill({ icon, label, value, live }: { icon: string; label: string;
         <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">{label}</p>
         <div className="flex items-center gap-2">
           <span className="text-xl font-bold font-headline">{value}</span>
-          {live && <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_5px_#39FF14]" />}
+          {live && <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: '0 0 5px var(--primary)' }} />}
         </div>
       </div>
     </div>

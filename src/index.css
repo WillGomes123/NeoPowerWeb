@@ -7,7 +7,7 @@
 
 @theme inline {
   /* Primary */
-  --color-primary: #8eff71;
+  --color-primary: var(--primary);
   --color-primary-container: #2ff801;
   --color-primary-dim: #2be800;
   --color-primary-fixed: #2ff801;
@@ -57,7 +57,7 @@
   --color-surface-container-highest: #262626;
   --color-surface-container-lowest: #000000;
   --color-surface-variant: #262626;
-  --color-surface-tint: #8eff71;
+  --color-surface-tint: var(--primary);
   --color-on-surface: #ffffff;
   --color-on-surface-variant: #adaaaa;
   --color-on-background: #ffffff;
@@ -89,10 +89,10 @@
   --color-input: #494847;
   --color-input-background: #131313;
   --color-switch-background: #494847;
-  --color-ring: #8eff71;
+  --color-ring: var(--primary);
 
   /* Chart colors */
-  --color-chart-1: #8eff71;
+  --color-chart-1: var(--primary);
   --color-chart-2: #90f9a3;
   --color-chart-3: #88f6ff;
   --color-chart-4: #2ff801;
@@ -108,12 +108,12 @@
   /* Sidebar */
   --color-sidebar: #131313;
   --color-sidebar-foreground: #ffffff;
-  --color-sidebar-primary: #8eff71;
+  --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: #0d6100;
   --color-sidebar-accent: #262626;
   --color-sidebar-accent-foreground: #ffffff;
   --color-sidebar-border: #494847;
-  --color-sidebar-ring: #8eff71;
+  --color-sidebar-ring: var(--primary);
 
   /* Font families */
   --font-headline: 'Space Grotesk', sans-serif;
