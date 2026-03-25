@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Zap, Clock, Chrome } from 'lucide-react';
+import { Zap, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const Login = () => {
@@ -90,28 +90,6 @@ export const Login = () => {
             </div>
             <Button type="submit" className="w-full login-button">
               Entrar
-            </Button>
-
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-zinc-700" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="login-card px-2 text-zinc-500">ou continue com</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-              onClick={() => {
-                const apiUrl = import.meta.env?.VITE_API_URL ?? '/api';
-                window.location.href = `${apiUrl}/auth/google`;
-              }}
-            >
-              <Chrome className="mr-2 h-4 w-4" />
-              Google
             </Button>
           </form>
         </CardContent>
