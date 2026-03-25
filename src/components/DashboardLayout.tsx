@@ -90,7 +90,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
             />
           ) : (
-            <div className="w-8 h-8 bg-[#8eff71] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(142,255,113,0.4)]">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(142,255,113,0.4)]">
               <span
                 className="material-symbols-outlined text-[#0d6100] text-xl"
                 style={{ fontVariationSettings: "'FILL' 1" }}
@@ -119,8 +119,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 text-sm ${
                   isActive
-                    ? 'bg-[#262626] text-[#39FF14] border-r-2 border-[#39FF14] shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
-                    : 'text-[#adaaaa] hover:bg-[#262626] hover:text-[#39FF14]'
+                    ? 'bg-[#262626] text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
+                    : 'text-[#adaaaa] hover:bg-[#262626] hover:text-primary'
                 }`}
               >
                 <span className="material-symbols-outlined text-xl">{item.icon}</span>
@@ -174,23 +174,23 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               search
             </span>
             <input
-              className="w-full bg-[#131313] border-none rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-1 focus:ring-[#8eff71]/50 placeholder:text-[#adaaaa]/50 transition-all"
+              className="w-full bg-[#131313] border-none rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-1 focus:ring-primary/50 placeholder:text-[#adaaaa]/50 transition-all"
               placeholder="Buscar no sistema..."
               type="text"
             />
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <button className="text-[#adaaaa] hover:text-[#8eff71] transition-colors">
+          <button className="text-[#adaaaa] hover:text-primary transition-colors">
             <span className="material-symbols-outlined">bolt</span>
           </button>
           <div className="relative">
-            <button className="text-[#adaaaa] hover:text-[#8eff71] transition-colors">
+            <button className="text-[#adaaaa] hover:text-primary transition-colors">
               <span className="material-symbols-outlined">notifications</span>
             </button>
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-[#8eff71] rounded-full shadow-[0_0_15px_rgba(57,255,20,0.15)]"></span>
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_15px_rgba(57,255,20,0.15)]"></span>
           </div>
-          <button className="text-[#adaaaa] hover:text-[#8eff71] transition-colors">
+          <button className="text-[#adaaaa] hover:text-primary transition-colors">
             <span className="material-symbols-outlined">account_balance_wallet</span>
           </button>
         </div>
