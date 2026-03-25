@@ -1,16 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { KPICard } from '../components/KPICard';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import { DollarSign, Zap, Ticket, Receipt, Wifi, WifiOff, RefreshCw, LayoutDashboard, Wallet, TrendingUp } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
-import { toast } from 'sonner';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 interface ChartPoint {
@@ -42,6 +36,9 @@ interface OverviewData {
   activeVouchers?: number;
 }
 
+const fmt = (v: number, decimals = 2) =>
+  v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
 export const Overview = () => {
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,11 +47,9 @@ export const Overview = () => {
   const [endDate, setEndDate] = useState('');
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
-  // Real-time stats from WebSocket
   const { isConnected, chargerStatuses, lastUpdate } = useSocket();
 
-  // Re-fetch quando status de conexão de chargers mudar (não em heartbeats)
-  const chargerCountRef = React.useRef(0);
+  const chargerCountRef = useRef(0);
   useEffect(() => {
     const onlineCount = Array.from(chargerStatuses.values()).filter(
       s => s.status !== 'Offline' && s.status !== 'Unavailable'
@@ -71,44 +66,26 @@ export const Overview = () => {
     try {
       let endpoint = '/overview-stats';
       const params = new URLSearchParams();
-
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
-
-      if (params.toString()) {
-        endpoint += `?${params.toString()}`;
-      }
+      if (params.toString()) endpoint += `?${params.toString()}`;
 
       const response = await api.get(endpoint);
-      if (!response.ok) {
-        throw new Error('Falha ao buscar dados da visão geral.');
-      }
+      if (!response.ok) throw new Error('Falha ao buscar dados.');
       const overviewData = await response.json();
-
-      // Store previous data for comparison
-      if (data) {
-        setPreviousData(data);
-      }
-
+      if (data) setPreviousData(data);
       setData(overviewData);
     } catch (err: any) {
-      console.error('Erro ao buscar dados da visão geral:', err);
       setError(err.message || 'Erro ao buscar dados.');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    void fetchOverview();
-  }, [startDate, endDate]);
+  useEffect(() => { void fetchOverview(); }, [startDate, endDate]);
 
-  const handleClearFilters = () => {
-    setStartDate('');
-    setEndDate('');
-  };
+  const handleClearFilters = () => { setStartDate(''); setEndDate(''); };
 
-  // Calculate real percentage changes
   const calculateChange = (current: number, previous: number | undefined): number | undefined => {
     if (!previous || previous === 0) return undefined;
     return ((current - previous) / previous) * 100;
@@ -116,33 +93,24 @@ export const Overview = () => {
 
   const statusCounts = useMemo(() => {
     if (!data?.chargers) return { online: 0, offline: 0, charging: 0 };
-    return {
-      online: data.chargers.online,
-      offline: data.chargers.offline,
-      charging: data.chargers.charging,
-    };
-  }, [data]);
-
-  const activeVouchers = useMemo(() => {
-    return data?.activeVouchers ?? 0;
+    return { online: data.chargers.online, offline: data.chargers.offline, charging: data.chargers.charging };
   }, [data]);
 
   const statusData = [
-    { name: 'Online', value: statusCounts.online },
-    { name: 'Offline', value: statusCounts.offline },
-    { name: 'Carregando', value: statusCounts.charging },
+    { name: 'Online', value: statusCounts.online, color: '#8eff71' },
+    { name: 'Offline', value: statusCounts.offline, color: '#777575' },
+    { name: 'Carregando', value: statusCounts.charging, color: '#88f6ff' },
   ];
 
-  const COLORS = {
-    Online: '#10b981',
-    Offline: '#71717a',
-    Carregando: '#3b82f6',
-  };
+  const netRevenue = (data?.revenueTotal || 0) + (data?.totalDepositsNet || 0);
+  const grossDeposits = data?.totalDepositsGross || 0;
+  const depositQuota = grossDeposits > 0 ? Math.min((grossDeposits / (grossDeposits * 1.02)) * 100, 100) : 0;
+  const revenueChange = calculateChange(data?.revenueTotal || 0, previousData?.revenueTotal);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-400">Carregando...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -150,7 +118,7 @@ export const Overview = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-400">{error}</div>
+        <div className="text-error">{error}</div>
       </div>
     );
   }
@@ -158,285 +126,325 @@ export const Overview = () => {
   if (!data) return null;
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-[0.98] duration-500 pb-12">
-      {/* Header Premium */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative">
-          <div className="absolute -inset-1 rounded-full bg-emerald-500/20 blur-2xl opacity-50" />
-          <h1 className="relative text-3xl font-bold text-white flex items-center gap-3 tracking-tight">
-            <LayoutDashboard className="w-9 h-9 text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
-            Visão Geral
-          </h1>
-          <p className="text-zinc-400 mt-2 font-medium">Monitoramento do desempenho e receita da sua rede em tempo real.</p>
-        </div>
-        {/* Real-time connection indicator */}
-        <div className="flex items-center gap-4">
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isConnected
-              ? 'bg-emerald-500/10 border border-emerald-500/30'
-              : 'bg-zinc-800 border border-zinc-700'
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold tracking-[0.2em] rounded mb-3 border border-primary/20">
+            COMMAND DECK
+          </span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Visão Geral</h1>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-on-surface-variant font-medium text-sm">
+              {startDate || endDate
+                ? `Período: ${startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} — ${endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}`
+                : `Período: ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
+            </p>
+            {/* Real-time indicator */}
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${
+              isConnected
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'bg-surface-container-highest text-on-surface-variant border border-outline-variant/20'
             }`}>
-            {isConnected ? (
-              <>
-                <Wifi className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm text-emerald-400">Tempo Real</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4 text-zinc-500" />
-                <span className="text-sm text-zinc-500">Offline</span>
-              </>
+              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-primary animate-pulse' : 'bg-outline'}`} />
+              {isConnected ? 'LIVE' : 'OFFLINE'}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={setStartDate}
+            onEndDateChange={setEndDate}
+            onClear={handleClearFilters}
+          />
+          <button
+            onClick={() => void fetchOverview()}
+            className="px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold text-sm shadow-[0_8px_20px_rgba(57,255,20,0.2)] hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <span className="material-symbols-outlined text-base align-middle mr-1">refresh</span>
+            ATUALIZAR
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Row 1: Bento Style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Net Revenue */}
+        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">RECEITA LÍQUIDA</span>
+            {revenueChange !== undefined && (
+              <div className={`flex items-center text-xs font-bold ${revenueChange >= 0 ? 'text-primary' : 'text-error'}`}>
+                <span className="material-symbols-outlined text-sm">{revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
+                {Math.abs(revenueChange).toFixed(1)}%
+              </div>
             )}
           </div>
-          {lastUpdate && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <RefreshCw className="w-3 h-3" />
-              Atualizado: {lastUpdate.toLocaleTimeString('pt-BR')}
+          <div className="flex items-baseline gap-1">
+            <span className="text-on-surface-variant text-sm font-medium">R$</span>
+            <span className="text-3xl font-headline font-bold">{fmt(netRevenue)}</span>
+          </div>
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </div>
+
+        {/* Net Deposits */}
+        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+          <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">DEPÓSITOS LÍQUIDOS</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-on-surface-variant text-sm font-medium">R$</span>
+            <span className="text-3xl font-headline font-bold">{fmt(data.totalDepositsNet || 0)}</span>
+          </div>
+        </div>
+
+        {/* Tax */}
+        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+          <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">TAXA MP</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-on-surface-variant text-sm font-medium">R$</span>
+            <span className="text-3xl font-headline font-bold">{fmt(data.mercadoPagoFee || 0)}</span>
+          </div>
+        </div>
+
+        {/* Gross Deposits (Highlighted) */}
+        <div className="bg-surface-container-highest p-6 rounded-lg border border-primary/20 relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-4">
+              <span className="text-[10px] font-bold text-primary tracking-widest uppercase">DEPÓSITOS BRUTOS</span>
+              <span className="px-2 py-0.5 bg-primary text-on-primary text-[10px] font-extrabold rounded">
+                {data.depositsCount || 0} DEP.
+              </span>
             </div>
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-primary/70 text-sm font-medium">R$</span>
+              <span className="text-3xl font-headline font-bold text-primary">{fmt(grossDeposits)}</span>
+            </div>
+            <div className="w-full bg-surface/50 h-1.5 rounded-full mt-4">
+              <div
+                className="bg-primary h-full rounded-full shadow-[0_0_8px_rgba(57,255,20,0.6)]"
+                style={{ width: `${depositQuota}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-on-surface-variant mt-2 text-right font-medium">
+              {depositQuota.toFixed(1)}% DO ALVO
+            </p>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] rounded-full" />
+        </div>
+      </div>
+
+      {/* KPI Row 2: Operational Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <MetricPill
+          icon="today"
+          label={startDate || endDate ? 'RECEITA (PERÍODO)' : 'RECEITA (HOJE)'}
+          value={`R$ ${fmt(data.revenueToday)}`}
+          live={!startDate && !endDate}
+        />
+        <MetricPill
+          icon="calendar_month"
+          label="RECEITA (MÊS)"
+          value={`R$ ${fmt(data.revenueMonth)}`}
+        />
+        <MetricPill
+          icon="bolt"
+          label={startDate || endDate ? 'ENERGIA (PERÍODO)' : 'ENERGIA (HOJE)'}
+          value={`${fmt(data.kwhToday, 1)} kWh`}
+          live={!startDate && !endDate}
+        />
+        <MetricPill
+          icon="electric_car"
+          label="ENERGIA (MÊS)"
+          value={`${fmt(data.kwhMonth, 1)} kWh`}
+        />
+      </div>
+
+      {/* Charts Section: Asymmetric Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Revenue Chart */}
+        <div className="lg:col-span-7 bg-surface-container-low p-8 rounded-lg border border-outline-variant/10">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="font-headline text-lg font-bold">Análise de Receita</h3>
+              <p className="text-xs text-on-surface-variant">
+                {startDate || endDate ? 'Período selecionado' : 'Últimos 7 dias'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant">
+                <span className="w-2 h-2 rounded-full bg-primary" /> RECEITA
+              </span>
+            </div>
+          </div>
+          {(!data.last7DaysRevenue || data.last7DaysRevenue.length === 0) ? (
+            <div className="h-48 flex flex-col items-center justify-center gap-3">
+              <span className="material-symbols-outlined text-4xl text-outline">payments</span>
+              <p className="text-sm text-on-surface-variant">Sem dados de receita no período</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={data.last7DaysRevenue}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8eff71" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#8eff71" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.2} vertical={false} />
+                <XAxis dataKey="date" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `R$${v}`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
+                  labelStyle={{ color: '#adaaaa', fontWeight: 600 }}
+                  itemStyle={{ color: '#8eff71', fontWeight: 700 }}
+                />
+                <Area type="monotone" dataKey="value" stroke="#8eff71" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" activeDot={{ r: 5, fill: '#8eff71', stroke: '#0e0e0e', strokeWidth: 2 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Energy Consumption */}
+        <div className="lg:col-span-5 bg-surface-container-low p-8 rounded-lg border border-outline-variant/10">
+          <h3 className="font-headline text-lg font-bold mb-10">Consumo de Energia</h3>
+          {(!data.last7DaysKwh || data.last7DaysKwh.length === 0) ? (
+            <div className="h-48 flex flex-col items-center justify-center gap-3">
+              <span className="material-symbols-outlined text-4xl text-outline">bolt</span>
+              <p className="text-sm text-on-surface-variant">Sem dados de energia no período</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={data.last7DaysKwh} barSize={24}>
+                <defs>
+                  <linearGradient id="kwhGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#88f6ff" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#00deea" stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.2} vertical={false} />
+                <XAxis dataKey="date" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `${v} kW`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
+                  labelStyle={{ color: '#adaaaa', fontWeight: 600 }}
+                  itemStyle={{ color: '#88f6ff', fontWeight: 700 }}
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                />
+                <Bar dataKey="value" fill="url(#kwhGrad)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </div>
       </div>
 
-      {/* Date Filters */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardContent className="p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div>
-              <label className="text-xs text-zinc-400 font-medium mb-1.5 block">Período</label>
-              <DateRangePicker
-                startDate={startDate}
-                endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
-                onClear={handleClearFilters}
-                className="min-w-[280px]"
-              />
-            </div>
-
-            {(startDate || endDate) && (
-              <div className="text-sm text-zinc-400 pt-5">
-                Exibindo: {startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} até {endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}
-              </div>
-            )}
+      {/* Bottom Section: Station Status + Side Cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Station Status Table */}
+        <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 overflow-hidden">
+          <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
+            <h3 className="font-headline font-bold">Status das Estações</h3>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+              {statusCounts.online} ONLINE
+            </span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* KPI Cards - Resumo Total */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Receita Líquida Total"
-          value={`R$ ${((data.revenueTotal || 0) + (data.totalDepositsNet || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          change={calculateChange(data.revenueTotal, previousData?.revenueTotal)}
-          icon={<TrendingUp className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Depósitos Líquidos"
-          value={`R$ ${(data.totalDepositsNet || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={<Wallet className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Taxa MP Descontada"
-          value={`R$ ${(data.mercadoPagoFee || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={<DollarSign className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Depósitos Brutos"
-          value={`R$ ${(data.totalDepositsGross || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          icon={<Receipt className="w-4 h-4" />}
-        />
-      </div>
-
-      {/* KPI Cards - Período */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title={startDate || endDate ? "Receita (Período)" : "Receita (Hoje)"}
-          value={`R$ ${data.revenueToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          change={calculateChange(data.revenueToday, previousData?.revenueToday)}
-          icon={<DollarSign className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Receita (Mês)"
-          value={`R$ ${data.revenueMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-          change={calculateChange(data.revenueMonth, previousData?.revenueMonth)}
-          icon={<DollarSign className="w-4 h-4" />}
-        />
-        <KPICard
-          title={startDate || endDate ? "Energia (Período)" : "Energia (Hoje)"}
-          value={`${data.kwhToday.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kWh`}
-          change={calculateChange(data.kwhToday, previousData?.kwhToday)}
-          icon={<Zap className="w-4 h-4" />}
-        />
-        <KPICard
-          title="Energia (Mês)"
-          value={`${data.kwhMonth.toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kWh`}
-          change={calculateChange(data.kwhMonth, previousData?.kwhMonth)}
-          icon={<Zap className="w-4 h-4" />}
-        />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardHeader>
-            <CardTitle className="text-white">
-              {startDate || endDate ? 'Receita (Período Selecionado)' : 'Receita (Últimos 7 Dias)'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(!data.last7DaysRevenue || data.last7DaysRevenue.length === 0) ? (
-              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
-                <DollarSign className="w-12 h-12 text-zinc-700" />
-                <p className="text-zinc-500">Sem dados de receita no período</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={data.last7DaysRevenue}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(val) => `R$${val}`} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(24, 24, 27, 0.9)',
-                      border: '1px solid rgba(63, 63, 70, 0.5)',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                    labelStyle={{ color: '#a1a1aa', fontWeight: 600, marginBottom: '4px' }}
-                    itemStyle={{ color: '#10b981', fontWeight: 700 }}
-                  />
-                  <Area
-                    type="monotone"
+          {statusData.every(d => d.value === 0) ? (
+            <div className="p-12 flex flex-col items-center justify-center gap-3">
+              <span className="material-symbols-outlined text-4xl text-outline">ev_station</span>
+              <p className="text-sm text-on-surface-variant">Nenhuma estação registrada</p>
+            </div>
+          ) : (
+            <div className="p-6">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={statusData.filter(d => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={4}
                     dataKey="value"
-                    stroke="#10b981"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorRevenue)"
-                    activeDot={{ r: 6, fill: '#10b981', stroke: '#18181b', strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardHeader>
-            <CardTitle className="text-white">
-              {startDate || endDate ? 'Consumo de Energia (Período Selecionado)' : 'Consumo de Energia (Últimos 7 Dias)'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {(!data.last7DaysKwh || data.last7DaysKwh.length === 0) ? (
-              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
-                <Zap className="w-12 h-12 text-zinc-700" />
-                <p className="text-zinc-500">Sem dados de energia no período</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.last7DaysKwh} barSize={28}>
-                  <defs>
-                    <linearGradient id="colorKwh" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity={0.6} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                  <XAxis dataKey="date" stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis stroke="#71717a" tick={{ fill: '#a1a1aa', fontSize: 12 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(val) => `${val} kW`} />
+                    strokeWidth={0}
+                  >
+                    {statusData.filter(d => d.value > 0).map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(24, 24, 27, 0.9)',
-                      border: '1px solid rgba(63, 63, 70, 0.5)',
-                      borderRadius: '12px',
-                      boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
-                      backdropFilter: 'blur(8px)',
-                    }}
-                    labelStyle={{ color: '#a1a1aa', fontWeight: 600, marginBottom: '4px' }}
-                    itemStyle={{ color: '#3b82f6', fontWeight: 700 }}
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px' }}
+                    labelStyle={{ color: '#adaaaa' }}
                   />
-                  <Bar dataKey="value" fill="url(#colorKwh)" radius={[6, 6, 0, 0]} />
-                </BarChart>
+                </PieChart>
               </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Status Chart and Mini Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-zinc-900/50 border-zinc-800 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-white">Status das Estações</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {statusData.every(d => d.value === 0) ? (
-              <div className="h-[300px] flex flex-col items-center justify-center gap-3">
-                <Zap className="w-12 h-12 text-zinc-700" />
-                <p className="text-zinc-500">Nenhuma estação registrada</p>
+              {/* Legend */}
+              <div className="flex justify-center gap-6 mt-4">
+                {statusData.filter(d => d.value > 0).map(d => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                    {d.name}: <span className="font-bold text-on-surface">{d.value}</span>
+                  </span>
+                ))}
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={statusData.filter(d => d.value > 0)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      fill="#8884d8"
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={entry => `${entry.name}: ${entry.value}`}
-                    >
-                      {statusData.filter(d => d.value > 0).map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[entry.name as keyof typeof COLORS]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#18181b',
-                        border: '1px solid #3f3f46',
-                        borderRadius: '8px',
-                      }}
-                      labelStyle={{ color: '#a1a1aa' }}
-                    />
-                    <Legend wrapperStyle={{ color: '#a1a1aa' }} iconType="circle" />
-                  </PieChart>
-                </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
 
-        <div className="space-y-4">
-          <KPICard
-            title="Vouchers Ativos"
-            value={activeVouchers}
-            icon={<Ticket className="w-4 h-4" />}
-          />
-          <KPICard
-            title="Transações (Mês)"
-            value={data.transactionsMonth}
-            icon={<Receipt className="w-4 h-4" />}
-          />
-          <KPICard
-            title="Estações Totais"
-            value={data.chargers.total}
-            icon={<Zap className="w-4 h-4" />}
-          />
+        {/* Side Cards */}
+        <div className="space-y-6">
+          <SideMetric icon="confirmation_number" label="VOUCHERS ATIVOS" value={String(data.activeVouchers ?? 0)} accent />
+          <SideMetric icon="receipt_long" label="TRANSAÇÕES (MÊS)" value={String(data.transactionsMonth)} />
+          <SideMetric icon="ev_station" label="ESTAÇÕES TOTAIS" value={String(data.chargers.total)} />
+          {lastUpdate && (
+            <div className="flex items-center gap-2 text-xs text-on-surface-variant px-1">
+              <span className="material-symbols-outlined text-sm">schedule</span>
+              Última atualização: {lastUpdate.toLocaleTimeString('pt-BR')}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+/* ── Sub-components ── */
+
+function MetricPill({ icon, label, value, live }: { icon: string; label: string; value: string; live?: boolean }) {
+  return (
+    <div className="flex items-center gap-4 bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/5">
+      <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
+        <span className="material-symbols-outlined text-primary text-xl">{icon}</span>
+      </div>
+      <div>
+        <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">{label}</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold font-headline">{value}</span>
+          {live && <span className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_5px_#39FF14]" />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SideMetric({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={`p-6 rounded-lg border relative overflow-hidden group ${
+      accent
+        ? 'bg-surface-container-highest border-primary/20'
+        : 'bg-surface-container-low border-outline-variant/10'
+    }`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${accent ? 'bg-primary/10' : 'bg-surface-container'}`}>
+          <span className={`material-symbols-outlined text-2xl ${accent ? 'text-primary' : 'text-on-surface-variant'}`}>{icon}</span>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">{label}</p>
+          <span className={`text-3xl font-headline font-bold ${accent ? 'text-primary' : ''}`}>{value}</span>
+        </div>
+      </div>
+      {accent && <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 blur-[40px] rounded-full" />}
+      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary/15 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+    </div>
+  );
+}

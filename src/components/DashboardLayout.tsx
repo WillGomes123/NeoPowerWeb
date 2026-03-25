@@ -1,24 +1,9 @@
-import React, { ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
 import {
-  LayoutDashboard,
-  Zap,
-  MapPin,
-  Receipt,
-  BarChart3,
-  Settings,
-  DollarSign,
-  Users,
-  Ticket,
   LogOut,
-  UserCircle,
-  Tag,
-  Wallet,
-  Megaphone,
-  Mail,
-  Palette,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -39,30 +24,30 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
 
   const navItems = [
-    { path: '/', label: 'Visão Geral', icon: LayoutDashboard, roles: ['admin', 'atem', 'comum'] },
-    { path: '/estacoes', label: 'Estações', icon: Zap, roles: ['admin', 'atem', 'comum'] },
-    { path: '/locais', label: 'Locais', icon: MapPin, roles: ['admin', 'atem', 'comum'] },
-    { path: '/transacoes', label: 'Transações', icon: Receipt, roles: ['admin', 'atem', 'comum'] },
+    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'atem', 'comum'] },
+    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'atem', 'comum'] },
+    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'atem', 'comum'] },
+    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'atem', 'comum'] },
     {
       path: '/indicadores',
       label: 'Indicadores',
-      icon: BarChart3,
+      icon: 'leaderboard',
       roles: ['admin', 'atem', 'comum'],
     },
-    { path: '/operacoes', label: 'Operações', icon: Settings, roles: ['admin'] },
+    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin'] },
     {
       path: '/relatorio-financeiro',
       label: 'Relatório Financeiro',
-      icon: DollarSign,
+      icon: 'payments',
       roles: ['admin'],
     },
-    { path: '/usuarios', label: 'Usuários', icon: Users, roles: ['admin'] },
-    { path: '/vouchers', label: 'Vouchers', icon: Ticket, roles: ['admin', 'atem', 'comum'] },
-    { path: '/tarifas', label: 'Tarifas', icon: Tag, roles: ['admin', 'atem', 'comum'] },
-    { path: '/carteiras', label: 'Carteiras', icon: Wallet, roles: ['admin'] },
-    { path: '/notificacoes', label: 'Notificações', icon: Megaphone, roles: ['admin', 'atem', 'comum'] },
-    { path: '/branding', label: 'White Label', icon: Palette, roles: ['admin'] },
-    { path: '/email', label: 'Email', icon: Mail, roles: ['admin'] },
+    { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
+    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'atem', 'comum'] },
+    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'atem', 'comum'] },
+    { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
+    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'atem', 'comum'] },
+    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
+    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
   ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
@@ -93,69 +78,82 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="flex h-screen bg-black">
+    <div className="flex h-screen bg-[#0e0e0e]">
       {/* Sidebar */}
-      <aside className="w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col">
-        <div className="p-6 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            {user?.branding?.logoType === 'image' && user.branding.logoUri ? (
-              <img 
-                src={user.branding.logoUri} 
-                alt="Logo" 
-                className="w-8 h-8 rounded-md object-contain shrink-0 bg-white" 
-              />
-            ) : (
-              <Zap className="w-6 h-6 text-emerald-500 shrink-0" />
-            )}
-            <h1 className="text-xl text-white font-semibold truncate">
+      <aside className="fixed left-0 top-0 h-full flex flex-col py-6 overflow-y-auto bg-[#131313] border-r border-[#494847]/15 w-64 z-50">
+        {/* Logo */}
+        <div className="px-6 mb-10 flex items-center gap-3">
+          {user?.branding?.logoType === 'image' && user.branding.logoUri ? (
+            <img
+              src={user.branding.logoUri}
+              alt="Logo"
+              className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
+            />
+          ) : (
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(142,255,113,0.4)]">
+              <span
+                className="material-symbols-outlined text-[#0d6100] text-xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                bolt
+              </span>
+            </div>
+          )}
+          <div>
+            <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-white">
               {user?.branding?.companyName || 'NeoPower'}
-            </h1>
+            </h2>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-[#adaaaa] font-medium">
+              Command Deck
+            </p>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">Gerenciamento de Estações</p>
         </div>
 
-        <nav className="sidebar-nav flex-1 overflow-y-auto p-4 space-y-1">
+        {/* Navigation */}
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {visibleNavItems.map(item => {
-            const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isActive
-                    ? 'bg-emerald-500/10 text-emerald-400'
-                    : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
-                  }`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 text-sm ${
+                  isActive
+                    ? 'bg-[#262626] text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
+                    : 'text-[#adaaaa] hover:bg-[#262626] hover:text-primary'
+                }`}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
+                <span className="material-symbols-outlined text-xl">{item.icon}</span>
+                <span>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="shrink-0 p-4 border-t border-zinc-800">
-          {/* User Menu */}
+        {/* User Profile at bottom */}
+        <div className="px-6 mt-auto border-t border-[#494847]/15 pt-6">
           <DropdownMenu>
-            <DropdownMenuTrigger className="w-full flex items-center justify-start gap-3 px-3 py-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors">
-              <UserCircle className="w-5 h-5" />
-              <div className="flex flex-col items-start text-left">
-                <span className="text-sm">{user?.name}</span>
-                <span className="text-xs text-zinc-500 uppercase tracking-wide">
+            <DropdownMenuTrigger className="w-full flex items-center gap-3 text-left">
+              <div className="w-10 h-10 rounded-full bg-[#262626] overflow-hidden flex items-center justify-center">
+                <span className="material-symbols-outlined text-[#adaaaa] text-xl">person</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white truncate">{user?.name}</p>
+                <p className="text-xs text-[#adaaaa] truncate uppercase tracking-wide">
                   {user ? roleLabels[user.role] : ''}
-                </span>
+                </p>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-zinc-800">
-              <DropdownMenuLabel className="text-zinc-400">Minha Conta</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-zinc-800" />
+            <DropdownMenuContent align="end" className="w-56 bg-[#1a1919] border-[#494847]/15">
+              <DropdownMenuLabel className="text-[#adaaaa]">Minha Conta</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[#494847]/15" />
               <DropdownMenuItem
                 onClick={handleRoleSwitch}
-                className="text-zinc-300 focus:bg-zinc-800 focus:text-white cursor-pointer"
+                className="text-[#adaaaa] focus:bg-[#262626] focus:text-white cursor-pointer"
               >
                 Alternar para {roleLabels[nextRole]}
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-zinc-800" />
+              <DropdownMenuSeparator className="bg-[#494847]/15" />
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer"
@@ -168,9 +166,39 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
       </aside>
 
+      {/* Top Navbar */}
+      <header className="fixed top-0 right-0 left-64 flex justify-between items-center px-8 h-16 bg-[#0e0e0e]/80 backdrop-blur-xl border-b border-[#494847]/15 z-40">
+        <div className="flex items-center gap-4 flex-1">
+          <div className="relative w-64 group">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#adaaaa] text-lg">
+              search
+            </span>
+            <input
+              className="w-full bg-[#131313] border-none rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-1 focus:ring-primary/50 placeholder:text-[#adaaaa]/50 transition-all"
+              placeholder="Buscar no sistema..."
+              type="text"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <button className="text-[#adaaaa] hover:text-primary transition-colors">
+            <span className="material-symbols-outlined">bolt</span>
+          </button>
+          <div className="relative">
+            <button className="text-[#adaaaa] hover:text-primary transition-colors">
+              <span className="material-symbols-outlined">notifications</span>
+            </button>
+            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_15px_rgba(57,255,20,0.15)]"></span>
+          </div>
+          <button className="text-[#adaaaa] hover:text-primary transition-colors">
+            <span className="material-symbols-outlined">account_balance_wallet</span>
+          </button>
+        </div>
+      </header>
+
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
+      <main className="pl-64 pt-16 flex-1 min-h-screen overflow-auto">
+        <div className="p-8 max-w-[1600px] mx-auto">{children}</div>
       </main>
     </div>
   );

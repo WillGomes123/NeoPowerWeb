@@ -54,12 +54,28 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
   if (branding?.primaryColor) {
     const style = document.createElement('style');
     style.id = 'dynamic-branding-style';
+    // Derive lighter/darker variants from the primary color
+    const hex = branding.primaryColor.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const dimR = Math.max(0, Math.floor(r * 0.7));
+    const dimG = Math.max(0, Math.floor(g * 0.7));
+    const dimB = Math.max(0, Math.floor(b * 0.7));
+    const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
+
     style.innerHTML = `
       :root {
-        --color-emerald-400: ${branding.primaryColor} !important;
-        --color-emerald-500: ${branding.primaryColor} !important;
-        --color-emerald-600: ${branding.primaryColor} !important;
-        --theme-primary: ${branding.primaryColor} !important;
+        --color-primary: ${branding.primaryColor} !important;
+        --color-primary-dim: ${containerHex} !important;
+        --color-primary-container: ${branding.primaryColor} !important;
+        --color-primary-fixed: ${branding.primaryColor} !important;
+        --color-primary-fixed-dim: ${containerHex} !important;
+        --color-surface-tint: ${branding.primaryColor} !important;
+        --color-ring: ${branding.primaryColor} !important;
+        --color-sidebar-primary: ${branding.primaryColor} !important;
+        --color-sidebar-ring: ${branding.primaryColor} !important;
+        --color-chart-1: ${branding.primaryColor} !important;
       }
     `;
     document.head.appendChild(style);
