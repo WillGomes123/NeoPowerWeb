@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   EnhancedTable,
@@ -15,11 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { StatusBadge } from '../components/StatusBadge';
 import { ChargerDetailsDialog } from '../components/ChargerDetailsDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Zap, CheckCircle2, Eye } from 'lucide-react';
+import { Zap, CheckCircle2, Eye, Plus, QrCode, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
 
@@ -29,6 +37,8 @@ interface Charger {
   vendor?: string;
   description?: string;
   power_kw?: number;
+  num_connectors?: number;
+  connector_type?: string;
   locationId: number | null;
   isConnected: boolean;
   status?: string;
@@ -47,9 +57,23 @@ export const Stations = () => {
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState<string | null>(null);
   const { chargerStatuses } = useSocket();
 
-  // Merge REST data with real-time socket status
+  // Register form state
+  const [regForm, setRegForm] = useState({
+    charge_point_id: '',
+    description: '',
+    model: '',
+    vendor: '',
+    connector_type: '',
+    power_kw: '',
+    num_connectors: '1',
+    locationId: '',
+  });
+
   const mergedChargers = useMemo(() => {
     if (chargerStatuses.size === 0) return chargers;
     return chargers.map(charger => {
@@ -77,14 +101,17 @@ export const Stations = () => {
       const chargersData = await chargersRes.json();
       const locationsData = await locationsRes.json();
 
-      setChargers(chargersData);
-      setLocations(locationsData.locations || []);
+      // Handle response envelope
+      const chargersList = chargersData.data || chargersData;
+      const locationsList = locationsData.data?.locations || locationsData.locations || [];
 
-      // Inicializa o estado dos dropdowns
+      setChargers(chargersList);
+      setLocations(locationsList);
+
       const initialSelections: { [key: string]: string } = {};
-      chargersData.forEach((c: Charger) => {
-        if (!c.locationId && locationsData.length > 0) {
-          initialSelections[c.charge_point_id] = locationsData[0].id.toString();
+      chargersList.forEach((c: Charger) => {
+        if (!c.locationId && locationsList.length > 0) {
+          initialSelections[c.charge_point_id] = locationsList[0].id.toString();
         }
       });
       setSelectedLocations(initialSelections);
@@ -124,6 +151,79 @@ export const Stations = () => {
     }
   };
 
+  const handleRegisterCharger = async () => {
+    if (!regForm.charge_point_id.trim()) {
+      toast.error('ID do carregador é obrigatório');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      const payload: Record<string, unknown> = {
+        charge_point_id: regForm.charge_point_id.trim(),
+      };
+      if (regForm.description) payload.description = regForm.description;
+      if (regForm.model) payload.model = regForm.model;
+      if (regForm.vendor) payload.vendor = regForm.vendor;
+      if (regForm.connector_type) payload.connector_type = regForm.connector_type;
+      if (regForm.power_kw) payload.power_kw = parseFloat(regForm.power_kw);
+      if (regForm.num_connectors) payload.num_connectors = parseInt(regForm.num_connectors);
+      if (regForm.locationId) payload.locationId = parseInt(regForm.locationId);
+
+      const response = await api.post('/chargers/register', payload);
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao registrar carregador');
+      }
+
+      toast.success('Carregador registrado com sucesso!');
+      setRegisterOpen(false);
+      setRegForm({
+        charge_point_id: '',
+        description: '',
+        model: '',
+        vendor: '',
+        connector_type: '',
+        power_kw: '',
+        num_connectors: '1',
+        locationId: '',
+      });
+      void fetchData();
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Erro ao registrar';
+      toast.error(msg);
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleDownloadQrCode = async (chargerId: string) => {
+    setDownloadingQr(chargerId);
+    try {
+      const response = await api.get(`/chargers/${chargerId}/qrcode`);
+      if (!response.ok) {
+        throw new Error('Erro ao gerar QR Code');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qrcode-${chargerId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('QR Code baixado!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao gerar QR Code');
+    } finally {
+      setDownloadingQr(null);
+    }
+  };
+
   const getLocationName = (locationId: number | null) => {
     if (!locationId) return 'Desconhecido';
     return locations.find(l => l.id === locationId)?.nomeDoLocal || 'Desconhecido';
@@ -142,12 +242,21 @@ export const Stations = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-          <Zap className="w-8 h-8 text-emerald-400" />
-          Estações de Recarga
-        </h1>
-        <p className="text-zinc-400 mt-1">Gerenciamento de carregadores</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+            <Zap className="w-8 h-8 text-emerald-400" />
+            Estações de Recarga
+          </h1>
+          <p className="text-zinc-400 mt-1">Gerenciamento de carregadores</p>
+        </div>
+        <Button
+          onClick={() => setRegisterOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-500 text-white"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Registrar Carregador
+        </Button>
       </div>
 
       {/* Pending Chargers */}
@@ -256,7 +365,7 @@ export const Stations = () => {
               <p className="text-base text-zinc-500 mt-2">
                 {pendingChargers.length > 0
                   ? 'Atribua os carregadores pendentes acima a um local'
-                  : 'Conecte um carregador OCPP para começar'}
+                  : 'Registre um carregador para começar'}
               </p>
             </div>
           ) : (
@@ -305,18 +414,36 @@ export const Stations = () => {
                       <StatusBadge status={charger.isConnected ? 'online' : 'offline'} />
                     </EnhancedTableCell>
                     <EnhancedTableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedCharger(charger.charge_point_id);
-                          setDetailsOpen(true);
-                        }}
-                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Detalhes
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedCharger(charger.charge_point_id);
+                            setDetailsOpen(true);
+                          }}
+                          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Detalhes
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadQrCode(charger.charge_point_id)}
+                          disabled={downloadingQr === charger.charge_point_id}
+                          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+                        >
+                          {downloadingQr === charger.charge_point_id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <QrCode className="h-4 w-4 mr-1" />
+                              QR Code
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </EnhancedTableCell>
                   </EnhancedTableRow>
                 ))}
@@ -333,6 +460,150 @@ export const Stations = () => {
         onOpenChange={setDetailsOpen}
         onUpdate={fetchData}
       />
+
+      {/* Register Charger Dialog */}
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent className="bg-zinc-900 border-zinc-800 max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-emerald-400" />
+              Registrar Novo Carregador
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label className="text-zinc-300">ID do Carregador *</Label>
+              <Input
+                placeholder="Ex: CP001, CHARGER-A1"
+                value={regForm.charge_point_id}
+                onChange={e => setRegForm(f => ({ ...f, charge_point_id: e.target.value }))}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
+              <p className="text-xs text-zinc-500">
+                Este ID será usado no QR Code e deve corresponder ao ID configurado no carregador OCPP
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-zinc-300">Descrição</Label>
+              <Input
+                placeholder="Ex: Carregador Estacionamento A"
+                value={regForm.description}
+                onChange={e => setRegForm(f => ({ ...f, description: e.target.value }))}
+                className="bg-zinc-800 border-zinc-700 text-white"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Modelo</Label>
+                <Input
+                  placeholder="Ex: Wallbox Plus"
+                  value={regForm.model}
+                  onChange={e => setRegForm(f => ({ ...f, model: e.target.value }))}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Fabricante</Label>
+                <Input
+                  placeholder="Ex: ABB, Schneider"
+                  value={regForm.vendor}
+                  onChange={e => setRegForm(f => ({ ...f, vendor: e.target.value }))}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Potência (kW)</Label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 22"
+                  value={regForm.power_kw}
+                  onChange={e => setRegForm(f => ({ ...f, power_kw: e.target.value }))}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Conectores</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={regForm.num_connectors}
+                  onChange={e => setRegForm(f => ({ ...f, num_connectors: e.target.value }))}
+                  className="bg-zinc-800 border-zinc-700 text-white"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-zinc-300">Tipo Conector</Label>
+                <Select
+                  value={regForm.connector_type}
+                  onValueChange={value => setRegForm(f => ({ ...f, connector_type: value }))}
+                >
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                    <SelectValue placeholder="Tipo" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="Type1" className="text-white focus:bg-zinc-700 focus:text-white">Type 1</SelectItem>
+                    <SelectItem value="Type2" className="text-white focus:bg-zinc-700 focus:text-white">Type 2</SelectItem>
+                    <SelectItem value="CCS1" className="text-white focus:bg-zinc-700 focus:text-white">CCS 1</SelectItem>
+                    <SelectItem value="CCS2" className="text-white focus:bg-zinc-700 focus:text-white">CCS 2</SelectItem>
+                    <SelectItem value="CHAdeMO" className="text-white focus:bg-zinc-700 focus:text-white">CHAdeMO</SelectItem>
+                    <SelectItem value="GBT" className="text-white focus:bg-zinc-700 focus:text-white">GB/T</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-zinc-300">Local (opcional)</Label>
+              <Select
+                value={regForm.locationId}
+                onValueChange={value => setRegForm(f => ({ ...f, locationId: value }))}
+              >
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue placeholder="Selecione um local" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  {locations.map(loc => (
+                    <SelectItem
+                      key={loc.id}
+                      value={loc.id.toString()}
+                      className="text-white focus:bg-zinc-700 focus:text-white"
+                    >
+                      {loc.nomeDoLocal} ({loc.endereco})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setRegisterOpen(false)}
+                className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleRegisterCharger}
+                disabled={registering || !regForm.charge_point_id.trim()}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white"
+              >
+                {registering ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-2" />
+                )}
+                Registrar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
