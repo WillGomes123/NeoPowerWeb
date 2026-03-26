@@ -226,7 +226,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     const fd = new FormData();
     fd.append('files', file);
     try {
-      const res = await api.post('/admin/branding/upload', fd);
+      const res = await api.post('/locations/upload', fd);
       if (res.ok) {
         const data = await res.json();
         const url = data.url || data.payload?.url;
@@ -235,6 +235,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
       } else { toast.error('Erro no upload'); }
     } catch { toast.error('Erro ao enviar imagem'); }
     finally { setUploadingImage(false); }
+
   };
 
   const handleSubmit = async () => {
