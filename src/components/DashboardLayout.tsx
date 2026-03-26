@@ -5,6 +5,7 @@ import { UserRole } from '../types';
 import {
   LogOut,
 } from 'lucide-react';
+import NeoPowerLogo from '../assets/NeoPower.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,34 +83,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full flex flex-col py-6 overflow-y-auto bg-[#131313] border-r border-[#494847]/15 w-64 z-50">
         {/* Logo */}
-        <div className="px-6 mb-10 flex items-center gap-3">
+        <div className="px-6 mb-6">
           {user?.branding?.logoType === 'image' && user.branding.logoUri ? (
-            <img
-              src={user.branding.logoUri}
-              alt="Logo"
-              className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
-            />
+            <div className="flex items-center gap-3">
+              <img
+                src={user.branding.logoUri}
+                alt="Logo"
+                className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
+              />
+              <div>
+                <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-white">
+                  {user?.branding?.companyName}
+                </h2>
+              </div>
+            </div>
           ) : (
-            <div 
-              className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"
-              style={{ boxShadow: '0 0 15px color-mix(in srgb, var(--primary), transparent 60%)' }}
-            >
-              <span
-                className="material-symbols-outlined text-primary-foreground text-xl"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                bolt
-              </span>
+            <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center justify-center w-fit">
+              <img 
+                src={NeoPowerLogo} 
+                alt="NeoPower" 
+                className="h-6 w-auto" 
+              />
             </div>
           )}
-          <div>
-            <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-white">
-              {user?.branding?.companyName || 'NeoPower'}
-            </h2>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#adaaaa] font-medium">
-              Command Deck
-            </p>
-          </div>
         </div>
 
         {/* Navigation */}
@@ -184,18 +180,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <button className="text-[#adaaaa] hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">bolt</span>
-          </button>
           <div className="relative">
             <button className="text-[#adaaaa] hover:text-primary transition-colors">
               <span className="material-symbols-outlined">notifications</span>
             </button>
             <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_15px_rgba(57,255,20,0.15)]"></span>
           </div>
-          <button className="text-[#adaaaa] hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
-          </button>
         </div>
       </header>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
+import NeoPowerLogo from '../assets/NeoPower.png';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -43,9 +44,12 @@ export const Login = () => {
       {/* Top Header Bar */}
       <header className="fixed top-0 w-full z-50 px-8 py-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-            <h1 className="font-headline font-black text-2xl text-primary tracking-tighter">NeoPower</h1>
+          <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-2xl shadow-white/10">
+            <img 
+              src={NeoPowerLogo} 
+              alt="NeoPower" 
+              className="h-8 w-auto" 
+            />
           </div>
         </div>
       </header>
