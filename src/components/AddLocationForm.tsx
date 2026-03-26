@@ -100,6 +100,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-14.235, -51.925]);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [pinPosition, setPinPosition] = useState<[number, number] | null>(null);
 
   const [formData, setFormData] = useState<LocationFormData>({
@@ -214,6 +215,26 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     if (address && numero && cidade && estado) {
       void geocodeAddress(address, numero, cidade, estado);
     }
+  };
+
+  const handleLocationImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Selecione um arquivo de imagem'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('A imagem deve ter no máximo 5MB'); return; }
+    setUploadingImage(true);
+    const fd = new FormData();
+    fd.append('files', file);
+    try {
+      const res = await api.post('/admin/branding/upload', fd);
+      if (res.ok) {
+        const data = await res.json();
+        const url = data.url || data.payload?.url;
+        setFormData(prev => ({ ...prev, imagem_local_url: url }));
+        toast.success('Imagem enviada!');
+      } else { toast.error('Erro no upload'); }
+    } catch { toast.error('Erro ao enviar imagem'); }
+    finally { setUploadingImage(false); }
   };
 
   const handleSubmit = async () => {
@@ -671,6 +692,51 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="imagem_local_url" className="text-emerald-200/80 text-sm mb-2 block font-medium">
+                    Imagem do Local
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="imagem_local_url"
+                      value={formData.imagem_local_url}
+                      onChange={e => setFormData({ ...formData, imagem_local_url: e.target.value })}
+                      placeholder="URL da imagem ou faça upload"
+                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20 flex-1"
+                    />
+                    <div className="relative">
+                      <input type="file" id="add-location-image-upload" className="hidden" accept="image/*" onChange={handleLocationImageUpload} disabled={uploadingImage} />
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-11 px-4"
+                        onClick={() => document.getElementById('add-location-image-upload')?.click()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-zinc-300" />
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base mr-1">upload</span>
+                            Upload
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  {formData.imagem_local_url && (
+                    <div className="mt-2 rounded-lg overflow-hidden border border-zinc-700 h-28 relative group">
+                      <img src={formData.imagem_local_url} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, imagem_local_url: '' })}
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div>

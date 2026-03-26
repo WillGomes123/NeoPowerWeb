@@ -39,6 +39,7 @@ interface LocationData {
   emailResponsavel: string;
   telefoneResponsavel: string;
   chargePoints?: any[];
+  imageUrl?: string;
 }
 
 interface Props {
@@ -61,6 +62,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [form, setForm] = useState({
     nomeDoLocal: location.nomeDoLocal || '',
     endereco: location.endereco || '',
@@ -78,6 +80,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     nomeResponsavel: location.nomeResponsavel || '',
     emailResponsavel: location.emailResponsavel || '',
     telefoneResponsavel: location.telefoneResponsavel || '',
+    imageUrl: location.imageUrl || '',
   });
 
   const startEditing = () => {
@@ -98,12 +101,33 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       nomeResponsavel: location.nomeResponsavel || '',
       emailResponsavel: location.emailResponsavel || '',
       telefoneResponsavel: location.telefoneResponsavel || '',
+      imageUrl: location.imageUrl || '',
     });
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setIsEditing(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast.error('Selecione um arquivo de imagem'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('A imagem deve ter no máximo 5MB'); return; }
+    setUploadingImage(true);
+    const fd = new FormData();
+    fd.append('files', file);
+    try {
+      const res = await api.post('/admin/branding/upload', fd);
+      if (res.ok) {
+        const data = await res.json();
+        const url = data.url || data.payload?.url;
+        update('imageUrl', url);
+        toast.success('Imagem enviada!');
+      } else { toast.error('Erro no upload'); }
+    } catch { toast.error('Erro ao enviar imagem'); }
+    finally { setUploadingImage(false); }
   };
 
   const handleCepSearch = async () => {
@@ -169,6 +193,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.nomeResponsavel) payload.nome_responsavel = form.nomeResponsavel;
       if (form.emailResponsavel) payload.email_responsavel = form.emailResponsavel;
       if (form.telefoneResponsavel) payload.telefone_responsavel = form.telefoneResponsavel;
+      if (form.imageUrl !== undefined) payload.image_url = form.imageUrl || null;
 
       const response = await api.put(`/locations/${location.id}`, payload);
       if (response.ok) {
@@ -306,6 +331,38 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                   <Label className="text-zinc-300">Longitude</Label>
                   <Input value={form.longitude} onChange={e => update('longitude', e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
                 </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-zinc-300">Imagem do Local</Label>
+                  <div className="flex gap-2">
+                    <Input value={form.imageUrl} onChange={e => update('imageUrl', e.target.value)} placeholder="URL da imagem ou faça upload" className="bg-zinc-800 border-zinc-700 text-white flex-1" />
+                    <div className="relative">
+                      <input type="file" id="location-image-upload" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                      <Button
+                        type="button" variant="outline" size="sm"
+                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
+                        onClick={() => document.getElementById('location-image-upload')?.click()}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? (
+                          <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-zinc-300" />
+                        ) : (
+                          <span className="material-symbols-outlined text-base">upload</span>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  {form.imageUrl && (
+                    <div className="mt-2 rounded-lg overflow-hidden border border-zinc-700 h-32 relative group/img">
+                      <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                      <button
+                        onClick={() => update('imageUrl', '')}
+                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -410,6 +467,15 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
               </div>
             </div>
           </div>
+          {/* Image */}
+          {location.imageUrl && (
+            <div className="mt-6 pt-6 border-t border-zinc-800">
+              <label className="text-xs text-zinc-400 uppercase tracking-wider block mb-2">Imagem do Local</label>
+              <div className="rounded-lg overflow-hidden border border-zinc-700 h-48">
+                <img src={location.imageUrl} alt={location.nomeDoLocal} className="w-full h-full object-cover" />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

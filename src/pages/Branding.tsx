@@ -1,46 +1,18 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
-import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import {
-  Palette,
-  Plus,
-  Trash2,
-  Edit2,
-  Globe,
-  Image as ImageIcon,
-  Upload,
-  Loader2,
-  Box,
-  Users,
-  X,
-  Search,
-  UserPlus,
-  UserMinus,
-} from 'lucide-react';
 
 interface BrandingConfig {
   clientId: string;
@@ -362,35 +334,37 @@ export const Branding = () => {
   const roleBadgeClass = (role: string | null) => {
     switch (role) {
       case 'admin':
-        return 'border-amber-500/50 text-amber-400';
+        return 'border-amber-500/30 text-amber-400 bg-amber-500/10';
       case 'atem':
-        return 'border-blue-500/50 text-blue-400';
+        return 'border-blue-500/30 text-blue-400 bg-blue-500/10';
       case 'blocked':
-        return 'border-red-500/50 text-red-400';
+        return 'border-red-500/30 text-red-400 bg-red-500/10';
       default:
-        return 'border-zinc-600 text-zinc-400';
+        return 'border-outline-variant/20 text-on-surface-variant bg-surface-container-highest';
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">White Label & Branding</h1>
-          <p className="text-zinc-400">Gerencie a identidade visual de cada cliente</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">WHITE LABEL ENGINE</span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Branding</h1>
+          <p className="text-on-surface-variant mt-1">Gerencie a identidade visual de cada cliente</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button
-              className="bg-emerald-600 hover:bg-emerald-700"
+            <button
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
               onClick={() =>
                 setFormData({
                   clientId: '',
@@ -404,17 +378,19 @@ export const Branding = () => {
                 })
               }
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
               Nova Marca
-            </Button>
+            </button>
           </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-zinc-800 !p-0 overflow-hidden" style={{ maxWidth: '420px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="p-5 border-b border-zinc-800 shrink-0">
-              <DialogTitle className="text-white flex items-center gap-2">
-                <Palette className="w-5 h-5 text-emerald-400" />
+
+          {/* Create/Edit Dialog */}
+          <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '420px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="p-5 border-b border-outline-variant/10 shrink-0">
+              <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">palette</span>
                 Configurar Marca
               </DialogTitle>
-              <DialogDescription className="text-zinc-500 text-sm mt-1">
+              <DialogDescription className="text-on-surface-variant text-sm mt-1">
                 Identidade visual do cliente no App
               </DialogDescription>
             </div>
@@ -422,50 +398,50 @@ export const Branding = () => {
             <div className="overflow-y-auto flex-1 min-h-0 p-5 space-y-5">
               {/* Identidade */}
               <div className="space-y-3">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Identidade</p>
+                <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Identidade</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-zinc-400 text-xs">ID (Slug)</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">ID (Slug)</Label>
                     <Input
                       placeholder="cliente-xyz"
                       value={formData.clientId}
                       onChange={e => setFormData({ ...formData, clientId: e.target.value })}
-                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-zinc-400 text-xs">Empresa</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Empresa</Label>
                     <Input
                       placeholder="Nome Exibido"
                       value={formData.companyName}
                       onChange={e => setFormData({ ...formData, companyName: e.target.value })}
-                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm"
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-zinc-400 text-xs">Slogan (Opcional)</Label>
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Slogan (Opcional)</Label>
                   <Input
                     value={formData.slogan}
                     onChange={e => setFormData({ ...formData, slogan: e.target.value })}
-                    className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm"
                   />
                 </div>
               </div>
 
               {/* Logo */}
               <div className="space-y-3">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Logo do App</p>
+                <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Logo do App</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
-                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border ${formData.logoType === 'programmatic' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'}`}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${formData.logoType === 'programmatic' ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant hover:text-on-surface'}`}
                   >
-                    Padrão
+                    Padrao
                   </button>
                   <button
                     onClick={() => setFormData({ ...formData, logoType: 'image' })}
-                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all border ${formData.logoType === 'image' ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-white'}`}
+                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${formData.logoType === 'image' ? 'bg-primary text-on-primary' : 'bg-surface-container-highest text-on-surface-variant hover:text-on-surface'}`}
                   >
                     Upload
                   </button>
@@ -474,27 +450,31 @@ export const Branding = () => {
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input
-                        placeholder="URL da logo ou faça upload"
+                        placeholder="URL da logo ou faca upload"
                         value={formData.logoUri}
                         onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
-                        className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm flex-1"
+                        className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
                       />
                       <div className="relative">
                         <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploadingLogo} />
-                        <Button
-                          type="button" variant="outline" size="sm"
-                          className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
+                        <button
+                          type="button"
+                          className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
                           onClick={() => document.getElementById('logo-upload')?.click()}
                           disabled={uploadingLogo}
                         >
-                          {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                        </Button>
+                          {uploadingLogo ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                          ) : (
+                            <span className="material-symbols-outlined text-lg">upload</span>
+                          )}
+                        </button>
                       </div>
                     </div>
                     {formData.logoUri && (
-                      <div className="flex items-center gap-3 p-2 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
-                        <img src={formData.logoUri} alt="Logo" className="w-10 h-10 rounded object-contain bg-zinc-900" />
-                        <span className="text-xs text-zinc-400 truncate flex-1">{formData.logoUri}</span>
+                      <div className="flex items-center gap-3 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10">
+                        <img src={formData.logoUri} alt="Logo" className="w-10 h-10 rounded object-contain bg-surface-container" />
+                        <span className="text-xs text-on-surface-variant truncate flex-1">{formData.logoUri}</span>
                       </div>
                     )}
                   </div>
@@ -503,14 +483,14 @@ export const Branding = () => {
 
               {/* Splash Screen */}
               <div className="space-y-3">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Splash Screen</p>
+                <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Splash Screen</p>
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <Input
-                      placeholder="URL da splash ou faça upload"
+                      placeholder="URL da splash ou faca upload"
                       value={formData.splashUri || ''}
                       onChange={e => setFormData({ ...formData, splashUri: e.target.value })}
-                      className="bg-zinc-800 border-zinc-700 text-white h-9 text-sm flex-1"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
                     />
                     <div className="relative">
                       <input
@@ -519,7 +499,7 @@ export const Branding = () => {
                           const file = e.target.files?.[0];
                           if (!file) return;
                           if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
-                          if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5MB'); return; }
+                          if (file.size > 5 * 1024 * 1024) { toast.error('Maximo 5MB'); return; }
                           setUploadingLogo(true);
                           const fd = new FormData();
                           fd.append('files', file);
@@ -534,21 +514,27 @@ export const Branding = () => {
                           finally { setUploadingLogo(false); }
                         }}
                       />
-                      <Button
-                        type="button" variant="outline" size="sm"
-                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
+                      <button
+                        type="button"
+                        className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
                         onClick={() => document.getElementById('splash-upload')?.click()}
                         disabled={uploadingLogo}
                       >
-                        {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      </Button>
+                        {uploadingLogo ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                        ) : (
+                          <span className="material-symbols-outlined text-lg">upload</span>
+                        )}
+                      </button>
                     </div>
                   </div>
                   {formData.splashUri && (
-                    <div className="flex items-center gap-3 p-2 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
-                      <img src={formData.splashUri} alt="Splash" className="w-8 h-14 rounded object-contain bg-zinc-900" />
-                      <span className="text-xs text-zinc-400 truncate flex-1">{formData.splashUri}</span>
-                      <button onClick={() => setFormData({ ...formData, splashUri: '' })} className="text-zinc-500 hover:text-red-400"><X className="w-4 h-4" /></button>
+                    <div className="flex items-center gap-3 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10">
+                      <img src={formData.splashUri} alt="Splash" className="w-8 h-14 rounded object-contain bg-surface-container" />
+                      <span className="text-xs text-on-surface-variant truncate flex-1">{formData.splashUri}</span>
+                      <button onClick={() => setFormData({ ...formData, splashUri: '' })} className="text-on-surface-variant hover:text-error transition-colors">
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -556,17 +542,17 @@ export const Branding = () => {
 
               {/* Cores */}
               <div className="space-y-3">
-                <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Cores</p>
+                <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Cores</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-zinc-400 text-xs">Cor Primária</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Cor Primaria</Label>
                     <div className="flex gap-2">
-                      <input type="color" value={formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="w-10 h-9 rounded border border-zinc-700 bg-zinc-800 cursor-pointer" style={{ padding: '2px' }} />
-                      <Input value={formData.primaryColor} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="bg-zinc-800 border-zinc-700 text-white font-mono h-9 text-sm" />
+                      <input type="color" value={formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="w-10 h-9 rounded border border-outline-variant/20 bg-surface-container-low cursor-pointer" style={{ padding: '2px' }} />
+                      <Input value={formData.primaryColor} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface font-mono h-9 text-sm" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-zinc-400 text-xs">Fundo Splash</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Fundo Splash</Label>
                     <div className="flex gap-2 items-center">
                       <label className="relative w-10 h-9 shrink-0 cursor-pointer">
                         <input
@@ -575,139 +561,135 @@ export const Branding = () => {
                           onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })}
                           className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
                         />
-                        <div className="w-full h-full rounded border border-zinc-700" style={{ backgroundColor: formData.splashBgColor || '#000000' }} />
+                        <div className="w-full h-full rounded border border-outline-variant/20" style={{ backgroundColor: formData.splashBgColor || '#000000' }} />
                       </label>
-                      <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-zinc-800 border-zinc-700 text-white font-mono h-9 text-sm" />
+                      <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface font-mono h-9 text-sm" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 p-4 border-t border-zinc-800 shrink-0">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="border-zinc-700 text-zinc-300 h-9">
+            <div className="flex justify-end gap-3 p-4 border-t border-outline-variant/10 shrink-0">
+              <button onClick={() => setIsDialogOpen(false)} className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-medium text-sm">
                 Cancelar
-              </Button>
-              <Button onClick={handleSubmit} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700 h-9">
+              </button>
+              <button onClick={handleSubmit} disabled={submitting} className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
                 {submitting ? 'Salvando...' : 'Salvar'}
-              </Button>
+              </button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Palette className="h-5 w-5 text-emerald-500" />
-            Marcas Ativas
-          </CardTitle>
-          <CardDescription className="text-zinc-400">
-            Lista de todas as identidades visuais configuradas no sistema
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {configs.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-zinc-800 hover:bg-transparent">
-                  <TableHead className="text-zinc-400">ID Cliente</TableHead>
-                  <TableHead className="text-zinc-400">Empresa</TableHead>
-                  <TableHead className="text-zinc-400">Cores</TableHead>
-                  <TableHead className="text-zinc-400">Tipo Logo</TableHead>
-                  <TableHead className="text-right text-zinc-400">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SummaryCard icon="palette" label="TOTAL MARCAS" value={String(configs.length)} />
+        <SummaryCard icon="public" label="PROGRAMATICAS" value={String(configs.filter(c => c.logoType === 'programmatic').length)} color="text-primary" />
+        <SummaryCard icon="image" label="COM LOGO CUSTOM" value={String(configs.filter(c => c.logoType === 'image').length)} color="text-tertiary" />
+      </div>
+
+      {/* Configs Table */}
+      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
+        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
+          <h3 className="text-lg font-headline font-bold text-on-surface">Marcas Ativas</h3>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{configs.length} registros</span>
+        </div>
+        {configs.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                  <th className="px-6 py-4">ID Cliente</th>
+                  <th className="px-6 py-4">Empresa</th>
+                  <th className="px-6 py-4">Cores</th>
+                  <th className="px-6 py-4">Tipo Logo</th>
+                  <th className="px-6 py-4 text-right">Acoes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/5">
                 {configs.map(config => (
-                  <TableRow key={config.clientId} className="border-zinc-800">
-                    <TableCell className="font-mono text-zinc-300">{config.clientId}</TableCell>
-                    <TableCell className="text-white font-medium">{config.companyName}</TableCell>
-                    <TableCell>
+                  <tr key={config.clientId} className="hover:bg-surface-container-highest/30 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="font-mono text-sm text-on-surface">{config.clientId}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-medium text-on-surface">{config.companyName}</span>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-4 h-4 rounded-full border border-zinc-700"
+                          className="w-5 h-5 rounded-full border border-outline-variant/20"
                           style={{ backgroundColor: config.primaryColor }}
                         />
-                        <span className="text-zinc-400 text-xs font-mono">
+                        <span className="text-on-surface-variant text-xs font-mono">
                           {config.primaryColor}
                         </span>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </td>
+                    <td className="px-6 py-4">
                       {config.logoType === 'programmatic' ? (
-                        <Badge
-                          variant="outline"
-                          className="border-emerald-500/50 text-emerald-400 flex w-fit gap-1"
-                        >
-                          <Globe className="h-3 w-3" /> App Icon
-                        </Badge>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                          <span className="material-symbols-outlined text-xs">public</span>
+                          App Icon
+                        </span>
                       ) : (
-                        <Badge
-                          variant="outline"
-                          className="border-blue-500/50 text-blue-400 flex w-fit gap-1"
-                        >
-                          <ImageIcon className="h-3 w-3" /> Imagem
-                        </Badge>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary text-[10px] font-bold">
+                          <span className="material-symbols-outlined text-xs">image</span>
+                          Imagem
+                        </span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-zinc-400 hover:text-blue-400"
-                          title="Gerenciar usuários desta marca"
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                          title="Gerenciar usuarios desta marca"
                           onClick={() => handleOpenUsersDialog(config.clientId)}
                         >
-                          <Users className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-zinc-400 hover:text-emerald-400"
+                          <span className="material-symbols-outlined text-lg">group</span>
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all disabled:opacity-40"
                           title="Gerar build do App (EAS)"
                           disabled={buildingClientId !== null}
                           onClick={() => openBuildDialog(config)}
                         >
                           {buildingClientId === config.clientId ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
                           ) : (
-                            <Box className="h-4 w-4" />
+                            <span className="material-symbols-outlined text-lg">build</span>
                           )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-zinc-400 hover:text-white"
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high hover:text-on-surface transition-all"
                           onClick={() => handleEdit(config)}
                         >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-zinc-400 hover:text-red-400"
+                          <span className="material-symbols-outlined text-lg">edit</span>
+                        </button>
+                        <button
+                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-error/10 hover:text-error hover:border-error/20 transition-all disabled:opacity-40"
                           disabled={config.clientId === 'neopower-default'}
                           onClick={() => handleDelete(config.clientId)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                        </button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-zinc-500 italic">
-                Nenhuma configuração encontrada no banco de dados.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-on-surface-variant italic">
+              Nenhuma configuracao encontrada no banco de dados.
+            </p>
+          </div>
+        )}
+      </div>
+
       {/* Users Management Dialog */}
       <Dialog
         open={isUsersDialogOpen}
@@ -719,34 +701,34 @@ export const Branding = () => {
           }
         }}
       >
-        <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[800px] max-h-[85vh] flex flex-col">
+        <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[800px] max-h-[85vh] flex flex-col">
           <DialogHeader className="shrink-0">
-            <DialogTitle className="text-white flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-400" />
-              Gerenciar Usuários —{' '}
+            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">group</span>
+              Gerenciar Usuarios —{' '}
               {configs.find(c => c.clientId === usersDialogClientId)?.companyName ||
                 usersDialogClientId}
             </DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Associe usuários a esta marca. Usuários associados verão o branding deste cliente ao
+            <DialogDescription className="text-on-surface-variant">
+              Associe usuarios a esta marca. Usuarios associados verao o branding deste cliente ao
               abrir o app.
             </DialogDescription>
           </DialogHeader>
 
           {loadingUsers ? (
             <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
             </div>
           ) : (
             <div className="flex flex-col gap-4 min-h-0 flex-1">
               {/* Search bar */}
               <div className="relative shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant">search</span>
                 <Input
                   placeholder="Buscar por nome ou email..."
                   value={userSearchFilter}
                   onChange={e => setUserSearchFilter(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white pl-9"
+                  className="bg-surface-container-low border-outline-variant/20 text-on-surface pl-10"
                 />
               </div>
 
@@ -756,174 +738,165 @@ export const Branding = () => {
                 onValueChange={v => setUsersTab(v as any)}
                 className="flex flex-col min-h-0 flex-1"
               >
-                <TabsList className="bg-zinc-800/50 border border-zinc-700/50 shrink-0">
+                <TabsList className="bg-surface-container-low border border-outline-variant/10 shrink-0">
                   <TabsTrigger
                     value="associated"
-                    className="data-[state=active]:bg-emerald-600 data-[state=active]:text-white text-zinc-400"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-on-primary text-on-surface-variant"
                   >
-                    <UserMinus className="h-4 w-4 mr-2" />
+                    <span className="material-symbols-outlined text-sm mr-2">person_remove</span>
                     Associados ({brandingUsers.length})
                   </TabsTrigger>
                   <TabsTrigger
                     value="available"
-                    className="data-[state=active]:bg-blue-600 data-[state=active]:text-white text-zinc-400"
+                    className="data-[state=active]:bg-primary data-[state=active]:text-on-primary text-on-surface-variant"
                   >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Disponíveis ({availableUsers.length})
+                    <span className="material-symbols-outlined text-sm mr-2">person_add</span>
+                    Disponiveis ({availableUsers.length})
                   </TabsTrigger>
                 </TabsList>
 
                 {/* Associated Users Tab */}
                 <TabsContent value="associated" className="mt-3 min-h-0 flex-1">
-                  <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                  <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
                     <div className="max-h-[380px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-zinc-800 hover:bg-transparent bg-zinc-800/50">
-                            <TableHead className="text-zinc-400 w-[200px]">Nome</TableHead>
-                            <TableHead className="text-zinc-400">Email</TableHead>
-                            <TableHead className="text-zinc-400 w-[100px]">Função</TableHead>
-                            <TableHead className="text-zinc-400 w-[80px] text-right">
-                              Remover
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                            <th className="px-6 py-3 w-[200px]">Nome</th>
+                            <th className="px-6 py-3">Email</th>
+                            <th className="px-6 py-3 w-[100px]">Funcao</th>
+                            <th className="px-6 py-3 w-[80px] text-right">Remover</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant/5">
                           {filteredAssociated.length > 0 ? (
                             filteredAssociated.map(user => (
-                              <TableRow
+                              <tr
                                 key={user.id}
-                                className="border-zinc-800/50 hover:bg-zinc-800/30"
+                                className="hover:bg-surface-container-highest/30 transition-colors"
                               >
-                                <TableCell className="text-white font-medium">
+                                <td className="px-6 py-3 text-sm font-medium text-on-surface">
                                   {user.name || 'Sem nome'}
-                                </TableCell>
-                                <TableCell className="text-zinc-400 text-sm">
+                                </td>
+                                <td className="px-6 py-3 text-sm text-on-surface-variant">
                                   {user.email}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs ${roleBadgeClass(user.role)}`}
+                                </td>
+                                <td className="px-6 py-3">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${roleBadgeClass(user.role)}`}
                                   >
                                     {roleLabel(user.role)}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-zinc-500 hover:text-red-400 hover:bg-red-900/20"
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3 text-right">
+                                  <button
+                                    className="w-7 h-7 rounded-lg bg-surface-container-highest text-on-surface-variant flex items-center justify-center hover:bg-error/10 hover:text-error transition-all mx-auto"
                                     onClick={() => handleRemoveBrandingUser(user.id)}
                                     title="Remover da marca"
                                   >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
+                                    <span className="material-symbols-outlined text-sm">close</span>
+                                  </button>
+                                </td>
+                              </tr>
                             ))
                           ) : (
-                            <TableRow className="border-zinc-800/50">
-                              <TableCell
+                            <tr>
+                              <td
                                 colSpan={4}
-                                className="text-center text-zinc-500 py-8 italic"
+                                className="text-center text-on-surface-variant py-8 italic"
                               >
                                 {userSearchFilter
-                                  ? 'Nenhum usuário associado corresponde à busca'
-                                  : 'Nenhum usuário associado a esta marca'}
-                              </TableCell>
-                            </TableRow>
+                                  ? 'Nenhum usuario associado corresponde a busca'
+                                  : 'Nenhum usuario associado a esta marca'}
+                              </td>
+                            </tr>
                           )}
-                        </TableBody>
-                      </Table>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </TabsContent>
 
                 {/* Available Users Tab */}
                 <TabsContent value="available" className="mt-3 min-h-0 flex-1">
-                  <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                  <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
                     <div className="max-h-[380px] overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-zinc-800 hover:bg-transparent bg-zinc-800/50">
-                            <TableHead className="text-zinc-400 w-[50px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                            <th className="px-6 py-3 w-[50px]">
                               <Checkbox
                                 checked={
                                   filteredAvailable.length > 0 &&
                                   filteredAvailable.every(u => selectedUserIds.includes(u.id))
                                 }
                                 onCheckedChange={toggleSelectAllAvailable}
-                                className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                className="border-outline-variant/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                               />
-                            </TableHead>
-                            <TableHead className="text-zinc-400 w-[200px]">Nome</TableHead>
-                            <TableHead className="text-zinc-400">Email</TableHead>
-                            <TableHead className="text-zinc-400 w-[100px]">Função</TableHead>
-                            <TableHead className="text-zinc-400 w-[120px]">Marca Atual</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                            </th>
+                            <th className="px-6 py-3 w-[200px]">Nome</th>
+                            <th className="px-6 py-3">Email</th>
+                            <th className="px-6 py-3 w-[100px]">Funcao</th>
+                            <th className="px-6 py-3 w-[120px]">Marca Atual</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant/5">
                           {filteredAvailable.length > 0 ? (
                             filteredAvailable.map(user => (
-                              <TableRow
+                              <tr
                                 key={user.id}
-                                className={`border-zinc-800/50 cursor-pointer transition-colors ${
+                                className={`cursor-pointer transition-colors ${
                                   selectedUserIds.includes(user.id)
-                                    ? 'bg-blue-900/20 hover:bg-blue-900/30'
-                                    : 'hover:bg-zinc-800/30'
+                                    ? 'bg-primary/5 hover:bg-primary/10'
+                                    : 'hover:bg-surface-container-highest/30'
                                 }`}
                                 onClick={() => toggleUserSelection(user.id)}
                               >
-                                <TableCell>
+                                <td className="px-6 py-3">
                                   <Checkbox
                                     checked={selectedUserIds.includes(user.id)}
                                     onCheckedChange={() => toggleUserSelection(user.id)}
-                                    className="border-zinc-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                    className="border-outline-variant/40 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                   />
-                                </TableCell>
-                                <TableCell className="text-white font-medium">
+                                </td>
+                                <td className="px-6 py-3 text-sm font-medium text-on-surface">
                                   {user.name || 'Sem nome'}
-                                </TableCell>
-                                <TableCell className="text-zinc-400 text-sm">
+                                </td>
+                                <td className="px-6 py-3 text-sm text-on-surface-variant">
                                   {user.email}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-xs ${roleBadgeClass(user.role)}`}
+                                </td>
+                                <td className="px-6 py-3">
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${roleBadgeClass(user.role)}`}
                                   >
                                     {roleLabel(user.role)}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>
+                                  </span>
+                                </td>
+                                <td className="px-6 py-3">
                                   {user.clientId ? (
-                                    <Badge
-                                      variant="outline"
-                                      className="border-zinc-600 text-zinc-400 text-xs"
-                                    >
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-outline-variant/20 text-on-surface-variant text-[10px] font-bold font-mono">
                                       {user.clientId}
-                                    </Badge>
+                                    </span>
                                   ) : (
-                                    <span className="text-zinc-600 text-xs">Padrão</span>
+                                    <span className="text-on-surface-variant text-xs">Padrao</span>
                                   )}
-                                </TableCell>
-                              </TableRow>
+                                </td>
+                              </tr>
                             ))
                           ) : (
-                            <TableRow className="border-zinc-800/50">
-                              <TableCell
+                            <tr>
+                              <td
                                 colSpan={5}
-                                className="text-center text-zinc-500 py-8 italic"
+                                className="text-center text-on-surface-variant py-8 italic"
                               >
                                 {userSearchFilter
-                                  ? 'Nenhum usuário disponível corresponde à busca'
-                                  : 'Todos os usuários já estão associados'}
-                              </TableCell>
-                            </TableRow>
+                                  ? 'Nenhum usuario disponivel corresponde a busca'
+                                  : 'Todos os usuarios ja estao associados'}
+                              </td>
+                            </tr>
                           )}
-                        </TableBody>
-                      </Table>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </TabsContent>
@@ -931,45 +904,45 @@ export const Branding = () => {
             </div>
           )}
 
-          <DialogFooter className="shrink-0 border-t border-zinc-800 pt-4">
+          <div className="shrink-0 border-t border-outline-variant/10 pt-4">
             <div className="flex items-center justify-between w-full">
-              <div className="text-sm text-zinc-500">
+              <div className="text-sm text-on-surface-variant">
                 {selectedUserIds.length > 0 && (
-                  <span className="text-blue-400 font-medium">
+                  <span className="text-primary font-medium">
                     {selectedUserIds.length} selecionado(s)
                   </span>
                 )}
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
+              <div className="flex gap-3">
+                <button
                   onClick={() => setIsUsersDialogOpen(false)}
-                  className="border-zinc-700 text-zinc-300"
+                  className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-medium text-sm"
                 >
                   Fechar
-                </Button>
+                </button>
                 {selectedUserIds.length > 0 && (
-                  <Button onClick={handleAssignUsers} className="bg-blue-600 hover:bg-blue-700">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Associar {selectedUserIds.length} usuário(s)
-                  </Button>
+                  <button onClick={handleAssignUsers} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all">
+                    <span className="material-symbols-outlined text-sm">person_add</span>
+                    Associar {selectedUserIds.length} usuario(s)
+                  </button>
                 )}
               </div>
             </div>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
+
       {/* Build Options Dialog */}
       <Dialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-zinc-800 !p-0 overflow-hidden" style={{ maxWidth: '340px', width: '90vw' }}>
-          <div className="p-5 border-b border-zinc-800">
-            <DialogTitle className="text-white flex items-center gap-2">
-              <Box className="h-5 w-5 text-emerald-500" />
+        <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '340px', width: '90vw' }}>
+          <div className="p-5 border-b border-outline-variant/10">
+            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">build</span>
               Gerar Build (EAS)
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 text-sm mt-1">
+            <DialogDescription className="text-on-surface-variant text-sm mt-1">
               Compilar app de{' '}
-              <strong className="text-emerald-400">
+              <strong className="text-primary">
                 {selectedBuildClient?.companyName}
               </strong>
             </DialogDescription>
@@ -977,22 +950,22 @@ export const Branding = () => {
 
           <div className="p-5 space-y-4">
             <div className="space-y-2.5">
-              <p className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">Plataforma</p>
+              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Plataforma</p>
               <div className="space-y-2">
                 <div
-                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'android' ? 'bg-emerald-900/20 border-emerald-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'android' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
                   onClick={() => setBuildPlatform('android')}
                 >
                   <div
-                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'android' ? 'border-emerald-500' : 'border-zinc-500'}`}
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'android' ? 'border-primary' : 'border-outline-variant/40'}`}
                   >
                     {buildPlatform === 'android' && (
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <div className="w-2 h-2 rounded-full bg-primary" />
                     )}
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`font-medium text-sm ${buildPlatform === 'android' ? 'text-emerald-400' : 'text-zinc-300'}`}
+                      className={`font-medium text-sm ${buildPlatform === 'android' ? 'text-primary' : 'text-on-surface-variant'}`}
                     >
                       Android (.apk / .aab)
                     </p>
@@ -1000,19 +973,19 @@ export const Branding = () => {
                 </div>
 
                 <div
-                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'ios' ? 'bg-blue-900/20 border-blue-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'ios' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
                   onClick={() => setBuildPlatform('ios')}
                 >
                   <div
-                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'ios' ? 'border-blue-500' : 'border-zinc-500'}`}
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'ios' ? 'border-primary' : 'border-outline-variant/40'}`}
                   >
                     {buildPlatform === 'ios' && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <div className="w-2 h-2 rounded-full bg-primary" />
                     )}
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`font-medium text-sm ${buildPlatform === 'ios' ? 'text-blue-400' : 'text-zinc-300'}`}
+                      className={`font-medium text-sm ${buildPlatform === 'ios' ? 'text-primary' : 'text-on-surface-variant'}`}
                     >
                       iPhone (.ipa)
                     </p>
@@ -1020,19 +993,19 @@ export const Branding = () => {
                 </div>
 
                 <div
-                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'all' ? 'bg-amber-900/20 border-amber-500/50' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'all' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
                   onClick={() => setBuildPlatform('all')}
                 >
                   <div
-                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'all' ? 'border-amber-500' : 'border-zinc-500'}`}
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'all' ? 'border-primary' : 'border-outline-variant/40'}`}
                   >
                     {buildPlatform === 'all' && (
-                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      <div className="w-2 h-2 rounded-full bg-primary" />
                     )}
                   </div>
                   <div className="flex-1">
                     <p
-                      className={`font-medium text-sm ${buildPlatform === 'all' ? 'text-amber-400' : 'text-zinc-300'}`}
+                      className={`font-medium text-sm ${buildPlatform === 'all' ? 'text-primary' : 'text-on-surface-variant'}`}
                     >
                       Ambos (Android e iOS)
                     </p>
@@ -1048,18 +1021,31 @@ export const Branding = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 p-4 border-t border-zinc-800">
-            <Button variant="outline" onClick={() => setIsBuildDialogOpen(false)} className="border-zinc-700 text-zinc-300 h-9">
+          <div className="flex justify-end gap-3 p-4 border-t border-outline-variant/10">
+            <button onClick={() => setIsBuildDialogOpen(false)} className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-medium text-sm">
               Cancelar
-            </Button>
-            <Button onClick={executeTriggerBuild} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+            </button>
+            <button onClick={executeTriggerBuild} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all">
+              <span className="material-symbols-outlined text-sm">check</span>
               Confirmar
-            </Button>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
+
+function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
+  return (
+    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
+      <div className="flex justify-between items-start">
+        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
+        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
+      </div>
+      <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
+    </div>
+  );
+}
 
 export default Branding;

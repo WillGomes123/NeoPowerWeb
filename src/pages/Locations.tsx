@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useSocket } from '../lib/hooks/useSocket';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { DynamicMap, TileLayer, Marker, L } from '../components/DynamicMap';
 
 interface Location {
   id: number;
@@ -17,6 +18,7 @@ interface Location {
   latitude: number;
   longitude: number;
   chargePoints?: any[];
+  imageUrl?: string;
 }
 
 interface Charger {
@@ -28,6 +30,7 @@ interface Charger {
   longitude: number;
   isConnected: boolean;
   locationId?: number;
+  ocppStatus?: string; // Available, Charging, Faulted, Preparing, etc.
 }
 
 export const Locations = () => {
@@ -46,7 +49,11 @@ export const Locations = () => {
     return chargers.map(charger => {
       const socketStatus = chargerStatuses.get(charger.charge_point_id);
       if (!socketStatus) return charger;
-      return { ...charger, isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable' };
+      return {
+        ...charger,
+        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
+        ocppStatus: socketStatus.status || 'Offline',
+      };
     });
   }, [chargers, chargerStatuses]);
 
@@ -65,8 +72,11 @@ export const Locations = () => {
   const getStats = useCallback((loc: Location) => {
     const locChargers = mergedChargers.filter(c => c.locationId === loc.id);
     const total = loc.chargePoints?.length || locChargers.length;
-    const online = locChargers.filter(c => c.isConnected).length;
-    return { total, online };
+    const available = locChargers.filter(c => c.ocppStatus === 'Available').length;
+    const charging = locChargers.filter(c => c.ocppStatus === 'Charging').length;
+    const faulted = locChargers.filter(c => c.ocppStatus === 'Faulted' || c.ocppStatus === 'Unavailable').length;
+    const offline = total - available - charging - faulted;
+    return { total, available, charging, faulted, offline };
   }, [mergedChargers]);
 
   const filtered = useMemo(() => {
@@ -80,8 +90,49 @@ export const Locations = () => {
   }, [locations, searchQuery]);
 
   const totalChargers = locations.reduce((s, l) => s + (l.chargePoints?.length || 0), 0);
-  const totalOnline = mergedChargers.filter(c => c.isConnected).length;
+  const totalAvailable = mergedChargers.filter(c => c.ocppStatus === 'Available').length;
+  const totalCharging = mergedChargers.filter(c => c.ocppStatus === 'Charging').length;
+  const totalOnline = totalAvailable + totalCharging;
   const networkHealth = totalChargers > 0 ? (totalOnline / totalChargers * 100) : 0;
+
+  // Map center: average of all location coordinates, or default to Manaus
+  const mapCenter = useMemo<[number, number]>(() => {
+    const withCoords = locations.filter(l => l.latitude && l.longitude);
+    if (withCoords.length === 0) return [-3.119, -60.0217]; // Manaus
+    const avgLat = withCoords.reduce((s, l) => s + Number(l.latitude), 0) / withCoords.length;
+    const avgLng = withCoords.reduce((s, l) => s + Number(l.longitude), 0) / withCoords.length;
+    return [avgLat, avgLng];
+  }, [locations]);
+
+  // Status-colored marker icons
+  const getMarkerIcon = useCallback((status: 'available' | 'charging' | 'faulted' | 'offline') => {
+    if (typeof L === 'undefined') return undefined;
+    const colors = {
+      available: { bg: '#8eff71', glow: 'rgba(142,255,113,0.6)' },
+      charging: { bg: '#88f6ff', glow: 'rgba(136,246,255,0.6)' },
+      faulted: { bg: '#ff7351', glow: 'rgba(255,115,81,0.6)' },
+      offline: { bg: '#777575', glow: 'rgba(119,117,117,0.3)' },
+    };
+    const c = colors[status];
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:26px;height:26px;background:${c.bg};border-radius:50%;border:3px solid #1a1919;box-shadow:0 0 10px ${c.glow};display:flex;align-items:center;justify-content:center">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="#0e0e0e"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+      </div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+  }, []);
+
+  // Determine dominant status for a location's marker on the main map
+  const getLocationMarkerStatus = useCallback((loc: Location): 'available' | 'charging' | 'faulted' | 'offline' => {
+    const locChargers = mergedChargers.filter(c => c.locationId === loc.id);
+    if (locChargers.length === 0) return 'offline';
+    if (locChargers.some(c => c.ocppStatus === 'Charging')) return 'charging';
+    if (locChargers.some(c => c.ocppStatus === 'Faulted')) return 'faulted';
+    if (locChargers.some(c => c.isConnected)) return 'available';
+    return 'offline';
+  }, [mergedChargers]);
 
   if (isAddingLocation) {
     return (
@@ -122,23 +173,46 @@ export const Locations = () => {
 
       {/* Bento Grid Layout */}
       <div className="grid grid-cols-12 gap-6">
-        {/* Map View Preview */}
-        <div className="col-span-12 lg:col-span-8 group relative overflow-hidden rounded-xl bg-surface-container-low border border-outline-variant/10 min-h-[380px]">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-tertiary/5" />
-          <div className="absolute inset-0 flex items-center justify-center opacity-20">
-            <span className="material-symbols-outlined text-[120px] text-on-surface-variant">map</span>
+        {/* Interactive Map */}
+        <div className="col-span-12 lg:col-span-8 relative overflow-hidden rounded-xl border border-outline-variant/10 min-h-[380px]">
+          <DynamicMap center={mapCenter} zoom={locations.length > 1 ? 10 : 13} style={{ height: '100%', width: '100%', minHeight: '380px' }}>
+            <TileLayer
+              attribution='&copy; <a href="https://carto.com">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+            />
+            {locations.filter(l => l.latitude && l.longitude).map(loc => (
+                <Marker
+                  key={loc.id}
+                  position={[Number(loc.latitude), Number(loc.longitude)]}
+                  icon={getMarkerIcon(getLocationMarkerStatus(loc))}
+                  eventHandlers={{ click: () => navigate(`/locais/${loc.id}`) }}
+                />
+            ))}
+          </DynamicMap>
+          {/* Legend */}
+          <div className="absolute top-4 right-4 z-[1000] glass-card rounded-lg px-4 py-3 pointer-events-none border border-outline-variant/10">
+            <div className="flex flex-col gap-2">
+              {[
+                { color: '#8eff71', label: 'Disponível' },
+                { color: '#88f6ff', label: 'Carregando' },
+                { color: '#ff7351', label: 'Problema' },
+                { color: '#777575', label: 'Offline' },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color, boxShadow: `0 0 6px ${item.color}40` }} />
+                  <span className="text-[10px] text-on-surface-variant font-medium uppercase tracking-wider">{item.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 p-8 flex justify-between items-end bg-gradient-to-t from-surface via-surface/80 to-transparent">
-            <div className="space-y-2">
-              <h3 className="text-2xl font-headline font-bold">Mapa Interativo</h3>
-              <p className="text-on-surface-variant max-w-md">
-                Visualize todos os {totalChargers} pontos de recarga ativos em {locations.length} locais da sua rede.
+          {/* Overlay info */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end bg-gradient-to-t from-[#0e0e0e]/90 via-[#0e0e0e]/50 to-transparent pointer-events-none z-[1000]">
+            <div className="space-y-1">
+              <h3 className="text-xl font-headline font-bold">Mapa da Rede</h3>
+              <p className="text-on-surface-variant text-sm">
+                {locations.filter(l => l.latitude && l.longitude).length} locais mapeados • {totalChargers} carregadores
               </p>
             </div>
-            <button className="px-8 py-4 bg-[#0e0e0e]/60 backdrop-blur-md border border-primary/30 text-primary rounded-full font-bold flex items-center gap-3 hover:bg-primary hover:text-on-primary transition-all duration-300 glow-primary">
-              <span className="material-symbols-outlined">explore</span>
-              Ver no Mapa
-            </button>
           </div>
         </div>
 
@@ -209,20 +283,24 @@ export const Locations = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filtered.map(loc => {
                 const stats = getStats(loc);
-                const occupancy = stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
+                const occupancy = stats.total > 0 ? Math.round((stats.available / stats.total) * 100) : 0;
                 return (
                   <div
                     key={loc.id}
                     className="glass-card rounded-xl border border-outline-variant/10 hover:border-primary/30 transition-all duration-300 group cursor-pointer"
                     onClick={() => navigate(`/locais/${loc.id}`)}
                   >
-                    {/* Card Header with gradient */}
+                    {/* Card Header with image or gradient */}
                     <div className="relative h-36 rounded-t-xl overflow-hidden bg-gradient-to-br from-surface-container-highest via-surface-container to-surface-container-low">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="material-symbols-outlined text-6xl text-outline-variant/20 group-hover:text-primary/20 transition-colors">location_on</span>
-                      </div>
+                      {loc.imageUrl ? (
+                        <img src={loc.imageUrl} alt={loc.nomeDoLocal} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-6xl text-outline-variant/20 group-hover:text-primary/20 transition-colors">location_on</span>
+                        </div>
+                      )}
                       <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-outline-variant/20 text-[10px] font-bold uppercase">
-                        {stats.online > 0 ? (
+                        {stats.available > 0 ? (
                           <span className="text-primary flex items-center gap-1">
                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />Active
                           </span>
@@ -233,19 +311,11 @@ export const Locations = () => {
                     </div>
 
                     <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="min-w-0 flex-1">
-                          <h5 className="text-lg font-bold font-headline truncate group-hover:text-primary transition-colors">{loc.nomeDoLocal}</h5>
-                          <p className="text-sm text-on-surface-variant truncate">
-                            {loc.endereco}{loc.numero ? `, ${loc.numero}` : ''}{loc.cidade ? ` • ${loc.cidade}` : ''}
-                          </p>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setMapDialogLocation(loc); setMapDialogOpen(true); }}
-                          className="text-on-surface-variant hover:text-primary transition-colors ml-2"
-                        >
-                          <span className="material-symbols-outlined">more_vert</span>
-                        </button>
+                      <div className="mb-4">
+                        <h5 className="text-lg font-bold font-headline truncate group-hover:text-primary transition-colors">{loc.nomeDoLocal}</h5>
+                        <p className="text-sm text-on-surface-variant truncate">
+                          {loc.endereco}{loc.numero ? `, ${loc.numero}` : ''}{loc.cidade ? ` • ${loc.cidade}` : ''}
+                        </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 py-4 border-y border-outline-variant/10">
@@ -288,7 +358,7 @@ export const Locations = () => {
 
       {/* Map Dialog */}
       <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '600px', width: '95vw', height: '80vh', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '700px', width: '95vw', height: '80vh', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
           <VisuallyHidden><DialogTitle>Mapa do Local</DialogTitle></VisuallyHidden>
           {mapDialogLocation && (
             <>
@@ -302,14 +372,20 @@ export const Locations = () => {
                 </p>
               </div>
               <div style={{ flex: 1, minHeight: 0 }}>
-                <iframe
-                  title="Mapa do local"
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  style={{ border: 0, display: 'block' }}
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(mapDialogLocation.longitude) - 0.005}%2C${Number(mapDialogLocation.latitude) - 0.003}%2C${Number(mapDialogLocation.longitude) + 0.005}%2C${Number(mapDialogLocation.latitude) + 0.003}&layer=mapnik&marker=${Number(mapDialogLocation.latitude)}%2C${Number(mapDialogLocation.longitude)}`}
-                />
+                <DynamicMap
+                  center={[Number(mapDialogLocation.latitude), Number(mapDialogLocation.longitude)]}
+                  zoom={16}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://carto.com">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  />
+                  <Marker
+                    position={[Number(mapDialogLocation.latitude), Number(mapDialogLocation.longitude)]}
+                    icon={getMarkerIcon(getLocationMarkerStatus(mapDialogLocation))}
+                  />
+                </DynamicMap>
               </div>
             </>
           )}
@@ -322,3 +398,4 @@ export const Locations = () => {
     </div>
   );
 };
+

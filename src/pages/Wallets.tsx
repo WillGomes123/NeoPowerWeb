@@ -1,17 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import {
-  EnhancedTable,
-  EnhancedTableHeader,
-  EnhancedTableBody,
-  EnhancedTableRow,
-  EnhancedTableHead,
-  EnhancedTableCell,
-} from '../components/EnhancedTable';
-import { Button } from '../components/ui/button';
-import { StatusBadge } from '../components/StatusBadge';
+import { useState, useEffect } from 'react';
 import { ExportButton } from '../components/ExportButton';
-import { ChevronLeft, ChevronRight, Wallet, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import type { ExportColumn } from '../lib/export';
@@ -145,14 +133,14 @@ export const Wallets = () => {
     return labels[type] || type;
   };
 
-  const getTypeColor = (type: string): string => {
-    const colors: Record<string, string> = {
-      deposit: 'text-emerald-400',
-      withdrawal: 'text-red-400',
-      charge: 'text-orange-400',
-      refund: 'text-blue-400',
+  const getTypePill = (type: string) => {
+    const styles: Record<string, string> = {
+      deposit: 'bg-primary/10 text-primary border-primary/20',
+      withdrawal: 'bg-tertiary/10 text-tertiary border-tertiary/20',
+      charge: 'bg-error/10 text-error border-error/20',
+      refund: 'bg-secondary/10 text-secondary border-secondary/20',
     };
-    return colors[type] || 'text-zinc-400';
+    return styles[type] || 'bg-outline/10 text-on-surface-variant border-outline/20';
   };
 
   const loading = loadingWallets || loadingTransactions;
@@ -160,248 +148,250 @@ export const Wallets = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-400">Carregando dados...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-error">{error}</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-12">
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Wallet className="w-8 h-8 text-emerald-400" />
-            Carteiras Digitais
-          </h1>
-          <p className="text-zinc-400 mt-1">Gerencie as carteiras e transacoes dos usuarios</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">DIGITAL WALLETS</span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Carteiras</h1>
         </div>
-        <Button
-          onClick={fetchData}
-          variant="outline"
-          className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700"
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          Atualizar
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={() => void fetchData()} className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-sm">refresh</span>
+            <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
+          </button>
+          <ExportButton
+            data={activeTab === 'wallets' ? wallets as unknown as Record<string, unknown>[] : transactions as unknown as Record<string, unknown>[]}
+            columns={activeTab === 'wallets' ? walletExportColumns : transactionExportColumns}
+            filename={activeTab === 'wallets' ? 'carteiras_neopower' : 'transacoes_carteira_neopower'}
+            title={activeTab === 'wallets' ? 'Carteiras - NeoPower' : 'Transacoes de Carteira - NeoPower'}
+            disabled={currentItems.length === 0}
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-zinc-400 text-sm">Saldo Total</p>
-                <p className="text-2xl font-bold text-white">{formatCurrency(totalBalance)}</p>
-              </div>
-              <Wallet className="w-10 h-10 text-emerald-400/50" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined">account_balance_wallet</span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-zinc-400 text-sm">Total Depositos</p>
-                <p className="text-2xl font-bold text-emerald-400">{formatCurrency(totalDeposits)}</p>
-              </div>
-              <ArrowUpCircle className="w-10 h-10 text-emerald-400/50" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-zinc-900/50 border-zinc-800">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-zinc-400 text-sm">Total Cobrado</p>
-                <p className="text-2xl font-bold text-orange-400">{formatCurrency(totalCharges)}</p>
-              </div>
-              <ArrowDownCircle className="w-10 h-10 text-orange-400/50" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2">
-        <Button
-          onClick={() => { setActiveTab('wallets'); setCurrentPage(1); }}
-          variant={activeTab === 'wallets' ? 'default' : 'outline'}
-          className={activeTab === 'wallets'
-            ? 'bg-emerald-600 hover:bg-emerald-700'
-            : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'}
-        >
-          <Wallet className="w-4 h-4 mr-2" />
-          Carteiras ({wallets.length})
-        </Button>
-        <Button
-          onClick={() => { setActiveTab('transactions'); setCurrentPage(1); }}
-          variant={activeTab === 'transactions' ? 'default' : 'outline'}
-          className={activeTab === 'transactions'
-            ? 'bg-emerald-600 hover:bg-emerald-700'
-            : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'}
-        >
-          <ArrowUpCircle className="w-4 h-4 mr-2" />
-          Transacoes ({transactions.length})
-        </Button>
-      </div>
-
-      {/* Content */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-white flex items-center gap-2">
-                {activeTab === 'wallets' ? (
-                  <>
-                    <Wallet className="w-5 h-5 text-emerald-400" />
-                    Carteiras dos Usuarios
-                  </>
-                ) : (
-                  <>
-                    <ArrowUpCircle className="w-5 h-5 text-emerald-400" />
-                    Historico de Transacoes
-                  </>
-                )}
-              </CardTitle>
-              <p className="text-sm text-zinc-400 mt-1">
-                {activeTab === 'wallets'
-                  ? `${wallets.length} carteiras cadastradas`
-                  : `${transactions.length} transacoes realizadas`}
-              </p>
-            </div>
-            <ExportButton
-              data={activeTab === 'wallets' ? wallets : transactions}
-              columns={activeTab === 'wallets' ? walletExportColumns : transactionExportColumns}
-              filename={activeTab === 'wallets' ? 'carteiras_neopower' : 'transacoes_carteira_neopower'}
-              title={activeTab === 'wallets' ? 'Carteiras - NeoPower' : 'Transacoes de Carteira - NeoPower'}
-              disabled={currentItems.length === 0}
-            />
+            <span className="text-[10px] font-bold px-2 py-1 rounded-full text-primary bg-primary/10">{wallets.length} carteiras</span>
           </div>
-        </CardHeader>
-        <CardContent className="pt-6">
+          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">SALDO TOTAL</p>
+          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalBalance)}</h3>
+        </div>
+
+        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined">trending_up</span>
+            </div>
+          </div>
+          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL DEPOSITOS</p>
+          <h3 className="text-2xl font-headline font-bold text-primary">{formatCurrency(totalDeposits)}</h3>
+        </div>
+
+        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-24 h-24 bg-error/5 rounded-full blur-2xl group-hover:bg-error/10 transition-all" />
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center text-error">
+              <span className="material-symbols-outlined">trending_down</span>
+            </div>
+          </div>
+          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL COBRADO</p>
+          <h3 className="text-2xl font-headline font-bold text-error">{formatCurrency(totalCharges)}</h3>
+        </div>
+      </div>
+
+      {/* Tab Pills */}
+      <div className="bg-surface-container-low p-1 rounded-lg flex items-center border border-outline-variant/10 w-fit">
+        <button
+          onClick={() => { setActiveTab('wallets'); setCurrentPage(1); }}
+          className={`px-4 py-2 text-xs font-bold font-headline rounded-md transition-all ${
+            activeTab === 'wallets'
+              ? 'bg-surface-container-highest text-primary'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          CARTEIRAS ({wallets.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('transactions'); setCurrentPage(1); }}
+          className={`px-4 py-2 text-xs font-bold font-headline rounded-md transition-all ${
+            activeTab === 'transactions'
+              ? 'bg-surface-container-highest text-primary'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          TRANSACOES ({transactions.length})
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
+        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-headline font-bold text-on-surface">
+              {activeTab === 'wallets' ? 'Carteiras dos Usuarios' : 'Historico de Transacoes'}
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1">
+              {activeTab === 'wallets'
+                ? `${wallets.length} carteiras cadastradas`
+                : `${transactions.length} transacoes realizadas`}
+            </p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
           {activeTab === 'wallets' ? (
-            <EnhancedTable striped hoverable>
-              <EnhancedTableHeader>
-                <EnhancedTableRow hoverable={false}>
-                  <EnhancedTableHead>ID</EnhancedTableHead>
-                  <EnhancedTableHead>Usuario</EnhancedTableHead>
-                  <EnhancedTableHead>Email</EnhancedTableHead>
-                  <EnhancedTableHead>Saldo</EnhancedTableHead>
-                  <EnhancedTableHead>Ultima Atualizacao</EnhancedTableHead>
-                </EnhancedTableRow>
-              </EnhancedTableHeader>
-              <EnhancedTableBody>
-                {wallets.slice(startIndex, endIndex).map((wallet, index) => (
-                  <EnhancedTableRow key={wallet.id} index={index}>
-                    <EnhancedTableCell className="font-mono">
-                      <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        {wallet.id}
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                  <th className="px-6 py-4">ID</th>
+                  <th className="px-6 py-4">Usuario</th>
+                  <th className="px-6 py-4">Email</th>
+                  <th className="px-6 py-4">Saldo</th>
+                  <th className="px-6 py-4">Ultima Atualizacao</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/5">
+                {wallets.slice(startIndex, endIndex).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-16 text-center">
+                      <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
+                      <p className="text-sm text-on-surface-variant">Nenhuma carteira encontrada</p>
+                    </td>
+                  </tr>
+                ) : wallets.slice(startIndex, endIndex).map(wallet => (
+                  <tr key={wallet.id} className="hover:bg-surface-container-highest/30 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                        #{wallet.id}
                       </span>
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="font-medium">
+                    </td>
+                    <td className="px-6 py-4 font-medium text-sm text-on-surface">
                       {wallet.userName}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-zinc-400">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {wallet.userEmail}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell highlight>
-                      <span className={wallet.balance > 0 ? 'text-emerald-400' : 'text-zinc-400'}>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold font-headline">
+                      <span className={wallet.balance > 0 ? 'text-primary' : 'text-on-surface-variant'}>
                         {formatCurrency(wallet.balance)}
                       </span>
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {formatDateTime(wallet.updatedAt)}
-                    </EnhancedTableCell>
-                  </EnhancedTableRow>
+                    </td>
+                  </tr>
                 ))}
-              </EnhancedTableBody>
-            </EnhancedTable>
+              </tbody>
+            </table>
           ) : (
-            <EnhancedTable striped hoverable>
-              <EnhancedTableHeader>
-                <EnhancedTableRow hoverable={false}>
-                  <EnhancedTableHead>ID</EnhancedTableHead>
-                  <EnhancedTableHead>Usuario</EnhancedTableHead>
-                  <EnhancedTableHead>Tipo</EnhancedTableHead>
-                  <EnhancedTableHead>Valor</EnhancedTableHead>
-                  <EnhancedTableHead>Saldo Anterior</EnhancedTableHead>
-                  <EnhancedTableHead>Saldo Atual</EnhancedTableHead>
-                  <EnhancedTableHead>Descricao</EnhancedTableHead>
-                  <EnhancedTableHead>Data</EnhancedTableHead>
-                </EnhancedTableRow>
-              </EnhancedTableHeader>
-              <EnhancedTableBody>
-                {transactions.slice(startIndex, endIndex).map((tx, index) => (
-                  <EnhancedTableRow key={tx.id} index={index}>
-                    <EnhancedTableCell className="font-mono">
-                      <span className="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
-                        {tx.id}
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                  <th className="px-6 py-4">ID</th>
+                  <th className="px-6 py-4">Usuario</th>
+                  <th className="px-6 py-4">Tipo</th>
+                  <th className="px-6 py-4">Valor</th>
+                  <th className="px-6 py-4">Saldo Anterior</th>
+                  <th className="px-6 py-4">Saldo Atual</th>
+                  <th className="px-6 py-4">Descricao</th>
+                  <th className="px-6 py-4">Data</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/5">
+                {transactions.slice(startIndex, endIndex).length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-16 text-center">
+                      <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
+                      <p className="text-sm text-on-surface-variant">Nenhuma transacao encontrada</p>
+                    </td>
+                  </tr>
+                ) : transactions.slice(startIndex, endIndex).map(tx => (
+                  <tr key={tx.id} className="hover:bg-surface-container-highest/30 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                        #{tx.id}
                       </span>
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="font-medium">
+                    </td>
+                    <td className="px-6 py-4 font-medium text-sm text-on-surface">
                       {tx.userName}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell>
-                      <span className={`font-medium ${getTypeColor(tx.type)}`}>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border ${getTypePill(tx.type)}`}>
                         {getTypeLabel(tx.type)}
                       </span>
-                    </EnhancedTableCell>
-                    <EnhancedTableCell highlight>
-                      <span className={tx.type === 'deposit' || tx.type === 'refund' ? 'text-emerald-400' : 'text-orange-400'}>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold font-headline">
+                      <span className={tx.type === 'deposit' || tx.type === 'refund' ? 'text-primary' : 'text-error'}>
                         {tx.type === 'deposit' || tx.type === 'refund' ? '+' : '-'}{formatCurrency(tx.amount)}
                       </span>
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-zinc-400">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {formatCurrency(tx.balanceBefore)}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-zinc-400">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {formatCurrency(tx.balanceAfter)}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm text-zinc-400 max-w-[200px] truncate">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant max-w-[200px] truncate">
                       {tx.description || '---'}
-                    </EnhancedTableCell>
-                    <EnhancedTableCell className="text-sm">
+                    </td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {formatDateTime(tx.createdAt)}
-                    </EnhancedTableCell>
-                  </EnhancedTableRow>
+                    </td>
+                  </tr>
                 ))}
-              </EnhancedTableBody>
-            </EnhancedTable>
+              </tbody>
+            </table>
           )}
+        </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-zinc-800">
-            <div className="text-sm text-zinc-400">
-              Pagina {currentPage} de {totalPages || 1} ({currentItems.length} itens)
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Anterior
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:border-zinc-600 disabled:opacity-30"
-              >
-                Proxima
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            </div>
+        {/* Pagination */}
+        <div className="px-6 py-4 border-t border-outline-variant/10 flex justify-between items-center">
+          <p className="text-xs text-on-surface-variant">
+            Pagina <span className="font-bold text-on-surface">{currentPage}</span> de <span className="font-bold text-on-surface">{totalPages || 1}</span>
+            <span className="ml-2 text-outline">({currentItems.length} itens)</span>
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+            >
+              <span className="material-symbols-outlined text-base">chevron_left</span>
+              Anterior
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+            >
+              Proxima
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

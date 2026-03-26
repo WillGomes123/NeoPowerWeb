@@ -1,32 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useState, useEffect } from 'react';
 import {
-  EnhancedTable,
-  EnhancedTableHeader,
-  EnhancedTableBody,
-  EnhancedTableRow,
-  EnhancedTableHead,
-  EnhancedTableCell,
-} from '../components/EnhancedTable';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { MapPin, Users as UsersIcon, Phone, Check, X, Edit2, Plus, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 
@@ -61,506 +42,371 @@ export const Users = () => {
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '' });
 
-  useEffect(() => {
-    void fetchUsers();
-    void fetchLocations();
-  }, []);
+  useEffect(() => { void fetchUsers(); void fetchLocations(); }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/admin/users');
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
-      toast.error('Erro ao buscar usuários');
-    } finally {
-      setLoading(false);
-    }
+      const r = await api.get('/admin/users');
+      if (!r.ok) throw new Error();
+      setUsers(await r.json());
+    } catch { toast.error('Erro ao buscar usuários'); }
+    finally { setLoading(false); }
   };
 
   const fetchLocations = async () => {
     try {
-      const response = await api.get('/locations/all');
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      setLocations(data.locations || []);
-    } catch (error) {
-      console.error('Erro ao buscar locais:', error);
-      toast.error('Erro ao buscar locais');
-    }
+      const r = await api.get('/locations/all');
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      setLocations(d.locations || []);
+    } catch { toast.error('Erro ao buscar locais'); }
   };
 
   const handleRoleChange = async (userId: number, newRole: ManagedRole) => {
     try {
-      const response = await api.put(`/admin/users/${userId}/role`, { newRole });
-      if (!response.ok) throw new Error('Failed to update role');
-      toast.success('Role atualizada com sucesso!');
+      const r = await api.put(`/admin/users/${userId}/role`, { newRole });
+      if (!r.ok) throw new Error();
+      toast.success('Role atualizada!');
       void fetchUsers();
-    } catch (error) {
-      console.error('Erro ao atualizar a role:', error);
-      toast.error('Falha ao atualizar a role.');
-    }
+    } catch { toast.error('Falha ao atualizar role'); }
   };
 
   const handleManageLocations = async (user: User) => {
     setSelectedUser(user);
     try {
-      const response = await api.get(`/admin/users/${user.id}/locations`);
-      if (!response.ok) throw new Error('Network response was not ok');
-      const data = await response.json();
-      setUserLocations(data.map((loc: { locationId: number; locationAddress: string }) => ({
-        locationId: loc.locationId,
-        locationAddress: loc.locationAddress,
-      })));
+      const r = await api.get(`/admin/users/${user.id}/locations`);
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      setUserLocations(d.map((l: any) => ({ locationId: l.locationId, locationAddress: l.locationAddress })));
       setDialogOpen(true);
-    } catch (error) {
-      console.error('Erro ao buscar locais do usuário:', error);
-      toast.error('Erro ao buscar locais do usuário');
-    }
+    } catch { toast.error('Erro ao buscar locais do usuário'); }
   };
 
-  const handleAddLocation = async (locationIdStr: string) => {
-    if (!selectedUser || !locationIdStr) return;
-    const locId = parseInt(locationIdStr);
+  const handleAddLocation = async (locIdStr: string) => {
+    if (!selectedUser || !locIdStr) return;
+    const locId = parseInt(locIdStr);
     const loc = locations.find(l => l.id === locId);
     try {
-      const response = await api.post(`/admin/users/${selectedUser.id}/locations`, {
-        locationId: locId,
-      });
-      if (!response.ok) throw new Error('Failed to add location');
-
-      setUserLocations(prev => [...prev, { locationId: locId, locationAddress: loc?.endereco || `Local #${locId}` }]);
-      toast.success('Local adicionado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao adicionar local:', error);
-      toast.error('Erro ao adicionar local');
-    }
+      const r = await api.post(`/admin/users/${selectedUser.id}/locations`, { locationId: locId });
+      if (!r.ok) throw new Error();
+      setUserLocations(p => [...p, { locationId: locId, locationAddress: loc?.endereco || `Local #${locId}` }]);
+      toast.success('Local adicionado!');
+    } catch { toast.error('Erro ao adicionar local'); }
   };
 
   const handleRemoveLocation = async (locationId: number) => {
     if (!selectedUser) return;
     try {
-      const response = await api.delete(`/admin/users/${selectedUser.id}/locations`, {
-        locationId,
-      });
-      if (!response.ok) throw new Error('Failed to remove location');
-      setUserLocations(prev => prev.filter(loc => loc.locationId !== locationId));
-      toast.success('Local removido com sucesso!');
-    } catch (error) {
-      console.error('Erro ao remover local:', error);
-      toast.error('Erro ao remover local');
-    }
+      const r = await api.delete(`/admin/users/${selectedUser.id}/locations`, { locationId });
+      if (!r.ok) throw new Error();
+      setUserLocations(p => p.filter(l => l.locationId !== locationId));
+      toast.success('Local removido!');
+    } catch { toast.error('Erro ao remover local'); }
   };
 
   const handleCreateUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.password) {
-      toast.error('Nome, email e senha são obrigatórios');
-      return;
-    }
+    if (!newUser.name || !newUser.email || !newUser.password) { toast.error('Nome, email e senha são obrigatórios'); return; }
     setCreating(true);
     try {
-      const response = await api.post('/admin/users', {
-        name: newUser.name,
-        email: newUser.email,
-        password: newUser.password,
-        role: newUser.role,
-        phone: newUser.phone || undefined,
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erro ao criar usuário');
-      }
-      toast.success('Usuário criado com sucesso!');
+      const r = await api.post('/admin/users', { name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined });
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
+      toast.success('Usuário criado!');
       setCreateDialogOpen(false);
       setNewUser({ name: '', email: '', password: '', role: 'comum', phone: '' });
       void fetchUsers();
-    } catch (error: any) {
-      console.error('Erro ao criar usuário:', error);
-      toast.error(error.message || 'Erro ao criar usuário');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const startEditPhone = (user: User) => {
-    setEditingPhone(user.id);
-    setPhoneValue(user.phone || '');
-  };
-
-  const cancelEditPhone = () => {
-    setEditingPhone(null);
-    setPhoneValue('');
+    } catch (e: any) { toast.error(e.message || 'Erro ao criar usuário'); }
+    finally { setCreating(false); }
   };
 
   const handlePhoneUpdate = async (userId: number) => {
     try {
-      const response = await api.put(`/admin/users/${userId}`, { phone: phoneValue || null });
-      if (!response.ok) throw new Error('Failed to update phone');
-      toast.success('Telefone atualizado com sucesso!');
+      const r = await api.put(`/admin/users/${userId}`, { phone: phoneValue || null });
+      if (!r.ok) throw new Error();
+      toast.success('Telefone atualizado!');
       setEditingPhone(null);
-      setPhoneValue('');
       void fetchUsers();
-    } catch (error) {
-      console.error('Erro ao atualizar telefone:', error);
-      toast.error('Erro ao atualizar telefone');
-    }
+    } catch { toast.error('Erro ao atualizar telefone'); }
   };
 
-  const formatPhone = (phone: string | null): string => {
-    if (!phone) return '-';
-    // Format as (XX) XXXXX-XXXX
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 11) {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
-    }
-    if (cleaned.length === 10) {
-      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 6)}-${cleaned.slice(6)}`;
-    }
+  const formatPhone = (phone: string | null) => {
+    if (!phone) return '—';
+    const c = phone.replace(/\D/g, '');
+    if (c.length === 11) return `(${c.slice(0, 2)}) ${c.slice(2, 7)}-${c.slice(7)}`;
+    if (c.length === 10) return `(${c.slice(0, 2)}) ${c.slice(2, 6)}-${c.slice(6)}`;
     return phone;
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-400">Carregando usuários...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <UsersIcon className="w-8 h-8 text-emerald-400" />
-            Usuários
-          </h1>
-          <p className="text-zinc-400 mt-1">Gerenciamento de usuários e permissões</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">ACCESS CONTROL</span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Usuários</h1>
+          <p className="text-on-surface-variant mt-1">Gerenciamento de usuários, funções e permissões de acesso</p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              <UserPlus className="w-4 h-4 mr-2" />
-              Novo Usuário
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-zinc-800 sm:max-w-[450px]">
-            <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-emerald-400" />
-                Criar Novo Usuário
-              </DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Preencha os dados para criar um novo usuário no sistema.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label className="text-zinc-300">Nome</Label>
-                <Input
-                  value={newUser.name}
-                  onChange={e => setNewUser({ ...newUser, name: e.target.value })}
-                  placeholder="Nome completo"
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-300">Email</Label>
-                <Input
-                  type="email"
-                  value={newUser.email}
-                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                  placeholder="email@exemplo.com"
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-zinc-300">Senha</Label>
-                <Input
-                  type="password"
-                  value={newUser.password}
-                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                  placeholder="Mínimo 8 caracteres"
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => void fetchUsers()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
+            <span className="material-symbols-outlined text-lg">refresh</span>
+            Atualizar
+          </button>
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all">
+                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>person_add</span>
+                Novo Usuário
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">person_add</span>
+                  Criar Novo Usuário
+                </DialogTitle>
+                <DialogDescription className="text-on-surface-variant">
+                  Preencha os dados para criar um novo usuário no sistema.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
                 <div className="space-y-2">
-                  <Label className="text-zinc-300">Função</Label>
-                  <Select value={newUser.role} onValueChange={(v) => setNewUser({ ...newUser, role: v as ManagedRole })}>
-                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-800 border-zinc-700">
-                      <SelectItem value="admin" className="text-white focus:bg-zinc-700 focus:text-white">Admin</SelectItem>
-                      <SelectItem value="atem" className="text-white focus:bg-zinc-700 focus:text-white">ATEM</SelectItem>
-                      <SelectItem value="comum" className="text-white focus:bg-zinc-700 focus:text-white">Comum</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nome</Label>
+                  <Input value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome completo" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-zinc-300">Telefone</Label>
-                  <Input
-                    value={newUser.phone}
-                    onChange={e => setNewUser({ ...newUser, phone: e.target.value })}
-                    placeholder="(92) 99999-9999"
-                    className="bg-zinc-800 border-zinc-700 text-white"
-                  />
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Email</Label>
+                  <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@exemplo.com" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Senha</Label>
+                  <Input type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Mínimo 8 caracteres" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Função</Label>
+                    <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v as ManagedRole })}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+                        <SelectItem value="atem" className="text-on-surface focus:bg-surface-container-highest">ATEM</SelectItem>
+                        <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
+                    <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)} className="border-zinc-700 text-zinc-300">
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateUser} disabled={creating} className="bg-emerald-600 hover:bg-emerald-700">
-                {creating ? 'Criando...' : 'Criar Usuário'}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setCreateDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</Button>
+                <button onClick={handleCreateUser} disabled={creating} className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
+                  {creating ? 'Criando...' : 'Criar Usuário'}
+                </button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-6">
-          <CardTitle className="text-white flex items-center gap-2">
-            <UsersIcon className="w-5 h-5 text-emerald-400" />
-            Lista de Usuários
-          </CardTitle>
-          <p className="text-sm text-zinc-400">Gerencie funções e acessos</p>
-        </CardHeader>
-        <CardContent className="pt-6">
-          <EnhancedTable striped hoverable>
-            <EnhancedTableHeader>
-              <EnhancedTableRow hoverable={false}>
-                <EnhancedTableHead>Nome</EnhancedTableHead>
-                <EnhancedTableHead>Email</EnhancedTableHead>
-                <EnhancedTableHead>Telefone</EnhancedTableHead>
-                <EnhancedTableHead>Função</EnhancedTableHead>
-                <EnhancedTableHead>Marca</EnhancedTableHead>
-                <EnhancedTableHead>Locais</EnhancedTableHead>
-                <EnhancedTableHead>Ações</EnhancedTableHead>
-              </EnhancedTableRow>
-            </EnhancedTableHeader>
-            <EnhancedTableBody>
-              {users.map((user, index) => (
-                <EnhancedTableRow key={user.id} index={index}>
-                  <EnhancedTableCell className="font-semibold text-white">
-                    {user.name}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell className="text-sm text-zinc-400">
-                    {user.email}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <SummaryCard icon="group" label="TOTAL USUÁRIOS" value={String(users.length)} />
+        <SummaryCard icon="admin_panel_settings" label="ADMINS" value={String(users.filter(u => u.role === 'admin').length)} color="text-primary" />
+        <SummaryCard icon="badge" label="OPERADORES" value={String(users.filter(u => u.role === 'atem').length)} color="text-tertiary" />
+        <SummaryCard icon="person" label="COMUNS" value={String(users.filter(u => u.role === 'comum').length)} color="text-secondary" />
+      </div>
+
+      {/* Users Table */}
+      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
+        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
+          <h3 className="text-lg font-headline font-bold text-on-surface">Lista de Usuários</h3>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{users.length} registros</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                <th className="px-6 py-4">Usuário</th>
+                <th className="px-6 py-4">Telefone</th>
+                <th className="px-6 py-4">Função</th>
+                <th className="px-6 py-4">Marca</th>
+                <th className="px-6 py-4">Locais</th>
+                <th className="px-6 py-4">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-outline-variant/5">
+              {users.map(user => (
+                <tr key={user.id} className="hover:bg-surface-container-highest/30 transition-colors group">
+                  {/* Name + Email */}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
+                        <span className="material-symbols-outlined text-lg">person</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-on-surface">{user.name}</p>
+                        <p className="text-[11px] text-on-surface-variant">{user.email}</p>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Phone */}
+                  <td className="px-6 py-4">
                     {editingPhone === user.id ? (
                       <div className="flex items-center gap-2">
-                        <Input
-                          type="tel"
-                          value={phoneValue}
-                          onChange={e => setPhoneValue(e.target.value)}
-                          placeholder="(92) 99999-9999"
-                          className="w-36 h-8 bg-zinc-800 border-zinc-700 text-white text-sm"
-                        />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handlePhoneUpdate(user.id)}
-                          className="h-8 w-8 text-emerald-400 hover:text-emerald-300 hover:bg-zinc-800"
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={cancelEditPhone}
-                          className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-800/20"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        <Input type="tel" value={phoneValue} onChange={e => setPhoneValue(e.target.value)} placeholder="(92) 99999-9999" className="w-36 h-8 bg-surface-container-low border-outline-variant/20 text-on-surface text-sm" />
+                        <button onClick={() => handlePhoneUpdate(user.id)} className="w-7 h-7 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors">
+                          <span className="material-symbols-outlined text-sm">check</span>
+                        </button>
+                        <button onClick={() => { setEditingPhone(null); setPhoneValue(''); }} className="w-7 h-7 rounded-md bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors">
+                          <span className="material-symbols-outlined text-sm">close</span>
+                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-zinc-500" />
-                        <span className="text-sm text-zinc-400">
-                          {formatPhone(user.phone)}
-                        </span>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => startEditPhone(user)}
-                          className="h-6 w-6 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant">phone</span>
+                        <span className="text-sm text-on-surface-variant">{formatPhone(user.phone)}</span>
+                        <button onClick={() => { setEditingPhone(user.id); setPhoneValue(user.phone || ''); }} className="w-6 h-6 rounded-md text-outline hover:text-primary hover:bg-surface-container-highest flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                          <span className="material-symbols-outlined text-xs">edit</span>
+                        </button>
                       </div>
                     )}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
-                    <div className="space-y-2">
-                      <Select
-                        value={user.role}
-                        onValueChange={value => handleRoleChange(user.id, value as ManagedRole)}
-                      >
-                        <SelectTrigger className="w-[150px] bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-zinc-800 border-zinc-700">
-                          <SelectItem
-                            value="admin"
-                            className="text-white focus:bg-zinc-700 focus:text-white"
-                          >
-                            Admin
-                          </SelectItem>
-                          <SelectItem
-                            value="atem"
-                            className="text-white focus:bg-zinc-700 focus:text-white"
-                          >
-                            ATEM
-                          </SelectItem>
-                          <SelectItem
-                            value="comum"
-                            className="text-white focus:bg-zinc-700 focus:text-white"
-                          >
-                            Comum
-                          </SelectItem>
-                          <SelectItem
-                            value="blocked"
-                            className="text-red-200 focus:bg-red-900/40 focus:text-red-100"
-                          >
-                            Bloqueado
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-zinc-500">
-                        {user.role === 'admin' && 'Acesso total'}
-                        {user.role === 'atem' && 'Tema ATEM, acessos limitados'}
-                        {user.role === 'comum' && 'Tema NeoPower padrão'}
-                        {user.role === 'blocked' && 'Sem acesso ao dashboard'}
-                      </p>
-                    </div>
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
+                  </td>
+
+                  {/* Role */}
+                  <td className="px-6 py-4">
+                    <Select value={user.role} onValueChange={v => handleRoleChange(user.id, v as ManagedRole)}>
+                      <SelectTrigger className="w-[130px] bg-surface-container-low border-outline-variant/20 text-on-surface text-sm h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+                        <SelectItem value="atem" className="text-on-surface focus:bg-surface-container-highest">ATEM</SelectItem>
+                        <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
+                        <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </td>
+
+                  {/* Brand */}
+                  <td className="px-6 py-4">
                     {user.clientId ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-900/30 text-blue-300 border border-blue-700/30 text-xs font-mono">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold font-mono uppercase">
                         {user.clientId}
                       </span>
                     ) : (
-                      <span className="text-zinc-500 text-xs">Padrão</span>
+                      <span className="text-on-surface-variant text-xs">Padrão</span>
                     )}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
+                  </td>
+
+                  {/* Locations */}
+                  <td className="px-6 py-4">
                     {user.locationIds ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-800 text-zinc-300 border border-zinc-700 text-sm font-medium">
-                        {user.locationIds.length} local(is)
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface border border-outline-variant/10 text-xs font-bold">
+                        <span className="material-symbols-outlined text-xs">location_on</span>
+                        {user.locationIds.length}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-sm font-medium">
-                        Todos
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
+                        TODOS
                       </span>
                     )}
-                  </EnhancedTableCell>
-                  <EnhancedTableCell>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4">
                     {user.role !== 'admin' && user.role !== 'blocked' && (
                       <Dialog
                         open={dialogOpen && selectedUser?.id === user.id}
-                        onOpenChange={open => {
-                          setDialogOpen(open);
-                          if (!open) setSelectedUser(null);
-                        }}
+                        onOpenChange={open => { setDialogOpen(open); if (!open) setSelectedUser(null); }}
                       >
                         <DialogTrigger
                           onClick={() => handleManageLocations(user)}
-                          className="inline-flex items-center justify-center gap-2 rounded-md text-sm px-3 py-2 bg-zinc-800 border border-zinc-700 text-white hover:bg-zinc-700 hover:border-zinc-600 transition-all"
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface text-xs font-bold hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
                         >
-                          <MapPin className="w-4 h-4" />
-                          Gerenciar Locais
+                          <span className="material-symbols-outlined text-sm">location_on</span>
+                          Locais
                         </DialogTrigger>
-                        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+                        <DialogContent className="bg-surface-container border-outline-variant/20 text-on-surface">
                           <DialogHeader>
-                            <DialogTitle className="text-white">
-                              Gerenciar Locais - {user.name}
+                            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+                              <span className="material-symbols-outlined text-primary">location_on</span>
+                              Gerenciar Locais — {user.name}
                             </DialogTitle>
-                            <DialogDescription className="text-zinc-400">
+                            <DialogDescription className="text-on-surface-variant">
                               Adicione ou remova locais que este usuário pode acessar
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                              <label className="text-zinc-300 text-sm">Adicionar Local</label>
-                              <div className="flex gap-2">
-                                <Select onValueChange={handleAddLocation}>
-                                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 flex-1">
-                                    <SelectValue placeholder="Selecione um local" />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-zinc-800 border-zinc-700">
-                                    {locations
-                                      .filter(loc => !userLocations.some(ul => ul.locationId === loc.id))
-                                      .map(loc => (
-                                        <SelectItem
-                                          key={loc.id}
-                                          value={loc.id.toString()}
-                                          className="text-white focus:bg-zinc-700 focus:text-white"
-                                        >
-                                          {loc.nomeDoLocal} ({loc.endereco})
-                                        </SelectItem>
-                                      ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              <h3 className="text-zinc-300 text-sm">Locais Permitidos:</h3>
-                              {userLocations.length === 0 ? (
-                                <p className="text-zinc-500 text-sm">
-                                  Nenhum local atribuído
-                                </p>
-                              ) : (
-                                <ul className="space-y-2">
-                                  {userLocations.map(ul => (
-                                    <li
-                                      key={ul.locationId}
-                                      className="flex items-center justify-between p-3 rounded-lg bg-zinc-800 border border-zinc-700"
-                                    >
-                                      <span className="text-white">
-                                        {locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}
-                                      </span>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => handleRemoveLocation(ul.locationId)}
-                                        className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                                      >
-                                        Remover
-                                      </Button>
-                                    </li>
+                              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Adicionar Local</label>
+                              <Select onValueChange={handleAddLocation}>
+                                <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                                  <SelectValue placeholder="Selecione um local" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-surface-container border-outline-variant/20">
+                                  {locations.filter(l => !userLocations.some(ul => ul.locationId === l.id)).map(l => (
+                                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
                                   ))}
-                                </ul>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Locais Permitidos</label>
+                              {userLocations.length === 0 ? (
+                                <p className="text-on-surface-variant text-sm py-4 text-center">Nenhum local atribuído</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {userLocations.map(ul => (
+                                    <div key={ul.locationId} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-outline-variant/5">
+                                      <div className="flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-sm text-primary">location_on</span>
+                                        <span className="text-sm text-on-surface">{locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}</span>
+                                      </div>
+                                      <button onClick={() => handleRemoveLocation(ul.locationId)} className="text-error text-xs font-bold hover:bg-error/10 px-2 py-1 rounded transition-colors">
+                                        Remover
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </div>
-                          <div className="flex justify-end gap-2 pt-4 border-t border-zinc-800">
-                            <Button
-                              variant="outline"
-                              onClick={() => setDialogOpen(false)}
-                              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-                            >
-                              Fechar
-                            </Button>
+                          <div className="flex justify-end pt-4 border-t border-outline-variant/10">
+                            <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Fechar</Button>
                           </div>
                         </DialogContent>
                       </Dialog>
                     )}
-                  </EnhancedTableCell>
-                </EnhancedTableRow>
+                  </td>
+                </tr>
               ))}
-            </EnhancedTableBody>
-          </EnhancedTable>
-        </CardContent>
-      </Card>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
+
+function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
+  return (
+    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
+      <div className="flex justify-between items-start">
+        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
+        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
+      </div>
+      <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
+    </div>
+  );
+}

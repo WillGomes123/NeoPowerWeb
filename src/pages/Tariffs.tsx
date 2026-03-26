@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import {
   Select,
   SelectContent,
@@ -12,14 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -29,8 +17,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
-import { Badge } from '../components/ui/badge';
-import { DollarSign, Plus, History, MapPin } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 
 interface Tariff {
   id: number;
@@ -145,186 +134,217 @@ export const Tariffs = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Gestão de Tarifas</h1>
-          <p className="text-zinc-400">Gerencie os preços por kWh</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">PRICING ENGINE</span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Tarifas</h1>
+          <p className="text-on-surface-variant mt-1">Gerencie os preços por kWh da rede</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-600 hover:bg-emerald-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Tarifa
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-zinc-800">
-            <DialogHeader>
-              <DialogTitle className="text-white">Definir Nova Tarifa</DialogTitle>
-              <DialogDescription className="text-zinc-400">
-                Configure o preço por kWh para a rede ou para um local específico.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="price" className="text-zinc-300">
-                  Preço por kWh (R$)
-                </Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={newPrice}
-                  onChange={e => setNewPrice(e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location" className="text-zinc-300">
-                  Aplicar para
-                </Label>
-                <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-zinc-800 border-zinc-700">
-                    <SelectItem value="global" className="text-white">
-                      Tarifa Global (toda a rede)
-                    </SelectItem>
-                    {locations.map(location => (
-                      <SelectItem
-                        key={location.id}
-                        value={location.id.toString()}
-                        className="text-white"
-                      >
-                        {location.nomeDoLocal}
+        <div className="flex items-center gap-3">
+          <button onClick={() => void fetchData()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
+            <span className="material-symbols-outlined text-lg">refresh</span>
+            Atualizar
+          </button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <button className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all">
+                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
+                Nova Tarifa
+              </button>
+            </DialogTrigger>
+            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">sell</span>
+                  Definir Nova Tarifa
+                </DialogTitle>
+                <DialogDescription className="text-on-surface-variant">
+                  Configure o preço por kWh para a rede ou para um local específico.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Preço por kWh (R$)
+                  </Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={newPrice}
+                    onChange={e => setNewPrice(e.target.value)}
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Aplicar para
+                  </Label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container border-outline-variant/20">
+                      <SelectItem value="global" className="text-on-surface focus:bg-surface-container-highest">
+                        Tarifa Global (toda a rede)
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                className="border-zinc-700 text-zinc-300"
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="bg-emerald-600 hover:bg-emerald-700"
-              >
-                {submitting ? 'Salvando...' : 'Salvar Tarifa'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Current Tariff Card */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-emerald-500" />
-            Tarifa Atual
-          </CardTitle>
-          <CardDescription className="text-zinc-400">
-            Preço vigente para carregamentos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {currentTariff ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-4xl font-bold text-emerald-500">
-                  {formatCurrency(currentTariff.price_per_kwh)}
-                  <span className="text-lg text-zinc-400 font-normal">/kWh</span>
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  {currentTariff.location_address ? (
-                    <Badge variant="outline" className="border-blue-500 text-blue-400">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {currentTariff.location_address}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-emerald-500 text-emerald-400">
-                      Tarifa Global
-                    </Badge>
-                  )}
+                      {locations.map(location => (
+                        <SelectItem
+                          key={location.id}
+                          value={location.id.toString()}
+                          className="text-on-surface focus:bg-surface-container-highest"
+                        >
+                          {location.nomeDoLocal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="text-right text-zinc-400 text-sm">
-                <p>Atualizado em</p>
-                <p className="text-white">{formatDate(currentTariff.created_at)}</p>
+              <DialogFooter className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  className="border-outline-variant/20 text-on-surface-variant rounded-full px-6"
+                >
+                  Cancelar
+                </Button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {submitting ? 'Salvando...' : 'Salvar Tarifa'}
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Current Tariff — Featured Bento Card */}
+      <div className="bg-surface-container-highest rounded-xl border border-primary/20 relative overflow-hidden p-8">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px]" />
+        {currentTariff ? (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>sell</span>
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">TARIFA VIGENTE</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-headline font-bold text-primary tracking-tighter">
+                  {formatCurrency(currentTariff.price_per_kwh)}
+                </span>
+                <span className="text-lg text-on-surface-variant font-normal">/kWh</span>
+              </div>
+              <div className="flex items-center gap-3 mt-4">
+                {currentTariff.location_address ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-xs font-bold">
+                    <span className="material-symbols-outlined text-sm">location_on</span>
+                    {currentTariff.location_address}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-bold">
+                    <span className="material-symbols-outlined text-sm">public</span>
+                    Tarifa Global
+                  </span>
+                )}
               </div>
             </div>
-          ) : (
-            <p className="text-zinc-400">Nenhuma tarifa configurada</p>
-          )}
-        </CardContent>
-      </Card>
+            <div className="text-right">
+              <div className="flex items-center gap-2 justify-end text-on-surface-variant mb-1">
+                <span className="material-symbols-outlined text-sm">schedule</span>
+                <span className="text-xs uppercase tracking-widest font-bold">Atualizado em</span>
+              </div>
+              <p className="text-sm font-medium text-on-surface">{formatDate(currentTariff.created_at)}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 relative z-10">
+            <span className="material-symbols-outlined text-4xl text-outline mb-3">sell</span>
+            <p className="text-sm text-on-surface-variant">Nenhuma tarifa configurada</p>
+          </div>
+        )}
+      </div>
 
-      {/* Tariff History */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <History className="h-5 w-5 text-zinc-400" />
-            Histórico de Tarifas
-          </CardTitle>
-          <CardDescription className="text-zinc-400">
-            Alterações anteriores de preço
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {tariffHistory.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-zinc-800">
-                  <TableHead className="text-zinc-400">Data</TableHead>
-                  <TableHead className="text-zinc-400">Preço/kWh</TableHead>
-                  <TableHead className="text-zinc-400">Local</TableHead>
-                  <TableHead className="text-zinc-400">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      {/* Tariff History Table */}
+      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
+        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-on-surface-variant">history</span>
+            <h3 className="text-lg font-headline font-bold text-on-surface">Histórico de Tarifas</h3>
+          </div>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{tariffHistory.length} registros</span>
+        </div>
+        {tariffHistory.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+                  <th className="px-6 py-4">Data</th>
+                  <th className="px-6 py-4">Preço/kWh</th>
+                  <th className="px-6 py-4">Local</th>
+                  <th className="px-6 py-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/5">
                 {tariffHistory.map(tariff => (
-                  <TableRow key={tariff.id} className="border-zinc-800">
-                    <TableCell className="text-zinc-300">{formatDate(tariff.created_at)}</TableCell>
-                    <TableCell className="text-white font-medium">
+                  <tr key={tariff.id} className="hover:bg-surface-container-highest/30 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-on-surface-variant">schedule</span>
+                        <span className="text-sm text-on-surface-variant">{formatDate(tariff.created_at)}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold font-headline text-on-surface">
                       {formatCurrency(tariff.price_per_kwh)}
-                    </TableCell>
-                    <TableCell className="text-zinc-300">
-                      {tariff.location_address || 'Global'}
-                    </TableCell>
-                    <TableCell>
-                      {tariff.is_current ? (
-                        <Badge className="bg-emerald-500/20 text-emerald-400">Atual</Badge>
+                    </td>
+                    <td className="px-6 py-4">
+                      {tariff.location_address ? (
+                        <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
+                          <span className="material-symbols-outlined text-sm">location_on</span>
+                          {tariff.location_address}
+                        </span>
                       ) : (
-                        <Badge variant="outline" className="border-zinc-600 text-zinc-400">
-                          Anterior
-                        </Badge>
+                        <span className="text-sm text-on-surface-variant">Global</span>
                       )}
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                    <td className="px-6 py-4">
+                      {tariff.is_current ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                          Atual
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-outline/10 text-on-surface-variant border border-outline/20 text-[10px] font-bold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-outline" />
+                          Anterior
+                        </span>
+                      )}
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <p className="text-zinc-400 text-center py-8">Nenhum histórico disponível</p>
-          )}
-        </CardContent>
-      </Card>
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16">
+            <span className="material-symbols-outlined text-4xl text-outline mb-3">history</span>
+            <p className="text-sm text-on-surface-variant">Nenhum histórico disponível</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

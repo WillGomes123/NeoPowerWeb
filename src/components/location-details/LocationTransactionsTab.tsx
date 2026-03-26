@@ -195,17 +195,23 @@ export function LocationTransactionsTab({ locationId }: Props) {
                       <td className="py-3 px-4 text-white font-mono text-sm">#{t.transactionId || t.id}</td>
                       <td className="py-3 px-4 text-white text-sm">{t.chargePointId}</td>
                       <td className="py-3 px-4 text-zinc-400 text-sm">{formatDate(t.startTimestamp)}</td>
-                      <td className="py-3 px-4 text-zinc-400 text-sm flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDuration(t.startTimestamp, t.stopTimestamp)}
+                      <td className="py-3 px-4 text-zinc-400 text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDuration(t.startTimestamp, t.stopTimestamp)}
+                        </span>
                       </td>
-                      <td className="py-3 px-4 text-amber-400 text-sm flex items-center gap-1">
-                        <Zap className="w-3 h-3" />
-                        {((t.consumedWh || 0) / 1000).toFixed(2)} kWh
+                      <td className="py-3 px-4 text-amber-400 text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          <Zap className="w-3 h-3" />
+                          {((t.consumedWh || 0) / 1000).toFixed(2)} kWh
+                        </span>
                       </td>
-                      <td className="py-3 px-4 text-emerald-400 text-sm flex items-center gap-1">
-                        <DollarSign className="w-3 h-3" />
-                        R$ {(t.totalCost || 0).toFixed(2)}
+                      <td className="py-3 px-4 text-emerald-400 text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" />
+                          R$ {parseFloat(String(t.totalCost || 0)).toFixed(2)}
+                        </span>
                       </td>
                       <td className="py-3 px-4">{getStatusBadge(t.status)}</td>
                     </tr>
