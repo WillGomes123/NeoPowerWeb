@@ -171,16 +171,9 @@ export const fetchWithAuth = async (
       throw new Error('Unauthorized');
     }
 
-    // 403 é permissão negada, não token expirado — não tenta refresh
+    // 403 é permissão negada, não token expirado — retorna a response para o caller tratar
     if (response.status === 403) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userId');
-      window.location.href = '/login';
-      throw new Error('Forbidden');
+      return wrapResponseJson(response);
     }
 
     // Tratar rate limit (429) - mostrar mensagem e NÃO fazer retry automático

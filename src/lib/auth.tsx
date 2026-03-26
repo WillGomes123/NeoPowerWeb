@@ -29,23 +29,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_BASE_URL = import.meta.env?.VITE_API_URL ?? '/api';
 
 const normalizeRole = (role?: string | null): UserRole => {
-  if (role === 'admin' || role === 'atem' || role === 'comum') return role;
+  if (role === 'admin' || role === 'comum') return role;
   if (role === 'user') return 'comum';
   // Map base_ocpp roles to NeoRBAC roles
   if (role === 'ADMIN') return 'admin';
-  if (role === 'OPERATOR') return 'atem';
-  if (role === 'VIEWER') return 'comum';
+  if (role === 'OPERATOR' || role === 'VIEWER') return 'comum';
   return 'comum';
 };
 
 const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig | null) => {
   if (typeof document === 'undefined') return;
-  document.body.classList.remove('theme-atem', 'theme-default');
-  if (role === 'atem') {
-    document.body.classList.add('theme-atem');
-  } else {
-    document.body.classList.add('theme-default');
-  }
+  document.body.classList.remove('theme-default');
+  document.body.classList.add('theme-default');
 
   // Inject dynamic primary color CSS override if branding is available
   const existingStyle = document.getElementById('dynamic-branding-style');

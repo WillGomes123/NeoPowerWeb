@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,19 +13,10 @@ import {
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
-
-// Lazy load Recharts
-const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
-const BarChart = lazy(() => import('recharts').then(m => ({ default: m.BarChart })));
-const LineChart = lazy(() => import('recharts').then(m => ({ default: m.LineChart })));
-const Area = lazy(() => import('recharts').then(m => ({ default: m.Area })));
-const Bar = lazy(() => import('recharts').then(m => ({ default: m.Bar })));
-const Line = lazy(() => import('recharts').then(m => ({ default: m.Line })));
-const XAxis = lazy(() => import('recharts').then(m => ({ default: m.XAxis })));
-const YAxis = lazy(() => import('recharts').then(m => ({ default: m.YAxis })));
-const CartesianGrid = lazy(() => import('recharts').then(m => ({ default: m.CartesianGrid })));
-const Tooltip = lazy(() => import('recharts').then(m => ({ default: m.Tooltip })));
-const ResponsiveContainer = lazy(() => import('recharts').then(m => ({ default: m.ResponsiveContainer })));
+import {
+  AreaChart, BarChart, LineChart, Area, Bar, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 interface PerformanceData {
   dates: string[];
@@ -68,7 +59,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
       const response = await api.get(`/locations/${locationId}/performance?period=${period}`);
       if (!response.ok) throw new Error('Erro ao carregar performance');
       const result = await response.json();
-      setData(result);
+      setData(result.data || result);
     } catch (error) {
       console.error('Erro ao carregar performance:', error);
       toast.error('Erro ao carregar dados de performance');
@@ -211,7 +202,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
               </div>
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
-                <p className="text-xl font-bold text-white">{data?.totals.totalEnergy.toFixed(1) || 0} kWh</p>
+                <p className="text-xl font-bold text-white">{Number(data?.totals.totalEnergy || 0).toFixed(1)} kWh</p>
               </div>
             </div>
           </CardContent>
@@ -253,7 +244,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
               </div>
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
-                <p className="text-xl font-bold text-white">{data?.totals.avgUtilization.toFixed(1) || 0} kWh</p>
+                <p className="text-xl font-bold text-white">{Number(data?.totals.avgUtilization || 0).toFixed(1)} kWh</p>
               </div>
             </div>
           </CardContent>
@@ -341,15 +332,9 @@ export function LocationPerformanceTab({ locationId }: Props) {
             </div>
           ) : (
             <div className="h-[400px]">
-              <Suspense fallback={
-                <div className="h-full flex items-center justify-center">
-                  <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
-                </div>
-              }>
-                <ResponsiveContainer width="100%" height="100%">
-                  {renderChart()}
-                </ResponsiveContainer>
-              </Suspense>
+              <ResponsiveContainer width="100%" height="100%">
+                {renderChart()}
+              </ResponsiveContainer>
             </div>
           )}
         </CardContent>

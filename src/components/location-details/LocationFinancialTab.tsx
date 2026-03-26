@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,13 +14,9 @@ import { toast } from 'sonner';
 import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
 
 // Lazy load Recharts
-const AreaChart = lazy(() => import('recharts').then(m => ({ default: m.AreaChart })));
-const Area = lazy(() => import('recharts').then(m => ({ default: m.Area })));
-const XAxis = lazy(() => import('recharts').then(m => ({ default: m.XAxis })));
-const YAxis = lazy(() => import('recharts').then(m => ({ default: m.YAxis })));
-const CartesianGrid = lazy(() => import('recharts').then(m => ({ default: m.CartesianGrid })));
-const Tooltip = lazy(() => import('recharts').then(m => ({ default: m.Tooltip })));
-const ResponsiveContainer = lazy(() => import('recharts').then(m => ({ default: m.ResponsiveContainer })));
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 interface FinancialData {
   totalRevenue: number;
@@ -58,7 +54,7 @@ export function LocationFinancialTab({ locationId }: Props) {
       const response = await api.get(`/locations/${locationId}/financial?period=${period}`);
       if (!response.ok) throw new Error('Erro ao carregar dados financeiros');
       const result = await response.json();
-      setData(result);
+      setData(result.data || result);
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
       toast.error('Erro ao carregar dados financeiros');
@@ -77,8 +73,8 @@ export function LocationFinancialTab({ locationId }: Props) {
     const exportData = data.revenueByCharger.map(c => ({
       'Carregador': c.chargerName || c.chargerId,
       'Sessões': c.sessions,
-      'Energia (kWh)': (c.energy / 1000).toFixed(2),
-      'Receita (R$)': c.revenue.toFixed(2)
+      'Energia (kWh)': (Number(c.energy) / 1000).toFixed(2),
+      'Receita (R$)': Number(c.revenue).toFixed(2)
     }));
 
     const columns = [
@@ -124,7 +120,7 @@ export function LocationFinancialTab({ locationId }: Props) {
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Receita Total</p>
                 <p className="text-xl font-bold text-white">
-                  R$ {(data?.totalRevenue || 0).toFixed(2)}
+                  R$ {Number(data?.totalRevenue || 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -140,7 +136,7 @@ export function LocationFinancialTab({ locationId }: Props) {
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
                 <p className="text-xl font-bold text-white">
-                  R$ {(data?.averageDailyRevenue || 0).toFixed(2)}
+                  R$ {Number(data?.averageDailyRevenue || 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -170,7 +166,7 @@ export function LocationFinancialTab({ locationId }: Props) {
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
                 <p className="text-xl font-bold text-white">
-                  {((data?.totalEnergy || 0) / 1000).toFixed(1)} kWh
+                  {(Number(data?.totalEnergy || 0) / 1000).toFixed(1)} kWh
                 </p>
               </div>
             </div>
@@ -186,7 +182,7 @@ export function LocationFinancialTab({ locationId }: Props) {
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Preço/kWh</p>
                 <p className="text-xl font-bold text-white">
-                  R$ {(data?.pricePerKwh || 0).toFixed(2)}
+                  R$ {Number(data?.pricePerKwh || 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -240,11 +236,6 @@ export function LocationFinancialTab({ locationId }: Props) {
             </div>
           ) : (
             <div className="h-[300px]">
-              <Suspense fallback={
-                <div className="h-full flex items-center justify-center">
-                  <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
-                </div>
-              }>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={data?.revenueChart || []}
@@ -277,7 +268,6 @@ export function LocationFinancialTab({ locationId }: Props) {
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              </Suspense>
             </div>
           )}
         </CardContent>
@@ -327,7 +317,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                       </td>
                       <td className="py-3 px-4 text-amber-400 flex items-center gap-1">
                         <Zap className="w-3 h-3" />
-                        {(charger.energy / 1000).toFixed(2)} kWh
+                        {(Number(charger.energy) / 1000).toFixed(2)} kWh
                       </td>
                       <td className="py-3 px-4 text-emerald-400 font-medium">
                         R$ {charger.revenue.toFixed(2)}
