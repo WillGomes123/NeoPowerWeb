@@ -120,7 +120,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     const fd = new FormData();
     fd.append('files', file);
     try {
-      const res = await api.post('/admin/branding/upload', fd);
+      const res = await api.post('/locations/upload', fd);
       if (res.ok) {
         const data = await res.json();
         const url = data.url || data.payload?.url;
@@ -129,6 +129,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       } else { toast.error('Erro no upload'); }
     } catch { toast.error('Erro ao enviar imagem'); }
     finally { setUploadingImage(false); }
+
   };
 
   const handleCepSearch = async () => {
@@ -194,7 +195,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.nomeResponsavel) payload.nome_responsavel = form.nomeResponsavel;
       if (form.emailResponsavel) payload.email_responsavel = form.emailResponsavel;
       if (form.telefoneResponsavel) payload.telefone_responsavel = form.telefoneResponsavel;
-      if (form.imageUrl !== undefined) payload.image_url = form.imageUrl || null;
+      if (form.imageUrl !== undefined) payload.imagem_local_url = form.imageUrl || null;
+
 
       const response = await api.put(`/locations/${location.id}`, payload);
       if (response.ok) {

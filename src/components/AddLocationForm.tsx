@@ -11,7 +11,7 @@ import { DynamicMap, TileLayer, Marker, useMap, L } from './DynamicMap';
 // Inicializar Leaflet icons
 if (typeof window !== 'undefined' && L) {
   try {
-    delete (L.Icon.Default.prototype as Record<string, unknown>)._getIconUrl;
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
     L.Icon.Default.mergeOptions({
       iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
       iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -229,7 +229,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     const fd = new FormData();
     fd.append('files', file);
     try {
-      const res = await api.post('/admin/branding/upload', fd);
+      const res = await api.post('/locations/upload', fd);
       if (res.ok) {
         const data = await res.json();
         const url = data.url || data.payload?.url;
@@ -238,6 +238,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
       } else { toast.error('Erro no upload'); }
     } catch { toast.error('Erro ao enviar imagem'); }
     finally { setUploadingImage(false); }
+
   };
 
   const handleSubmit = async () => {
