@@ -14,7 +14,8 @@ import {
   FileText,
   Save,
   X,
-  Search
+  Search,
+  ImagePlus
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
@@ -271,19 +272,86 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
             <CardTitle className="text-lg text-white flex items-center gap-2">
-              <Edit className="w-5 h-5 text-emerald-400" />
+              <Edit className="w-5 h-5 text-lime-400" />
               Editar Informações
             </CardTitle>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={cancelEditing} className="border-zinc-700 text-zinc-300">
                 <X className="w-4 h-4 mr-1" /> Cancelar
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
+              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-lime-600 hover:bg-lime-700">
                 <Save className="w-4 h-4 mr-1" /> {saving ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">
+            {/* Imagem do Local */}
+            <div>
+              <h4 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wider">Imagem do Local</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <input type="file" id="location-image-upload" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
+                  {form.imageUrl ? (
+                    <div className="relative h-44 rounded-xl overflow-hidden border border-zinc-700 group/img">
+                      <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                      <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/40 transition-all duration-300 flex items-center justify-center gap-3 opacity-0 group-hover/img:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('location-image-upload')?.click()}
+                          className="p-2.5 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => update('imageUrl', '')}
+                          className="p-2.5 rounded-full bg-red-500/20 backdrop-blur-sm text-red-300 hover:bg-red-500/40 transition-colors"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => document.getElementById('location-image-upload')?.click()}
+                      onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-lime-400', 'bg-lime-500/10'); }}
+                      onDragLeave={e => { e.currentTarget.classList.remove('border-lime-400', 'bg-lime-500/10'); }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('border-lime-400', 'bg-lime-500/10');
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          const input = document.getElementById('location-image-upload') as HTMLInputElement;
+                          const dt = new DataTransfer();
+                          dt.items.add(file);
+                          input.files = dt.files;
+                          input.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                      }}
+                      className="h-40 rounded-xl border-2 border-dashed border-zinc-700 hover:border-lime-400/50 bg-zinc-800/30 hover:bg-lime-500/5 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center gap-3"
+                    >
+                      {uploadingImage ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-8 h-8 animate-spin rounded-full border-2 border-lime-400 border-t-transparent" />
+                          <span className="text-sm text-lime-300">Enviando...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="p-3 rounded-full bg-lime-500/10 border border-lime-500/20">
+                            <ImagePlus className="w-6 h-6 text-lime-400" />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-sm text-zinc-300 font-medium">Clique ou arraste uma imagem</p>
+                            <p className="text-xs text-zinc-500 mt-1">PNG, JPG ou WEBP (max. 5MB)</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Local */}
             <div>
               <h4 className="text-sm font-semibold text-zinc-400 mb-3 uppercase tracking-wider">Local</h4>
@@ -330,38 +398,6 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                 <div className="space-y-1.5">
                   <Label className="text-zinc-300">Longitude</Label>
                   <Input value={form.longitude} onChange={e => update('longitude', e.target.value)} className="bg-zinc-800 border-zinc-700 text-white" />
-                </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-zinc-300">Imagem do Local</Label>
-                  <div className="flex gap-2">
-                    <Input value={form.imageUrl} onChange={e => update('imageUrl', e.target.value)} placeholder="URL da imagem ou faça upload" className="bg-zinc-800 border-zinc-700 text-white flex-1" />
-                    <div className="relative">
-                      <input type="file" id="location-image-upload" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploadingImage} />
-                      <Button
-                        type="button" variant="outline" size="sm"
-                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-9 px-3"
-                        onClick={() => document.getElementById('location-image-upload')?.click()}
-                        disabled={uploadingImage}
-                      >
-                        {uploadingImage ? (
-                          <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-zinc-300" />
-                        ) : (
-                          <span className="material-symbols-outlined text-base">upload</span>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {form.imageUrl && (
-                    <div className="mt-2 rounded-lg overflow-hidden border border-zinc-700 h-32 relative group/img">
-                      <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
-                      <button
-                        onClick={() => update('imageUrl', '')}
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -416,27 +452,49 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
   // ===== VIEW MODE =====
   return (
     <div className="space-y-6">
+      {/* Hero Image Card */}
+      <Card className="bg-zinc-900/50 border-zinc-800 overflow-hidden">
+        <div className="relative h-52">
+          {location.imageUrl ? (
+            <img src={location.imageUrl} alt={location.nomeDoLocal} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-zinc-800 via-zinc-850 to-zinc-900 flex items-center justify-center">
+              <div className="text-center">
+                <span className="material-symbols-outlined text-5xl text-zinc-700">location_on</span>
+                <p className="text-xs text-zinc-600 mt-2">Sem imagem do local</p>
+              </div>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-transparent to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-white">{location.nomeDoLocal || '-'}</h3>
+              <p className="text-zinc-300 text-sm mt-1 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-lime-400" />
+                {location.endereco}{location.numero ? `, ${location.numero}` : ''} - {location.cidade}/{location.estado}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={startEditing} className="border-zinc-600 bg-zinc-800/60 backdrop-blur-sm text-zinc-200 hover:bg-zinc-700">
+              <Edit className="w-4 h-4 mr-2" /> Editar
+            </Button>
+          </div>
+        </div>
+      </Card>
+
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="flex flex-row items-center justify-between border-b border-zinc-800 pb-4">
           <CardTitle className="text-lg text-white flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-emerald-400" />
+            <Building2 className="w-5 h-5 text-lime-400" />
             Informações do Local
           </CardTitle>
-          <Button variant="outline" size="sm" onClick={startEditing} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
-            <Edit className="w-4 h-4 mr-2" /> Editar
-          </Button>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-zinc-400 uppercase tracking-wider">Nome do Local</label>
-                <p className="text-white font-medium mt-1">{location.nomeDoLocal || '-'}</p>
-              </div>
-              <div>
-                <label className="text-xs text-zinc-400 uppercase tracking-wider">Endereço</label>
+                <label className="text-xs text-zinc-400 uppercase tracking-wider">Endereço Completo</label>
                 <p className="text-white font-medium mt-1 flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <MapPin className="w-4 h-4 text-lime-400 mt-0.5 flex-shrink-0" />
                   <span>
                     {location.endereco}, {location.numero}
                     {location.complemento && ` - ${location.complemento}`}
@@ -467,22 +525,13 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
               </div>
             </div>
           </div>
-          {/* Image */}
-          {location.imageUrl && (
-            <div className="mt-6 pt-6 border-t border-zinc-800">
-              <label className="text-xs text-zinc-400 uppercase tracking-wider block mb-2">Imagem do Local</label>
-              <div className="rounded-lg overflow-hidden border border-zinc-700 h-48">
-                <img src={location.imageUrl} alt={location.nomeDoLocal} className="w-full h-full object-cover" />
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="border-b border-zinc-800 pb-4">
           <CardTitle className="text-lg text-white flex items-center gap-2">
-            <FileText className="w-5 h-5 text-emerald-400" />
+            <FileText className="w-5 h-5 text-lime-400" />
             Informações da Empresa
           </CardTitle>
         </CardHeader>
@@ -503,7 +552,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="border-b border-zinc-800 pb-4">
           <CardTitle className="text-lg text-white flex items-center gap-2">
-            <User className="w-5 h-5 text-emerald-400" />
+            <User className="w-5 h-5 text-lime-400" />
             Responsável
           </CardTitle>
         </CardHeader>
@@ -512,21 +561,21 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
             <div>
               <label className="text-xs text-zinc-400 uppercase tracking-wider">Nome</label>
               <p className="text-white font-medium mt-1 flex items-center gap-2">
-                <User className="w-4 h-4 text-emerald-400" />
+                <User className="w-4 h-4 text-lime-400" />
                 {location.nomeResponsavel || '-'}
               </p>
             </div>
             <div>
               <label className="text-xs text-zinc-400 uppercase tracking-wider">E-mail</label>
               <p className="text-white font-medium mt-1 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-emerald-400" />
+                <Mail className="w-4 h-4 text-lime-400" />
                 {location.emailResponsavel || '-'}
               </p>
             </div>
             <div>
               <label className="text-xs text-zinc-400 uppercase tracking-wider">Telefone</label>
               <p className="text-white font-medium mt-1 flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-400" />
+                <Phone className="w-4 h-4 text-lime-400" />
                 {formatPhone(location.telefoneResponsavel)}
               </p>
             </div>
@@ -537,7 +586,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="border-b border-zinc-800 pb-4">
           <CardTitle className="text-lg text-white flex items-center gap-2">
-            <Clock className="w-5 h-5 text-emerald-400" />
+            <Clock className="w-5 h-5 text-lime-400" />
             Horário de Funcionamento
           </CardTitle>
         </CardHeader>

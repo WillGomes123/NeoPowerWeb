@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { MapPin, Building, Clock, Palette, User, Save, ArrowLeft, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { DynamicMap, TileLayer, Marker, useMap, L } from './DynamicMap';
@@ -82,16 +80,21 @@ const ChangeMapView = ({ center }: { center: [number, number] }) => {
   return null;
 };
 
-// Ícone padrão do Leaflet
-const getDefaultIcon = () => {
+// Ícone neon customizado para o mapa
+const getNeonIcon = () => {
   if (!L) return null;
-  return L.icon({
-    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [0, -41],
+  return L.divIcon({
+    className: 'custom-neon-marker',
+    html: `<div style="
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--md-sys-color-primary, #8eff71), var(--md-sys-color-secondary, #71ffc5));
+      border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 16px rgba(142,255,113,0.5), 0 2px 8px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
   });
 };
 
@@ -321,34 +324,35 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     }
   };
 
+  const tabTriggerClass = "flex items-center gap-2 px-5 py-3 data-[state=active]:bg-primary data-[state=active]:text-on-primary text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all duration-300 text-sm font-medium border border-transparent";
+
   return (
-    <div className="flex flex-col h-full bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-surface-container border border-outline-variant/10 rounded-xl overflow-hidden">
       {/* Header */}
-      <div className="relative px-6 py-5 border-b border-emerald-800/30 bg-gradient-to-r from-emerald-900/50 via-emerald-950/30 to-transparent flex-shrink-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-emerald-500/15 via-transparent to-transparent" />
+      <div className="relative px-6 py-5 border-b border-outline-variant/10 bg-surface-container-low flex-shrink-0">
         <div className="relative flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={onCancel}
-              className="p-2 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-300 hover:text-emerald-100 transition-all duration-300 border border-emerald-800/30"
+              className="p-2 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface-variant hover:text-on-surface transition-all duration-300 border border-outline-variant/10"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <span className="material-symbols-outlined text-xl">arrow_back</span>
             </button>
             <div>
-              <h2 className="text-xl text-white font-bold flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/30 shadow-lg shadow-emerald-900/20">
-                  <MapPin className="w-5 h-5 text-emerald-400" />
+              <h2 className="font-headline text-2xl font-bold text-on-surface flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 rounded-xl border border-primary/20">
+                  <span className="material-symbols-outlined text-xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>add_location_alt</span>
                 </div>
                 Adicionar Novo Local
               </h2>
-              <p className="text-zinc-400 text-sm mt-1 ml-[52px]">Preencha as informações do eletroposto</p>
+              <p className="text-on-surface-variant text-sm mt-1 ml-[52px]">Preencha as informações do eletroposto</p>
             </div>
           </div>
           <button
             onClick={onCancel}
-            className="p-2 rounded-lg hover:bg-emerald-900/30 text-emerald-400 hover:text-emerald-200 transition-all"
+            className="p-2 rounded-lg hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface transition-all"
           >
-            <X className="w-5 h-5" />
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
       </div>
@@ -356,54 +360,113 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
       {/* Tabs e Conteúdo */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
         {/* Tabs Navigation */}
-        <TabsList className="flex w-full bg-emerald-950/50 px-6 gap-2 border-b border-emerald-800/30 h-auto justify-start rounded-none py-3 flex-shrink-0">
-          <TabsTrigger
-            value="info"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
-          >
-            <MapPin className="w-4 h-4" />
+        <TabsList className="flex w-full bg-surface-container-low px-6 gap-2 border-b border-outline-variant/10 h-auto justify-start rounded-none py-3 flex-shrink-0">
+          <TabsTrigger value="info" className={tabTriggerClass}>
+            <span className="material-symbols-outlined text-lg">location_on</span>
             <span>Localização</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="business"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
-          >
-            <Building className="w-4 h-4" />
+          <TabsTrigger value="business" className={tabTriggerClass}>
+            <span className="material-symbols-outlined text-lg">business</span>
             <span>Negócio</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="custom"
-            className="flex items-center gap-2 px-5 py-3 data-[state=active]:bg-emerald-600 data-[state=active]:text-white data-[state=active]:shadow-none data-[state=active]:border-emerald-500 text-zinc-400 hover:bg-zinc-800 hover:text-white rounded-lg transition-all duration-300 text-sm font-medium border border-transparent"
-          >
-            <User className="w-4 h-4" />
+          <TabsTrigger value="custom" className={tabTriggerClass}>
+            <span className="material-symbols-outlined text-lg">person</span>
             <span>Responsável</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 bg-zinc-950/30">
+        <div className="flex-1 overflow-y-auto px-6 py-6 bg-surface/50">
           {/* ABA 1: LOCALIZAÇÃO */}
           <TabsContent value="info" className="space-y-5 mt-0" data-state={activeTab === 'info' ? 'active' : 'inactive'}>
+            {/* Imagem do Local - Drop Zone */}
+            <div className="mb-2">
+              <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">Imagem do Local</Label>
+              {formData.imagem_local_url ? (
+                <div className="relative h-48 rounded-xl overflow-hidden border border-outline-variant/10 group">
+                  <img src={formData.imagem_local_url} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('add-location-image-upload')?.click()}
+                      className="p-2.5 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, imagem_local_url: '' })}
+                      className="p-2.5 rounded-full bg-red-500/20 backdrop-blur-sm text-red-300 hover:bg-red-500/40 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-lg">delete</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => document.getElementById('add-location-image-upload')?.click()}
+                  onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-primary/40', 'bg-primary/5'); }}
+                  onDragLeave={e => { e.currentTarget.classList.remove('border-primary/40', 'bg-primary/5'); }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('border-primary/40', 'bg-primary/5');
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      const input = document.getElementById('add-location-image-upload') as HTMLInputElement;
+                      const dt = new DataTransfer();
+                      dt.items.add(file);
+                      input.files = dt.files;
+                      input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }}
+                  className="h-40 rounded-xl border-2 border-dashed border-outline-variant/20 hover:border-primary/40 bg-surface-container-low/30 transition-all duration-300 cursor-pointer flex flex-col items-center justify-center gap-3"
+                >
+                  {uploadingImage ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <span className="text-sm text-primary">Enviando...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="p-3 rounded-full bg-primary/10 border border-primary/20">
+                        <span className="material-symbols-outlined text-2xl text-primary">add_photo_alternate</span>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm text-on-surface font-medium">Clique ou arraste uma imagem</p>
+                        <p className="text-xs text-on-surface-variant mt-1">PNG, JPG ou WEBP (max. 5MB)</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <input type="file" id="add-location-image-upload" className="hidden" accept="image/*" onChange={handleLocationImageUpload} disabled={uploadingImage} />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Coluna dos campos */}
-              <div className="space-y-4">
+              <div className="glass-panel rounded-lg border border-outline-variant/10 p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant">edit_location_alt</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Endereço</span>
+                </div>
+
                 <div>
-                  <Label htmlFor="name" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                    Nome do Local <span className="text-emerald-400">*</span>
+                  <Label htmlFor="name" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                    Nome do Local <span className="text-primary">*</span>
                   </Label>
                   <Input
                     id="name"
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ex: Shopping Center Norte"
-                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <Label htmlFor="cep" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      CEP <span className="text-emerald-400">*</span>
+                    <Label htmlFor="cep" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      CEP <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="cep"
@@ -416,27 +479,27 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onBlur={handleCepBlur}
                       placeholder="00000-000"
                       maxLength={9}
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div className="col-span-2">
-                    <Label htmlFor="address" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Endereço <span className="text-emerald-400">*</span>
+                    <Label htmlFor="address" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Endereço <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="address"
                       value={formData.address}
                       onChange={e => setFormData({ ...formData, address: e.target.value })}
                       placeholder="Rua, Avenida..."
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-4 gap-3">
                   <div>
-                    <Label htmlFor="numero" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Nº <span className="text-emerald-400">*</span>
+                    <Label htmlFor="numero" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      N. <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="numero"
@@ -444,11 +507,11 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onChange={e => setFormData({ ...formData, numero: e.target.value })}
                       onBlur={handleNumeroBlur}
                       placeholder="123"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="complemento" className="text-emerald-200/80 text-sm mb-2 block font-medium">
+                    <Label htmlFor="complemento" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
                       Complemento
                     </Label>
                     <Input
@@ -456,24 +519,24 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.complemento}
                       onChange={e => setFormData({ ...formData, complemento: e.target.value })}
                       placeholder="Sala 1"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="cidade" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Cidade <span className="text-emerald-400">*</span>
+                    <Label htmlFor="cidade" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Cidade <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="cidade"
                       value={formData.cidade}
                       onChange={e => setFormData({ ...formData, cidade: e.target.value })}
                       placeholder="São Paulo"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="estado" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      UF <span className="text-emerald-400">*</span>
+                    <Label htmlFor="estado" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      UF <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="estado"
@@ -481,15 +544,15 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       onChange={e => setFormData({ ...formData, estado: e.target.value.toUpperCase() })}
                       placeholder="SP"
                       maxLength={2}
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm uppercase placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm uppercase"
                     />
                   </div>
                 </div>
 
                 {pinPosition && (
-                  <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <MapPin className="w-4 h-4 text-emerald-400" />
-                    <p className="text-sm text-emerald-400 font-mono">
+                  <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-primary/10 border border-primary/20">
+                    <span className="material-symbols-outlined text-base text-primary">my_location</span>
+                    <p className="text-sm text-primary font-mono">
                       {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
                     </p>
                   </div>
@@ -497,15 +560,15 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
               </div>
 
               {/* Coluna do mapa */}
-              <div className="h-[300px] lg:h-full min-h-[300px] rounded-xl border border-zinc-800 overflow-hidden">
+              <div className="h-[300px] lg:h-full min-h-[300px] rounded-xl border border-outline-variant/10 overflow-hidden">
                 <DynamicMap center={mapCenter} zoom={4} className="z-0 h-full w-full">
                   <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
                     attribution='&copy; OpenStreetMap'
                   />
                   <ChangeMapView center={mapCenter} />
-                  {pinPosition && getDefaultIcon() && (
-                    <Marker position={pinPosition} icon={getDefaultIcon()!} />
+                  {pinPosition && getNeonIcon() && (
+                    <Marker position={pinPosition} icon={getNeonIcon()!} />
                   )}
                 </DynamicMap>
               </div>
@@ -515,22 +578,27 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
           {/* ABA 2: NEGÓCIO */}
           <TabsContent value="business" className="space-y-5 mt-0" data-state={activeTab === 'business' ? 'active' : 'inactive'}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
+              <div className="glass-panel rounded-lg border border-outline-variant/10 p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant">corporate_fare</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Dados da Empresa</span>
+                </div>
+
                 <div>
-                  <Label htmlFor="razao_social" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                    Razão Social <span className="text-emerald-400">*</span>
+                  <Label htmlFor="razao_social" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                    Razão Social <span className="text-primary">*</span>
                   </Label>
                   <Input
                     id="razao_social"
                     value={formData.razao_social}
                     onChange={e => setFormData({ ...formData, razao_social: e.target.value })}
                     placeholder="Empresa LTDA"
-                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cnpj" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                    CNPJ <span className="text-emerald-400">*</span>
+                  <Label htmlFor="cnpj" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                    CNPJ <span className="text-primary">*</span>
                   </Label>
                   <Input
                     id="cnpj"
@@ -542,47 +610,47 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     }}
                     placeholder="00.000.000/0000-00"
                     maxLength={18}
-                    className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Tipo Negócio</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">Tipo Negócio</Label>
                     <Select value={formData.tipo_negocio} onValueChange={value => setFormData({ ...formData, tipo_negocio: value })}>
-                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
-                        <SelectItem value="comercial">Comercial</SelectItem>
-                        <SelectItem value="condominio_residencial">Condomínio</SelectItem>
-                        <SelectItem value="publico">Público</SelectItem>
-                        <SelectItem value="shopping">Shopping</SelectItem>
-                        <SelectItem value="posto">Posto</SelectItem>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="comercial" className="text-on-surface focus:bg-surface-container-highest">Comercial</SelectItem>
+                        <SelectItem value="condominio_residencial" className="text-on-surface focus:bg-surface-container-highest">Condomínio</SelectItem>
+                        <SelectItem value="publico" className="text-on-surface focus:bg-surface-container-highest">Público</SelectItem>
+                        <SelectItem value="shopping" className="text-on-surface focus:bg-surface-container-highest">Shopping</SelectItem>
+                        <SelectItem value="posto" className="text-on-surface focus:bg-surface-container-highest">Posto</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Acesso</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">Acesso</Label>
                     <Select value={formData.tipo_local} onValueChange={value => setFormData({ ...formData, tipo_local: value })}>
-                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
-                        <SelectItem value="publico">Público</SelectItem>
-                        <SelectItem value="privado">Privado</SelectItem>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="publico" className="text-on-surface focus:bg-surface-container-highest">Público</SelectItem>
+                        <SelectItem value="privado" className="text-on-surface focus:bg-surface-container-highest">Privado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-emerald-200/80 text-sm mb-2 block font-medium">Estacionamento</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">Estacionamento</Label>
                     <Select value={formData.tipo_estacionamento} onValueChange={value => setFormData({ ...formData, tipo_estacionamento: value })}>
-                      <SelectTrigger className="text-white border-zinc-700 h-11 text-sm" style={{ backgroundColor: '#18181b' }}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
-                        <SelectItem value="gratis">Grátis</SelectItem>
-                        <SelectItem value="pago">Pago</SelectItem>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="gratis" className="text-on-surface focus:bg-surface-container-highest">Grátis</SelectItem>
+                        <SelectItem value="pago" className="text-on-surface focus:bg-surface-container-highest">Pago</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -590,15 +658,15 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
               </div>
 
               {/* Horários */}
-              <div className="space-y-3">
-                <Label className="text-emerald-200/80 text-sm block font-medium flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-emerald-400" />
-                  Horário de Funcionamento
-                </Label>
-                <div className="grid grid-cols-1 gap-2 p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/30 max-h-[280px] overflow-y-auto">
+              <div className="glass-panel rounded-lg border border-outline-variant/10 p-6 space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant">schedule</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Horário de Funcionamento</span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto">
                   {diasSemana.map(dia => (
-                    <div key={dia} className="flex items-center gap-3 p-3 rounded-lg bg-emerald-900/20 border border-emerald-800/20">
-                      <span className="text-emerald-300 w-24 font-medium text-sm">{diasSemanaLabels[dia]}</span>
+                    <div key={dia} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low">
+                      <span className="text-on-surface w-24 font-medium text-sm">{diasSemanaLabels[dia]}</span>
                       <Select
                         value={formData.horario_funcionamento[dia]?.tipo || '24horas'}
                         onValueChange={value => {
@@ -607,13 +675,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                           setFormData({ ...formData, horario_funcionamento: newHorarios });
                         }}
                       >
-                        <SelectTrigger className="text-white border-zinc-700 h-9 text-sm flex-1" style={{ backgroundColor: '#18181b' }}>
+                        <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="text-white" style={{ backgroundColor: '#27272a', borderColor: '#3f3f46' }}>
-                          <SelectItem value="24horas">24 horas</SelectItem>
-                          <SelectItem value="customizado">Customizado</SelectItem>
-                          <SelectItem value="fechado">Fechado</SelectItem>
+                        <SelectContent className="bg-surface-container border-outline-variant/20">
+                          <SelectItem value="24horas" className="text-on-surface focus:bg-surface-container-highest">24 horas</SelectItem>
+                          <SelectItem value="customizado" className="text-on-surface focus:bg-surface-container-highest">Customizado</SelectItem>
+                          <SelectItem value="fechado" className="text-on-surface focus:bg-surface-container-highest">Fechado</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -626,23 +694,28 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
           {/* ABA 3: RESPONSÁVEL */}
           <TabsContent value="custom" className="space-y-5 mt-0" data-state={activeTab === 'custom' ? 'active' : 'inactive'}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
+              <div className="glass-panel rounded-lg border border-outline-variant/10 p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-sm text-on-surface-variant">badge</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Dados do Responsável</span>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="nome_responsavel" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Responsável <span className="text-emerald-400">*</span>
+                    <Label htmlFor="nome_responsavel" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Responsável <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="nome_responsavel"
                       value={formData.nome_responsavel}
                       onChange={e => setFormData({ ...formData, nome_responsavel: e.target.value })}
                       placeholder="Nome completo"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="cpf_responsavel" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      CPF <span className="text-emerald-400">*</span>
+                    <Label htmlFor="cpf_responsavel" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      CPF <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="cpf_responsavel"
@@ -654,15 +727,15 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       }}
                       placeholder="000.000.000-00"
                       maxLength={14}
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="email_responsavel" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Email <span className="text-emerald-400">*</span>
+                    <Label htmlFor="email_responsavel" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Email <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="email_responsavel"
@@ -670,12 +743,12 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.email_responsavel}
                       onChange={e => setFormData({ ...formData, email_responsavel: e.target.value })}
                       placeholder="email@empresa.com"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="telefone_responsavel" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                      Telefone <span className="text-emerald-400">*</span>
+                    <Label htmlFor="telefone_responsavel" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Telefone <span className="text-primary">*</span>
                     </Label>
                     <Input
                       id="telefone_responsavel"
@@ -689,58 +762,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       }}
                       placeholder="(00) 00000-0000"
                       maxLength={15}
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="imagem_local_url" className="text-emerald-200/80 text-sm mb-2 block font-medium">
-                    Imagem do Local
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="imagem_local_url"
-                      value={formData.imagem_local_url}
-                      onChange={e => setFormData({ ...formData, imagem_local_url: e.target.value })}
-                      placeholder="URL da imagem ou faça upload"
-                      className="bg-zinc-800 text-white border-zinc-700 h-11 text-sm placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20 flex-1"
-                    />
-                    <div className="relative">
-                      <input type="file" id="add-location-image-upload" className="hidden" accept="image/*" onChange={handleLocationImageUpload} disabled={uploadingImage} />
-                      <Button
-                        type="button" variant="outline" size="sm"
-                        className="border-zinc-700 text-zinc-300 hover:bg-zinc-700 h-11 px-4"
-                        onClick={() => document.getElementById('add-location-image-upload')?.click()}
-                        disabled={uploadingImage}
-                      >
-                        {uploadingImage ? (
-                          <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-zinc-300" />
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-base mr-1">upload</span>
-                            Upload
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {formData.imagem_local_url && (
-                    <div className="mt-2 rounded-lg overflow-hidden border border-zinc-700 h-28 relative group">
-                      <img src={formData.imagem_local_url} alt="Preview" className="w-full h-full object-cover" onError={e => (e.currentTarget.style.display = 'none')} />
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, imagem_local_url: '' })}
-                        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="observacoes" className="text-emerald-200/80 text-sm mb-2 block font-medium">
+                  <Label htmlFor="observacoes" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
                     Observações
                   </Label>
                   <Textarea
@@ -749,37 +777,37 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     onChange={e => setFormData({ ...formData, observacoes: e.target.value })}
                     placeholder="Informações adicionais..."
                     rows={4}
-                    className="bg-zinc-800 text-white border-zinc-700 text-sm resize-none placeholder:text-zinc-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface text-sm resize-none"
                   />
                 </div>
               </div>
 
               {/* Customização */}
               <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-800/30">
-                  <Label className="text-emerald-200/80 text-sm block font-medium flex items-center gap-2 mb-4">
-                    <Palette className="w-4 h-4 text-emerald-400" />
-                    Personalização Visual
-                  </Label>
+                <div className="glass-panel rounded-lg border border-outline-variant/10 p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="material-symbols-outlined text-sm text-on-surface-variant">palette</span>
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Personalização Visual</span>
+                  </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-emerald-300/70 text-sm">Cor do Local:</span>
+                    <span className="text-on-surface-variant text-sm">Cor do Local:</span>
                     <Input
                       type="color"
                       value={formData.cor_fundo}
                       onChange={e => setFormData({ ...formData, cor_fundo: e.target.value })}
-                      className="w-14 h-10 cursor-pointer bg-transparent border-emerald-800/50 p-1 rounded-lg"
+                      className="w-14 h-10 cursor-pointer bg-transparent border-outline-variant/20 p-1 rounded-lg"
                     />
                     <Input
                       value={formData.cor_fundo}
                       onChange={e => setFormData({ ...formData, cor_fundo: e.target.value })}
-                      className="w-32 bg-zinc-800 text-white border-zinc-700 h-10 text-sm font-mono"
+                      className="w-32 bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm font-mono"
                     />
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                  <p className="text-zinc-400 text-sm">
-                    <span className="text-emerald-400 font-medium">Dica:</span> Após criar o local, você poderá adicionar carregadores e conectores através da página de detalhes do local.
+                <div className="glass-panel rounded-lg border border-outline-variant/10 p-6">
+                  <p className="text-on-surface-variant text-sm">
+                    <span className="text-primary font-medium">Dica:</span> Após criar o local, você poderá adicionar carregadores e conectores através da página de detalhes do local.
                   </p>
                 </div>
               </div>
@@ -788,34 +816,33 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50 flex-shrink-0">
-          <p className="text-sm text-emerald-300/40">* Campos obrigatórios</p>
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-outline-variant/10 bg-surface-container-low flex-shrink-0">
+          <p className="text-sm text-on-surface-variant/40">* Campos obrigatórios</p>
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
+            <button
               onClick={onCancel}
-              className="border-emerald-800/50 hover:bg-emerald-900/30 hover:border-emerald-700 text-emerald-300 h-11 px-6 text-sm font-medium transition-all duration-300"
               disabled={loading}
+              className="rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-highest h-11 px-6 text-sm font-medium transition-all duration-300 disabled:opacity-50"
             >
               Cancelar
-            </Button>
-            <Button
+            </button>
+            <button
               onClick={handleSubmit}
               disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white h-11 px-8 text-sm font-semibold shadow-lg shadow-emerald-900/20 transition-all duration-300 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold h-11 px-8 text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all duration-300 disabled:opacity-50 disabled:scale-100"
             >
               {loading ? (
                 <>
-                  <span className="inline-block w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span className="inline-block w-4 h-4 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></span>
                   Salvando...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-2" />
+                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>save</span>
                   Salvar Local
                 </>
               )}
-            </Button>
+            </button>
           </div>
         </div>
       </Tabs>
