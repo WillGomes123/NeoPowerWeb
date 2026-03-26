@@ -256,7 +256,10 @@ export function LocationDetails() {
           <LocationTransactionsTab locationId={parseInt(id!)} />
         )}
         {activeTab === 'performance' && permissions?.performance && (
-          <LocationPerformanceTab locationId={parseInt(id!)} />
+          <LocationPerformanceTab 
+            locationId={parseInt(id!)} 
+            locationName={location.nomeDoLocal} 
+          />
         )}
         {activeTab === 'financial' && permissions?.financial && (
           <LocationFinancialTab locationId={parseInt(id!)} />

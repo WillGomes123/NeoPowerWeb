@@ -1,5 +1,36 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../lib/auth';
+=======
+import React, { useState, useEffect } from 'react';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { ReportTemplate } from '../components/ReportTemplate';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  EnhancedTable,
+  EnhancedTableHeader,
+  EnhancedTableBody,
+  EnhancedTableRow,
+  EnhancedTableHead,
+  EnhancedTableCell,
+} from '../components/EnhancedTable';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import {
+  FileText,
+  DollarSign,
+  TrendingUp,
+  Zap,
+  Download,
+  RefreshCw,
+  Search,
+  X,
+  Percent,
+  Wallet,
+  Users
+} from 'lucide-react';
+>>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { DateRangePicker } from '../components/ui/date-range-picker';
@@ -42,9 +73,13 @@ export const FinancialReport = () => {
   const [submittedFilter, setSubmittedFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+<<<<<<< HEAD
   const [userLocationIds, setUserLocationIds] = useState<number[]>([]);
   const [userLocationNames, setUserLocationNames] = useState<string[]>([]);
   const [locationsLoaded, setLocationsLoaded] = useState(isAdmin); // admin doesn't need to load locations
+=======
+  const [pdfLoading, setPdfLoading] = useState(false);
+>>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
@@ -195,6 +230,67 @@ export const FinancialReport = () => {
     toast.success('Relatório exportado com sucesso!');
   };
 
+  const handleExportPDF = async () => {
+    if (reportData.length === 0) {
+      toast.error('Nenhum dado para exportar');
+      return;
+    }
+
+    setPdfLoading(true);
+    toast.loading('Gerando PDF profissional...', { id: 'pdf-gen' });
+
+    try {
+      // Pequeno delay para garantir que os gráficos do template carreguem
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const element = document.getElementById('report-root');
+      if (!element) throw new Error('Template não encontrado');
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#f0f2f5',
+        windowWidth: 794,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      
+      // Calcular altura proporcional
+      // html2canvas captura o elemento inteiro, se houver várias páginas (vários <section>)
+      // aqui vamos dividir em páginas se necessário ou apenas uma imagem longa
+      // Para o NeoPower v1, vamos gerar uma imagem inteira e caber na folha ou quebrar
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      // Se for maior que uma página A4 (297mm), vamos adicionar múltiplas páginas
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF gerado com sucesso!', { id: 'pdf-gen' });
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      toast.error('Erro ao gerar PDF', { id: 'pdf-gen' });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   const totals = reportData.reduce(
     (acc, row) => {
       acc.energy += parseFloat(row['Recarga (kWh)']) || 0;
@@ -296,6 +392,14 @@ export const FinancialReport = () => {
           >
             <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin' : ''}`}>refresh</span>
             Atualizar
+          </button>
+          <button
+            onClick={handleExportPDF}
+            disabled={reportData.length === 0 || pdfLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-zinc-300 transition-all disabled:opacity-50"
+          >
+            <Download className={`w-4 h-4 ${pdfLoading ? 'animate-spin' : ''}`} />
+            {pdfLoading ? 'Gerando...' : 'Exportar PDF'}
           </button>
           <button
             onClick={handleExportCSV}
@@ -764,6 +868,7 @@ export const FinancialReport = () => {
               Limpar
             </button>
           )}
+<<<<<<< HEAD
         </form>
       </div>
 
@@ -854,6 +959,50 @@ export const FinancialReport = () => {
             </div>
           </div>
         )}
+=======
+        </CardContent>
+      </Card>
+
+      {/* Hidden Report Template for PDF Generation */}
+      <div style={{ position: 'absolute', top: '-10000px', left: '-10000px', pointerEvents: 'none' }}>
+        <ReportTemplate 
+          data={{
+            locationName: submittedFilter ? `Carregador: ${submittedFilter}` : 'Relatório Consolidado NeoPower',
+            totalKwh: totals.energy,
+            totalRevenue: totals.revenue,
+            totalFees: totals.fees,
+            netReceived: totals.received,
+            totalPayout: totals.payout,
+            sessionsCount: reportData.length,
+            walletDeposits: totalDeposits,
+            walletWithdrawals: walletTransactions.filter(t => t.type === 'withdraw' || t.type === 'withdrawal').reduce((acc, t) => acc + t.amount, 0),
+            chartData: (() => {
+              const grouped: Record<string, { revenue: number, fees: number }> = {};
+              reportData.forEach(row => {
+                const date = row['Início'].split(',')[0];
+                if (!grouped[date]) grouped[date] = { revenue: 0, fees: 0 };
+                grouped[date].revenue += parseFloat(row['Receita (R$)']) || 0;
+                grouped[date].fees += parseFloat(row['Valor Total de Taxas (R$)']) || 0;
+              });
+              return Object.entries(grouped).map(([name, vals]) => ({
+                name,
+                revenue: vals.revenue,
+                fees: vals.fees
+              })).slice(-15); // Últimos 15 dias de dados
+            })(),
+            financialTableData: reportData.map(row => ({
+              date: row['Início'].split(',')[0],
+              charger: row['Estação'],
+              kwh: row['Recarga (kWh)'],
+              revenue: row['Receita (R$)'],
+              fees: row['Valor Total de Taxas (R$)'],
+              net: row['Valor Recebido (R$)']
+            }))
+          }}
+          period={startDate && endDate ? `${startDate} a ${endDate}` : 'Período Completo'}
+          generationDate={new Date().toLocaleDateString('pt-BR')}
+        />
+>>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
       </div>
     </div>
   );

@@ -12,10 +12,21 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+<<<<<<< HEAD
 import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
 import {
   AreaChart, BarChart, LineChart, Area, Bar, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+=======
+import { exportToCSV, exportToExcel } from '@/lib/export';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { PerformanceReportTemplate } from '../PerformanceReportTemplate';
+
+import { 
+  AreaChart, BarChart, LineChart, Area, Bar, Line, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+>>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 } from 'recharts';
 
 interface PerformanceData {
@@ -34,10 +45,11 @@ interface PerformanceData {
 
 interface Props {
   locationId: number;
+  locationName?: string;
 }
 
 type ChartType = 'area' | 'bar' | 'line';
-type Period = '7d' | '30d' | '90d';
+type Period = '7d' | '15d' | '30d' | '90d';
 type MetricType = 'occupancy' | 'utilization' | 'availability';
 
 const metricsConfig = {
@@ -46,12 +58,13 @@ const metricsConfig = {
   availability: { label: 'Disponibilidade', unit: '%', color: '#3b82f6' }
 };
 
-export function LocationPerformanceTab({ locationId }: Props) {
+export function LocationPerformanceTab({ locationId, locationName }: Props) {
   const [data, setData] = useState<PerformanceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('30d');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('occupancy');
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -72,7 +85,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
     fetchData();
   }, [fetchData]);
 
-  // Preparar dados para o gráfico
   const chartData = data?.dates.map((date, index) => ({
     date,
     occupancy: data.occupancyRate[index],
@@ -80,8 +92,75 @@ export function LocationPerformanceTab({ locationId }: Props) {
     availability: data.availability[index]
   })) || [];
 
-  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+  const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
     if (!data) return;
+
+    if (format === 'pdf') {
+       setPdfLoading(true);
+       toast.loading('Gerando relatório de performance profissional...', { id: 'pdf-gen' });
+
+       try {
+         await new Promise(resolve => setTimeout(resolve, 1500));
+
+         const element = document.getElementById('performance-report-root');
+         if (!element) throw new Error('Template não encontrado');
+
+         const canvas = await html2canvas(element, {
+           scale: 2,
+           useCORS: true,
+           logging: false,
+           backgroundColor: '#f0f2f5',
+           windowWidth: 794,
+           onclone: (doc) => {
+             const allElements = doc.getElementsByTagName('*');
+             for (let i = 0; i < allElements.length; i++) {
+               const el = allElements[i] as HTMLElement;
+               if (el.style) {
+                 for (let j = 0; j < el.style.length; j++) {
+                   const prop = el.style[j];
+                   const val = el.style.getPropertyValue(prop);
+                   if (val && val.includes('oklch')) {
+                     el.style.setProperty(prop, 'transparent', 'important');
+                   }
+                 }
+               }
+             }
+           }
+         });
+
+         const imgData = canvas.toDataURL('image/png');
+         const pdf = new jsPDF('p', 'mm', 'a4');
+         const pdfWidth = pdf.internal.pageSize.getWidth();
+         
+         const imgProps = pdf.getImageProperties(imgData);
+         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+         const pageHeight = pdf.internal.pageSize.getHeight();
+         let heightLeft = pdfHeight;
+         let position = 0;
+
+         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+         heightLeft -= pageHeight;
+
+         while (heightLeft >= 0) {
+           position = heightLeft - pdfHeight;
+           pdf.addPage();
+           pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+           heightLeft -= pageHeight;
+         }
+
+         pdf.save(`performance_local_${locationId}_${period}.pdf`);
+         toast.success('Relatório gerado com sucesso!', { id: 'pdf-gen' });
+       } catch (error) {
+         console.error('Erro ao gerar PDF:', error);
+         toast.error('Erro ao gerar relatório PDF', { id: 'pdf-gen' });
+       } finally {
+         setPdfLoading(false);
+       }
+       return;
+    }
+
+    if (format === 'pdf') return;
 
     const exportData = chartData.map(d => ({
       Data: d.date,
@@ -113,9 +192,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
         exportToExcel(options);
         toast.success('Relatório Excel exportado');
         break;
-      case 'pdf':
-        exportToPDF(options);
-        toast.success('Relatório PDF gerado');
+      default:
         break;
     }
   };
@@ -178,7 +255,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-zinc-900/50 border-zinc-800">
           <CardContent className="p-4">
@@ -251,7 +327,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
         </Card>
       </div>
 
-      {/* Gráfico Principal */}
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardHeader className="border-b border-zinc-800 pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -261,7 +336,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
             </CardTitle>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Seletor de Métrica */}
               <div className="flex rounded-lg bg-zinc-800/50 p-1">
                 {(Object.keys(metricsConfig) as MetricType[]).map((metric) => (
                   <button
@@ -278,9 +352,8 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 ))}
               </div>
 
-              {/* Seletor de Período */}
               <div className="flex rounded-lg bg-zinc-800/50 p-1">
-                {(['7d', '30d', '90d'] as Period[]).map((p) => (
+                {(['7d', '15d', '30d', '90d'] as Period[]).map((p) => (
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
@@ -290,12 +363,11 @@ export function LocationPerformanceTab({ locationId }: Props) {
                         : 'text-zinc-400 hover:text-zinc-300'
                     }`}
                   >
-                    {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : '90 dias'}
+                    {p === '7d' ? '7 dias' : p === '15d' ? '15 dias' : p === '30d' ? '30 dias' : '90 dias'}
                   </button>
                 ))}
               </div>
 
-              {/* Seletor de Tipo de Gráfico */}
               <div className="flex rounded-lg bg-zinc-800/50 p-1">
                 {(['area', 'bar', 'line'] as ChartType[]).map((type) => (
                   <button
@@ -312,7 +384,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 ))}
               </div>
 
-              {/* Botão Atualizar */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -328,7 +399,7 @@ export function LocationPerformanceTab({ locationId }: Props) {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="h-[400px] flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-white0 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-white animate-spin" />
             </div>
           ) : (
             <div className="h-[400px]">
@@ -340,7 +411,6 @@ export function LocationPerformanceTab({ locationId }: Props) {
         </CardContent>
       </Card>
 
-      {/* Botões de Exportação */}
       <Card className="bg-zinc-900/50 border-zinc-800">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -371,15 +441,34 @@ export function LocationPerformanceTab({ locationId }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('pdf')}
+                disabled={pdfLoading}
                 className="border-zinc-700 text-zinc-300"
               >
-                <Download className="w-4 h-4 mr-2" />
-                PDF
+                {pdfLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                PDF Profissional
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
+        {data && (
+          <PerformanceReportTemplate 
+            data={{
+              locationName: locationName || `Local #${locationId}`,
+              totalKwh: data.totals.totalEnergy,
+              sessionsCount: data.totals.totalSessions,
+              avgOccupancy: data.totals.avgOccupancy,
+              avgUtilization: data.totals.avgUtilization,
+              avgAvailability: data.totals.avgAvailability,
+              chartData: chartData
+            }}
+            period={period === '7d' ? 'Últimos 7 dias' : period === '15d' ? 'Últimos 15 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 90 dias'}
+            generationDate={new Date().toLocaleString('pt-BR')}
+          />
+        )}
+      </div>
     </div>
   );
 }
