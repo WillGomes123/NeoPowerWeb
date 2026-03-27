@@ -2,9 +2,8 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
-import {
-  LogOut,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 import NeoPowerLogo from '../assets/NeoPower.png';
 import {
   DropdownMenu,
@@ -25,28 +24,28 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
 
   const navItems = [
-    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'atem', 'comum'] },
-    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'atem', 'comum'] },
-    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'atem', 'comum'] },
-    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'atem', 'comum'] },
+    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'comum'] },
+    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'comum'] },
+    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'comum'] },
+    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'comum'] },
     {
       path: '/indicadores',
       label: 'Indicadores',
       icon: 'leaderboard',
-      roles: ['admin', 'atem', 'comum'],
+      roles: ['admin', 'comum'],
     },
     { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin'] },
     {
       path: '/relatorio-financeiro',
       label: 'Relatório Financeiro',
       icon: 'payments',
-      roles: ['admin'],
+      roles: ['admin', 'comum'],
     },
     { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
-    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'atem', 'comum'] },
-    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'atem', 'comum'] },
+    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'comum'] },
+    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'comum'] },
     { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'atem', 'comum'] },
+    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'comum'] },
     { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
     { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
   ];
@@ -55,7 +54,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const roleLabels: Record<UserRole, string> = {
     admin: 'Admin',
-    atem: 'ATEM',
     comum: 'Comum',
   };
 
@@ -180,12 +178,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="relative">
-            <button className="text-[#adaaaa] hover:text-primary transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full shadow-[0_0_15px_rgba(57,255,20,0.15)]"></span>
-          </div>
+          <NotificationBell />
         </div>
       </header>
 
