@@ -153,7 +153,6 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
        return;
     }
 
-    if (format === 'pdf') return;
 
     const exportData = chartData.map(d => ({
       Data: d.date,
