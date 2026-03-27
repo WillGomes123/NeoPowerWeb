@@ -12,12 +12,6 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-<<<<<<< HEAD
-import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
-import {
-  AreaChart, BarChart, LineChart, Area, Bar, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-=======
 import { exportToCSV, exportToExcel } from '@/lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -26,7 +20,6 @@ import { PerformanceReportTemplate } from '../PerformanceReportTemplate';
 import { 
   AreaChart, BarChart, LineChart, Area, Bar, Line, 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
->>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 } from 'recharts';
 
 interface PerformanceData {
@@ -72,7 +65,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
       const response = await api.get(`/locations/${locationId}/performance?period=${period}`);
       if (!response.ok) throw new Error('Erro ao carregar performance');
       const result = await response.json();
-      setData(result.data || result);
+      setData(result);
     } catch (error) {
       console.error('Erro ao carregar performance:', error);
       toast.error('Erro ao carregar dados de performance');
@@ -160,7 +153,6 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
        return;
     }
 
-    if (format === 'pdf') return;
 
     const exportData = chartData.map(d => ({
       Data: d.date,
@@ -278,7 +270,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
               </div>
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
-                <p className="text-xl font-bold text-white">{Number(data?.totals.totalEnergy || 0).toFixed(1)} kWh</p>
+                <p className="text-xl font-bold text-white">{data?.totals.totalEnergy.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
@@ -320,7 +312,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
               </div>
               <div>
                 <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
-                <p className="text-xl font-bold text-white">{Number(data?.totals.avgUtilization || 0).toFixed(1)} kWh</p>
+                <p className="text-xl font-bold text-white">{data?.totals.avgUtilization.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
@@ -445,7 +437,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 className="border-zinc-700 text-zinc-300"
               >
                 {pdfLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                PDF Profissional
+                Exportar PDF
               </Button>
             </div>
           </div>

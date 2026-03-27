@@ -1,39 +1,12 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../lib/auth';
-=======
-import React, { useState, useEffect } from 'react';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { ReportTemplate } from '../components/ReportTemplate';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import {
-  EnhancedTable,
-  EnhancedTableHeader,
-  EnhancedTableBody,
-  EnhancedTableRow,
-  EnhancedTableHead,
-  EnhancedTableCell,
-} from '../components/EnhancedTable';
-import { Input } from '../components/ui/input';
-import { Button } from '../components/ui/button';
-import {
-  FileText,
-  DollarSign,
-  TrendingUp,
-  Zap,
-  Download,
-  RefreshCw,
-  Search,
-  X,
-  Percent,
-  Wallet,
-  Users
-} from 'lucide-react';
->>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { DateRangePicker } from '../components/ui/date-range-picker';
+import { exportToCSV, exportToExcel } from '../lib/export';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { ReportTemplate } from '../components/ReportTemplate';
 
 interface FinancialReportItem {
   Estação: string;
@@ -69,17 +42,13 @@ export const FinancialReport = () => {
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [filterId, setFilterId] = useState('');
   const [submittedFilter, setSubmittedFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-<<<<<<< HEAD
-  const [userLocationIds, setUserLocationIds] = useState<number[]>([]);
   const [userLocationNames, setUserLocationNames] = useState<string[]>([]);
-  const [locationsLoaded, setLocationsLoaded] = useState(isAdmin); // admin doesn't need to load locations
-=======
-  const [pdfLoading, setPdfLoading] = useState(false);
->>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
+  const [locationsLoaded, setLocationsLoaded] = useState(isAdmin);
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
@@ -92,9 +61,7 @@ export const FinancialReport = () => {
     api.get(`/users/${user.id}/locations`).then(async (res) => {
       if (res.ok) {
         const locs = await res.json();
-        const ids = locs.map((l: any) => l.locationId);
         const names = locs.map((l: any) => l.locationAddress || l.name || '');
-        setUserLocationIds(ids);
         setUserLocationNames(names);
       }
     }).catch(() => {}).finally(() => {
@@ -117,15 +84,11 @@ export const FinancialReport = () => {
 
     try {
       const response = await api.get(endpoint);
-
-      if (!response.ok) {
-        throw new Error('Erro ao buscar relatório');
-      }
+      if (!response.ok) throw new Error('Erro ao buscar relatório');
 
       const data = await response.json();
       const items = Array.isArray(data) ? data : [];
 
-      // For non-admin users, filter by their allowed locations
       if (!isAdmin && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
           const stationName = item['Estação'] || '';
@@ -133,7 +96,6 @@ export const FinancialReport = () => {
         });
         setReportData(filtered);
       } else if (!isAdmin && userLocationNames.length === 0) {
-        // Non-admin with no locations assigned → empty
         setReportData([]);
       } else {
         setReportData(items);
@@ -148,7 +110,6 @@ export const FinancialReport = () => {
   }, [submittedFilter, startDate, endDate, isAdmin, userLocationNames]);
 
   const fetchWalletTransactions = useCallback(async () => {
-    // Non-admin users don't see wallet transactions
     if (!isAdmin) {
       setWalletTransactions([]);
       return;
@@ -174,7 +135,6 @@ export const FinancialReport = () => {
     }
   }, [isAdmin, startDate, endDate]);
 
-  // Only fetch after locations are loaded (race condition fix)
   useEffect(() => {
     if (!locationsLoaded) return;
     void fetchReport();
@@ -200,94 +160,115 @@ export const FinancialReport = () => {
     setEndDate('');
   };
 
-  const handleExportCSV = () => {
-    if (reportData.length === 0) {
+  const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
+    if (reportData.length === 0 && format !== 'pdf') {
       toast.error('Nenhum dado para exportar');
       return;
     }
 
-    const headers = ['Estação', 'Início', 'Fim', 'Recarga (kWh)', 'Receita (R$)', 'Taxas (R$)', 'Recebido (R$)', 'Pago Cliente (R$)', 'Status'];
-    const csvContent = [
-      headers.join(','),
-      ...reportData.map(row => [
-        row['Estação'],
-        row['Início'],
-        row['Fim'],
-        row['Recarga (kWh)'],
-        row['Receita (R$)'],
-        row['Valor Total de Taxas (R$)'],
-        row['Valor Recebido (R$)'],
-        row['Valor Pago ao Cliente (R$)'],
-        row['Status']
-      ].join(','))
-    ].join('\n');
+    if (format === 'pdf') {
+      setPdfLoading(true);
+      toast.loading('Gerando relatório financeiro profissional...', { id: 'pdf-gen' });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `relatorio_financeiro_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    toast.success('Relatório exportado com sucesso!');
-  };
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-  const handleExportPDF = async () => {
-    if (reportData.length === 0) {
-      toast.error('Nenhum dado para exportar');
-      return;
-    }
+        const element = document.getElementById('report-root');
+        if (!element) throw new Error('Template não encontrado');
 
-    setPdfLoading(true);
-    toast.loading('Gerando PDF profissional...', { id: 'pdf-gen' });
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#f0f2f5',
+          windowWidth: 794,
+          onclone: (doc) => {
+            const allElements = doc.getElementsByTagName('*');
+            for (let i = 0; i < allElements.length; i++) {
+              const el = allElements[i] as HTMLElement;
+              if (el.style) {
+                for (let j = 0; j < el.style.length; j++) {
+                  const prop = el.style[j];
+                  const val = el.style.getPropertyValue(prop);
+                  if (val && val.includes('oklch')) {
+                    el.style.setProperty(prop, 'transparent', 'important');
+                  }
+                }
+              }
+            }
+          }
+        });
 
-    try {
-      // Pequeno delay para garantir que os gráficos do template carreguem
-      await new Promise(resolve => setTimeout(resolve, 1000));
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
 
-      const element = document.getElementById('report-root');
-      if (!element) throw new Error('Template não encontrado');
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#f0f2f5',
-        windowWidth: 794,
-      });
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        let heightLeft = pdfHeight;
+        let position = 0;
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      
-      // Calcular altura proporcional
-      // html2canvas captura o elemento inteiro, se houver várias páginas (vários <section>)
-      // aqui vamos dividir em páginas se necessário ou apenas uma imagem longa
-      // Para o NeoPower v1, vamos gerar uma imagem inteira e caber na folha ou quebrar
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-      // Se for maior que uma página A4 (297mm), vamos adicionar múltiplas páginas
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let heightLeft = pdfHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
         pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
         heightLeft -= pageHeight;
-      }
 
-      pdf.save(`relatorio_financeiro_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast.success('PDF gerado com sucesso!', { id: 'pdf-gen' });
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF', { id: 'pdf-gen' });
-    } finally {
-      setPdfLoading(false);
+        while (heightLeft >= 0) {
+          position = heightLeft - pdfHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        pdf.save(`relatorio_financeiro_${dateStr}.pdf`);
+        toast.success('Relatório gerado com sucesso!', { id: 'pdf-gen' });
+      } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        toast.error('Erro ao gerar relatório PDF', { id: 'pdf-gen' });
+      } finally {
+        setPdfLoading(false);
+      }
+      return;
+    }
+
+    const exportData = reportData.map(row => ({
+      'Estação': row['Estação'],
+      'Início': row['Início'],
+      'Fim': row['Fim'],
+      'Recarga (kWh)': row['Recarga (kWh)'],
+      'Receita (R$)': row['Receita (R$)'],
+      'Taxas (R$)': row['Valor Total de Taxas (R$)'],
+      'Recebido (R$)': row['Valor Recebido (R$)'],
+      'Pago Cliente (R$)': row['Valor Pago ao Cliente (R$)'],
+      'Status': row['Status'],
+    }));
+
+    const columns = [
+      { key: 'Estação', header: 'Estação' },
+      { key: 'Início', header: 'Início' },
+      { key: 'Fim', header: 'Fim' },
+      { key: 'Recarga (kWh)', header: 'Recarga (kWh)', format: 'number' as const },
+      { key: 'Receita (R$)', header: 'Receita (R$)', format: 'number' as const },
+      { key: 'Taxas (R$)', header: 'Taxas (R$)', format: 'number' as const },
+      { key: 'Recebido (R$)', header: 'Recebido (R$)', format: 'number' as const },
+      { key: 'Pago Cliente (R$)', header: 'Pago Cliente (R$)', format: 'number' as const },
+      { key: 'Status', header: 'Status' },
+    ];
+
+    const options = {
+      filename: `relatorio_financeiro_${new Date().toISOString().split('T')[0]}`,
+      title: 'Relatório Financeiro',
+      columns,
+      data: exportData,
+    };
+
+    if (format === 'csv') {
+      exportToCSV(options);
+      toast.success('Relatório CSV exportado');
+    } else {
+      exportToExcel(options);
+      toast.success('Relatório Excel exportado');
     }
   };
 
@@ -303,17 +284,17 @@ export const FinancialReport = () => {
     { energy: 0, revenue: 0, fees: 0, received: 0, payout: 0 }
   );
 
-  // Cálculos de depósitos (somente admin)
   const deposits = walletTransactions.filter(t => t.type === 'deposit');
+  const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
   const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0);
+  const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const mercadoPagoFeeDeposits = totalDeposits * 0.01;
   const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
   const grossRevenue = totals.revenue;
   const entradaBrutaTotal = grossRevenue + totalDeposits;
   const taxasRecargas = totals.fees;
-  const taxasDepositos = mercadoPagoFeeDeposits;
-  const taxasTotais = taxasRecargas + taxasDepositos;
+  const taxasTotais = taxasRecargas + mercadoPagoFeeDeposits;
 
   const liquidoRecargas = totals.received;
   const liquidoDepositos = netDeposits;
@@ -325,6 +306,36 @@ export const FinancialReport = () => {
 
   const platformProfit = manutencaoSite + lucroNeoPower;
   const profitMargin = entradaBrutaTotal > 0 ? ((platformProfit / entradaBrutaTotal) * 100) : 0;
+
+  // Dados para o ReportTemplate (PDF)
+  const reportTemplateData = {
+    locationName: isAdmin ? 'Painel Administrativo' : `Estações de ${user?.name || 'Usuário'}`,
+    totalKwh: totals.energy,
+    totalRevenue: totals.revenue,
+    totalFees: totals.fees,
+    netReceived: totals.received,
+    totalPayout: totals.payout,
+    sessionsCount: reportData.length,
+    walletDeposits: totalDeposits,
+    walletWithdrawals: totalWithdrawals,
+    chartData: reportData.slice(0, 30).map((row, i) => ({
+      name: row['Início']?.split(' ')[0] || `#${i + 1}`,
+      revenue: parseFloat(row['Receita (R$)']) || 0,
+      fees: parseFloat(row['Valor Total de Taxas (R$)']) || 0,
+    })),
+    financialTableData: reportData.map(row => ({
+      date: row['Início']?.split(' ')[0] || '-',
+      charger: row['Estação'],
+      kwh: row['Recarga (kWh)'],
+      revenue: row['Receita (R$)'],
+      fees: row['Valor Total de Taxas (R$)'],
+      net: row['Valor Recebido (R$)'],
+    })),
+  };
+
+  const periodLabel = startDate && endDate
+    ? `${new Date(startDate).toLocaleDateString('pt-BR')} — ${new Date(endDate).toLocaleDateString('pt-BR')}`
+    : 'Todo o período';
 
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
@@ -394,20 +405,31 @@ export const FinancialReport = () => {
             Atualizar
           </button>
           <button
-            onClick={handleExportPDF}
-            disabled={reportData.length === 0 || pdfLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-zinc-300 transition-all disabled:opacity-50"
-          >
-            <Download className={`w-4 h-4 ${pdfLoading ? 'animate-spin' : ''}`} />
-            {pdfLoading ? 'Gerando...' : 'Exportar PDF'}
-          </button>
-          <button
-            onClick={handleExportCSV}
+            onClick={() => handleExport('csv')}
             disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a1919] hover:bg-[#262626] border border-[#494847]/15 rounded-lg text-[#adaaaa] transition-all disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-lg">download</span>
-            Exportar CSV
+            CSV
+          </button>
+          <button
+            onClick={() => handleExport('excel')}
+            disabled={reportData.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1a1919] hover:bg-[#262626] border border-[#494847]/15 rounded-lg text-[#adaaaa] transition-all disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-lg">table_view</span>
+            Excel
+          </button>
+          <button
+            onClick={() => handleExport('pdf')}
+            disabled={pdfLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-all disabled:opacity-70"
+          >
+            {pdfLoading
+              ? <span className="material-symbols-outlined text-lg animate-spin">refresh</span>
+              : <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
+            }
+            Exportar PDF
           </button>
         </div>
       </div>
@@ -470,9 +492,7 @@ export const FinancialReport = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-purple-400/70 font-medium uppercase tracking-wide">Depósitos Líquidos</p>
-                <p className="text-2xl font-bold text-purple-400 mt-1">
-                  R$ {fmt(netDeposits)}
-                </p>
+                <p className="text-2xl font-bold text-purple-400 mt-1">R$ {fmt(netDeposits)}</p>
                 <p className="text-xs text-purple-400/40 mt-1">{deposits.length} depósito(s)</p>
               </div>
               <div className="p-3 bg-purple-500/10 rounded-xl">
@@ -527,7 +547,7 @@ export const FinancialReport = () => {
         </div>
       )}
 
-      {/* Non-admin: Valor Recebido */}
+      {/* Non-admin: Info + resumo */}
       {!isAdmin && (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center gap-3 mb-4">
@@ -576,7 +596,6 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-purple-300">R$ {fmt(totalDeposits)}</p>
                 <p className="text-xs text-[#777575] mt-1">{deposits.length} depósitos</p>
               </div>
-
               <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-red-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
@@ -585,7 +604,6 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-red-400">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
                 <p className="text-xs text-[#777575] mt-1">1% sobre depósitos</p>
               </div>
-
               <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
@@ -594,7 +612,6 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-primary">R$ {fmt(netDeposits)}</p>
                 <p className="text-xs text-[#777575] mt-1">Valor disponível</p>
               </div>
-
               <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-blue-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
@@ -627,29 +644,17 @@ export const FinancialReport = () => {
                           <p className="text-sm font-medium text-white">{deposit.userName}</p>
                           <p className="text-xs text-[#777575]">{deposit.userEmail}</p>
                         </td>
-                        <td className="py-3 px-4 text-sm text-[#adaaaa]">
-                          {new Date(deposit.createdAt).toLocaleString('pt-BR')}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-purple-400">
-                          R$ {fmt(deposit.amount)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-red-400/70">
-                          -R$ {fmt(deposit.amount * 0.01)}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">
-                          R$ {fmt(deposit.amount * 0.99)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-[#adaaaa]">
-                          {deposit.referenceId || '-'}
-                        </td>
+                        <td className="py-3 px-4 text-sm text-[#adaaaa]">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-purple-400">R$ {fmt(deposit.amount)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-red-400/70">-R$ {fmt(deposit.amount * 0.01)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount * 0.99)}</td>
+                        <td className="py-3 px-4 text-sm text-[#adaaaa]">{deposit.referenceId || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {deposits.length > 10 && (
-                  <p className="text-sm text-[#adaaaa] mt-4 text-center">
-                    Mostrando 10 de {deposits.length} depósitos
-                  </p>
+                  <p className="text-sm text-[#adaaaa] mt-4 text-center">Mostrando 10 de {deposits.length} depósitos</p>
                 )}
               </div>
             ) : (
@@ -662,7 +667,7 @@ export const FinancialReport = () => {
         </div>
       )}
 
-      {/* Admin Only: Distribuição de Receita Total */}
+      {/* Admin Only: Distribuição de Receita */}
       {isAdmin && entradaBrutaTotal > 0 && (
         <div className="glass-card rounded-xl overflow-hidden">
           <div className="px-6 py-5 border-b border-[#494847]/15">
@@ -678,17 +683,10 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-xl font-bold text-white">R$ {fmt(entradaBrutaTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-[#adaaaa]">
-                    <span>Depósitos:</span>
-                    <span>R$ {fmt(totalDeposits)}</span>
-                  </div>
-                  <div className="flex justify-between text-[#adaaaa]">
-                    <span>Recargas:</span>
-                    <span>R$ {fmt(grossRevenue)}</span>
-                  </div>
+                  <div className="flex justify-between text-[#adaaaa]"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
+                  <div className="flex justify-between text-[#adaaaa]"><span>Recargas:</span><span>R$ {fmt(grossRevenue)}</span></div>
                 </div>
               </div>
-
               <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-red-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
@@ -696,17 +694,10 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-xl font-bold text-red-400">-R$ {fmt(taxasTotais)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-red-400/60">
-                    <span>Taxa MP (1% depósitos):</span>
-                    <span>-R$ {fmt(mercadoPagoFeeDeposits)}</span>
-                  </div>
-                  <div className="flex justify-between text-red-400/60">
-                    <span>Taxas recargas (14.26%):</span>
-                    <span>-R$ {fmt(taxasRecargas)}</span>
-                  </div>
+                  <div className="flex justify-between text-red-400/60"><span>Taxa MP (1%):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
+                  <div className="flex justify-between text-red-400/60"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
-
               <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
@@ -714,63 +705,15 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-xl font-bold text-primary">R$ {fmt(liquidoTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-[#adaaaa]">
-                    <span>Depósitos líquidos:</span>
-                    <span>R$ {fmt(liquidoDepositos)}</span>
-                  </div>
-                  <div className="flex justify-between text-[#adaaaa]">
-                    <span>Recargas líquidas:</span>
-                    <span>R$ {fmt(liquidoRecargas)}</span>
-                  </div>
+                  <div className="flex justify-between text-[#adaaaa]"><span>Depósitos líquidos:</span><span>R$ {fmt(liquidoDepositos)}</span></div>
+                  <div className="flex justify-between text-[#adaaaa]"><span>Recargas líquidas:</span><span>R$ {fmt(liquidoRecargas)}</span></div>
                 </div>
-              </div>
-            </div>
-
-            {/* Distribution breakdown */}
-            <h4 className="text-sm font-semibold text-[#adaaaa] mb-3 mt-6">Distribuição da Receita Total</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-blue-500/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                  <p className="text-xs text-blue-400/60 font-medium uppercase">Dono da Estação</p>
-                </div>
-                <p className="text-lg font-bold text-blue-400">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-[#777575] mt-1">70% do líquido</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-primary/15">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-[#adaaaa] font-medium uppercase">Lucro NeoPower</p>
-                </div>
-                <p className="text-lg font-bold text-primary">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-[#777575] mt-1">20% do líquido</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-cyan-500/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-500"></div>
-                  <p className="text-xs text-cyan-400/60 font-medium uppercase">Manutenção do Site</p>
-                </div>
-                <p className="text-lg font-bold text-cyan-400">R$ {fmt(manutencaoSite)}</p>
-                <p className="text-xs text-[#777575] mt-1">10% do líquido</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-amber-500/10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-                  <p className="text-xs text-amber-400/60 font-medium uppercase">Margem Total</p>
-                </div>
-                <p className={`text-lg font-bold ${profitMargin >= 0 ? 'text-amber-400' : 'text-red-400'}`}>
-                  {profitMargin.toFixed(1)}%
-                </p>
-                <p className="text-xs text-[#777575] mt-1">NeoPower + Manutenção / Bruto</p>
               </div>
             </div>
 
             {/* Progress bar */}
-            <div className="mt-6">
-              <p className="text-xs text-[#adaaaa] mb-2">Distribuição da Receita Total (% do bruto):</p>
+            <div className="mt-4">
+              <p className="text-xs text-[#adaaaa] mb-2">Distribuição (% do bruto):</p>
               {(() => {
                 const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
                 const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
@@ -793,22 +736,10 @@ export const FinancialReport = () => {
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 mt-2 text-xs">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                        <span className="text-red-400/70">Taxas ({percTaxas.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                        <span className="text-blue-400/70">Cliente ({percCliente.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-primary"></div>
-                        <span className="text-[#adaaaa]">NeoPower ({percNeoPower.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
-                        <span className="text-cyan-400/70">Manutenção ({percManutencao.toFixed(1)}%)</span>
-                      </div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-red-400/70">Taxas</span></div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div><span className="text-blue-400/70">Cliente</span></div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div><span className="text-[#adaaaa]">NeoPower</span></div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-500"></div><span className="text-cyan-400/70">Manutenção</span></div>
                     </div>
                   </>
                 );
@@ -834,7 +765,6 @@ export const FinancialReport = () => {
               />
             </div>
           </div>
-
           <div>
             <label className="text-xs text-[#adaaaa] font-medium mb-1.5 block">Período</label>
             <DateRangePicker
@@ -842,45 +772,30 @@ export const FinancialReport = () => {
               endDate={endDate}
               onStartDateChange={setStartDate}
               onEndDateChange={setEndDate}
-              onClear={() => {
-                setStartDate('');
-                setEndDate('');
-              }}
+              onClear={() => { setStartDate(''); setEndDate(''); }}
               className="min-w-[280px]"
             />
           </div>
-
-          <button
-            type="submit"
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium text-sm transition-all"
-          >
+          <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium text-sm transition-all">
             <span className="material-symbols-outlined text-lg">search</span>
             Filtrar
           </button>
-
           {submittedFilter && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="flex items-center gap-2 px-4 py-2.5 border border-[#494847]/15 rounded-lg text-[#adaaaa] hover:bg-[#262626] text-sm transition-all"
-            >
+            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-[#494847]/15 rounded-lg text-[#adaaaa] hover:bg-[#262626] text-sm transition-all">
               <span className="material-symbols-outlined text-lg">close</span>
               Limpar
             </button>
           )}
-<<<<<<< HEAD
         </form>
       </div>
 
       {/* Data Table */}
       <div className="glass-card rounded-xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-[#494847]/15 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-headline font-semibold text-white">Detalhamento por Transação</h2>
-            <p className="text-sm text-[#adaaaa] mt-1">
-              {reportData.length} {reportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
-            </p>
-          </div>
+        <div className="px-6 py-5 border-b border-[#494847]/15">
+          <h2 className="text-lg font-headline font-semibold text-white">Detalhamento por Transação</h2>
+          <p className="text-sm text-[#adaaaa] mt-1">
+            {reportData.length} {reportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -930,7 +845,6 @@ export const FinancialReport = () => {
           </table>
         </div>
 
-        {/* Totals Footer */}
         {reportData.length > 0 && (
           <div className="px-6 py-5 border-t border-[#494847]/15">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -959,50 +873,15 @@ export const FinancialReport = () => {
             </div>
           </div>
         )}
-=======
-        </CardContent>
-      </Card>
+      </div>
 
-      {/* Hidden Report Template for PDF Generation */}
-      <div style={{ position: 'absolute', top: '-10000px', left: '-10000px', pointerEvents: 'none' }}>
-        <ReportTemplate 
-          data={{
-            locationName: submittedFilter ? `Carregador: ${submittedFilter}` : 'Relatório Consolidado NeoPower',
-            totalKwh: totals.energy,
-            totalRevenue: totals.revenue,
-            totalFees: totals.fees,
-            netReceived: totals.received,
-            totalPayout: totals.payout,
-            sessionsCount: reportData.length,
-            walletDeposits: totalDeposits,
-            walletWithdrawals: walletTransactions.filter(t => t.type === 'withdraw' || t.type === 'withdrawal').reduce((acc, t) => acc + t.amount, 0),
-            chartData: (() => {
-              const grouped: Record<string, { revenue: number, fees: number }> = {};
-              reportData.forEach(row => {
-                const date = row['Início'].split(',')[0];
-                if (!grouped[date]) grouped[date] = { revenue: 0, fees: 0 };
-                grouped[date].revenue += parseFloat(row['Receita (R$)']) || 0;
-                grouped[date].fees += parseFloat(row['Valor Total de Taxas (R$)']) || 0;
-              });
-              return Object.entries(grouped).map(([name, vals]) => ({
-                name,
-                revenue: vals.revenue,
-                fees: vals.fees
-              })).slice(-15); // Últimos 15 dias de dados
-            })(),
-            financialTableData: reportData.map(row => ({
-              date: row['Início'].split(',')[0],
-              charger: row['Estação'],
-              kwh: row['Recarga (kWh)'],
-              revenue: row['Receita (R$)'],
-              fees: row['Valor Total de Taxas (R$)'],
-              net: row['Valor Recebido (R$)']
-            }))
-          }}
-          period={startDate && endDate ? `${startDate} a ${endDate}` : 'Período Completo'}
-          generationDate={new Date().toLocaleDateString('pt-BR')}
+      {/* PDF Template (off-screen) */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
+        <ReportTemplate
+          data={reportTemplateData}
+          period={periodLabel}
+          generationDate={new Date().toLocaleString('pt-BR')}
         />
->>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
       </div>
     </div>
   );
