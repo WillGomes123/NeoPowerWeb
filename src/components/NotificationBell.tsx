@@ -189,7 +189,7 @@ export const NotificationBell: React.FC = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="relative text-zinc-400 hover:text-white hover:bg-zinc-900"
+          className="relative text-muted-foreground hover:text-foreground hover:bg-card"
         >
           {pushEnabled ? (
             <Bell className="w-5 h-5" />
@@ -197,7 +197,7 @@ export const NotificationBell: React.FC = () => {
             <BellOff className="w-5 h-5" />
           )}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-foreground text-xs rounded-full flex items-center justify-center font-medium">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -206,18 +206,18 @@ export const NotificationBell: React.FC = () => {
 
       <PopoverContent
         align="end"
-        className="w-80 p-0 bg-zinc-900 border-zinc-800"
+        className="w-80 p-0 bg-card border-border"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-zinc-800">
-          <h3 className="font-semibold text-white">Notificações</h3>
+        <div className="flex items-center justify-between p-3 border-b border-border">
+          <h3 className="font-semibold text-foreground">Notificações</h3>
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={markAllAsRead}
-                className="text-xs text-zinc-400 hover:text-white h-7 px-2"
+                className="text-xs text-muted-foreground hover:text-foreground h-7 px-2"
               >
                 <Check className="w-3 h-3 mr-1" />
                 Ler todas
@@ -227,7 +227,7 @@ export const NotificationBell: React.FC = () => {
               variant="ghost"
               size="icon"
               onClick={() => setShowSettings(!showSettings)}
-              className="h-7 w-7 text-zinc-400 hover:text-white"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -236,11 +236,11 @@ export const NotificationBell: React.FC = () => {
 
         {/* Settings Panel */}
         {showSettings && (
-          <div className="p-3 border-b border-zinc-800 bg-zinc-950">
+          <div className="p-3 border-b border-border bg-surface-container-low">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm text-white">Notificações Push</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm text-foreground">Notificações Push</p>
+                <p className="text-xs text-muted-foreground">
                   {pushSupported
                     ? 'Receba alertas mesmo com o navegador fechado'
                     : 'Não suportado neste navegador'}
@@ -258,7 +258,7 @@ export const NotificationBell: React.FC = () => {
                 size="sm"
                 onClick={handleTestPush}
                 disabled={loading}
-                className="w-full text-xs border-zinc-700 text-zinc-300 hover:text-white"
+                className="w-full text-xs border-border text-foreground/70 hover:text-foreground"
               >
                 Testar Notificação
               </Button>
@@ -279,17 +279,17 @@ export const NotificationBell: React.FC = () => {
         {/* Notifications List */}
         <ScrollArea className="h-80">
           {notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full py-8 text-zinc-500">
+            <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
               <Bell className="w-8 h-8 mb-2 opacity-50" />
               <p className="text-sm">Nenhuma notificação</p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-border">
               {notifications.map(notification => (
                 <div
                   key={notification.id}
-                  className={`p-3 hover:bg-zinc-800/50 transition-colors ${
-                    !notification.isRead ? 'bg-zinc-800/30' : ''
+                  className={`p-3 hover:bg-surface-container transition-colors ${
+                    !notification.isRead ? 'bg-surface-container/50' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -299,15 +299,15 @@ export const NotificationBell: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p className={`text-sm font-medium truncate ${
-                          notification.isRead ? 'text-zinc-400' : 'text-white'
+                          notification.isRead ? 'text-muted-foreground' : 'text-foreground'
                         }`}>
                           {notification.title}
                         </p>
-                        <span className="text-xs text-zinc-500 whitespace-nowrap">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
                           {formatDate(notification.createdAt)}
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
@@ -316,7 +316,7 @@ export const NotificationBell: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => markAsRead(notification.id)}
-                            className="h-6 px-2 text-xs text-zinc-400 hover:text-emerald-400"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-emerald-400"
                           >
                             <Check className="w-3 h-3 mr-1" />
                             Marcar como lida
@@ -326,7 +326,7 @@ export const NotificationBell: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => deleteNotification(notification.id)}
-                          className="h-6 px-2 text-xs text-zinc-400 hover:text-red-400"
+                          className="h-6 px-2 text-xs text-muted-foreground hover:text-red-400"
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>

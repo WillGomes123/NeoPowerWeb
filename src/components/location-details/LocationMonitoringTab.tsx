@@ -76,46 +76,46 @@ export function LocationMonitoringTab({ locationId }: Props) {
     if (statusLower === 'available' || statusLower === 'online') {
       return {
         icon: CheckCircle,
-        color: 'text-emerald-400',
+        color: 'text-emerald-600 dark:text-emerald-400',
         bg: 'bg-emerald-500/20',
         label: 'Disponível',
-        badgeClass: 'bg-emerald-500/20 text-emerald-400'
+        badgeClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
       };
     }
     if (statusLower === 'charging' || statusLower === 'occupied') {
       return {
         icon: Zap,
-        color: 'text-blue-400',
+        color: 'text-blue-600 dark:text-blue-400',
         bg: 'bg-blue-500/20',
         label: 'Carregando',
-        badgeClass: 'bg-blue-500/20 text-blue-400'
+        badgeClass: 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
       };
     }
     if (statusLower === 'preparing') {
       return {
         icon: Power,
-        color: 'text-amber-400',
+        color: 'text-amber-600 dark:text-amber-400',
         bg: 'bg-amber-500/20',
         label: 'Preparando',
-        badgeClass: 'bg-amber-500/20 text-amber-400'
+        badgeClass: 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
       };
     }
     if (statusLower === 'finishing' || statusLower === 'suspendedev' || statusLower === 'suspendedevse') {
       return {
         icon: AlertCircle,
-        color: 'text-amber-400',
+        color: 'text-amber-600 dark:text-amber-400',
         bg: 'bg-amber-500/20',
         label: 'Finalizando',
-        badgeClass: 'bg-amber-500/20 text-amber-400'
+        badgeClass: 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
       };
     }
     if (statusLower === 'faulted') {
       return {
         icon: XCircle,
-        color: 'text-red-400',
+        color: 'text-red-600 dark:text-red-400',
         bg: 'bg-red-500/20',
         label: 'Com Falha',
-        badgeClass: 'bg-red-500/20 text-red-400'
+        badgeClass: 'bg-red-500/20 text-red-600 dark:text-red-400'
       };
     }
     if (statusLower === 'unavailable' || statusLower === 'offline') {
@@ -166,57 +166,57 @@ export function LocationMonitoringTab({ locationId }: Props) {
     <div className="space-y-6">
       {/* Resumo de Status */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <Wifi className="w-5 h-5 text-emerald-400" />
+                <Wifi className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Online</p>
-                <p className="text-2xl font-bold text-white">{statusCounts.online}</p>
+                <p className="text-xs text-muted-foreground uppercase">Online</p>
+                <p className="text-2xl font-bold text-foreground">{statusCounts.online}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Zap className="w-5 h-5 text-blue-400" />
+                <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Carregando</p>
-                <p className="text-2xl font-bold text-white">{statusCounts.charging}</p>
+                <p className="text-xs text-muted-foreground uppercase">Carregando</p>
+                <p className="text-2xl font-bold text-foreground">{statusCounts.charging}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gray-500/20 rounded-lg">
                 <WifiOff className="w-5 h-5 text-gray-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Offline</p>
-                <p className="text-2xl font-bold text-white">{statusCounts.offline}</p>
+                <p className="text-xs text-muted-foreground uppercase">Offline</p>
+                <p className="text-2xl font-bold text-foreground">{statusCounts.offline}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-500/20 rounded-lg">
-                <XCircle className="w-5 h-5 text-red-400" />
+                <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Com Falha</p>
-                <p className="text-2xl font-bold text-white">{statusCounts.faulted}</p>
+                <p className="text-xs text-muted-foreground uppercase">Com Falha</p>
+                <p className="text-2xl font-bold text-foreground">{statusCounts.faulted}</p>
               </div>
             </div>
           </CardContent>
@@ -224,21 +224,21 @@ export function LocationMonitoringTab({ locationId }: Props) {
       </div>
 
       {/* Lista de Carregadores */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-4">
+      <Card className="bg-card border-border">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle className="text-lg text-white flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-400" />
+            <CardTitle className="text-lg text-foreground flex items-center gap-2">
+              <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Carregadores ({chargers.length})
             </CardTitle>
 
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-zinc-400 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={(e) => setAutoRefresh(e.target.checked)}
-                  className="rounded border-zinc-700 bg-zinc-800/50 text-emerald-500 focus:ring-emerald-500"
+                  className="rounded border-border bg-surface-container text-emerald-500 focus:ring-emerald-500"
                 />
                 Auto-atualizar
               </label>
@@ -251,7 +251,7 @@ export function LocationMonitoringTab({ locationId }: Props) {
                   fetchChargers();
                 }}
                 disabled={isLoading}
-                className="text-zinc-300 hover:bg-zinc-800"
+                className="text-foreground/70 hover:bg-surface-container-high"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Atualizar
@@ -262,10 +262,10 @@ export function LocationMonitoringTab({ locationId }: Props) {
         <CardContent className="p-4">
           {isLoading && chargers.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 text-white0 animate-spin" />
+              <RefreshCw className="w-6 h-6 text-foreground0 animate-spin" />
             </div>
           ) : chargers.length === 0 ? (
-            <div className="text-center py-12 text-zinc-400">
+            <div className="text-center py-12 text-muted-foreground">
               Nenhum carregador encontrado neste local
             </div>
           ) : (
@@ -277,7 +277,7 @@ export function LocationMonitoringTab({ locationId }: Props) {
                 return (
                   <Card
                     key={charger.id}
-                    className={`bg-zinc-800/50 border-zinc-800 transition-all hover:border-zinc-700`}
+                    className={`bg-surface-container border-border transition-all hover:border-border`}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
@@ -286,15 +286,15 @@ export function LocationMonitoringTab({ locationId }: Props) {
                             <StatusIcon className={`w-5 h-5 ${statusInfo.color}`} />
                           </div>
                           <div>
-                            <h4 className="text-white font-medium">
+                            <h4 className="text-foreground font-medium">
                               {charger.description || charger.chargePointId}
                             </h4>
                             {charger.description && (
-                              <p className="text-[10px] bg-zinc-800/50 text-emerald-400 font-mono inline-block px-1 rounded mb-0.5">
+                              <p className="text-[10px] bg-surface-container text-emerald-600 dark:text-emerald-400 font-mono inline-block px-1 rounded mb-0.5">
                                 {charger.chargePointId}
                               </p>
                             )}
-                            <p className="text-xs text-zinc-400">
+                            <p className="text-xs text-muted-foreground">
                               {charger.vendor} {charger.model} {charger.powerKw ? `- ${charger.powerKw}kW` : ''}
                             </p>
                           </div>
@@ -306,31 +306,31 @@ export function LocationMonitoringTab({ locationId }: Props) {
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 flex items-center gap-1">
+                          <span className="text-muted-foreground flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             Último boot
                           </span>
-                          <span className="text-white">
+                          <span className="text-foreground">
                             {formatLastHeartbeat(charger.lastBootTime)}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 flex items-center gap-1">
+                          <span className="text-muted-foreground flex items-center gap-1">
                             <Zap className="w-3 h-3" />
                             Energia total
                           </span>
-                          <span className="text-amber-400">
+                          <span className="text-amber-600 dark:text-amber-400">
                             {(charger.totalKwh || 0).toFixed(2)} kWh
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-zinc-400 flex items-center gap-1">
+                          <span className="text-muted-foreground flex items-center gap-1">
                             <Activity className="w-3 h-3" />
                             Sessões
                           </span>
-                          <span className="text-white">
+                          <span className="text-foreground">
                             {charger.totalSessions || 0}
                           </span>
                         </div>

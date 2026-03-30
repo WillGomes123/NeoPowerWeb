@@ -196,16 +196,16 @@ export function LocationPermissionsTab({ locationId }: Props) {
   return (
     <div className="space-y-6">
       {/* Header e Ações */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/50" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400/50" />
               <Input
                 placeholder="Buscar usuário..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white"
+                className="pl-10 bg-surface-container border-border text-foreground"
               />
             </div>
             <div className="flex gap-2">
@@ -214,7 +214,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 size="sm"
                 onClick={fetchUsers}
                 disabled={isLoading}
-                className="border-zinc-700 text-zinc-300"
+                className="border-border text-foreground/70"
               >
                 <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                 Atualizar
@@ -222,7 +222,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
               <Button
                 size="sm"
                 onClick={() => setShowAddUser(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-emerald-600 hover:bg-emerald-700 text-foreground"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Adicionar Usuário
@@ -234,18 +234,18 @@ export function LocationPermissionsTab({ locationId }: Props) {
 
       {/* Modal Adicionar Usuário */}
       {showAddUser && (
-        <Card className="bg-zinc-900/50 border-emerald-600/50">
-          <CardHeader className="border-b border-zinc-800 pb-4">
-            <CardTitle className="text-lg text-white flex items-center justify-between">
+        <Card className="bg-card border-emerald-600/50">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle className="text-lg text-foreground flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-emerald-400" />
+                <UserPlus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 Adicionar Novo Usuário
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowAddUser(false)}
-                className="text-zinc-300 hover:bg-zinc-800"
+                className="text-foreground/70 hover:bg-surface-container-high"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -254,13 +254,13 @@ export function LocationPermissionsTab({ locationId }: Props) {
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-zinc-400 mb-2 block">
+                <label className="text-sm text-muted-foreground mb-2 block">
                   Selecione o usuário
                 </label>
                 <select
                   value={selectedUserId || ''}
                   onChange={(e) => setSelectedUserId(Number(e.target.value) || null)}
-                  className="w-full h-10 px-3 rounded-md bg-zinc-800/50 border border-zinc-700 text-white text-sm"
+                  className="w-full h-10 px-3 rounded-md bg-surface-container border border-border text-foreground text-sm"
                 >
                   <option value="">Selecione...</option>
                   {availableUsers.map((user) => (
@@ -272,7 +272,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
               </div>
 
               <div>
-                <label className="text-sm text-zinc-400 mb-3 block">
+                <label className="text-sm text-muted-foreground mb-3 block">
                   Permissões
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -284,7 +284,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                           flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all
                           ${newUserPermissions[key]
                             ? 'bg-emerald-500/20 border border-emerald-500/50'
-                            : 'bg-zinc-800/50 border border-zinc-800 hover:border-zinc-700'
+                            : 'bg-surface-container border border-border hover:border-border'
                           }
                         `}
                       >
@@ -302,13 +302,13 @@ export function LocationPermissionsTab({ locationId }: Props) {
                         <div
                           className={`w-5 h-5 rounded flex items-center justify-center ${
                             newUserPermissions[key]
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-zinc-800/50 border border-zinc-700'
+                              ? 'bg-emerald-500 text-foreground'
+                              : 'bg-surface-container border border-border'
                           }`}
                         >
                           {newUserPermissions[key] && <Check className="w-3 h-3" />}
                         </div>
-                        <span className="text-sm text-white">
+                        <span className="text-sm text-foreground">
                           {permissionLabels[key]}
                         </span>
                       </label>
@@ -321,14 +321,14 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 <Button
                   variant="outline"
                   onClick={() => setShowAddUser(false)}
-                  className="border-zinc-700 text-zinc-300"
+                  className="border-border text-foreground/70"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleAddUser}
                   disabled={!selectedUserId || isSaving === -1}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-foreground"
                 >
                   {isSaving === -1 ? (
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -344,14 +344,14 @@ export function LocationPermissionsTab({ locationId }: Props) {
       )}
 
       {/* Lista de Usuários */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-4">
-          <CardTitle className="text-lg text-white flex items-center justify-between">
+      <Card className="bg-card border-border">
+        <CardHeader className="border-b border-border pb-4">
+          <CardTitle className="text-lg text-foreground flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-emerald-400" />
+              <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Usuários com Acesso
             </span>
-            <span className="text-sm font-normal text-zinc-400">
+            <span className="text-sm font-normal text-muted-foreground">
               {users.length} usuário(s)
             </span>
           </CardTitle>
@@ -364,7 +364,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-12">
               <Shield className="w-12 h-12 text-emerald-500/30 mx-auto mb-3" />
-              <p className="text-zinc-400">
+              <p className="text-muted-foreground">
                 {searchTerm
                   ? 'Nenhum usuário encontrado'
                   : 'Nenhum usuário tem acesso a este local'}
@@ -373,7 +373,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 <Button
                   size="sm"
                   onClick={() => setShowAddUser(true)}
-                  className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-foreground"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Adicionar Primeiro Usuário
@@ -381,22 +381,22 @@ export function LocationPermissionsTab({ locationId }: Props) {
               )}
             </div>
           ) : (
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-border">
               {filteredUsers.map((user) => (
                 <div
                   key={user.userId}
-                  className="p-4 hover:bg-zinc-800/50 transition-colors"
+                  className="p-4 hover:bg-surface-container transition-colors"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <span className="text-emerald-400 font-medium">
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
                           {user.userName?.charAt(0)?.toUpperCase() || 'U'}
                         </span>
                       </div>
                       <div>
-                        <h4 className="text-white font-medium">{user.userName}</h4>
-                        <p className="text-sm text-zinc-400">{user.userEmail}</p>
+                        <h4 className="text-foreground font-medium">{user.userName}</h4>
+                        <p className="text-sm text-muted-foreground">{user.userEmail}</p>
                       </div>
                     </div>
 
@@ -406,7 +406,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                         size="sm"
                         onClick={() => handleRemoveUser(user.userId, user.userName)}
                         disabled={isSaving === user.userId}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        className="text-red-600 dark:text-red-400 hover:text-red-300 hover:bg-red-500/10"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -424,8 +424,8 @@ export function LocationPermissionsTab({ locationId }: Props) {
                           className={`
                             flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all
                             ${user.permissions[key]
-                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                              : 'bg-zinc-800/50 text-zinc-400 border border-zinc-800 hover:border-zinc-700'
+                              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                              : 'bg-surface-container text-muted-foreground border border-border hover:border-border'
                             }
                             ${isSaving === user.userId ? 'opacity-50 cursor-not-allowed' : ''}
                           `}
