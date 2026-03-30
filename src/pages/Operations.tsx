@@ -148,14 +148,14 @@ const operations: Operation[] = [
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  basic: { label: 'Comandos Básicos', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'from-emerald-50 to-emerald-100/50 dark:from-zinc-900/50 dark:to-zinc-800/50', borderColor: 'border-emerald-200 dark:border-zinc-800' },
-  configuration: { label: 'Configuração', color: 'text-blue-600 dark:text-blue-400', bgColor: 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800/30' },
-  transactions: { label: 'Transações', color: 'text-green-600 dark:text-green-400', bgColor: 'from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20', borderColor: 'border-green-200 dark:border-green-800/30' },
-  reservations: { label: 'Reservas', color: 'text-orange-600 dark:text-orange-400', bgColor: 'from-orange-50 to-orange-100/50 dark:from-orange-950/40 dark:to-orange-900/20', borderColor: 'border-orange-200 dark:border-orange-800/30' },
-  smartcharging: { label: 'Smart Charging', color: 'text-amber-600 dark:text-amber-400', bgColor: 'from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800/30' },
-  locallist: { label: 'Local Auth List', color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'from-cyan-50 to-cyan-100/50 dark:from-cyan-950/40 dark:to-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800/30' },
-  firmware: { label: 'Firmware & Diagnósticos', color: 'text-violet-600 dark:text-violet-400', bgColor: 'from-violet-50 to-violet-100/50 dark:from-violet-950/40 dark:to-violet-900/20', borderColor: 'border-violet-200 dark:border-violet-800/30' },
-  security: { label: 'Security Extensions', color: 'text-purple-600 dark:text-purple-400', bgColor: 'from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800/30' },
+  basic: { label: 'Comandos Básicos', color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400', bgColor: 'from-emerald-50 to-emerald-100/50 dark:from-zinc-900/50 dark:to-zinc-800/50', borderColor: 'border-emerald-200 dark:border-zinc-800' },
+  configuration: { label: 'Configuração', color: 'text-blue-600 dark:text-blue-600 dark:text-blue-400', bgColor: 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800/30' },
+  transactions: { label: 'Transações', color: 'text-green-600 dark:text-green-600 dark:text-green-400', bgColor: 'from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20', borderColor: 'border-green-200 dark:border-green-800/30' },
+  reservations: { label: 'Reservas', color: 'text-orange-600 dark:text-orange-600 dark:text-orange-400', bgColor: 'from-orange-50 to-orange-100/50 dark:from-orange-950/40 dark:to-orange-900/20', borderColor: 'border-orange-200 dark:border-orange-800/30' },
+  smartcharging: { label: 'Smart Charging', color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400', bgColor: 'from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800/30' },
+  locallist: { label: 'Local Auth List', color: 'text-cyan-600 dark:text-cyan-600 dark:text-cyan-400', bgColor: 'from-cyan-50 to-cyan-100/50 dark:from-cyan-950/40 dark:to-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800/30' },
+  firmware: { label: 'Firmware & Diagnósticos', color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400', bgColor: 'from-violet-50 to-violet-100/50 dark:from-violet-950/40 dark:to-violet-900/20', borderColor: 'border-violet-200 dark:border-violet-800/30' },
+  security: { label: 'Security Extensions', color: 'text-purple-600 dark:text-purple-600 dark:text-purple-400', bgColor: 'from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800/30' },
 };
 
 // ============================================================================
@@ -926,7 +926,7 @@ export const Operations = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
         <p className="text-muted-foreground">Carregando carregadores...</p>
       </div>
     );
@@ -937,8 +937,8 @@ export const Operations = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <Server className="w-8 h-8 text-emerald-400" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <Server className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
             Centro de Operações OCPP
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -974,10 +974,10 @@ export const Operations = () => {
       {/* API Connection Error Banner */}
       {apiError && (
         <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
-          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
           <div className="flex-1">
             <p className="text-sm font-medium text-red-300">{apiError}</p>
-            <p className="text-xs text-red-400/60 mt-0.5">Verifique se o OCPP_API está rodando na porta 3000</p>
+            <p className="text-xs text-red-600 dark:text-red-400/60 mt-0.5">Verifique se o OCPP_API está rodando na porta 3000</p>
           </div>
           <Button size="sm" variant="outline" onClick={() => void fetchChargePoints()} className="border-red-700 text-red-300 hover:bg-red-900/50">
             <RefreshCw className="w-3 h-3 mr-1" />
@@ -991,11 +991,11 @@ export const Operations = () => {
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
-              <Server className="w-6 h-6 text-emerald-400" />
+              <Server className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-2xl font-bold text-emerald-400">{mergedChargePoints.length}</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{mergedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -1003,11 +1003,11 @@ export const Operations = () => {
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
-              <Wifi className="w-6 h-6 text-emerald-400" />
+              <Wifi className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Online</p>
-              <p className="text-2xl font-bold text-emerald-400">{connectedCount}</p>
+              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{connectedCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -1027,11 +1027,11 @@ export const Operations = () => {
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 border-blue-200 dark:border-blue-800/30">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-500/20 rounded-xl">
-              <CheckCircle2 className="w-6 h-6 text-blue-400" />
+              <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-sm text-blue-300/60">Selecionados</p>
-              <p className="text-2xl font-bold text-blue-400">{selectedChargePoints.length}</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{selectedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -1048,7 +1048,7 @@ export const Operations = () => {
             <Activity className="w-4 h-4 mr-2" />
             Resultados
             {results.length > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-400">{results.length}</Badge>
+              <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">{results.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -1097,7 +1097,7 @@ export const Operations = () => {
                             <p className="text-xs text-muted-foreground truncate">{cp.vendor || 'N/A'} {cp.model || ''}</p>
                           </div>
                           {selectedChargePoints.includes(cp.charge_point_id) && (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                           )}
                         </div>
                       </button>
@@ -1215,11 +1215,11 @@ export const Operations = () => {
                       >
                         <div className="flex items-start gap-3">
                           {result.status === 'success' ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                           ) : result.status === 'error' ? (
-                            <XCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                           ) : (
-                            <RefreshCw className="w-4 h-4 text-amber-400 animate-spin mt-0.5 flex-shrink-0" />
+                            <RefreshCw className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-spin mt-0.5 flex-shrink-0" />
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
@@ -1230,7 +1230,7 @@ export const Operations = () => {
                             </div>
                             <p className="text-xs text-muted-foreground">{result.chargePointId}</p>
                             {result.message && (
-                              <p className={`text-xs mt-1 ${result.status === 'error' ? 'text-red-400' : 'text-muted-foreground'}`}>
+                              <p className={`text-xs mt-1 ${result.status === 'error' ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                                 {result.message}
                               </p>
                             )}
@@ -1260,7 +1260,7 @@ export const Operations = () => {
               {operations.find(op => op.id === selectedOperation)?.name}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Executar em <span className="text-emerald-400 font-medium">{selectedChargePoints.length} carregador(es)</span>
+              Executar em <span className="text-emerald-600 dark:text-emerald-400 font-medium">{selectedChargePoints.length} carregador(es)</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
