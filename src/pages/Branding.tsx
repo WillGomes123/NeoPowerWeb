@@ -1014,8 +1014,9 @@ export const Branding = () => {
               </div>
             </div>
 
-            <div className="bg-amber-950/30 border border-amber-900/50 rounded-lg p-3">
-              <p className="text-amber-500/80 text-xs leading-relaxed">
+            <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 flex items-start gap-2">
+              <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">schedule</span>
+              <p className="text-muted-foreground text-xs leading-relaxed">
                 O processo pode levar de 5 a 15 min. Verifique o GitHub Actions.
               </p>
             </div>
