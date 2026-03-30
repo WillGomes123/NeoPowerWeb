@@ -148,14 +148,14 @@ const operations: Operation[] = [
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  basic: { label: 'Comandos Básicos', color: 'text-emerald-400', bgColor: 'from-zinc-900/50 to-zinc-800/50', borderColor: 'border-zinc-800' },
-  configuration: { label: 'Configuração', color: 'text-blue-400', bgColor: 'from-blue-950/40 to-blue-900/20', borderColor: 'border-blue-800/30' },
-  transactions: { label: 'Transações', color: 'text-green-400', bgColor: 'from-green-950/40 to-green-900/20', borderColor: 'border-green-800/30' },
-  reservations: { label: 'Reservas', color: 'text-orange-400', bgColor: 'from-orange-950/40 to-orange-900/20', borderColor: 'border-orange-800/30' },
-  smartcharging: { label: 'Smart Charging', color: 'text-amber-400', bgColor: 'from-amber-950/40 to-amber-900/20', borderColor: 'border-amber-800/30' },
-  locallist: { label: 'Local Auth List', color: 'text-cyan-400', bgColor: 'from-cyan-950/40 to-cyan-900/20', borderColor: 'border-cyan-800/30' },
-  firmware: { label: 'Firmware & Diagnósticos', color: 'text-violet-400', bgColor: 'from-violet-950/40 to-violet-900/20', borderColor: 'border-violet-800/30' },
-  security: { label: 'Security Extensions', color: 'text-purple-400', bgColor: 'from-purple-950/40 to-purple-900/20', borderColor: 'border-purple-800/30' },
+  basic: { label: 'Comandos Básicos', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'from-emerald-50 to-emerald-100/50 dark:from-zinc-900/50 dark:to-zinc-800/50', borderColor: 'border-emerald-200 dark:border-zinc-800' },
+  configuration: { label: 'Configuração', color: 'text-blue-600 dark:text-blue-400', bgColor: 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800/30' },
+  transactions: { label: 'Transações', color: 'text-green-600 dark:text-green-400', bgColor: 'from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20', borderColor: 'border-green-200 dark:border-green-800/30' },
+  reservations: { label: 'Reservas', color: 'text-orange-600 dark:text-orange-400', bgColor: 'from-orange-50 to-orange-100/50 dark:from-orange-950/40 dark:to-orange-900/20', borderColor: 'border-orange-200 dark:border-orange-800/30' },
+  smartcharging: { label: 'Smart Charging', color: 'text-amber-600 dark:text-amber-400', bgColor: 'from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800/30' },
+  locallist: { label: 'Local Auth List', color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'from-cyan-50 to-cyan-100/50 dark:from-cyan-950/40 dark:to-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800/30' },
+  firmware: { label: 'Firmware & Diagnósticos', color: 'text-violet-600 dark:text-violet-400', bgColor: 'from-violet-50 to-violet-100/50 dark:from-violet-950/40 dark:to-violet-900/20', borderColor: 'border-violet-200 dark:border-violet-800/30' },
+  security: { label: 'Security Extensions', color: 'text-purple-600 dark:text-purple-400', bgColor: 'from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800/30' },
 };
 
 // ============================================================================
@@ -489,7 +489,7 @@ export const Operations = () => {
   // ============================================================================
 
   const renderCommandForm = () => {
-    const inputClass = "bg-zinc-900/50 border-zinc-700 text-zinc-100 placeholder:text-zinc-500";
+    const inputClass = "bg-surface-container-low border-outline-variant text-foreground placeholder:text-muted-foreground";
 
     switch (selectedOperation) {
       case 'reset':
@@ -630,7 +630,7 @@ export const Operations = () => {
             <div className="space-y-2">
               <Label>Connector ID</Label>
               <Input className={inputClass} type="number" placeholder="0" value={commandParams.connectorId || ''} onChange={e => setCommandParams({ ...commandParams, connectorId: e.target.value })} />
-              <p className="text-xs text-zinc-500">0 = ChargePoint como um todo</p>
+              <p className="text-xs text-muted-foreground">0 = ChargePoint como um todo</p>
             </div>
             <div className="space-y-2">
               <Label>Charging Profile (JSON)</Label>
@@ -905,14 +905,14 @@ export const Operations = () => {
       case 'getConfiguration':
       case 'getLocalListVersion':
         return (
-          <p className="text-zinc-400 text-sm py-4">
+          <p className="text-muted-foreground text-sm py-4">
             Este comando não requer parâmetros adicionais.
           </p>
         );
 
       default:
         return (
-          <p className="text-zinc-400 text-sm py-4">
+          <p className="text-muted-foreground text-sm py-4">
             Selecione um comando para ver os parâmetros.
           </p>
         );
@@ -927,7 +927,7 @@ export const Operations = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
-        <p className="text-zinc-400">Carregando carregadores...</p>
+        <p className="text-muted-foreground">Carregando carregadores...</p>
       </div>
     );
   }
@@ -941,30 +941,30 @@ export const Operations = () => {
             <Server className="w-8 h-8 text-emerald-400" />
             Centro de Operações OCPP
           </h1>
-          <p className="text-zinc-400 mt-1">
+          <p className="text-muted-foreground mt-1">
             Execute comandos OCPP nos carregadores conectados
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-700/50 bg-zinc-800/50">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-surface-container-highest">
             {socketConnected ? (
               <>
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
                 </span>
-                <span className="text-xs text-zinc-300">Tempo real</span>
+                <span className="text-xs text-on-surface-variant">Tempo real</span>
               </>
             ) : (
               <>
                 <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-500" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-outline" />
                 </span>
-                <span className="text-xs text-zinc-400">Sem socket</span>
+                <span className="text-xs text-muted-foreground">Sem socket</span>
               </>
             )}
           </div>
-          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-border text-muted-foreground hover:bg-accent">
             <RefreshCw className="w-4 h-4 mr-2" />
             Atualizar
           </Button>
@@ -988,43 +988,43 @@ export const Operations = () => {
 
       {/* Status Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
               <Server className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-zinc-400">Total</p>
+              <p className="text-sm text-muted-foreground">Total</p>
               <p className="text-2xl font-bold text-emerald-400">{mergedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-emerald-500/20 rounded-xl">
               <Wifi className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-zinc-400">Online</p>
+              <p className="text-sm text-muted-foreground">Online</p>
               <p className="text-2xl font-bold text-emerald-400">{connectedCount}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-zinc-900/80 to-zinc-800/50 border-zinc-700/50">
+        <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-zinc-700/50 rounded-xl">
-              <WifiOff className="w-6 h-6 text-zinc-400" />
+            <div className="p-3 bg-surface-container-highest rounded-xl">
+              <WifiOff className="w-6 h-6 text-muted-foreground" />
             </div>
             <div>
-              <p className="text-sm text-zinc-400">Offline</p>
-              <p className="text-2xl font-bold text-zinc-300">{offlineCount}</p>
+              <p className="text-sm text-muted-foreground">Offline</p>
+              <p className="text-2xl font-bold text-on-surface-variant">{offlineCount}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-950/40 to-blue-900/20 border-blue-800/30">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 border-blue-200 dark:border-blue-800/30">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-blue-500/20 rounded-xl">
               <CheckCircle2 className="w-6 h-6 text-blue-400" />
@@ -1039,7 +1039,7 @@ export const Operations = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-zinc-800/50 border border-zinc-700">
+        <TabsList className="bg-surface-container border border-border">
           <TabsTrigger value="operations" className="data-[state=active]:bg-emerald-600">
             <Zap className="w-4 h-4 mr-2" />
             Operações
@@ -1057,19 +1057,19 @@ export const Operations = () => {
         <TabsContent value="operations" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Charge Point Selection */}
-            <Card className="bg-gradient-to-br from-zinc-900/80 to-zinc-800/50 border-zinc-700/50">
+            <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-zinc-100 text-lg">Carregadores</CardTitle>
-                <CardDescription className="text-zinc-400">
+                <CardTitle className="text-foreground text-lg">Carregadores</CardTitle>
+                <CardDescription className="text-muted-foreground">
                   {selectedChargePoints.length} de {mergedChargePoints.length} selecionados
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={selectAllConnected} className="flex-1 border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs">
+                  <Button size="sm" variant="outline" onClick={selectAllConnected} className="flex-1 border-border text-muted-foreground hover:bg-accent text-xs">
                     Online ({connectedCount})
                   </Button>
-                  <Button size="sm" variant="outline" onClick={clearSelection} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 text-xs">
+                  <Button size="sm" variant="outline" onClick={clearSelection} className="border-border text-muted-foreground hover:bg-accent text-xs">
                     Limpar
                   </Button>
                 </div>
@@ -1082,19 +1082,19 @@ export const Operations = () => {
                         className={`w-full p-3 rounded-lg border text-left transition-all ${
                           selectedChargePoints.includes(cp.charge_point_id)
                             ? 'bg-emerald-500/20 border-emerald-500'
-                            : 'bg-zinc-800/50 border-zinc-700/50 hover:border-zinc-600'
+                            : 'bg-surface-container border-border hover:border-primary/50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
+                            <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-emerald-400' : 'bg-outline'}`} />
                             {cp.isConnected && (
                               <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-zinc-100 truncate text-sm">{cp.charge_point_id}</p>
-                            <p className="text-xs text-zinc-400 truncate">{cp.vendor || 'N/A'} {cp.model || ''}</p>
+                            <p className="font-medium text-foreground truncate text-sm">{cp.charge_point_id}</p>
+                            <p className="text-xs text-muted-foreground truncate">{cp.vendor || 'N/A'} {cp.model || ''}</p>
                           </div>
                           {selectedChargePoints.includes(cp.charge_point_id) && (
                             <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -1136,7 +1136,7 @@ export const Operations = () => {
                           >
                             <div className="flex items-center gap-2">
                               <span className={config.color}>{op.icon}</span>
-                              <span className="text-xs font-medium text-zinc-100 truncate">{op.name}</span>
+                              <span className="text-xs font-medium text-foreground truncate">{op.name}</span>
                             </div>
                           </button>
                         ))}
@@ -1147,7 +1147,7 @@ export const Operations = () => {
               </div>
 
               {/* Execute Button */}
-              <div className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-700">
+              <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-zinc-700">
                 <div className="flex items-center gap-4 flex-wrap">
                   {selectedOperation && (
                     <Badge variant="outline" className="border-emerald-500 text-emerald-300 bg-emerald-500/10">
@@ -1155,12 +1155,12 @@ export const Operations = () => {
                     </Badge>
                   )}
                   {selectedChargePoints.length > 0 && (
-                    <span className="text-sm text-zinc-400">
+                    <span className="text-sm text-muted-foreground">
                       {selectedChargePoints.length} carregador(es)
                     </span>
                   )}
                   {!selectedOperation && selectedChargePoints.length === 0 && (
-                    <span className="text-sm text-zinc-400">
+                    <span className="text-sm text-muted-foreground">
                       Selecione carregadores e um comando
                     </span>
                   )}
@@ -1181,21 +1181,21 @@ export const Operations = () => {
 
         {/* Tab: Results */}
         <TabsContent value="results">
-          <Card className="bg-gradient-to-br from-zinc-900/80 to-zinc-800/50 border-zinc-700/50">
+          <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-zinc-100">Histórico de Comandos</CardTitle>
-                <CardDescription className="text-zinc-400">Últimos {results.length} comandos executados</CardDescription>
+                <CardTitle className="text-foreground">Histórico de Comandos</CardTitle>
+                <CardDescription className="text-muted-foreground">Últimos {results.length} comandos executados</CardDescription>
               </div>
               {results.length > 0 && (
-                <Button variant="outline" size="sm" onClick={() => setResults([])} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+                <Button variant="outline" size="sm" onClick={() => setResults([])} className="border-border text-muted-foreground hover:bg-accent">
                   Limpar
                 </Button>
               )}
             </CardHeader>
             <CardContent>
               {results.length === 0 ? (
-                <div className="text-center py-12 text-zinc-400">
+                <div className="text-center py-12 text-muted-foreground">
                   <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
                   <p>Nenhum comando executado ainda</p>
                 </div>
@@ -1223,19 +1223,19 @@ export const Operations = () => {
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium text-zinc-100">{result.command}</p>
-                              <span className="text-xs text-zinc-500">
+                              <p className="text-sm font-medium text-foreground">{result.command}</p>
+                              <span className="text-xs text-muted-foreground">
                                 {result.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                               </span>
                             </div>
-                            <p className="text-xs text-zinc-400">{result.chargePointId}</p>
+                            <p className="text-xs text-muted-foreground">{result.chargePointId}</p>
                             {result.message && (
-                              <p className={`text-xs mt-1 ${result.status === 'error' ? 'text-red-400' : 'text-zinc-500'}`}>
+                              <p className={`text-xs mt-1 ${result.status === 'error' ? 'text-red-400' : 'text-muted-foreground'}`}>
                                 {result.message}
                               </p>
                             )}
                             {result.response && (
-                              <pre className="mt-2 text-xs text-zinc-500 bg-black/20 p-2 rounded overflow-x-auto">
+                              <pre className="mt-2 text-xs text-muted-foreground bg-black/20 p-2 rounded overflow-x-auto">
                                 {JSON.stringify(result.response, null, 2)}
                               </pre>
                             )}
@@ -1255,11 +1255,11 @@ export const Operations = () => {
       <Dialog open={showCommandDialog} onOpenChange={setShowCommandDialog}>
         <DialogContent className="sm:max-w-[500px] bg-zinc-900 border-zinc-700">
           <DialogHeader>
-            <DialogTitle className="text-zinc-100 flex items-center gap-2">
+            <DialogTitle className="text-foreground flex items-center gap-2">
               {operations.find(op => op.id === selectedOperation)?.icon}
               {operations.find(op => op.id === selectedOperation)?.name}
             </DialogTitle>
-            <DialogDescription className="text-zinc-400">
+            <DialogDescription className="text-muted-foreground">
               Executar em <span className="text-emerald-400 font-medium">{selectedChargePoints.length} carregador(es)</span>
             </DialogDescription>
           </DialogHeader>
@@ -1267,7 +1267,7 @@ export const Operations = () => {
             {renderCommandForm()}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCommandDialog(false)} className="border-zinc-700 text-zinc-300 hover:bg-zinc-800">
+            <Button variant="outline" onClick={() => setShowCommandDialog(false)} className="border-border text-muted-foreground hover:bg-accent">
               Cancelar
             </Button>
             <Button onClick={() => void handleCommandConfirm()} disabled={executing} className="bg-emerald-600 hover:bg-emerald-500">

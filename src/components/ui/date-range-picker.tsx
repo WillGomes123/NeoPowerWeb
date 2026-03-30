@@ -188,9 +188,9 @@ export function DateRangePicker({
           variant="outline"
           className={cn(
             'justify-start text-left font-normal',
-            'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700 hover:text-white',
-            'focus:ring-2 focus:ring-emerald-500/50 focus:border-zinc-600',
-            !startDate && !endDate && 'text-zinc-500',
+            'bg-surface-container-high border-border text-foreground hover:bg-accent hover:text-foreground',
+            'focus:ring-2 focus:ring-emerald-500/50 focus:border-border',
+            !startDate && !endDate && 'text-muted-foreground',
             className
           )}
         >
@@ -198,7 +198,7 @@ export function DateRangePicker({
           <span className="truncate">{getDisplayText()}</span>
           {(startDate || endDate) && (
             <X
-              className="ml-auto h-4 w-4 text-zinc-400 hover:text-zinc-300 cursor-pointer"
+              className="ml-auto h-4 w-4 text-muted-foreground hover:text-foreground/70 cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
                 handleClear();
@@ -208,15 +208,15 @@ export function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 !bg-zinc-900 border-zinc-700 shadow-2xl shadow-black/50 backdrop-blur-none"
+        className="w-auto p-0 !bg-card border-border shadow-2xl shadow-black/20 backdrop-blur-none"
         align="start"
         sideOffset={8}
         style={{ backgroundColor: '#18181b' }}
       >
-        <div className="flex bg-zinc-900">
+        <div className="flex bg-card">
           {/* Sidebar - Presets */}
-          <div className="w-44 border-r border-zinc-700 p-3 space-y-1 bg-zinc-800/50">
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3 px-2">
+          <div className="w-44 border-r border-border p-3 space-y-1 bg-surface-container">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
               Atalhos
             </p>
             {presetRanges.map((preset) => (
@@ -227,7 +227,7 @@ export function DateRangePicker({
                   'w-full text-left px-3 py-2 rounded-md text-sm transition-all',
                   selectedPreset === preset.label
                     ? 'bg-emerald-500 text-emerald-950 font-medium'
-                    : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                    : 'text-foreground/70 hover:bg-surface-container-high hover:text-foreground'
                 )}
               >
                 {preset.label}
@@ -235,8 +235,8 @@ export function DateRangePicker({
             ))}
 
             {/* Custom days input */}
-            <div className="pt-3 mt-3 border-t border-zinc-700">
-              <p className="text-xs text-zinc-500 mb-2 px-2">Dias anteriores</p>
+            <div className="pt-3 mt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2 px-2">Dias anteriores</p>
               <div className="flex items-center gap-2 px-2">
                 <Input
                   type="number"
@@ -244,19 +244,19 @@ export function DateRangePicker({
                   placeholder="X"
                   value={customDays}
                   onChange={(e) => handleCustomDaysChange(e.target.value)}
-                  className="w-16 h-8 text-center bg-zinc-800 border-zinc-700 text-white text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="w-16 h-8 text-center bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
                 />
-                <span className="text-xs text-zinc-500">dias</span>
+                <span className="text-xs text-muted-foreground">dias</span>
               </div>
             </div>
           </div>
 
           {/* Main Calendar Area */}
-          <div className="p-4 bg-zinc-900">
+          <div className="p-4 bg-card">
             {/* Header - Manual Date Inputs */}
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-zinc-700">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <div className="flex-1">
-                <label className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">
                   Data Inicial
                 </label>
                 <Input
@@ -266,14 +266,14 @@ export function DateRangePicker({
                     onStartDateChange(e.target.value);
                     setSelectedPreset(null);
                   }}
-                  className="h-9 bg-zinc-800 border-zinc-700 text-white text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
               <div className="flex items-center pt-5">
                 <span className="text-emerald-500">→</span>
               </div>
               <div className="flex-1">
-                <label className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
+                <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">
                   Data Final
                 </label>
                 <Input
@@ -283,13 +283,13 @@ export function DateRangePicker({
                     onEndDateChange(e.target.value);
                     setSelectedPreset(null);
                   }}
-                  className="h-9 bg-zinc-800 border-zinc-700 text-white text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
                 />
               </div>
             </div>
 
             {/* Calendar Grid */}
-            <div className="bg-zinc-800/50 rounded-lg p-3 border border-zinc-700">
+            <div className="bg-surface-container rounded-lg p-3 border border-border">
               <DayPicker
                 mode="range"
                 selected={selectedRange}
@@ -303,18 +303,18 @@ export function DateRangePicker({
                   months: 'flex flex-col sm:flex-row gap-2',
                   month: 'space-y-4',
                   caption: 'flex justify-center pt-1 relative items-center h-10',
-                  caption_label: 'text-base font-bold text-white',
+                  caption_label: 'text-base font-bold text-foreground',
                   nav: 'space-x-1 flex items-center',
                   nav_button: cn(
-                    'h-8 w-8 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600',
+                    'h-8 w-8 bg-surface-container-high hover:bg-accent border border-border',
                     'rounded-lg flex items-center justify-center transition-all duration-200',
-                    'text-zinc-300 hover:text-white shadow-sm'
+                    'text-foreground/70 hover:text-foreground shadow-sm'
                   ),
                   nav_button_previous: 'absolute left-1',
                   nav_button_next: 'absolute right-1',
                   table: 'w-full border-collapse mt-2',
                   head_row: 'flex mb-2',
-                  head_cell: 'text-zinc-400 rounded-md w-10 font-semibold text-[0.7rem] uppercase tracking-wide',
+                  head_cell: 'text-muted-foreground rounded-md w-10 font-semibold text-[0.7rem] uppercase tracking-wide',
                   row: 'flex w-full mt-1',
                   cell: cn(
                     'relative p-0.5 text-center text-sm focus-within:relative focus-within:z-20',
@@ -326,16 +326,16 @@ export function DateRangePicker({
                   ),
                   day: cn(
                     'h-10 w-10 p-0 font-medium rounded-lg transition-all duration-200',
-                    'text-zinc-200 hover:bg-zinc-700 hover:text-white',
+                    'text-foreground hover:bg-accent hover:text-foreground',
                     'focus:outline-none focus:ring-2 focus:ring-emerald-500/50',
                     'aria-selected:opacity-100 cursor-pointer'
                   ),
                   day_range_start: 'day-range-start !bg-emerald-500 !text-emerald-950 font-bold rounded-l-lg shadow-md',
                   day_range_end: 'day-range-end !bg-emerald-500 !text-emerald-950 font-bold rounded-r-lg shadow-md',
                   day_selected: '!bg-emerald-500 !text-emerald-950 font-bold shadow-md',
-                  day_today: 'bg-zinc-700/50 text-emerald-400 font-bold ring-2 ring-emerald-400/70',
-                  day_outside: 'text-zinc-600 opacity-40 hover:opacity-60',
-                  day_disabled: 'text-zinc-700 opacity-30 cursor-not-allowed',
+                  day_today: 'bg-primary/10 text-emerald-400 font-bold ring-2 ring-emerald-400/70',
+                  day_outside: 'text-muted-foreground/50 opacity-40 hover:opacity-60',
+                  day_disabled: 'text-muted-foreground/30 opacity-30 cursor-not-allowed',
                   day_range_middle: '!bg-emerald-500/25 !text-emerald-50',
                   day_hidden: 'invisible',
                 }}
@@ -351,36 +351,36 @@ export function DateRangePicker({
 
             {/* Time Selection (Optional) */}
             {showTime && (
-              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-zinc-700">
+              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-emerald-500" />
-                  <span className="text-xs text-zinc-500">Horário:</span>
+                  <span className="text-xs text-muted-foreground">Horário:</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Input
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-24 h-8 bg-zinc-800 border-zinc-700 text-white text-sm focus:ring-1 focus:ring-emerald-500/50"
+                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
                   />
                   <span className="text-emerald-500">-</span>
                   <Input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-24 h-8 bg-zinc-800 border-zinc-700 text-white text-sm focus:ring-1 focus:ring-emerald-500/50"
+                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
                   />
                 </div>
               </div>
             )}
 
             {/* Footer Actions */}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-zinc-700">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleClear}
-                className="text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800"
+                className="text-muted-foreground hover:text-foreground/70 hover:bg-surface-container-high"
               >
                 Limpar
               </Button>
