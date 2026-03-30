@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ExportButton } from '../components/ExportButton';
+import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import type { ExportColumn } from '../lib/export';
@@ -34,6 +35,8 @@ export const Transactions = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [timeFilter, setTimeFilter] = useState<'all' | '30d' | '7d'>('all');
+  const [curveOpen, setCurveOpen] = useState(false);
+  const [curveTransaction, setCurveTransaction] = useState<{ id: number; chargerId: string } | null>(null);
   const itemsPerPage = 10;
 
   const exportData = transactions.map(tx => ({
@@ -193,12 +196,13 @@ export const Transactions = () => {
                 <th className="px-6 py-4">Custo</th>
                 <th className="px-6 py-4">Endereço</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Curva</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={9} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
@@ -206,7 +210,7 @@ export const Transactions = () => {
               ) : current.map(tx => {
                 const st = statusStyle(tx.status);
                 return (
-                  <tr key={tx.transaction_id} className="hover:bg-surface-container-highest/30 transition-colors group">
+                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
                         #{tx.transaction_id}
@@ -227,6 +231,9 @@ export const Transactions = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                         {st.label}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="material-symbols-outlined text-base text-on-surface-variant group-hover:text-primary transition-colors">show_chart</span>
                     </td>
                   </tr>
                 );
@@ -261,6 +268,15 @@ export const Transactions = () => {
           </div>
         </div>
       </div>
+      {/* Charging Curve Dialog */}
+      {curveTransaction && (
+        <ChargingCurveDialog
+          transactionId={curveTransaction.id}
+          chargerId={curveTransaction.chargerId}
+          open={curveOpen}
+          onClose={() => { setCurveOpen(false); setCurveTransaction(null); }}
+        />
+      )}
     </div>
   );
 };

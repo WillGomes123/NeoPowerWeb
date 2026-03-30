@@ -206,7 +206,7 @@ export const Locations = () => {
             </div>
           </div>
           {/* Overlay info */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end bg-gradient-to-t from-[#0e0e0e]/90 via-[#0e0e0e]/50 to-transparent pointer-events-none z-[1000]">
+          <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end bg-gradient-to-t from-background/90 via-background/50 to-transparent pointer-events-none z-[1000]">
             <div className="space-y-1">
               <h3 className="text-xl font-headline font-bold">Mapa da Rede</h3>
               <p className="text-on-surface-variant text-sm">

@@ -364,7 +364,7 @@ export const FinancialReport = () => {
       );
     }
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#262626] text-[#adaaaa] text-xs font-medium">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-xs font-medium">
         <span className="w-1.5 h-1.5 rounded-full bg-[#777575]"></span>
         {status}
       </span>
@@ -377,7 +377,7 @@ export const FinancialReport = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-[#adaaaa]">Gerando relatório financeiro...</p>
+        <p className="text-on-surface-variant">Gerando relatório financeiro...</p>
       </div>
     );
   }
@@ -391,7 +391,7 @@ export const FinancialReport = () => {
             <span className="material-symbols-outlined text-primary text-3xl">payments</span>
             Relatório Financeiro
           </h1>
-          <p className="text-[#adaaaa] mt-1">
+          <p className="text-on-surface-variant mt-1">
             {isAdmin ? 'Análise detalhada de receitas, custos e lucros' : `Relatório das suas estações (${userLocationNames.length} local/is)`}
           </p>
         </div>
@@ -399,7 +399,7 @@ export const FinancialReport = () => {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a1919] hover:bg-[#262626] border border-[#494847]/15 rounded-lg text-[#adaaaa] transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all"
           >
             <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin' : ''}`}>refresh</span>
             Atualizar
@@ -407,7 +407,7 @@ export const FinancialReport = () => {
           <button
             onClick={() => handleExport('csv')}
             disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a1919] hover:bg-[#262626] border border-[#494847]/15 rounded-lg text-[#adaaaa] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-lg">download</span>
             CSV
@@ -415,7 +415,7 @@ export const FinancialReport = () => {
           <button
             onClick={() => handleExport('excel')}
             disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1a1919] hover:bg-[#262626] border border-[#494847]/15 rounded-lg text-[#adaaaa] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-lg">table_view</span>
             Excel
@@ -439,13 +439,13 @@ export const FinancialReport = () => {
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-[#adaaaa] font-medium uppercase tracking-wide">
+              <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">
                 {isAdmin ? 'Entrada Bruta Total' : 'Receita Bruta'}
               </p>
               <p className="text-2xl font-bold text-white mt-1">
                 R$ {fmt(isAdmin ? entradaBrutaTotal : grossRevenue)}
               </p>
-              <p className="text-xs text-[#777575] mt-1">
+              <p className="text-xs text-outline mt-1">
                 {isAdmin ? 'Recargas + Depósitos' : `${reportData.length} transação(ões)`}
               </p>
             </div>
@@ -458,11 +458,11 @@ export const FinancialReport = () => {
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-[#adaaaa] font-medium uppercase tracking-wide">Receita Líquida</p>
+              <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Receita Líquida</p>
               <p className="text-2xl font-bold text-primary mt-1">
                 R$ {fmt(isAdmin ? liquidoTotal : liquidoRecargas)}
               </p>
-              <p className="text-xs text-[#777575] mt-1">Após taxas</p>
+              <p className="text-xs text-outline mt-1">Após taxas</p>
             </div>
             <div className="p-3 bg-primary/10 rounded-xl">
               <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
@@ -522,9 +522,9 @@ export const FinancialReport = () => {
           <div className="glass-card rounded-xl p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-[#adaaaa] font-medium uppercase tracking-wide">Lucro NeoPower</p>
+                <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-2xl font-bold text-primary mt-1">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-[#777575] mt-1">20% do líquido</p>
+                <p className="text-xs text-outline mt-1">20% do líquido</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-xl">
                 <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
@@ -552,24 +552,24 @@ export const FinancialReport = () => {
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center gap-3 mb-4">
             <span className="material-symbols-outlined text-primary text-xl">info</span>
-            <p className="text-sm text-[#adaaaa]">
+            <p className="text-sm text-on-surface-variant">
               Exibindo apenas transações das estações vinculadas ao seu perfil.
               {userLocationNames.length > 0 && (
-                <span className="text-[#777575]"> Locais: {userLocationNames.join(', ')}</span>
+                <span className="text-outline"> Locais: {userLocationNames.join(', ')}</span>
               )}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-              <p className="text-xs text-[#adaaaa] font-medium uppercase mb-1">Energia Total</p>
+            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
+              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Energia Total</p>
               <p className="text-xl font-bold text-amber-400">{totals.energy.toFixed(2)} kWh</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-              <p className="text-xs text-[#adaaaa] font-medium uppercase mb-1">Valor Recebido</p>
+            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
+              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Valor Recebido</p>
               <p className="text-xl font-bold text-primary">R$ {fmt(totals.received)}</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-              <p className="text-xs text-[#adaaaa] font-medium uppercase mb-1">Pago ao Cliente</p>
+            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
+              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Pago ao Cliente</p>
               <p className="text-xl font-bold text-blue-400">R$ {fmt(totals.payout)}</p>
             </div>
           </div>
@@ -579,40 +579,40 @@ export const FinancialReport = () => {
       {/* Admin Only: Depósitos em Carteira */}
       {isAdmin && (
         <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-[#494847]/15">
+          <div className="px-6 py-5 border-b border-outline-variant/15">
             <h2 className="text-lg font-headline font-semibold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-purple-400">account_balance_wallet</span>
               Depósitos em Carteira
             </h2>
-            <p className="text-sm text-[#adaaaa] mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
+            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-purple-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-purple-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
                   <p className="text-xs text-purple-400/60 font-medium uppercase">Total Depósitos</p>
                 </div>
                 <p className="text-lg font-bold text-purple-300">R$ {fmt(totalDeposits)}</p>
-                <p className="text-xs text-[#777575] mt-1">{deposits.length} depósitos</p>
+                <p className="text-xs text-outline mt-1">{deposits.length} depósitos</p>
               </div>
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-red-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-red-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
                   <p className="text-xs text-red-400/60 font-medium uppercase">Taxa Mercado Pago</p>
                 </div>
                 <p className="text-lg font-bold text-red-400">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
-                <p className="text-xs text-[#777575] mt-1">1% sobre depósitos</p>
+                <p className="text-xs text-outline mt-1">1% sobre depósitos</p>
               </div>
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-primary/15">
+              <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-[#adaaaa] font-medium uppercase">Depósitos Líquidos</p>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase">Depósitos Líquidos</p>
                 </div>
                 <p className="text-lg font-bold text-primary">R$ {fmt(netDeposits)}</p>
-                <p className="text-xs text-[#777575] mt-1">Valor disponível</p>
+                <p className="text-xs text-outline mt-1">Valor disponível</p>
               </div>
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-blue-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-blue-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
                   <p className="text-xs text-blue-400/60 font-medium uppercase">Média por Depósito</p>
@@ -620,7 +620,7 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-blue-400">
                   R$ {deposits.length > 0 ? fmt(totalDeposits / deposits.length) : '0,00'}
                 </p>
-                <p className="text-xs text-[#777575] mt-1">Valor médio</p>
+                <p className="text-xs text-outline mt-1">Valor médio</p>
               </div>
             </div>
 
@@ -628,39 +628,39 @@ export const FinancialReport = () => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-[#494847]/15">
-                      <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Usuário</th>
-                      <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Data</th>
-                      <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Valor</th>
-                      <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Taxa MP</th>
-                      <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Líquido</th>
-                      <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Referência</th>
+                    <tr className="border-b border-outline-variant/15">
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Usuário</th>
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Data</th>
+                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Valor</th>
+                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Taxa MP</th>
+                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Líquido</th>
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Referência</th>
                     </tr>
                   </thead>
                   <tbody>
                     {deposits.slice(0, 10).map((deposit) => (
-                      <tr key={deposit.id} className="border-b border-[#494847]/10 hover:bg-[#262626]/50 transition-colors">
+                      <tr key={deposit.id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
                         <td className="py-3 px-4">
                           <p className="text-sm font-medium text-white">{deposit.userName}</p>
-                          <p className="text-xs text-[#777575]">{deposit.userEmail}</p>
+                          <p className="text-xs text-outline">{deposit.userEmail}</p>
                         </td>
-                        <td className="py-3 px-4 text-sm text-[#adaaaa]">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
+                        <td className="py-3 px-4 text-sm text-on-surface-variant">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-purple-400">R$ {fmt(deposit.amount)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-400/70">-R$ {fmt(deposit.amount * 0.01)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount * 0.99)}</td>
-                        <td className="py-3 px-4 text-sm text-[#adaaaa]">{deposit.referenceId || '-'}</td>
+                        <td className="py-3 px-4 text-sm text-on-surface-variant">{deposit.referenceId || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {deposits.length > 10 && (
-                  <p className="text-sm text-[#adaaaa] mt-4 text-center">Mostrando 10 de {deposits.length} depósitos</p>
+                  <p className="text-sm text-on-surface-variant mt-4 text-center">Mostrando 10 de {deposits.length} depósitos</p>
                 )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-12">
-                <span className="material-symbols-outlined text-[#494847] text-5xl mb-3">account_balance_wallet</span>
-                <p className="text-[#777575]">Nenhum depósito encontrado no período.</p>
+                <span className="material-symbols-outlined text-outline-variant text-5xl mb-3">account_balance_wallet</span>
+                <p className="text-outline">Nenhum depósito encontrado no período.</p>
               </div>
             )}
           </div>
@@ -670,24 +670,24 @@ export const FinancialReport = () => {
       {/* Admin Only: Distribuição de Receita */}
       {isAdmin && entradaBrutaTotal > 0 && (
         <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-[#494847]/15">
+          <div className="px-6 py-5 border-b border-outline-variant/15">
             <h2 className="text-lg font-headline font-semibold text-white">Distribuição de Receita Total</h2>
-            <p className="text-sm text-[#adaaaa] mt-1">Depósitos + Recargas - como o dinheiro é distribuído</p>
+            <p className="text-sm text-on-surface-variant mt-1">Depósitos + Recargas - como o dinheiro é distribuído</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
+              <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-[#adaaaa] font-medium uppercase">Entrada Bruta Total</p>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase">Entrada Bruta Total</p>
                 </div>
                 <p className="text-xl font-bold text-white">R$ {fmt(entradaBrutaTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-[#adaaaa]"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
-                  <div className="flex justify-between text-[#adaaaa]"><span>Recargas:</span><span>R$ {fmt(grossRevenue)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Recargas:</span><span>R$ {fmt(grossRevenue)}</span></div>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-red-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-red-500/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
                   <p className="text-xs text-red-400/60 font-medium uppercase">Total Taxas</p>
@@ -698,22 +698,22 @@ export const FinancialReport = () => {
                   <div className="flex justify-between text-red-400/60"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-[#0e0e0e]/50 border border-primary/15">
+              <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-[#adaaaa] font-medium uppercase">Receita Líquida Total</p>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase">Receita Líquida Total</p>
                 </div>
                 <p className="text-xl font-bold text-primary">R$ {fmt(liquidoTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-[#adaaaa]"><span>Depósitos líquidos:</span><span>R$ {fmt(liquidoDepositos)}</span></div>
-                  <div className="flex justify-between text-[#adaaaa]"><span>Recargas líquidas:</span><span>R$ {fmt(liquidoRecargas)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Depósitos líquidos:</span><span>R$ {fmt(liquidoDepositos)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Recargas líquidas:</span><span>R$ {fmt(liquidoRecargas)}</span></div>
                 </div>
               </div>
             </div>
 
             {/* Progress bar */}
             <div className="mt-4">
-              <p className="text-xs text-[#adaaaa] mb-2">Distribuição (% do bruto):</p>
+              <p className="text-xs text-on-surface-variant mb-2">Distribuição (% do bruto):</p>
               {(() => {
                 const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
                 const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
@@ -721,7 +721,7 @@ export const FinancialReport = () => {
                 const percManutencao = entradaBrutaTotal > 0 ? (manutencaoSite / entradaBrutaTotal) * 100 : 0;
                 return (
                   <>
-                    <div className="h-6 rounded-full overflow-hidden flex bg-[#262626]">
+                    <div className="h-6 rounded-full overflow-hidden flex bg-surface-container-highest">
                       <div className="h-full bg-red-500 flex items-center justify-center" style={{ width: `${percTaxas}%` }}>
                         <span className="text-[10px] text-white font-medium">{percTaxas.toFixed(1)}%</span>
                       </div>
@@ -738,7 +738,7 @@ export const FinancialReport = () => {
                     <div className="grid grid-cols-4 gap-2 mt-2 text-xs">
                       <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-red-400/70">Taxas</span></div>
                       <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div><span className="text-blue-400/70">Cliente</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div><span className="text-[#adaaaa]">NeoPower</span></div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div><span className="text-on-surface-variant">NeoPower</span></div>
                       <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-500"></div><span className="text-cyan-400/70">Manutenção</span></div>
                     </div>
                   </>
@@ -753,20 +753,20 @@ export const FinancialReport = () => {
       <div className="glass-card rounded-xl p-5">
         <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-[#adaaaa] font-medium mb-1.5 block">ID da Estação</label>
+            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">ID da Estação</label>
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#777575] text-lg">search</span>
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
               <input
                 type="text"
                 placeholder="Filtrar por estação..."
                 value={filterId}
                 onChange={e => setFilterId(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-[#0e0e0e] border border-[#494847]/15 rounded-lg text-sm text-white placeholder:text-[#777575] focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-white placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs text-[#adaaaa] font-medium mb-1.5 block">Período</label>
+            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Período</label>
             <DateRangePicker
               startDate={startDate}
               endDate={endDate}
@@ -781,7 +781,7 @@ export const FinancialReport = () => {
             Filtrar
           </button>
           {submittedFilter && (
-            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-[#494847]/15 rounded-lg text-[#adaaaa] hover:bg-[#262626] text-sm transition-all">
+            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-outline-variant/15 rounded-lg text-on-surface-variant hover:bg-surface-container-highest text-sm transition-all">
               <span className="material-symbols-outlined text-lg">close</span>
               Limpar
             </button>
@@ -791,34 +791,34 @@ export const FinancialReport = () => {
 
       {/* Data Table */}
       <div className="glass-card rounded-xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-[#494847]/15">
+        <div className="px-6 py-5 border-b border-outline-variant/15">
           <h2 className="text-lg font-headline font-semibold text-white">Detalhamento por Transação</h2>
-          <p className="text-sm text-[#adaaaa] mt-1">
+          <p className="text-sm text-on-surface-variant mt-1">
             {reportData.length} {reportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#494847]/15">
-                <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Estação</th>
-                <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Início</th>
-                <th className="text-left text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Fim</th>
-                <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Energia</th>
-                <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Receita</th>
-                <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Taxas</th>
-                <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Recebido</th>
-                <th className="text-right text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Pago</th>
-                <th className="text-center text-xs font-medium text-[#adaaaa] uppercase tracking-wider py-3 px-4">Status</th>
+              <tr className="border-b border-outline-variant/15">
+                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Estação</th>
+                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Início</th>
+                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Fim</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Receita</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Taxas</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Recebido</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Pago</th>
+                <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Status</th>
               </tr>
             </thead>
             <tbody>
               {reportData.length > 0 ? (
                 reportData.map((row, index) => (
-                  <tr key={index} className="border-b border-[#494847]/10 hover:bg-[#262626]/50 transition-colors">
+                  <tr key={index} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
                     <td className="py-3 px-4 text-sm font-medium text-white">{row['Estação']}</td>
-                    <td className="py-3 px-4 text-sm text-[#adaaaa]">{row['Início']}</td>
-                    <td className="py-3 px-4 text-sm text-[#adaaaa]">{row['Fim']}</td>
+                    <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
+                    <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-amber-400">{row['Recarga (kWh)']} kWh</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-red-400/70">R$ {row['Valor Total de Taxas (R$)']}</td>
@@ -831,8 +831,8 @@ export const FinancialReport = () => {
                 <tr>
                   <td colSpan={9} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-[#494847] text-5xl">description</span>
-                      <p className="text-[#777575]">
+                      <span className="material-symbols-outlined text-outline-variant text-5xl">description</span>
+                      <p className="text-outline">
                         {!isAdmin && userLocationNames.length === 0
                           ? 'Nenhuma estação vinculada ao seu perfil.'
                           : 'Nenhum dado encontrado para os filtros selecionados.'}
@@ -846,26 +846,26 @@ export const FinancialReport = () => {
         </div>
 
         {reportData.length > 0 && (
-          <div className="px-6 py-5 border-t border-[#494847]/15">
+          <div className="px-6 py-5 border-t border-outline-variant/15">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="p-3 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-                <p className="text-xs text-[#adaaaa] mb-1">Total Transações</p>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">Total Transações</p>
                 <p className="text-lg font-bold text-white">{reportData.length}</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-                <p className="text-xs text-[#adaaaa] mb-1">Energia Total</p>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">Energia Total</p>
                 <p className="text-lg font-bold text-amber-400">{totals.energy.toFixed(2)} kWh</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-                <p className="text-xs text-[#adaaaa] mb-1">Receita Total</p>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">Receita Total</p>
                 <p className="text-lg font-bold text-primary">R$ {fmt(totals.revenue)}</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-                <p className="text-xs text-[#adaaaa] mb-1">Total Taxas</p>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">Total Taxas</p>
                 <p className="text-lg font-bold text-red-400">R$ {fmt(totals.fees)}</p>
               </div>
-              <div className="p-3 rounded-xl bg-[#0e0e0e]/50 border border-[#494847]/15">
-                <p className="text-xs text-[#adaaaa] mb-1">{isAdmin ? 'Lucro Plataforma' : 'Valor Recebido'}</p>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">{isAdmin ? 'Lucro Plataforma' : 'Valor Recebido'}</p>
                 <p className={`text-lg font-bold ${isAdmin ? (platformProfit >= 0 ? 'text-primary' : 'text-red-400') : 'text-primary'}`}>
                   R$ {fmt(isAdmin ? platformProfit : totals.received)}
                 </p>

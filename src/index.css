@@ -5,7 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
   /* Primary */
   --color-primary: var(--primary);
   --color-primary-container: #2ff801;
@@ -47,7 +47,7 @@
   --color-on-error: #450900;
   --color-on-error-container: #ffd2c8;
 
-  /* Surface */
+  /* Theme-switched colors: initial values (overridden by useAppTheme JS) */
   --color-surface: #0e0e0e;
   --color-surface-dim: #0e0e0e;
   --color-surface-bright: #2c2c2c;
@@ -63,16 +63,10 @@
   --color-on-background: #ffffff;
   --color-inverse-surface: #fcf8f8;
   --color-inverse-on-surface: #565554;
-
-  /* Outline */
   --color-outline: #777575;
   --color-outline-variant: #494847;
-
-  /* Background */
   --color-background: #0e0e0e;
   --color-foreground: #ffffff;
-
-  /* Shadcn/ui mapped variables */
   --color-card: #1a1919;
   --color-card-foreground: #ffffff;
   --color-popover: #262626;
@@ -90,8 +84,6 @@
   --color-input-background: #131313;
   --color-switch-background: #494847;
   --color-ring: var(--primary);
-
-  /* Chart colors */
   --color-chart-1: var(--primary);
   --color-chart-2: #90f9a3;
   --color-chart-3: #88f6ff;
@@ -105,7 +97,7 @@
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
 
-  /* Sidebar */
+  /* Sidebar (overridden by useAppTheme JS) */
   --color-sidebar: #131313;
   --color-sidebar-foreground: #ffffff;
   --color-sidebar-primary: var(--primary);

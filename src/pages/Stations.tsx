@@ -19,6 +19,9 @@ import {
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
+import { QrCodeTemplate } from '../components/QrCodeTemplate';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 interface Charger {
   charge_point_id: string;
@@ -49,6 +52,7 @@ export const Stations = () => {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState<string | null>(null);
+  const [qrPages, setQrPages] = useState<{ chargePointId: string; connectorIndex: number; totalConnectors: number; description?: string; model?: string; vendor?: string; powerKw?: number; connectorType?: string }[]>([]);
   const { chargerStatuses } = useSocket();
 
   const [regForm, setRegForm] = useState({
@@ -120,16 +124,75 @@ export const Stations = () => {
 
   const handleDownloadQrCode = async (chargerId: string) => {
     setDownloadingQr(chargerId);
+    toast.loading('Gerando QR Code...', { id: 'qr-gen' });
     try {
-      const r = await api.get(`/chargers/${chargerId}/qrcode`);
-      if (!r.ok) throw new Error();
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = `qrcode-${chargerId}.pdf`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast.success('QR Code baixado!');
-    } catch { toast.error('Erro ao gerar QR Code'); }
-    finally { setDownloadingQr(null); }
+      const charger = mergedChargers.find(c => c.charge_point_id === chargerId);
+      const numConn = charger?.num_connectors || 1;
+
+      // Build pages data
+      const pages = Array.from({ length: numConn }, (_, i) => ({
+        chargePointId: chargerId,
+        connectorIndex: i + 1,
+        totalConnectors: numConn,
+        description: charger?.description,
+        model: charger?.model,
+        vendor: charger?.vendor,
+        powerKw: charger?.power_kw,
+        connectorType: charger?.connector_type,
+      }));
+      setQrPages(pages);
+
+      // Wait for render
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const root = document.getElementById('qrcode-report-root');
+      if (!root) throw new Error('Template não encontrado');
+
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Each child is a page div (794x1123px)
+      const pageElements = root.children;
+      for (let i = 0; i < pageElements.length; i++) {
+        if (i > 0) pdf.addPage();
+
+        const canvas = await html2canvas(pageElements[i] as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#111114',
+          windowWidth: 794,
+          onclone: (doc) => {
+            const allEls = doc.getElementsByTagName('*');
+            for (let j = 0; j < allEls.length; j++) {
+              const el = allEls[j] as HTMLElement;
+              if (el.style) {
+                for (let k = 0; k < el.style.length; k++) {
+                  const prop = el.style[k];
+                  const val = el.style.getPropertyValue(prop);
+                  if (val && val.includes('oklch')) {
+                    el.style.setProperty(prop, 'transparent', 'important');
+                  }
+                }
+              }
+            }
+          },
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      pdf.save(`qrcode-${chargerId}.pdf`);
+      toast.success('QR Code gerado com sucesso!', { id: 'qr-gen' });
+    } catch (err) {
+      console.error('Erro ao gerar QR Code:', err);
+      toast.error('Erro ao gerar QR Code', { id: 'qr-gen' });
+    } finally {
+      setDownloadingQr(null);
+      setQrPages([]);
+    }
   };
 
   const getLocationName = (id: number | null) => id ? locations.find(l => l.id === id)?.nomeDoLocal || '—' : '—';
@@ -428,6 +491,13 @@ export const Stations = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Hidden QR Code template for PDF generation */}
+      {qrPages.length > 0 && (
+        <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
+          <QrCodeTemplate pages={qrPages} />
+        </div>
+      )}
     </div>
   );
 };

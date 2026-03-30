@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { ThemeProvider } from './components/ThemeProvider';
 import { DashboardLayout } from './components/DashboardLayout';
 import { Toaster } from './components/ui/sonner';
 
@@ -29,6 +28,10 @@ const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wal
 const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m => ({ default: m.PushNotifications })));
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
 const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
+const Sustainability = lazy(() => import('./pages/Sustainability').then(m => ({ default: m.Sustainability })));
+const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
+const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default: m.Scheduling })));
+const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
 
 // Loading Component
 const PageLoader = () => (
@@ -96,6 +99,10 @@ const AppRoutes = () => {
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
       <Route path="/email" element={createProtectedRoute(Email, true)} />
       <Route path="/branding" element={createProtectedRoute(Branding, true)} />
+      <Route path="/sustentabilidade" element={createProtectedRoute(Sustainability)} />
+      <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
+      <Route path="/agendamentos" element={createProtectedRoute(Scheduling, true)} />
+      <Route path="/metas" element={createProtectedRoute(ChargingGoals, true)} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -107,25 +114,19 @@ const AppRoutes = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        <AuthProvider>
-          <Router>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: {
-                  background: '#18181b',
-                  color: '#fff',
-                  border: '1px solid #27272a',
-                },
-              }}
-            />
-          </Router>
-        </AuthProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <ErrorBoundary>
+            <AppRoutes />
+          </ErrorBoundary>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              className: 'bg-card text-card-foreground border-border',
+            }}
+          />
+        </Router>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

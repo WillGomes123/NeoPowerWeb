@@ -190,3 +190,56 @@ export interface MapLocation {
   chargerCount: number;
   status: string;
 }
+
+// Meter Values (Charging Curve)
+export interface MeterValue {
+  timestamp: string;
+  power_kw: number;
+  current_a?: number;
+  voltage_v?: number;
+  soc_percent?: number;
+  energy_kwh: number;
+}
+
+// Alarm Types
+export type AlarmSeverity = 'critical' | 'high' | 'medium' | 'low';
+
+export interface Alarm {
+  id: string;
+  charger_id: string;
+  connector_id: number;
+  error_code: string;
+  severity: AlarmSeverity;
+  status: 'active' | 'acknowledged' | 'resolved';
+  message: string;
+  timestamp: string;
+  resolved_at?: string;
+  location_name?: string;
+}
+
+// Charging Schedule Types
+export interface ChargingSchedule {
+  id: string;
+  charger_id: string;
+  connector_id: number;
+  schedule_type: 'once' | 'recurring';
+  start_time: string;
+  end_time?: string;
+  days_of_week?: number[];
+  max_rate_kw?: number;
+  id_tag: string;
+  enabled: boolean;
+  created_at: string;
+  charger_name?: string;
+}
+
+// Charging Goal Types
+export interface ChargingGoal {
+  id: string;
+  charger_id: string;
+  goal_type: 'energy' | 'cost' | 'time' | 'soc';
+  target_value: number;
+  enabled: boolean;
+  charger_name?: string;
+  created_at: string;
+}
