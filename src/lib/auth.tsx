@@ -42,14 +42,65 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
   document.body.classList.remove('theme-default');
   document.body.classList.add('theme-default');
 
-  // Inject dynamic primary color CSS override if branding is available
-  const existingStyle = document.getElementById('dynamic-branding-style');
-  if (existingStyle) existingStyle.remove();
+  // Clean up previous dynamic styles
+  document.getElementById('dynamic-branding-style')?.remove();
+  document.getElementById('dynamic-light-theme')?.remove();
+  document.documentElement.classList.remove('dark');
 
+  // Admin always gets dark mode — no branding theme override
+  // Comum users get the theme defined in their branding config
+  const isAdmin = role === 'admin';
+  const wantsLight = !isAdmin && (branding as any)?.theme === 'light';
+
+  if (wantsLight) {
+    // Inject light mode surface/background/text overrides for comum users
+    const lightStyle = document.createElement('style');
+    lightStyle.id = 'dynamic-light-theme';
+    lightStyle.innerHTML = `:root {
+      --color-surface: #f0f2f5 !important;
+      --color-surface-dim: #e4e6e9 !important;
+      --color-surface-bright: #ffffff !important;
+      --color-surface-container: #ffffff !important;
+      --color-surface-container-low: #f7f8fa !important;
+      --color-surface-container-high: #eceef1 !important;
+      --color-surface-container-highest: #e2e4e8 !important;
+      --color-surface-container-lowest: #ffffff !important;
+      --color-surface-variant: #eceef1 !important;
+      --color-on-surface: #111827 !important;
+      --color-on-surface-variant: #4b5563 !important;
+      --color-on-background: #111827 !important;
+      --color-outline: #9ca3af !important;
+      --color-outline-variant: #d1d5db !important;
+      --color-background: #f0f2f5 !important;
+      --color-foreground: #111827 !important;
+      --color-card: #ffffff !important;
+      --color-card-foreground: #111827 !important;
+      --color-popover: #ffffff !important;
+      --color-popover-foreground: #111827 !important;
+      --color-muted: #f3f4f6 !important;
+      --color-muted-foreground: #4b5563 !important;
+      --color-accent: #f3f4f6 !important;
+      --color-accent-foreground: #111827 !important;
+      --color-border: #e5e7eb !important;
+      --color-input: #e5e7eb !important;
+      --color-input-background: #ffffff !important;
+      --color-switch-background: #d1d5db !important;
+      --color-sidebar: #ffffff !important;
+      --color-sidebar-foreground: #111827 !important;
+      --color-sidebar-accent: #f3f4f6 !important;
+      --color-sidebar-accent-foreground: #111827 !important;
+      --color-sidebar-border: #e5e7eb !important;
+    }`;
+    document.head.appendChild(lightStyle);
+  } else {
+    // Dark mode (default for admin and comum without light theme)
+    document.documentElement.classList.add('dark');
+  }
+
+  // Inject dynamic primary color CSS override if branding is available
   if (branding?.primaryColor) {
     const style = document.createElement('style');
     style.id = 'dynamic-branding-style';
-    // Derive lighter/darker variants from the primary color
     const hex = branding.primaryColor.replace('#', '');
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
@@ -58,17 +109,18 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
     const dimG = Math.max(0, Math.floor(g * 0.7));
     const dimB = Math.max(0, Math.floor(b * 0.7));
     const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
+    // Calculate on-primary color based on luminance (WCAG contrast)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
+    const onPrimaryContainer = luminance > 0.5 ? '#1a1a1a' : '#ffffff';
 
     style.innerHTML = `
       :root {
-        /* Base Variables (Traditional) */
         --primary: ${branding.primaryColor} !important;
         --ring: ${branding.primaryColor} !important;
         --chart-1: ${branding.primaryColor} !important;
         --sidebar-primary: ${branding.primaryColor} !important;
         --sidebar-ring: ${branding.primaryColor} !important;
-
-        /* Tailwind v4 CSS Variables (Tokens) */
         --color-primary: ${branding.primaryColor} !important;
         --color-primary-dim: ${containerHex} !important;
         --color-primary-container: ${branding.primaryColor} !important;
@@ -79,6 +131,10 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
         --color-sidebar-primary: ${branding.primaryColor} !important;
         --color-sidebar-ring: ${branding.primaryColor} !important;
         --color-chart-1: ${branding.primaryColor} !important;
+        --color-on-primary: ${onPrimary} !important;
+        --color-on-primary-container: ${onPrimaryContainer} !important;
+        --color-primary-foreground: ${onPrimary} !important;
+        --color-sidebar-primary-foreground: ${onPrimary} !important;
       }
     `;
     document.head.appendChild(style);

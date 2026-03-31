@@ -24,6 +24,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggle: toggleTheme } = useAppTheme();
+  const isAdmin = user?.role === 'admin';
+
 
   const navItems = [
     { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'comum'] },
@@ -97,13 +99,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
               />
               <div>
-                <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-white">
+                <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-sidebar-foreground">
                   {user?.branding?.companyName}
                 </h2>
               </div>
             </div>
           ) : (
-            <div className={`rounded-lg p-2 shadow-xl flex items-center justify-center w-fit ${isDark ? 'bg-white/95 shadow-white/5' : 'bg-surface-container shadow-black/5 border border-border/20'}`}>
+            <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center justify-center w-fit">
               <img
                 src={NeoPowerLogo}
                 alt="NeoPower"
@@ -138,8 +140,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="px-6 mt-auto border-t border-sidebar-border/15 pt-6">
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full flex items-center gap-3 text-left">
-              <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden flex items-center justify-center">
-                <span className="material-symbols-outlined text-muted-foreground text-xl">person</span>
+              <div className="w-10 h-10 rounded-full bg-primary/15 overflow-hidden flex items-center justify-center shrink-0">
+                <span className="text-primary text-base font-bold">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
@@ -151,13 +153,17 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <DropdownMenuLabel className="text-muted-foreground">Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={handleRoleSwitch}
-                className="text-muted-foreground focus:bg-accent focus:text-foreground cursor-pointer"
-              >
-                Alternar para {roleLabels[nextRole]}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
+              {isAdmin && import.meta.env.MODE !== 'production' && (
+                <>
+                  <DropdownMenuItem
+                    onClick={handleRoleSwitch}
+                    className="text-muted-foreground focus:bg-accent focus:text-foreground cursor-pointer"
+                  >
+                    Alternar para {roleLabels[nextRole]}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-border" />
+                </>
+              )}
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer"
@@ -185,14 +191,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-            title={isDark ? 'Modo Claro' : 'Modo Escuro'}
-          >
-            {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+              title={isDark ? 'Modo Claro' : 'Modo Escuro'}
+            >
+              {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+            </button>
+          )}
           <NotificationBell />
         </div>
       </header>

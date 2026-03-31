@@ -189,12 +189,12 @@ export function DateRangePicker({
           className={cn(
             'justify-start text-left font-normal',
             'bg-surface-container-high border-border text-foreground hover:bg-accent hover:text-foreground',
-            'focus:ring-2 focus:ring-emerald-500/50 focus:border-border',
+            'focus:ring-2 focus:ring-primary/50 focus:border-border',
             !startDate && !endDate && 'text-muted-foreground',
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4 text-emerald-500" />
+          <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
           <span className="truncate">{getDisplayText()}</span>
           {(startDate || endDate) && (
             <X
@@ -226,7 +226,7 @@ export function DateRangePicker({
                 className={cn(
                   'w-full text-left px-3 py-2 rounded-md text-sm transition-all',
                   selectedPreset === preset.label
-                    ? 'bg-emerald-500 text-emerald-950 font-medium'
+                    ? 'bg-primary text-on-primary font-medium'
                     : 'text-foreground/70 hover:bg-surface-container-high hover:text-foreground'
                 )}
               >
@@ -244,7 +244,7 @@ export function DateRangePicker({
                   placeholder="X"
                   value={customDays}
                   onChange={(e) => handleCustomDaysChange(e.target.value)}
-                  className="w-16 h-8 text-center bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="w-16 h-8 text-center bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-primary/50"
                 />
                 <span className="text-xs text-muted-foreground">dias</span>
               </div>
@@ -266,11 +266,11 @@ export function DateRangePicker({
                     onStartDateChange(e.target.value);
                     setSelectedPreset(null);
                   }}
-                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-primary/50"
                 />
               </div>
               <div className="flex items-center pt-5">
-                <span className="text-emerald-500">→</span>
+                <span className="text-primary">→</span>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1 block">
@@ -283,7 +283,7 @@ export function DateRangePicker({
                     onEndDateChange(e.target.value);
                     setSelectedPreset(null);
                   }}
-                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
+                  className="h-9 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-primary/50"
                 />
               </div>
             </div>
@@ -318,7 +318,7 @@ export function DateRangePicker({
                   row: 'flex w-full mt-1',
                   cell: cn(
                     'relative p-0.5 text-center text-sm focus-within:relative focus-within:z-20',
-                    '[&:has([aria-selected])]:bg-emerald-500/20',
+                    '[&:has([aria-selected])]:bg-primary/20',
                     '[&:has([aria-selected].day-range-end)]:rounded-r-lg',
                     '[&:has([aria-selected].day-range-start)]:rounded-l-lg',
                     'first:[&:has([aria-selected])]:rounded-l-lg',
@@ -327,16 +327,16 @@ export function DateRangePicker({
                   day: cn(
                     'h-10 w-10 p-0 font-medium rounded-lg transition-all duration-200',
                     'text-foreground hover:bg-accent hover:text-foreground',
-                    'focus:outline-none focus:ring-2 focus:ring-emerald-500/50',
+                    'focus:outline-none focus:ring-2 focus:ring-primary/50',
                     'aria-selected:opacity-100 cursor-pointer'
                   ),
-                  day_range_start: 'day-range-start !bg-emerald-500 !text-emerald-950 font-bold rounded-l-lg shadow-md',
-                  day_range_end: 'day-range-end !bg-emerald-500 !text-emerald-950 font-bold rounded-r-lg shadow-md',
-                  day_selected: '!bg-emerald-500 !text-emerald-950 font-bold shadow-md',
-                  day_today: 'bg-primary/10 text-emerald-400 font-bold ring-2 ring-emerald-400/70',
+                  day_range_start: 'day-range-start !bg-primary !text-on-primary font-bold rounded-l-lg shadow-md',
+                  day_range_end: 'day-range-end !bg-primary !text-on-primary font-bold rounded-r-lg shadow-md',
+                  day_selected: '!bg-primary !text-on-primary font-bold shadow-md',
+                  day_today: 'bg-primary/10 text-primary font-bold ring-2 ring-primary/70',
                   day_outside: 'text-muted-foreground/50 opacity-40 hover:opacity-60',
                   day_disabled: 'text-muted-foreground/30 opacity-30 cursor-not-allowed',
-                  day_range_middle: '!bg-emerald-500/25 !text-emerald-50',
+                  day_range_middle: '!bg-primary/25 !text-on-primary',
                   day_hidden: 'invisible',
                 }}
                 components={{
@@ -353,7 +353,7 @@ export function DateRangePicker({
             {showTime && (
               <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-emerald-500" />
+                  <Clock className="h-4 w-4 text-primary" />
                   <span className="text-xs text-muted-foreground">Horário:</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -361,14 +361,14 @@ export function DateRangePicker({
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
+                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-primary/50"
                   />
-                  <span className="text-emerald-500">-</span>
+                  <span className="text-primary">-</span>
                   <Input
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-emerald-500/50"
+                    className="w-24 h-8 bg-surface-container-high border-border text-foreground text-sm focus:ring-1 focus:ring-primary/50"
                   />
                 </div>
               </div>
@@ -387,7 +387,7 @@ export function DateRangePicker({
               <Button
                 size="sm"
                 onClick={() => setIsOpen(false)}
-                className="bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-medium"
+                className="bg-primary hover:bg-primary/80 text-on-primary font-medium"
               >
                 Aplicar
               </Button>

@@ -17,6 +17,7 @@ export interface BrandingConfig {
   logoType: 'programmatic' | 'image';
   logoUri?: string;
   primaryColor: string;
+  theme?: 'dark' | 'light';
 }
 
 export interface Location {

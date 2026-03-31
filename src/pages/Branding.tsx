@@ -23,6 +23,7 @@ interface BrandingConfig {
   splashUri?: string;
   splashBgColor?: string;
   primaryColor?: string;
+  theme?: 'dark' | 'light';
   updatedAt?: string;
 }
 
@@ -72,6 +73,7 @@ export const Branding = () => {
     splashUri: '',
     splashBgColor: '#000000',
     primaryColor: '#00FF88',
+    theme: 'dark' as 'dark' | 'light',
   });
 
   const fetchConfigs = async () => {
@@ -114,6 +116,7 @@ export const Branding = () => {
           splashUri: '',
           splashBgColor: '#000000',
           primaryColor: '#00FF88',
+          theme: 'dark',
         });
         void fetchConfigs();
       } else {
@@ -375,6 +378,7 @@ export const Branding = () => {
                   splashUri: '',
                   splashBgColor: '#000000',
                   primaryColor: '#00FF88',
+                  theme: 'dark',
                 })
               }
             >
@@ -566,6 +570,47 @@ export const Branding = () => {
                       <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface font-mono h-9 text-sm" />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Tema da Web */}
+              <div className="space-y-3">
+                <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Tema da Plataforma Web</p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, theme: 'dark' })}
+                    className={`flex-1 flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                      formData.theme === 'dark'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-outline-variant/20 text-on-surface-variant hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded bg-[#0e0e0e] border border-[#494847] flex items-center justify-center">
+                      <span className="text-[#39FF14] text-xs font-bold">A</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold">Escuro</p>
+                      <p className="text-[10px] text-on-surface-variant">Fundo escuro, texto claro</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, theme: 'light' })}
+                    className={`flex-1 flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                      formData.theme === 'light'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-outline-variant/20 text-on-surface-variant hover:border-primary/30'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded bg-[#f0f2f5] border border-[#d1d5db] flex items-center justify-center">
+                      <span className="text-[#111827] text-xs font-bold">A</span>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold">Claro</p>
+                      <p className="text-[10px] text-on-surface-variant">Fundo claro, texto escuro</p>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
