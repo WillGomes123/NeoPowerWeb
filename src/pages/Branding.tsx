@@ -101,9 +101,20 @@ export const Branding = () => {
       return;
     }
 
+    console.log('Enviando Branding (isEdit?):', !!formData.updatedAt, formData);
     setSubmitting(true);
     try {
-      const response = await api.post('/admin/branding', formData);
+      let response;
+      const { updatedAt, ...dataToSave } = formData;
+
+      if (updatedAt) {
+        // Enviar atualização (PUT)
+        response = await api.put(`/admin/branding/${encodeURIComponent(formData.clientId!)}`, dataToSave);
+      } else {
+        // Enviar criação (POST)
+        response = await api.post('/admin/branding', dataToSave);
+      }
+
       if (response.ok) {
         toast.success('Configuração de marca salva com sucesso!');
         setIsDialogOpen(false);
@@ -649,6 +660,7 @@ export const Branding = () => {
                   <th className="px-6 py-4">Empresa</th>
                   <th className="px-6 py-4">Cores</th>
                   <th className="px-6 py-4">Tipo Logo</th>
+                  <th className="px-6 py-4 text-center">Tema Web</th>
                   <th className="px-6 py-4 text-right">Acoes</th>
                 </tr>
               </thead>
@@ -684,6 +696,18 @@ export const Branding = () => {
                           Imagem
                         </span>
                       )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                        config.theme === 'light' 
+                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        <span className="material-symbols-outlined text-xs">
+                          {config.theme === 'light' ? 'light_mode' : 'dark_mode'}
+                        </span>
+                        {config.theme === 'light' ? 'CLARO' : 'ESCURO'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-1.5">

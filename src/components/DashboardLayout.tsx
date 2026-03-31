@@ -23,7 +23,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, logout, switchRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isDark, toggle: toggleTheme } = useAppTheme();
+  const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding?.theme);
   const isAdmin = user?.role === 'admin';
 
 

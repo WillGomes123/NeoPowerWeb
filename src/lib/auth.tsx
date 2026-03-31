@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useState,
@@ -9,6 +9,8 @@ import React, {
 } from 'react';
 import { toast } from 'sonner';
 import { User, UserRole, BrandingConfig } from '../types';
+import { lightVars } from './theme-constants';
+
 
 // Session timeout em milissegundos (30 minutos)
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -37,7 +39,7 @@ const normalizeRole = (role?: string | null): UserRole => {
   return 'comum';
 };
 
-const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig | null) => {
+const applyThemeAndBranding = (branding?: BrandingConfig | null) => {
   if (typeof document === 'undefined') return;
   document.body.classList.remove('theme-default');
   document.body.classList.add('theme-default');
@@ -47,55 +49,24 @@ const applyThemeAndBranding = (role?: UserRole | null, branding?: BrandingConfig
   document.getElementById('dynamic-light-theme')?.remove();
   document.documentElement.classList.remove('dark');
 
-  // Admin always gets dark mode — no branding theme override
-  // Comum users get the theme defined in their branding config
-  const isAdmin = role === 'admin';
-  const wantsLight = !isAdmin && (branding as any)?.theme === 'light';
+  // Honor branding theme for all roles
+  const wantsLight = (branding as any)?.theme === 'light';
 
   if (wantsLight) {
-    // Inject light mode surface/background/text overrides for comum users
+    // Inject light mode overrides using shared constants
     const lightStyle = document.createElement('style');
     lightStyle.id = 'dynamic-light-theme';
-    lightStyle.innerHTML = `:root {
-      --color-surface: #f0f2f5 !important;
-      --color-surface-dim: #e4e6e9 !important;
-      --color-surface-bright: #ffffff !important;
-      --color-surface-container: #ffffff !important;
-      --color-surface-container-low: #f7f8fa !important;
-      --color-surface-container-high: #eceef1 !important;
-      --color-surface-container-highest: #e2e4e8 !important;
-      --color-surface-container-lowest: #ffffff !important;
-      --color-surface-variant: #eceef1 !important;
-      --color-on-surface: #111827 !important;
-      --color-on-surface-variant: #4b5563 !important;
-      --color-on-background: #111827 !important;
-      --color-outline: #9ca3af !important;
-      --color-outline-variant: #d1d5db !important;
-      --color-background: #f0f2f5 !important;
-      --color-foreground: #111827 !important;
-      --color-card: #ffffff !important;
-      --color-card-foreground: #111827 !important;
-      --color-popover: #ffffff !important;
-      --color-popover-foreground: #111827 !important;
-      --color-muted: #f3f4f6 !important;
-      --color-muted-foreground: #4b5563 !important;
-      --color-accent: #f3f4f6 !important;
-      --color-accent-foreground: #111827 !important;
-      --color-border: #e5e7eb !important;
-      --color-input: #e5e7eb !important;
-      --color-input-background: #ffffff !important;
-      --color-switch-background: #d1d5db !important;
-      --color-sidebar: #ffffff !important;
-      --color-sidebar-foreground: #111827 !important;
-      --color-sidebar-accent: #f3f4f6 !important;
-      --color-sidebar-accent-foreground: #111827 !important;
-      --color-sidebar-border: #e5e7eb !important;
-    }`;
+    const rules = Object.entries(lightVars)
+      .map(([key, value]) => `${key}: ${value} !important;`)
+      .join('\n      ');
+    lightStyle.innerHTML = `:root {\n      ${rules}\n    }`;
     document.head.appendChild(lightStyle);
+    document.documentElement.classList.remove('dark');
   } else {
-    // Dark mode (default for admin and comum without light theme)
+    // Dark mode (default)
     document.documentElement.classList.add('dark');
   }
+
 
   // Inject dynamic primary color CSS override if branding is available
   if (branding?.primaryColor) {
@@ -172,7 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeAndBranding(null, null);
+    applyThemeAndBranding(null);
     // Redirecionar para login com mensagem
     if (typeof window !== 'undefined') {
       window.location.href = '/login?expired=true';
@@ -235,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeAndBranding(null, null);
+        applyThemeAndBranding(null);
         return;
       }
     }
@@ -265,15 +236,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeAndBranding(null, null);
+        applyThemeAndBranding(null);
       }
     } else {
-      applyThemeAndBranding(null, null);
+      applyThemeAndBranding(null);
     }
   }, []);
 
   useEffect(() => {
-    applyThemeAndBranding(user?.role, user?.branding);
+    applyThemeAndBranding(user?.branding);
   }, [user?.role, user?.branding]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -369,7 +340,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeAndBranding(null, null);
+    applyThemeAndBranding(null);
   };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
@@ -456,7 +427,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       setUser({ ...user, role });
       localStorage.setItem('userRole', role);
-      applyThemeAndBranding(role, user.branding);
+      applyThemeAndBranding(user.branding);
     }
   };
 
