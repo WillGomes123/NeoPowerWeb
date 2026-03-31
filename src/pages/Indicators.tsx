@@ -193,10 +193,10 @@ export const Indicators = () => {
             <div
               key={key}
               onClick={() => setSelectedMetric(key)}
-              className={`glass-panel p-6 rounded-lg border flex flex-col justify-between h-32 cursor-pointer transition-all duration-200 ${
+              className={`glass-panel p-6 rounded-lg border-2 flex flex-col justify-between h-32 cursor-pointer transition-all duration-200 ${
                 isSelected
-                  ? 'border-primary/40 shadow-[0_0_20px_rgba(142,255,113,0.08)] ring-1 ring-primary/20'
-                  : 'border-outline-variant/10 hover:border-primary/30'
+                  ? 'border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20 bg-primary/5'
+                  : 'border-transparent hover:border-primary/30'
               }`}
             >
               <div className="flex justify-between items-start">

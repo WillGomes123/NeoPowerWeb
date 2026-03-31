@@ -141,7 +141,7 @@ export function LocationDetails() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-          <p className="text-zinc-400">Carregando local...</p>
+          <p className="text-muted-foreground">Carregando local...</p>
         </div>
       </div>
     );
@@ -150,11 +150,11 @@ export function LocationDetails() {
   if (!location) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="bg-zinc-900/50 border-zinc-800 p-8">
+        <Card className="bg-card border-border p-8">
           <div className="text-center">
             <Building2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Local não encontrado</h2>
-            <p className="text-zinc-400 mb-4">O local solicitado não existe ou foi removido.</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">Local não encontrado</h2>
+            <p className="text-muted-foreground mb-4">O local solicitado não existe ou foi removido.</p>
             <Button onClick={() => navigate('/locais')} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar para Locais
@@ -168,11 +168,11 @@ export function LocationDetails() {
   if (visibleTabs.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="bg-zinc-900/50 border-zinc-800 p-8">
+        <Card className="bg-card border-border p-8">
           <div className="text-center">
             <Users className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">Acesso Restrito</h2>
-            <p className="text-zinc-400 mb-4">Você não tem permissão para visualizar este local.</p>
+            <h2 className="text-xl font-bold text-foreground mb-2">Acesso Restrito</h2>
+            <p className="text-muted-foreground mb-4">Você não tem permissão para visualizar este local.</p>
             <Button onClick={() => navigate('/locais')} variant="outline">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Voltar para Locais
@@ -192,15 +192,15 @@ export function LocationDetails() {
             variant="ghost"
             size="icon"
             onClick={() => navigate('/locais')}
-            className="text-zinc-300 hover:text-white hover:bg-zinc-800"
+            className="text-foreground/70 hover:text-foreground hover:bg-accent"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-foreground">
               {location.nomeDoLocal || 'Local sem nome'}
             </h1>
-            <p className="text-zinc-400 text-sm flex items-center gap-1">
+            <p className="text-muted-foreground text-sm flex items-center gap-1">
               <MapPin className="w-3 h-3" />
               {location.endereco}, {location.numero} - {location.cidade}/{location.estado}
             </p>
@@ -211,7 +211,7 @@ export function LocationDetails() {
           size="sm"
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          className="border-border text-foreground/70 hover:bg-accent"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Atualizar
@@ -219,7 +219,7 @@ export function LocationDetails() {
       </div>
 
       {/* Tabs Navigation */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-2">
           <div className="flex flex-wrap gap-1">
             {visibleTabs.map((tab) => {
@@ -233,8 +233,8 @@ export function LocationDetails() {
                   className={`
                     flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all
                     ${isActive
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                      ? 'bg-primary/10 text-primary border border-primary/30'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                     }
                   `}
                 >

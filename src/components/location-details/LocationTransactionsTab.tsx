@@ -96,13 +96,13 @@ export function LocationTransactionsTab({ locationId }: Props) {
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
     if (statusLower === 'completed') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">Concluída</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">Concluída</span>;
     }
     if (statusLower === 'active') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400">Em andamento</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400">Em andamento</span>;
     }
     if (statusLower === 'failed') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400">Falhou</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-600 dark:text-red-400">Falhou</span>;
     }
     return <span className="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400">{status}</span>;
   };
@@ -117,22 +117,22 @@ export function LocationTransactionsTab({ locationId }: Props) {
   return (
     <div className="space-y-6">
       {/* Filtros */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400/50" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400/50" />
               <Input
                 placeholder="Buscar por carregador ou usuário..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white"
+                className="pl-10 bg-surface-container border-border text-foreground"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              className="h-10 px-3 rounded-md bg-zinc-800/50 border border-zinc-700 text-white text-sm"
+              className="h-10 px-3 rounded-md bg-surface-container border border-border text-foreground text-sm"
             >
               <option value="">Todos os status</option>
               <option value="Completed">Concluídas</option>
@@ -144,7 +144,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
               size="sm"
               onClick={fetchTransactions}
               disabled={isLoading}
-              className="border-zinc-700 text-zinc-300"
+              className="border-border text-foreground/70"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Atualizar
@@ -154,14 +154,14 @@ export function LocationTransactionsTab({ locationId }: Props) {
       </Card>
 
       {/* Tabela de Transações */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-4">
-          <CardTitle className="text-lg text-white flex items-center justify-between">
+      <Card className="bg-card border-border">
+        <CardHeader className="border-b border-border pb-4">
+          <CardTitle className="text-lg text-foreground flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-400" />
+              <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Transações
             </span>
-            <span className="text-sm font-normal text-zinc-400">
+            <span className="text-sm font-normal text-muted-foreground">
               {total} transações encontradas
             </span>
           </CardTitle>
@@ -172,42 +172,42 @@ export function LocationTransactionsTab({ locationId }: Props) {
               <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
             </div>
           ) : filteredTransactions.length === 0 ? (
-            <div className="text-center py-12 text-zinc-400">
+            <div className="text-center py-12 text-muted-foreground">
               Nenhuma transação encontrada
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-zinc-800">
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">ID</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Carregador</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Início</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Duração</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Energia</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Valor</th>
-                    <th className="text-left py-3 px-4 text-xs text-zinc-400 uppercase tracking-wider">Status</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">ID</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Carregador</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Início</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Duração</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Energia</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Valor</th>
+                    <th className="text-left py-3 px-4 text-xs text-muted-foreground uppercase tracking-wider">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTransactions.map((t) => (
-                    <tr key={t.id} className="border-b border-zinc-800/50 hover:bg-zinc-700">
-                      <td className="py-3 px-4 text-white font-mono text-sm">#{t.transactionId || t.id}</td>
-                      <td className="py-3 px-4 text-white text-sm">{t.chargePointId}</td>
-                      <td className="py-3 px-4 text-zinc-400 text-sm">{formatDate(t.startTimestamp)}</td>
-                      <td className="py-3 px-4 text-zinc-400 text-sm">
+                    <tr key={t.id} className="border-b border-border/50 hover:bg-surface-container-highest">
+                      <td className="py-3 px-4 text-foreground font-mono text-sm">#{t.transactionId || t.id}</td>
+                      <td className="py-3 px-4 text-foreground text-sm">{t.chargePointId}</td>
+                      <td className="py-3 px-4 text-foreground/70 text-sm">{formatDate(t.startTimestamp)}</td>
+                      <td className="py-3 px-4 text-foreground/70 text-sm">
                         <span className="inline-flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {formatDuration(t.startTimestamp, t.stopTimestamp)}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-amber-400 text-sm">
+                      <td className="py-3 px-4 text-amber-600 dark:text-amber-600 dark:text-amber-400 text-sm">
                         <span className="inline-flex items-center gap-1">
                           <Zap className="w-3 h-3" />
                           {((t.consumedWh || 0) / 1000).toFixed(2)} kWh
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-emerald-400 text-sm">
+                      <td className="py-3 px-4 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 text-sm">
                         <span className="inline-flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
                           R$ {parseFloat(String(t.totalCost || 0)).toFixed(2)}
@@ -223,8 +223,8 @@ export function LocationTransactionsTab({ locationId }: Props) {
 
           {/* Paginação */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between p-4 border-t border-zinc-800">
-              <p className="text-sm text-zinc-400">
+            <div className="flex items-center justify-between p-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
                 Página {page} de {totalPages}
               </p>
               <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
                   size="sm"
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1 || isLoading}
-                  className="border-zinc-700 text-zinc-300"
+                  className="border-border text-foreground/70"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
@@ -242,7 +242,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
                   size="sm"
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages || isLoading}
-                  className="border-zinc-700 text-zinc-300"
+                  className="border-border text-foreground/70"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </Button>

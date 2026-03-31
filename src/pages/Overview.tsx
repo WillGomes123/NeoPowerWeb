@@ -97,8 +97,8 @@ export const Overview = () => {
   }, [data]);
 
   const statusData = [
-    { name: 'Online', value: statusCounts.online, color: 'var(--primary)' },
-    { name: 'Offline', value: statusCounts.offline, color: '#777575' },
+    { name: 'Online', value: statusCounts.online, color: 'var(--color-primary)' },
+    { name: 'Offline', value: statusCounts.offline, color: 'var(--color-outline)' },
     { name: 'Carregando', value: statusCounts.charging, color: 'var(--color-tertiary)' },
   ];
 
@@ -291,15 +291,15 @@ export const Overview = () => {
                     <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.2} vertical={false} />
-                <XAxis dataKey="date" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `R$${v}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} vertical={false} />
+                <XAxis dataKey="date" stroke="var(--color-outline)" tick={{ fill: 'var(--color-muted-foreground)', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis stroke="var(--color-outline)" tick={{ fill: 'var(--color-muted-foreground)', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `R$${v}`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
-                  labelStyle={{ color: '#adaaaa', fontWeight: 600 }}
+                  contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-foreground)' }}
+                  labelStyle={{ color: 'var(--color-muted-foreground)', fontWeight: 600 }}
                   itemStyle={{ color: 'var(--primary)', fontWeight: 700 }}
                 />
-                <Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" activeDot={{ r: 5, fill: 'var(--primary)', stroke: '#0e0e0e', strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="value" stroke="var(--primary)" strokeWidth={2} fillOpacity={1} fill="url(#revGrad)" activeDot={{ r: 5, fill: 'var(--primary)', stroke: 'var(--color-background)', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -322,12 +322,12 @@ export const Overview = () => {
                     <stop offset="100%" stopColor="#00deea" stopOpacity={0.4} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.2} vertical={false} />
-                <XAxis dataKey="date" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
-                <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `${v} kW`} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-outline-variant)" strokeOpacity={0.2} vertical={false} />
+                <XAxis dataKey="date" stroke="var(--color-outline)" tick={{ fill: 'var(--color-muted-foreground)', fontSize: 10 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis stroke="var(--color-outline)" tick={{ fill: 'var(--color-muted-foreground)', fontSize: 10 }} axisLine={false} tickLine={false} dx={-10} tickFormatter={(v) => `${v} kW`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', backdropFilter: 'blur(8px)' }}
-                  labelStyle={{ color: '#adaaaa', fontWeight: 600 }}
+                  contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-foreground)' }}
+                  labelStyle={{ color: 'var(--color-muted-foreground)', fontWeight: 600 }}
                   itemStyle={{ color: '#88f6ff', fontWeight: 700 }}
                   cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                 />
@@ -373,8 +373,8 @@ export const Overview = () => {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px' }}
-                    labelStyle={{ color: '#adaaaa' }}
+                    contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-foreground)' }}
+                    labelStyle={{ color: 'var(--color-muted-foreground)' }}
                   />
                 </PieChart>
               </ResponsiveContainer>

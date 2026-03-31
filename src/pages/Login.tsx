@@ -188,7 +188,7 @@ export const Login = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#0e0e0e] w-full py-8 border-t border-white/5">
+      <footer className="bg-background w-full py-8 border-t border-border/10">
         <div className="flex flex-col md:flex-row justify-between items-center px-8 max-w-7xl mx-auto gap-4">
           <div className="text-sm tracking-wide text-on-surface-variant">
             © 2025 NeoPower Systems. Todos os Direitos Reservados.

@@ -12,12 +12,6 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-<<<<<<< HEAD
-import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
-import {
-  AreaChart, BarChart, LineChart, Area, Bar, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-=======
 import { exportToCSV, exportToExcel } from '@/lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -26,7 +20,6 @@ import { PerformanceReportTemplate } from '../PerformanceReportTemplate';
 import { 
   AreaChart, BarChart, LineChart, Area, Bar, Line, 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
->>>>>>> 369f77871143a7d82dc526e4cc33de76d3271c15
 } from 'recharts';
 
 interface PerformanceData {
@@ -72,7 +65,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
       const response = await api.get(`/locations/${locationId}/performance?period=${period}`);
       if (!response.ok) throw new Error('Erro ao carregar performance');
       const result = await response.json();
-      setData(result.data || result);
+      setData(result);
     } catch (error) {
       console.error('Erro ao carregar performance:', error);
       toast.error('Erro ao carregar dados de performance');
@@ -255,95 +248,95 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-emerald-400" />
+                <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Taxa Ocupação</p>
-                <p className="text-xl font-bold text-white">{data?.totals.avgOccupancy || 0}%</p>
+                <p className="text-xs text-muted-foreground uppercase">Taxa Ocupação</p>
+                <p className="text-xl font-bold text-foreground">{data?.totals.avgOccupancy || 0}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Zap className="w-5 h-5 text-amber-400" />
+                <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Energia Total</p>
-                <p className="text-xl font-bold text-white">{Number(data?.totals.totalEnergy || 0).toFixed(1)} kWh</p>
+                <p className="text-xs text-muted-foreground uppercase">Energia Total</p>
+                <p className="text-xl font-bold text-foreground">{data?.totals.totalEnergy.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Clock className="w-5 h-5 text-blue-400" />
+                <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Disponibilidade</p>
-                <p className="text-xl font-bold text-white">{data?.totals.avgAvailability || 0}%</p>
+                <p className="text-xs text-muted-foreground uppercase">Disponibilidade</p>
+                <p className="text-xl font-bold text-foreground">{data?.totals.avgAvailability || 0}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Activity className="w-5 h-5 text-purple-400" />
+                <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Sessões</p>
-                <p className="text-xl font-bold text-white">{data?.totals.totalSessions || 0}</p>
+                <p className="text-xs text-muted-foreground uppercase">Sessões</p>
+                <p className="text-xl font-bold text-foreground">{data?.totals.totalSessions || 0}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-cyan-500/20 rounded-lg">
-                <BarChart3 className="w-5 h-5 text-cyan-400" />
+                <BarChart3 className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
               </div>
               <div>
-                <p className="text-xs text-zinc-400 uppercase">Média Diária</p>
-                <p className="text-xl font-bold text-white">{Number(data?.totals.avgUtilization || 0).toFixed(1)} kWh</p>
+                <p className="text-xs text-muted-foreground uppercase">Média Diária</p>
+                <p className="text-xl font-bold text-foreground">{data?.totals.avgUtilization.toFixed(1) || 0} kWh</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
-        <CardHeader className="border-b border-zinc-800 pb-4">
+      <Card className="bg-card border-border">
+        <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <CardTitle className="text-lg text-white flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-400" />
+            <CardTitle className="text-lg text-foreground flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Performance
             </CardTitle>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex rounded-lg bg-zinc-800/50 p-1">
+              <div className="flex rounded-lg bg-surface-container p-1">
                 {(Object.keys(metricsConfig) as MetricType[]).map((metric) => (
                   <button
                     key={metric}
                     onClick={() => setSelectedMetric(metric)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       selectedMetric === metric
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-zinc-400 hover:text-zinc-300'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
                     {metricsConfig[metric].label.split(' ')[0]}
@@ -351,15 +344,15 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 ))}
               </div>
 
-              <div className="flex rounded-lg bg-zinc-800/50 p-1">
+              <div className="flex rounded-lg bg-surface-container p-1">
                 {(['7d', '15d', '30d', '90d'] as Period[]).map((p) => (
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       period === p
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-zinc-400 hover:text-zinc-300'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
                     {p === '7d' ? '7 dias' : p === '15d' ? '15 dias' : p === '30d' ? '30 dias' : '90 dias'}
@@ -367,15 +360,15 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 ))}
               </div>
 
-              <div className="flex rounded-lg bg-zinc-800/50 p-1">
+              <div className="flex rounded-lg bg-surface-container p-1">
                 {(['area', 'bar', 'line'] as ChartType[]).map((type) => (
                   <button
                     key={type}
                     onClick={() => setChartType(type)}
                     className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
                       chartType === type
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'text-zinc-400 hover:text-zinc-300'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
                     {type === 'area' ? 'Área' : type === 'bar' ? 'Barras' : 'Linha'}
@@ -388,7 +381,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 size="sm"
                 onClick={fetchData}
                 disabled={isLoading}
-                className="text-zinc-300 hover:bg-zinc-700"
+                className="text-foreground/70 hover:bg-surface-container-highest"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
@@ -398,7 +391,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="h-[400px] flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-white animate-spin" />
+              <RefreshCw className="w-8 h-8 text-foreground animate-spin" />
             </div>
           ) : (
             <div className="h-[400px]">
@@ -410,19 +403,19 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         </CardContent>
       </Card>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="text-white font-medium">Exportar Relatório</h3>
-              <p className="text-sm text-zinc-400">Baixe os dados de performance em diferentes formatos</p>
+              <h3 className="text-foreground font-medium">Exportar Relatório</h3>
+              <p className="text-sm text-muted-foreground">Baixe os dados de performance em diferentes formatos</p>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('csv')}
-                className="border-zinc-700 text-zinc-300"
+                className="border-border text-foreground/70"
               >
                 <Download className="w-4 h-4 mr-2" />
                 CSV
@@ -431,7 +424,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport('excel')}
-                className="border-zinc-700 text-zinc-300"
+                className="border-border text-foreground/70"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Excel
@@ -441,10 +434,10 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                 size="sm"
                 onClick={() => handleExport('pdf')}
                 disabled={pdfLoading}
-                className="border-zinc-700 text-zinc-300"
+                className="border-border text-foreground/70"
               >
                 {pdfLoading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                PDF Profissional
+                Exportar PDF
               </Button>
             </div>
           </div>
