@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { lightVars } from '../lib/theme-constants';
+import { lightVars, darkVars } from '../lib/theme-constants';
 
 
 const STORAGE_KEY = 'neopower-theme';
@@ -9,67 +9,114 @@ const STORAGE_KEY = 'neopower-theme';
 
 const STYLE_ID = 'neopower-theme-overrides';
 
-function applyTheme(isDark: boolean) {
-  // Toggle class for glass-panel / glass-card
+function applyTheme(isDark: boolean, branding?: any) {
+  // Toggle class for basic tailwind compatibility
   if (isDark) {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
 
-  // Remove existing override style
+  // Determine base variables
+  const baseVars = isDark ? darkVars : lightVars;
+
+  // Determine primary color
+  const defaultPrimary = !isDark ? '#059669' : '#39FF14';
+  const activePrimary = branding?.primaryColor || defaultPrimary;
+
+  // Prepare primary-related derivations (matching auth.tsx logic)
+  const hex = activePrimary.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  
+  // Calculate a "container" color (dimmed version)
+  const dimR = Math.max(0, Math.floor(r * 0.7));
+  const dimG = Math.max(0, Math.floor(g * 0.7));
+  const dimB = Math.max(0, Math.floor(b * 0.7));
+  const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
+  
+  // Contrast color for text on primary
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
+
+  // Branding variables
+  const brandingVars: Record<string, string> = {
+    '--primary': activePrimary,
+    '--ring': activePrimary,
+    '--sidebar-primary': activePrimary,
+    '--sidebar-ring': activePrimary,
+    '--color-primary': activePrimary,
+    '--color-primary-dim': containerHex,
+    '--color-primary-container': activePrimary,
+    '--color-on-primary': onPrimary,
+    '--color-primary-foreground': onPrimary,
+    '--color-sidebar-primary-foreground': onPrimary,
+  };
+
+  // Merge all
+  const allRules = { ...baseVars, ...brandingVars };
+
+  console.log('[useAppTheme] applyTheme isDark:', isDark, 'branding:', branding?.theme, branding?.primaryColor);
+  console.log('[useAppTheme] First 5 rules applied:', Object.entries(allRules).slice(0, 5));
+
+  // Apply to DOM
   let styleEl = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
-
-  if (isDark) {
-    // Dark is the default in @theme inline — remove any override
-    if (styleEl) styleEl.remove();
-    return;
-  }
-
-  // Light mode: inject a <style> with :root overrides that beat @theme
   if (!styleEl) {
     styleEl = document.createElement('style');
     styleEl.id = STYLE_ID;
     document.head.appendChild(styleEl);
   }
 
-  const vars = lightVars;
-  const rules = Object.entries(vars)
-    .map(([key, value]) => `${key}: ${value} !important;`)
+  const cssContent = Object.entries(allRules)
+    .map(([key, value]) => {
+      const dynKey = key.startsWith('--color-') 
+        ? `--dyn-${key.substring(2)}` 
+        : `--dyn${key}`; 
+      return `${key}: ${value};\n    ${dynKey}: ${value};`;
+    })
     .join('\n    ');
 
-  styleEl.textContent = `:root {\n    ${rules}\n  }`;
+  styleEl.textContent = `:root {\n    ${cssContent}\n  }`;
 }
 
 function getInitialTheme(brandingTheme?: 'dark' | 'light'): boolean {
+  // 1. O Tema definido pelo dono do Branding (Whitelabel) é prioridade absoluta.
+  if (brandingTheme === 'light') return false;
+  if (brandingTheme === 'dark') return true;
+
+  // 2. Se a marcação for genérica, fallback para o cache local do admin 
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'light') return false;
     if (saved === 'dark') return true;
   } catch { /* ignore */ }
 
-  // Fallback to branding theme if no saved preference
-  if (brandingTheme === 'light') return false;
-  return true; // default: dark
+  // 3. Padrão Absoluto
+  return true; 
 }
 
-export function useAppTheme(brandingTheme?: 'dark' | 'light') {
-  const [isDark, setIsDark] = useState(() => getInitialTheme(brandingTheme));
+export function useAppTheme(branding?: any) {
+  const [isDark, setIsDark] = useState(() => getInitialTheme(branding?.theme));
 
-  // Update theme if branding theme changes and no saved preference
+  // Força atualização se o admin mudar ou logar e vier uma informação nova
   useEffect(() => {
-    if (!localStorage.getItem(STORAGE_KEY) && brandingTheme) {
-      setIsDark(brandingTheme === 'dark');
+    if (branding?.theme) {
+      setIsDark(branding.theme === 'dark');
+      try {
+        localStorage.setItem(STORAGE_KEY, branding.theme);
+      } catch { /* ignore */ }
     }
-  }, [brandingTheme]);
+  }, [branding?.theme]);
 
+  // Unified effect to apply both mode and branding
   useEffect(() => {
-    applyTheme(isDark);
-  }, [isDark]);
+    applyTheme(isDark, branding);
+  }, [isDark, branding]);
 
-  // Apply on mount (before first render paint)
+  // Apply on mount
   useEffect(() => {
-    applyTheme(isDark);
+    applyTheme(isDark, branding);
   }, []);
 
   const toggle = useCallback(() => {

@@ -8,8 +8,7 @@ import {
   useRef,
 } from 'react';
 import { toast } from 'sonner';
-import { User, UserRole, BrandingConfig } from '../types';
-import { lightVars, darkVars } from './theme-constants';
+import { User, UserRole } from '../types';
 
 
 // Session timeout em milissegundos (30 minutos)
@@ -39,78 +38,6 @@ const normalizeRole = (role?: string | null): UserRole => {
   return 'comum';
 };
 
-const applyThemeAndBranding = (branding?: BrandingConfig | null) => {
-  if (typeof document === 'undefined') return;
-  
-  // Clean up previous dynamic styles
-  document.getElementById('dynamic-branding-style')?.remove();
-  document.getElementById('dynamic-theme-vars')?.remove();
-
-  // Honor branding theme for all roles
-  const wantsLight = (branding as any)?.theme === 'light';
-
-  // Choose the base variables based on theme
-  const baseVars = wantsLight ? lightVars : darkVars;
-  
-  // Define default primary color based on theme
-  const defaultPrimary = wantsLight ? '#059669' : '#39FF14'; // NeoPower Light Green : NeoPower Neon Green
-  const activePrimary = branding?.primaryColor || defaultPrimary;
-
-  // Prepare primary-related derivations
-  const hex = activePrimary.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16) || 0;
-  const g = parseInt(hex.substring(2, 4), 16) || 0;
-  const b = parseInt(hex.substring(4, 6), 16) || 0;
-  const dimR = Math.max(0, Math.floor(r * 0.7));
-  const dimG = Math.max(0, Math.floor(g * 0.7));
-  const dimB = Math.max(0, Math.floor(b * 0.7));
-  const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
-  
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
-  
-  // Combine all variables
-  const brandingVars: Record<string, string> = {
-    '--primary': activePrimary,
-    '--ring': activePrimary,
-    '--chart-1': activePrimary,
-    '--sidebar-primary': activePrimary,
-    '--sidebar-ring': activePrimary,
-    '--color-primary': activePrimary,
-    '--color-primary-dim': containerHex,
-    '--color-primary-container': activePrimary,
-    '--color-primary-fixed': activePrimary,
-    '--color-primary-fixed-dim': containerHex,
-    '--color-surface-tint': activePrimary,
-    '--color-ring': activePrimary,
-    '--color-sidebar-primary': activePrimary,
-    '--color-sidebar-ring': activePrimary,
-    '--color-chart-1': activePrimary,
-    '--color-on-primary': onPrimary,
-    '--color-on-primary-container': onPrimary,
-    '--color-primary-foreground': onPrimary,
-    '--color-sidebar-primary-foreground': onPrimary,
-  };
-
-  // Create final style block
-  const style = document.createElement('style');
-  style.id = 'dynamic-theme-vars';
-  
-  const allRules = { ...baseVars, ...brandingVars };
-  const cssContent = Object.entries(allRules)
-    .map(([key, value]) => `${key}: ${value} !important;`)
-    .join('\n      ');
-  
-  style.innerHTML = `:root {\n      ${cssContent}\n    }`;
-  document.head.appendChild(style);
-
-  // Toggle .dark class for basic tailwind compatibility
-  if (wantsLight) {
-    document.documentElement.classList.remove('dark');
-  } else {
-    document.documentElement.classList.add('dark');
-  }
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -143,7 +70,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeAndBranding(null);
     // Redirecionar para login com mensagem
     if (typeof window !== 'undefined') {
       window.location.href = '/login?expired=true';
@@ -206,7 +132,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeAndBranding(null);
         return;
       }
     }
@@ -236,15 +161,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem('userRole');
         localStorage.removeItem(LAST_ACTIVITY_KEY);
         sessionStorage.removeItem('userData');
-        applyThemeAndBranding(null);
       }
     } else {
-      applyThemeAndBranding(null);
+      // No default application here, components will handle it
     }
   }, []);
 
   useEffect(() => {
-    applyThemeAndBranding(user?.branding);
+    // Branding and role changes are handled by useAppTheme in components
   }, [user?.role, user?.branding]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -340,7 +264,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    applyThemeAndBranding(null);
   };
 
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
@@ -427,7 +350,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       setUser({ ...user, role });
       localStorage.setItem('userRole', role);
-      applyThemeAndBranding(user.branding);
     }
   };
 

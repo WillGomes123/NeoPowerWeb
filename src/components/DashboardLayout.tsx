@@ -23,7 +23,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, logout, switchRole } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding?.theme);
+  const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding);
   const isAdmin = user?.role === 'admin';
 
 
@@ -88,21 +88,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full flex flex-col py-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50">
+      <aside className="fixed left-0 top-0 h-full flex flex-col pt-3 pb-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50">
         {/* Logo */}
-        <div className="px-6 mb-6">
-          {user?.branding?.logoType === 'image' && user.branding.logoUri ? (
-            <div className="flex items-center gap-3">
+        <div className="px-2 mb-3">
+          {user?.branding?.logoType === 'image' ? (
+            <div className={user?.branding?.companyName ? "flex items-center gap-3" : "flex items-center justify-center w-full"}>
               <img
-                src={user.branding.logoUri}
+                src={isDark 
+                  ? (user.branding.logoUriDark || user.branding.logoUri || NeoPowerLogo) 
+                  : (user.branding.logoUriLight || user.branding.logoUri || NeoPowerLogo)
+                }
                 alt="Logo"
-                className="w-8 h-8 rounded-lg object-contain shrink-0 bg-white"
+                className={user?.branding?.companyName 
+                  ? "w-8 h-8 rounded-lg object-contain shrink-0 bg-white" 
+                  : "max-h-24 w-full object-contain"
+                }
               />
-              <div>
-                <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-sidebar-foreground">
-                  {user?.branding?.companyName}
-                </h2>
-              </div>
+              {user?.branding?.companyName && (
+                <div>
+                  <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-sidebar-foreground">
+                    {user.branding.companyName}
+                  </h2>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center justify-center w-fit">
@@ -111,6 +119,11 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 alt="NeoPower"
                 className="h-6 w-auto"
               />
+              {user?.branding?.companyName && (
+                <span className="ml-3 font-headline font-bold text-lg text-sidebar-foreground">
+                  {user.branding.companyName}
+                </span>
+              )}
             </div>
           )}
         </div>

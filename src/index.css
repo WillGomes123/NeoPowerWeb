@@ -48,47 +48,47 @@
   --color-on-error-container: #ffd2c8;
 
   /* Theme-switched colors: initial values (overridden by useAppTheme JS) */
-  --color-surface: #0e0e0e;
-  --color-surface-dim: #0e0e0e;
-  --color-surface-bright: #2c2c2c;
-  --color-surface-container: #1a1919;
-  --color-surface-container-low: #131313;
-  --color-surface-container-high: #201f1f;
-  --color-surface-container-highest: #262626;
-  --color-surface-container-lowest: #000000;
-  --color-surface-variant: #262626;
+  --color-surface: var(--dyn-color-surface, #0e0e0e);
+  --color-surface-dim: var(--dyn-color-surface-dim, #0e0e0e);
+  --color-surface-bright: var(--dyn-color-surface-bright, #2c2c2c);
+  --color-surface-container: var(--dyn-color-surface-container, #1a1919);
+  --color-surface-container-low: var(--dyn-color-surface-container-low, #131313);
+  --color-surface-container-high: var(--dyn-color-surface-container-high, #201f1f);
+  --color-surface-container-highest: var(--dyn-color-surface-container-highest, #262626);
+  --color-surface-container-lowest: var(--dyn-color-surface-container-lowest, #000000);
+  --color-surface-variant: var(--dyn-color-surface-variant, #262626);
   --color-surface-tint: var(--primary);
-  --color-on-surface: #ffffff;
-  --color-on-surface-variant: #adaaaa;
-  --color-on-background: #ffffff;
-  --color-inverse-surface: #fcf8f8;
-  --color-inverse-on-surface: #565554;
-  --color-outline: #777575;
-  --color-outline-variant: #494847;
-  --color-background: #0e0e0e;
-  --color-foreground: #ffffff;
-  --color-card: #1a1919;
-  --color-card-foreground: #ffffff;
-  --color-popover: #262626;
-  --color-popover-foreground: #ffffff;
-  --color-primary-foreground: #0d6100;
-  --color-secondary-foreground: #005f28;
-  --color-muted: #1a1919;
-  --color-muted-foreground: #adaaaa;
-  --color-accent: #262626;
-  --color-accent-foreground: #ffffff;
-  --color-destructive: #ff7351;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #494847;
-  --color-input: #494847;
-  --color-input-background: #131313;
-  --color-switch-background: #494847;
+  --color-on-surface: var(--dyn-color-on-surface, #ffffff);
+  --color-on-surface-variant: var(--dyn-color-on-surface-variant, #adaaaa);
+  --color-on-background: var(--dyn-color-on-background, #ffffff);
+  --color-inverse-surface: var(--dyn-color-inverse-surface, #fcf8f8);
+  --color-inverse-on-surface: var(--dyn-color-inverse-on-surface, #565554);
+  --color-outline: var(--dyn-color-outline, #777575);
+  --color-outline-variant: var(--dyn-color-outline-variant, #494847);
+  --color-background: var(--dyn-color-background, #0e0e0e);
+  --color-foreground: var(--dyn-color-foreground, #ffffff);
+  --color-card: var(--dyn-color-card, #1a1919);
+  --color-card-foreground: var(--dyn-color-card-foreground, #ffffff);
+  --color-popover: var(--dyn-color-popover, #262626);
+  --color-popover-foreground: var(--dyn-color-popover-foreground, #ffffff);
+  --color-primary-foreground: var(--dyn-color-primary-foreground, #0d6100);
+  --color-secondary-foreground: var(--dyn-color-secondary-foreground, #005f28);
+  --color-muted: var(--dyn-color-muted, #1a1919);
+  --color-muted-foreground: var(--dyn-color-muted-foreground, #adaaaa);
+  --color-accent: var(--dyn-color-accent, #262626);
+  --color-accent-foreground: var(--dyn-color-accent-foreground, #ffffff);
+  --color-destructive: var(--dyn-color-destructive, #ff7351);
+  --color-destructive-foreground: var(--dyn-color-destructive-foreground, #ffffff);
+  --color-border: var(--dyn-color-border, #494847);
+  --color-input: var(--dyn-color-input, #494847);
+  --color-input-background: var(--dyn-color-input-background, #131313);
+  --color-switch-background: var(--dyn-color-switch-background, #494847);
   --color-ring: var(--primary);
   --color-chart-1: var(--primary);
-  --color-chart-2: #90f9a3;
-  --color-chart-3: #88f6ff;
-  --color-chart-4: #2ff801;
-  --color-chart-5: #ff7351;
+  --color-chart-2: var(--dyn-color-chart-2, #90f9a3);
+  --color-chart-3: var(--dyn-color-chart-3, #88f6ff);
+  --color-chart-4: var(--dyn-color-chart-4, #2ff801);
+  --color-chart-5: var(--dyn-color-chart-5, #ff7351);
 
   /* Border radius */
   --radius: 0.25rem;
@@ -98,13 +98,13 @@
   --radius-xl: 0.75rem;
 
   /* Sidebar (overridden by useAppTheme JS) */
-  --color-sidebar: #131313;
-  --color-sidebar-foreground: #ffffff;
+  --color-sidebar: var(--dyn-color-sidebar, #131313);
+  --color-sidebar-foreground: var(--dyn-color-sidebar-foreground, #ffffff);
   --color-sidebar-primary: var(--primary);
-  --color-sidebar-primary-foreground: #0d6100;
-  --color-sidebar-accent: #262626;
-  --color-sidebar-accent-foreground: #ffffff;
-  --color-sidebar-border: #494847;
+  --color-sidebar-primary-foreground: var(--dyn-color-sidebar-primary-foreground, #0d6100);
+  --color-sidebar-accent: var(--dyn-color-sidebar-accent, #262626);
+  --color-sidebar-accent-foreground: var(--dyn-color-sidebar-accent-foreground, #ffffff);
+  --color-sidebar-border: var(--dyn-color-sidebar-border, #494847);
   --color-sidebar-ring: var(--primary);
 
   /* Font families */

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Input } from '../components/ui/input';
@@ -16,10 +17,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 
 interface BrandingConfig {
   clientId: string;
-  companyName: string;
+  companyName?: string;
   slogan?: string;
   logoType: 'programmatic' | 'image';
   logoUri?: string;
+  logoUriLight?: string;
+  logoUriDark?: string;
   splashUri?: string;
   splashBgColor?: string;
   primaryColor?: string;
@@ -43,6 +46,7 @@ interface AllUser {
 }
 
 export const Branding = () => {
+  const { user } = useAuth();
   const [configs, setConfigs] = useState<BrandingConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -70,6 +74,8 @@ export const Branding = () => {
     slogan: '',
     logoType: 'programmatic',
     logoUri: '',
+    logoUriLight: '',
+    logoUriDark: '',
     splashUri: '',
     splashBgColor: '#000000',
     primaryColor: '#00FF88',
@@ -96,8 +102,8 @@ export const Branding = () => {
   }, []);
 
   const handleSubmit = async () => {
-    if (!formData.clientId || !formData.companyName) {
-      toast.error('ID do Cliente e Nome da Empresa são obrigatórios');
+    if (!formData.clientId) {
+      toast.error('ID do Cliente é obrigatório');
       return;
     }
 
@@ -130,6 +136,25 @@ export const Branding = () => {
           theme: 'dark',
         });
         void fetchConfigs();
+
+        // Se a marca editada for a do próprio usuário logado ou se for admin, atualiza o preview
+        if (user?.role === 'admin' || user?.branding?.clientId === formData.clientId || user?.branding?.logoUri === formData.logoUri) {
+          try {
+            const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+            userData.branding = { ...formData };
+            sessionStorage.setItem('userData', JSON.stringify(userData));
+
+            // Força a atualização do tema local para refletir a escolha do Branco/Escuro feita no admin
+            if (formData.theme) {
+              localStorage.setItem('neopower-theme', formData.theme);
+            }
+
+            // Recarrega para aplicar as novas variáveis de CSS e imagens globais
+            window.location.reload();
+          } catch (e) {
+            console.error('Erro ao atualizar dados de sessão:', e);
+          }
+        }
       } else {
         const err = await response.json();
         toast.error(err.error || 'Erro ao salvar configuração');
@@ -160,7 +185,7 @@ export const Branding = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'logoUri' | 'logoUriLight' | 'logoUriDark' = 'logoUri') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -182,8 +207,14 @@ export const Branding = () => {
       const response = await api.post('/admin/branding/upload', formDataUpload);
       if (response.ok) {
         const data = await response.json();
-        setFormData(prev => ({ ...prev, logoUri: data.url || data.payload?.url }));
-        toast.success('Logo enviado com sucesso!');
+        const urlValue = data.url || (data.payload && data.payload.url) || data.secure_url;
+        
+        if (urlValue) {
+          setFormData(prev => ({ ...prev, [target]: urlValue }));
+          toast.success('Logo enviado com sucesso!');
+        } else {
+          toast.error('Erro: URL nao encontrada na resposta');
+        }
       } else {
         const err = await response.json();
         toast.error(err.error || 'Erro no upload');
@@ -192,6 +223,8 @@ export const Branding = () => {
       toast.error('Erro ao conectar com o serviço de upload');
     } finally {
       setUploadingLogo(false);
+      // Limpar o input para permitir subir o mesmo arquivo novamente
+      e.target.value = '';
     }
   };
 
@@ -425,10 +458,10 @@ export const Branding = () => {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Empresa</Label>
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Empresa (Opcional)</Label>
                     <Input
                       placeholder="Nome Exibido"
-                      value={formData.companyName}
+                      value={formData.companyName || ''}
                       onChange={e => setFormData({ ...formData, companyName: e.target.value })}
                       className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm"
                     />
@@ -462,36 +495,112 @@ export const Branding = () => {
                   </button>
                 </div>
                 {formData.logoType === 'image' && (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="URL da logo ou faca upload"
-                        value={formData.logoUri}
-                        onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
-                        className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
-                      />
-                      <div className="relative">
-                        <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={handleFileUpload} disabled={uploadingLogo} />
-                        <button
-                          type="button"
-                          className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
-                          onClick={() => document.getElementById('logo-upload')?.click()}
-                          disabled={uploadingLogo}
-                        >
-                          {uploadingLogo ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-                          ) : (
-                            <span className="material-symbols-outlined text-lg">upload</span>
-                          )}
-                        </button>
+                  <div className="space-y-4">
+                    {/* Logo Padrão */}
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-[10px] uppercase tracking-widest font-bold">Logo Padrao (Obrigatório)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="URL da logo ou faca upload"
+                          value={formData.logoUri}
+                          onChange={e => setFormData({ ...formData, logoUri: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
+                        />
+                        <div className="relative">
+                          <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUri')} disabled={uploadingLogo} />
+                          <button
+                            type="button"
+                            className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
+                            onClick={() => document.getElementById('logo-upload')?.click()}
+                            disabled={uploadingLogo}
+                          >
+                            {uploadingLogo ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                            ) : (
+                              <span className="material-symbols-outlined text-lg">upload</span>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    {formData.logoUri && (
-                      <div className="flex items-center gap-3 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10">
-                        <img src={formData.logoUri} alt="Logo" className="w-10 h-10 rounded object-contain bg-surface-container" />
-                        <span className="text-xs text-on-surface-variant truncate flex-1">{formData.logoUri}</span>
+
+                    {/* Logo Tema Claro */}
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-[10px] uppercase tracking-widest font-bold">Logo Tema Claro (Opcional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="URL da logo para tema claro"
+                          value={formData.logoUriLight}
+                          onChange={e => setFormData({ ...formData, logoUriLight: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
+                        />
+                        <div className="relative">
+                          <input type="file" id="logo-light-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUriLight')} disabled={uploadingLogo} />
+                          <button
+                            type="button"
+                            className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
+                            onClick={() => document.getElementById('logo-light-upload')?.click()}
+                            disabled={uploadingLogo}
+                          >
+                            {uploadingLogo ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                            ) : (
+                              <span className="material-symbols-outlined text-lg">upload</span>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Logo Tema Escuro */}
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-[10px] uppercase tracking-widest font-bold">Logo Tema Escuro (Opcional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="URL da logo para tema escuro"
+                          value={formData.logoUriDark}
+                          onChange={e => setFormData({ ...formData, logoUriDark: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1"
+                        />
+                        <div className="relative">
+                          <input type="file" id="logo-dark-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUriDark')} disabled={uploadingLogo} />
+                          <button
+                            type="button"
+                            className="h-9 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors flex items-center justify-center"
+                            onClick={() => document.getElementById('logo-dark-upload')?.click()}
+                            disabled={uploadingLogo}
+                          >
+                            {uploadingLogo ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                            ) : (
+                              <span className="material-symbols-outlined text-lg">upload</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Previews */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {formData.logoUri && (
+                        <div className="flex flex-col items-center gap-1 p-2 bg-surface-container-low rounded-lg border border-outline-variant/10">
+                          <Label className="text-[8px] text-on-surface-variant uppercase">Padrao</Label>
+                          <img src={formData.logoUri} alt="Logo" className="w-8 h-8 rounded object-contain bg-white" />
+                        </div>
+                      )}
+                      {formData.logoUriLight && (
+                        <div className="flex flex-col items-center gap-1 p-2 bg-slate-200 rounded-lg border border-outline-variant/10">
+                          <Label className="text-[8px] text-black uppercase">Claro (BG Cinza)</Label>
+                          <img src={formData.logoUriLight} alt="Logo Claro" className="w-8 h-8 rounded object-contain" />
+                        </div>
+                      )}
+                      {formData.logoUriDark && (
+                        <div className="flex flex-col items-center gap-1 p-2 bg-slate-800 rounded-lg border border-outline-variant/10">
+                          <Label className="text-[8px] text-white uppercase">Escuro (BG Preto)</Label>
+                          <img src={formData.logoUriDark} alt="Logo Escuro" className="w-8 h-8 rounded object-contain" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

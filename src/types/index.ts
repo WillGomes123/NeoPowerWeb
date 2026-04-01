@@ -13,9 +13,11 @@ export interface User {
 
 export interface BrandingConfig {
   clientId: string;
-  companyName: string;
+  companyName?: string;
   logoType: 'programmatic' | 'image';
   logoUri?: string;
+  logoUriLight?: string;
+  logoUriDark?: string;
   primaryColor: string;
   theme?: 'dark' | 'light';
 }
