@@ -18,6 +18,11 @@ interface FinancialReportItem {
   'Valor Recebido (R$)': string;
   'Valor Pago ao Cliente (R$)': string;
   Status: string;
+  // Campos NFS-e vindos do backend
+  invoice_id?: string;
+  invoice_status?: string;
+  invoice_pdf_url?: string;
+  transaction_id?: number;
 }
 
 interface WalletTransactionItem {
@@ -49,6 +54,8 @@ export const FinancialReport = () => {
   const [endDate, setEndDate] = useState('');
   const [userLocationNames, setUserLocationNames] = useState<string[]>([]);
   const [locationsLoaded, setLocationsLoaded] = useState(isAdmin);
+  // NFS-e
+  const [nfseFilter, setNfseFilter] = useState<'all' | 'Issued' | 'Pending' | 'Error'>('all');
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
@@ -305,7 +312,7 @@ export const FinancialReport = () => {
   const manutencaoSite = liquidoTotal * 0.10;
 
   const platformProfit = manutencaoSite + lucroNeoPower;
-  const profitMargin = entradaBrutaTotal > 0 ? ((platformProfit / entradaBrutaTotal) * 100) : 0;
+  // profitMargin calculated for future use: (platformProfit / entradaBrutaTotal) * 100
 
   // Dados para o ReportTemplate (PDF)
   const reportTemplateData = {
@@ -788,6 +795,151 @@ export const FinancialReport = () => {
           )}
         </form>
       </div>
+
+      {/* ─── Seção NFS-e ──────────────────────────────────────────────────────────── */}
+      {isAdmin && (() => {
+        // Transações que têm dados de NFS-e
+        const notasRows = reportData.filter(r => r.invoice_status && r.invoice_status !== 'NotRequired');
+        const emitidas  = notasRows.filter(r => r.invoice_status === 'Issued').length;
+        const pendentes = notasRows.filter(r => r.invoice_status === 'Pending').length;
+        const erros     = notasRows.filter(r => r.invoice_status === 'Error').length;
+
+        const filtered = nfseFilter === 'all'
+          ? notasRows
+          : notasRows.filter(r => r.invoice_status === nfseFilter);
+
+        const getNfseStatusBadge = (status: string) => {
+          if (status === 'Issued')  return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Emitida</span>;
+          if (status === 'Pending') return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />Pendente</span>;
+          if (status === 'Error')   return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />Erro</span>;
+          return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-xs font-semibold">{status}</span>;
+        };
+
+        return (
+          <div className="glass-card rounded-xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-outline-variant/15 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">receipt_long</span>
+                  Notas Fiscais de Serviço (NFS-e)
+                </h2>
+                <p className="text-sm text-on-surface-variant mt-1">
+                  {notasRows.length} nota(s) no período • Emissão automática por recarga
+                </p>
+              </div>
+              {/* KPI mini cards */}
+              <div className="flex items-center gap-3">
+                {[
+                  { label: 'Emitidas', count: emitidas, color: 'text-primary', bg: 'bg-primary/10' },
+                  { label: 'Pendentes', count: pendentes, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+                  { label: 'Erros', count: erros, color: 'text-red-500', bg: 'bg-red-500/10' },
+                ].map(kpi => (
+                  <div key={kpi.label} className={`px-4 py-2 rounded-xl ${kpi.bg} flex flex-col items-center`}>
+                    <span className={`text-xl font-bold font-headline ${kpi.color}`}>{kpi.count}</span>
+                    <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">{kpi.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por status */}
+            <div className="px-6 py-3 border-b border-outline-variant/10 flex items-center gap-2">
+              <span className="text-xs text-on-surface-variant font-medium uppercase tracking-wide mr-2">Filtrar:</span>
+              {(['all', 'Issued', 'Pending', 'Error'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setNfseFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    nfseFilter === f
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright'
+                  }`}
+                >
+                  {f === 'all' ? 'Todas' : f === 'Issued' ? 'Emitidas' : f === 'Pending' ? 'Pendentes' : 'Com Erro'}
+                </button>
+              ))}
+            </div>
+
+            {/* Tabela de Notas */}
+            <div className="overflow-x-auto">
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <span className="material-symbols-outlined text-5xl text-outline-variant mb-3">receipt_long</span>
+                  <p className="text-outline">
+                    {notasRows.length === 0
+                      ? 'Nenhuma emissão de NFS-e no período. Configure o provider no cadastro dos postos.'
+                      : `Nenhuma nota com status "${nfseFilter}" no período.`}
+                  </p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-outline-variant/15">
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Número NF</th>
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Estação</th>
+                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Data/Hora</th>
+                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Valor (R$)</th>
+                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
+                      <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Status NF</th>
+                      <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">PDF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((row, i) => (
+                      <tr key={i} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-xs text-on-surface bg-surface-container-highest px-2 py-0.5 rounded">
+                            {row.invoice_id || '—'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm font-medium text-foreground max-w-[160px] truncate">{row['Estação']}</td>
+                        <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-amber-500">{row['Recarga (kWh)']} kWh</td>
+                        <td className="py-3 px-4 text-center">{getNfseStatusBadge(row.invoice_status || '')}</td>
+                        <td className="py-3 px-4 text-center">
+                          {row.invoice_pdf_url ? (
+                            <a
+                              href={row.invoice_pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                              PDF
+                            </a>
+                          ) : row.invoice_status === 'Issued' ? (
+                            <span className="text-xs text-on-surface-variant">N/A</span>
+                          ) : (
+                            <span className="text-xs text-outline">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {filtered.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t border-outline-variant/15 bg-surface-container-low/50">
+                        <td colSpan={3} className="py-3 px-4 text-xs text-on-surface-variant font-medium">
+                          Total: {filtered.length} nota(s)
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-primary">
+                          R$ {fmt(filtered.reduce((s, r) => s + (parseFloat(r['Receita (R$)']) || 0), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-amber-500">
+                          {filtered.reduce((s, r) => s + (parseFloat(r['Recarga (kWh)']) || 0), 0).toFixed(2)} kWh
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Data Table */}
       <div className="glass-card rounded-xl overflow-hidden">

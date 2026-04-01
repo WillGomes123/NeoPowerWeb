@@ -58,6 +58,13 @@ interface LocationFormData {
   cpf_responsavel: string;
   email_responsavel: string;
   telefone_responsavel: string;
+  // ── Campos fiscais NFS-e ──────────────────────────────
+  inscricao_municipal: string;
+  cidade_ibge: string;
+  aliquota_iss: string;
+  cod_servico_lc116: string;
+  simples_nacional: boolean;
+  nfse_provider: 'fortes' | 'manaus' | '';
 }
 
 const diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -131,6 +138,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     cpf_responsavel: '',
     email_responsavel: '',
     telefone_responsavel: '',
+    // ── Dados fiscais NFS-e ─────────────────────────────
+    inscricao_municipal: '',
+    cidade_ibge: '',
+    aliquota_iss: '5',
+    cod_servico_lc116: '09.01',
+    simples_nacional: false,
+    nfse_provider: '',
   });
 
   // Inicializar horários
@@ -301,6 +315,13 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         logo_url: formData.logo_url || null,
         imagem_local_url: formData.imagem_local_url || null,
         observacoes: formData.observacoes || null,
+        // Campos fiscais NFS-e
+        fortes_im: formData.inscricao_municipal || null,
+        cidade_ibge: formData.cidade_ibge || null,
+        aliquota_iss: formData.aliquota_iss ? parseFloat(formData.aliquota_iss) / 100 : null,
+        cod_servico_lc116: formData.cod_servico_lc116 || null,
+        simples_nacional: formData.simples_nacional,
+        nfse_provider: formData.nfse_provider || null,
       };
       const response = await api.post('/locations', normalizedData);
 
@@ -373,6 +394,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
           <TabsTrigger value="custom" className={tabTriggerClass}>
             <span className="material-symbols-outlined text-lg">person</span>
             <span>Responsável</span>
+          </TabsTrigger>
+          <TabsTrigger value="nfse" className={tabTriggerClass}>
+            <span className="material-symbols-outlined text-lg">receipt_long</span>
+            <span>NFS-e</span>
           </TabsTrigger>
         </TabsList>
 
@@ -810,6 +835,188 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <p className="text-on-surface-variant text-sm">
                     <span className="text-primary font-medium">Dica:</span> Após criar o local, você poderá adicionar carregadores e conectores através da página de detalhes do local.
                   </p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ABA 4: NFS-e / CERTIFICADO DIGITAL */}
+          <TabsContent value="nfse" className="space-y-5 mt-0" data-state={activeTab === 'nfse' ? 'active' : 'inactive'}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Dados Fiscais */}
+              <div className="glass-panel rounded-lg border border-outline-variant/10 p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="material-symbols-outlined text-sm text-primary">receipt_long</span>
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Dados Fiscais (NFS-e)</span>
+                </div>
+
+                {/* Provider */}
+                <div>
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">Provider de Emissão</Label>
+                  <div className="flex gap-3">
+                    {(['fortes', 'manaus'] as const).map(p => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, nfse_provider: formData.nfse_provider === p ? '' : p })}
+                        className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-all ${
+                          formData.nfse_provider === p
+                            ? 'bg-primary/15 border-primary text-primary'
+                            : 'border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-highest'
+                        }`}
+                      >
+                        {p === 'fortes' ? '🏢 Fortes Doc' : '🏛️ Manaus (SOAP)'}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-on-surface-variant/60 mt-1.5">
+                    {formData.nfse_provider === 'manaus'
+                      ? 'Requer Certificado A1 (.pfx) — faça upload após salvar o local.'
+                      : formData.nfse_provider === 'fortes'
+                      ? 'Requer CNPJ Licenciado no Fortes Doc.'
+                      : 'Selecione o provider para ativar a emissão automática de NFS-e.'}
+                  </p>
+                </div>
+
+                {/* Inscrição Municipal */}
+                <div>
+                  <Label htmlFor="inscricao_municipal" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                    Inscrição Municipal
+                  </Label>
+                  <Input
+                    id="inscricao_municipal"
+                    value={formData.inscricao_municipal}
+                    onChange={e => setFormData({ ...formData, inscricao_municipal: e.target.value })}
+                    placeholder="Ex: 12345678"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
+                  />
+                </div>
+
+                {/* Código IBGE + Alíquota ISS */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="cidade_ibge" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Código IBGE
+                    </Label>
+                    <Input
+                      id="cidade_ibge"
+                      value={formData.cidade_ibge}
+                      onChange={e => setFormData({ ...formData, cidade_ibge: e.target.value.replace(/\D/g, '') })}
+                      placeholder="Ex: 1302603 (Manaus)"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="aliquota_iss" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Alíquota ISS (%)
+                    </Label>
+                    <Input
+                      id="aliquota_iss"
+                      type="number"
+                      min="0"
+                      max="10"
+                      step="0.01"
+                      value={formData.aliquota_iss}
+                      onChange={e => setFormData({ ...formData, aliquota_iss: e.target.value })}
+                      placeholder="5"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Código de Serviço LC 116 */}
+                <div>
+                  <Label htmlFor="cod_servico_lc116" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                    Código Serviço LC 116/2003
+                  </Label>
+                  <Input
+                    id="cod_servico_lc116"
+                    value={formData.cod_servico_lc116}
+                    onChange={e => setFormData({ ...formData, cod_servico_lc116: e.target.value })}
+                    placeholder="09.01"
+                    className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm font-mono"
+                  />
+                  <p className="text-xs text-on-surface-variant/60 mt-1">09.01 = Fornecimento de energia elétrica (padrão EV)</p>
+                </div>
+
+                {/* Simples Nacional */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low">
+                  <div>
+                    <p className="text-sm font-medium text-on-surface">Optante pelo Simples Nacional</p>
+                    <p className="text-xs text-on-surface-variant">Afeta o cálculo de ISS retido</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, simples_nacional: !formData.simples_nacional })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formData.simples_nacional ? 'bg-primary' : 'bg-surface-container-highest'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      formData.simples_nacional ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Info + Certificado (pós-criação) */}
+              <div className="space-y-4">
+                {/* Aviso sobre certificado */}
+                <div className="glass-panel rounded-lg border border-primary/20 bg-primary/5 p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="material-symbols-outlined text-primary text-xl mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>security</span>
+                    <div>
+                      <p className="text-sm font-semibold text-primary mb-1">Certificado Digital A1 (.pfx)</p>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        O upload do arquivo <strong>.pfx</strong> e da senha do certificado são feitos
+                        <strong> após salvar o local</strong>, na página de detalhes do posto.
+                      </p>
+                      <p className="text-xs text-on-surface-variant mt-2 leading-relaxed">
+                        O certificado é armazenado de forma segura com criptografia <strong>AES-256-GCM</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Campos fiscais do Fortes Doc */}
+                {formData.nfse_provider === 'fortes' && (
+                  <div className="glass-panel rounded-lg border border-outline-variant/10 p-5 space-y-3">
+                    <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Fortes Doc — Identificação</p>
+                    <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        O CNPJ Licenciado (campo <code className="bg-amber-500/10 px-1 rounded">fortes_licenciado</code>) é configurado
+                        diretamente no banco de dados pelo administrador técnico após homologação no painel Fortes Doc.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* IBGEs comuns */}
+                <div className="glass-panel rounded-lg border border-outline-variant/10 p-5">
+                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Códigos IBGE Comuns</p>
+                  <div className="space-y-1.5">
+                    {[
+                      { cidade: 'Manaus — AM', ibge: '1302603' },
+                      { cidade: 'São Paulo — SP', ibge: '3550308' },
+                      { cidade: 'Curitiba — PR', ibge: '4106902' },
+                      { cidade: 'Rio de Janeiro — RJ', ibge: '3304557' },
+                      { cidade: 'Belo Horizonte — MG', ibge: '3106200' },
+                    ].map(item => (
+                      <button
+                        key={item.ibge}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, cidade_ibge: item.ibge })}
+                        className={`flex justify-between items-center w-full px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                          formData.cidade_ibge === item.ibge
+                            ? 'bg-primary/15 text-primary'
+                            : 'hover:bg-surface-container-highest text-on-surface-variant'
+                        }`}
+                      >
+                        <span>{item.cidade}</span>
+                        <span className="font-mono">{item.ibge}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
