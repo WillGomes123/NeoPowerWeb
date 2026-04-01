@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { User, UserRole, BrandingConfig } from '../types';
-import { lightVars } from './theme-constants';
+import { lightVars, darkVars } from './theme-constants';
 
 
 // Session timeout em milissegundos (30 minutos)
@@ -41,74 +41,74 @@ const normalizeRole = (role?: string | null): UserRole => {
 
 const applyThemeAndBranding = (branding?: BrandingConfig | null) => {
   if (typeof document === 'undefined') return;
-  document.body.classList.remove('theme-default');
-  document.body.classList.add('theme-default');
-
+  
   // Clean up previous dynamic styles
   document.getElementById('dynamic-branding-style')?.remove();
-  document.getElementById('dynamic-light-theme')?.remove();
-  document.documentElement.classList.remove('dark');
+  document.getElementById('dynamic-theme-vars')?.remove();
 
   // Honor branding theme for all roles
   const wantsLight = (branding as any)?.theme === 'light';
 
+  // Choose the base variables based on theme
+  const baseVars = wantsLight ? lightVars : darkVars;
+  
+  // Define default primary color based on theme
+  const defaultPrimary = wantsLight ? '#059669' : '#39FF14'; // NeoPower Light Green : NeoPower Neon Green
+  const activePrimary = branding?.primaryColor || defaultPrimary;
+
+  // Prepare primary-related derivations
+  const hex = activePrimary.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+  const dimR = Math.max(0, Math.floor(r * 0.7));
+  const dimG = Math.max(0, Math.floor(g * 0.7));
+  const dimB = Math.max(0, Math.floor(b * 0.7));
+  const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
+  
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
+  
+  // Combine all variables
+  const brandingVars: Record<string, string> = {
+    '--primary': activePrimary,
+    '--ring': activePrimary,
+    '--chart-1': activePrimary,
+    '--sidebar-primary': activePrimary,
+    '--sidebar-ring': activePrimary,
+    '--color-primary': activePrimary,
+    '--color-primary-dim': containerHex,
+    '--color-primary-container': activePrimary,
+    '--color-primary-fixed': activePrimary,
+    '--color-primary-fixed-dim': containerHex,
+    '--color-surface-tint': activePrimary,
+    '--color-ring': activePrimary,
+    '--color-sidebar-primary': activePrimary,
+    '--color-sidebar-ring': activePrimary,
+    '--color-chart-1': activePrimary,
+    '--color-on-primary': onPrimary,
+    '--color-on-primary-container': onPrimary,
+    '--color-primary-foreground': onPrimary,
+    '--color-sidebar-primary-foreground': onPrimary,
+  };
+
+  // Create final style block
+  const style = document.createElement('style');
+  style.id = 'dynamic-theme-vars';
+  
+  const allRules = { ...baseVars, ...brandingVars };
+  const cssContent = Object.entries(allRules)
+    .map(([key, value]) => `${key}: ${value} !important;`)
+    .join('\n      ');
+  
+  style.innerHTML = `:root {\n      ${cssContent}\n    }`;
+  document.head.appendChild(style);
+
+  // Toggle .dark class for basic tailwind compatibility
   if (wantsLight) {
-    // Inject light mode overrides using shared constants
-    const lightStyle = document.createElement('style');
-    lightStyle.id = 'dynamic-light-theme';
-    const rules = Object.entries(lightVars)
-      .map(([key, value]) => `${key}: ${value} !important;`)
-      .join('\n      ');
-    lightStyle.innerHTML = `:root {\n      ${rules}\n    }`;
-    document.head.appendChild(lightStyle);
     document.documentElement.classList.remove('dark');
   } else {
-    // Dark mode (default)
     document.documentElement.classList.add('dark');
-  }
-
-
-  // Inject dynamic primary color CSS override if branding is available
-  if (branding?.primaryColor) {
-    const style = document.createElement('style');
-    style.id = 'dynamic-branding-style';
-    const hex = branding.primaryColor.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    const dimR = Math.max(0, Math.floor(r * 0.7));
-    const dimG = Math.max(0, Math.floor(g * 0.7));
-    const dimB = Math.max(0, Math.floor(b * 0.7));
-    const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
-    // Calculate on-primary color based on luminance (WCAG contrast)
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
-    const onPrimaryContainer = luminance > 0.5 ? '#1a1a1a' : '#ffffff';
-
-    style.innerHTML = `
-      :root {
-        --primary: ${branding.primaryColor} !important;
-        --ring: ${branding.primaryColor} !important;
-        --chart-1: ${branding.primaryColor} !important;
-        --sidebar-primary: ${branding.primaryColor} !important;
-        --sidebar-ring: ${branding.primaryColor} !important;
-        --color-primary: ${branding.primaryColor} !important;
-        --color-primary-dim: ${containerHex} !important;
-        --color-primary-container: ${branding.primaryColor} !important;
-        --color-primary-fixed: ${branding.primaryColor} !important;
-        --color-primary-fixed-dim: ${containerHex} !important;
-        --color-surface-tint: ${branding.primaryColor} !important;
-        --color-ring: ${branding.primaryColor} !important;
-        --color-sidebar-primary: ${branding.primaryColor} !important;
-        --color-sidebar-ring: ${branding.primaryColor} !important;
-        --color-chart-1: ${branding.primaryColor} !important;
-        --color-on-primary: ${onPrimary} !important;
-        --color-on-primary-container: ${onPrimaryContainer} !important;
-        --color-primary-foreground: ${onPrimary} !important;
-        --color-sidebar-primary-foreground: ${onPrimary} !important;
-      }
-    `;
-    document.head.appendChild(style);
   }
 };
 
