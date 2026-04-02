@@ -130,9 +130,6 @@ export const Overview = () => {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold tracking-[0.2em] rounded mb-3 border border-primary/20">
-            COMMAND DECK
-          </span>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Visão Geral</h1>
           <div className="flex items-center gap-4 mt-2">
             <p className="text-on-surface-variant font-medium text-sm">
