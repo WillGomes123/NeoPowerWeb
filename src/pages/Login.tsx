@@ -130,7 +130,7 @@ export const Login = () => {
               {/* Password Input */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-on-surface-variant tracking-wider uppercase px-1" htmlFor="access-cipher">
-                  Access Cipher
+                 Senha
                 </label>
                 <div className="relative group">
                   <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">

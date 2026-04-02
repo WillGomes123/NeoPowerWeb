@@ -24,7 +24,7 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, open, onClose }:
   const [data, setData] = useState<MeterPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
++
   useEffect(() => {
     if (!open) return;
     void fetchMeterValues();
