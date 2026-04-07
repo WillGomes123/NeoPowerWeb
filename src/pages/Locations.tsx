@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddLocationForm } from '../components/AddLocationForm';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
 import { useSocket } from '../lib/hooks/useSocket';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
@@ -43,6 +44,8 @@ export const Locations = () => {
   const [mapDialogLocation, setMapDialogLocation] = useState<Location | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { chargerStatuses } = useSocket();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const mergedChargers = useMemo(() => {
     if (chargerStatuses.size === 0) return chargers;
@@ -134,6 +137,26 @@ export const Locations = () => {
     return 'offline';
   }, [mergedChargers]);
 
+  const handleDeleteLocation = async (e: React.MouseEvent, id: number, name: string) => {
+    e.stopPropagation();
+    if (!window.confirm(`Tem certeza que deseja excluir o local "${name}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/locations/${id}`);
+      if (res.ok) {
+        toast.success('Local excluído com sucesso!');
+        fetchData();
+      } else {
+        const error = await res.json();
+        toast.error(error.message || 'Erro ao excluir local');
+      }
+    } catch (err) {
+      toast.error('Erro ao conectar com o servidor');
+    }
+  };
+
   if (isAddingLocation) {
     return (
       <div className="flex flex-col h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)]">
@@ -163,7 +186,7 @@ export const Locations = () => {
           </button>
           <button
             onClick={() => setIsAddingLocation(true)}
-            className="px-8 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-full text-sm font-extrabold flex items-center gap-2 shadow-[0_8px_20px_rgba(57,255,20,0.2)] hover:scale-105 transition-transform active:scale-95"
+            className="px-8 py-2.5 bg-linear-to-r from-primary to-primary-container text-on-primary rounded-full text-sm font-extrabold flex items-center gap-2 shadow-[0_8px_20px_rgba(57,255,20,0.2)] hover:scale-105 transition-transform active:scale-95"
           >
             <span className="material-symbols-outlined text-lg">add</span>
             Novo Local
@@ -190,7 +213,7 @@ export const Locations = () => {
             ))}
           </DynamicMap>
           {/* Legend */}
-          <div className="absolute top-4 right-4 z-[1000] glass-card rounded-lg px-4 py-3 pointer-events-none border border-outline-variant/10">
+          <div className="absolute top-4 right-4 z-1000 glass-card rounded-lg px-4 py-3 pointer-events-none border border-outline-variant/10">
             <div className="flex flex-col gap-2">
               {[
                 { color: '#8eff71', label: 'Disponível' },
@@ -206,7 +229,7 @@ export const Locations = () => {
             </div>
           </div>
           {/* Overlay info */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end bg-gradient-to-t from-background/90 via-background/50 to-transparent pointer-events-none z-[1000]">
+          <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between items-end bg-linear-to-t from-background/90 via-background/50 to-transparent pointer-events-none z-1000">
             <div className="space-y-1">
               <h3 className="text-xl font-headline font-bold">Mapa da Rede</h3>
               <p className="text-on-surface-variant text-sm">
@@ -291,7 +314,7 @@ export const Locations = () => {
                     onClick={() => navigate(`/locais/${loc.id}`)}
                   >
                     {/* Card Header with image or gradient */}
-                    <div className="relative h-36 rounded-t-xl overflow-hidden bg-gradient-to-br from-surface-container-highest via-surface-container to-surface-container-low">
+                    <div className="relative h-36 rounded-t-xl overflow-hidden bg-linear-to-br from-surface-container-highest via-surface-container to-surface-container-low">
                       {loc.imageUrl ? (
                         <img src={loc.imageUrl} alt={loc.nomeDoLocal} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                       ) : (
@@ -346,6 +369,15 @@ export const Locations = () => {
                             Ver Mapa
                           </button>
                         )}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => handleDeleteLocation(e, loc.id, loc.nomeDoLocal)}
+                            className="p-2 rounded-lg bg-error/10 text-error border border-error/20 hover:bg-error hover:text-on-error transition-all"
+                            title="Excluir Local"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -358,7 +390,7 @@ export const Locations = () => {
 
       {/* Map Dialog */}
       <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '700px', width: '95vw', height: '80vh', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <DialogContent className="bg-surface-container border-outline-variant/20 p-0! overflow-hidden" style={{ maxWidth: '700px', width: '95vw', height: '80vh', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
           <VisuallyHidden><DialogTitle>Mapa do Local</DialogTitle></VisuallyHidden>
           {mapDialogLocation && (
             <>
@@ -393,8 +425,8 @@ export const Locations = () => {
       </Dialog>
 
       {/* Background decorative glows */}
-      <div className="fixed top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
-      <div className="fixed bottom-[-10%] left-[10%] w-[30rem] h-[30rem] bg-secondary/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
+      <div className="fixed top-[-10%] right-[-5%] w-160 h-160 bg-primary/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
+      <div className="fixed bottom-[-10%] left-[10%] w-120 h-120 bg-secondary/5 rounded-full blur-[100px] -z-10 pointer-events-none" />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 import {
   ArrowLeft,
   MapPin,
@@ -9,7 +10,8 @@ import {
   Info,
   Users,
   RefreshCw,
-  Building2
+  Building2,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,6 +83,8 @@ export function LocationDetails() {
   const [activeTab, setActiveTab] = useState<TabId>('info');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -129,6 +133,27 @@ export function LocationDetails() {
     await fetchData();
     setIsRefreshing(false);
     toast.success('Dados atualizados');
+  };
+
+  const handleDeleteLocation = async () => {
+    if (!location || !id) return;
+    
+    if (!window.confirm(`Tem certeza que deseja excluir o local "${location.nomeDoLocal}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/locations/${id}`);
+      if (res.ok) {
+        toast.success('Local excluído com sucesso!');
+        navigate('/locais');
+      } else {
+        const error = await res.json();
+        toast.error(error.message || 'Erro ao excluir local');
+      }
+    } catch (err) {
+      toast.error('Erro ao conectar com o servidor');
+    }
   };
 
   // Filtrar abas baseado nas permissões
@@ -216,6 +241,17 @@ export function LocationDetails() {
           <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
+        {isAdmin && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDeleteLocation}
+            className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Excluir Local
+          </Button>
+        )}
       </div>
 
       {/* Tabs Navigation */}

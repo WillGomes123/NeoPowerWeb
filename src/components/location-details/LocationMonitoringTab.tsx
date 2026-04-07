@@ -11,10 +11,13 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Power
+  Power,
+  Link2Off,
+  Trash2
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
 
 interface ChargerStatus {
   id: number;
@@ -40,6 +43,8 @@ export function LocationMonitoringTab({ locationId }: Props) {
   const [chargers, setChargers] = useState<ChargerStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const fetchChargers = useCallback(async () => {
     try {
@@ -69,6 +74,47 @@ export function LocationMonitoringTab({ locationId }: Props) {
 
     return () => clearInterval(interval);
   }, [autoRefresh, fetchChargers]);
+
+  const handleUnlinkCharger = async (chargePointId: string) => {
+    if (!window.confirm('Tem certeza que deseja desvincular este carregador deste local? Ele ficará disponível para ser associado a outro local.')) {
+      return;
+    }
+
+    try {
+      const response = await api.put(`/chargers/${chargePointId}/assign-location`, {
+        locationId: null
+      });
+
+      if (!response.ok) throw new Error('Erro ao desvincular carregador');
+
+      toast.success('Carregador desvinculado com sucesso');
+      fetchChargers();
+    } catch (error) {
+      console.error('Erro ao desvincular:', error);
+      toast.error('Ocorreu um erro ao desvincular o carregador');
+    }
+  };
+
+  const handleDeleteCharger = async (chargePointId: string) => {
+    if (!window.confirm('AVISO: Esta ação excluirá PERMANENTEMENTE o carregador do sistema. Deseja continuar?')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/chargers/${chargePointId}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao excluir carregador');
+      }
+
+      toast.success('Carregador excluído permanentemente');
+      fetchChargers();
+    } catch (error: any) {
+      console.error('Erro ao excluir:', error);
+      toast.error(error.message || 'Ocorreu um erro ao excluir o carregador');
+    }
+  };
 
   const getStatusInfo = (status: string) => {
     const statusLower = status?.toLowerCase() || '';
@@ -303,6 +349,29 @@ export function LocationMonitoringTab({ locationId }: Props) {
                           {statusInfo.label}
                         </span>
                       </div>
+
+                      {isAdmin && (
+                        <div className="flex items-center gap-2 mb-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 h-8 text-[11px] border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            onClick={() => handleUnlinkCharger(charger.chargePointId)}
+                          >
+                            <Link2Off className="w-3 h-3 mr-1" />
+                            Desvincular
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                            onClick={() => handleDeleteCharger(charger.chargePointId)}
+                            title="Excluir Permanentemente"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
 
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center justify-between">
