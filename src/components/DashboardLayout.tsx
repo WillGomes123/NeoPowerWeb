@@ -1,8 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
-import { LogOut, Sun, Moon } from 'lucide-react';
+import { LogOut, Sun, Moon, Search } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useAppTheme } from '../hooks/useAppTheme';
 import NeoPowerLogo from '../assets/NeoPower.png';
@@ -25,6 +25,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const navigate = useNavigate();
   const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding);
   const isAdmin = user?.role === 'admin';
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
 
   const navItems = [
@@ -59,6 +62,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
+
+  const filteredResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const query = searchQuery.toLowerCase();
+    return visibleNavItems.filter(item => 
+      item.label.toLowerCase().includes(query)
+    );
+  }, [searchQuery, visibleNavItems]);
 
   const roleLabels: Record<UserRole, string> = {
     admin: 'Admin',
@@ -192,27 +203,58 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Top Navbar */}
       <header className="fixed top-0 right-0 left-64 flex justify-between items-center px-8 h-16 bg-background/80 backdrop-blur-xl border-b border-border/15 z-40">
         <div className="flex items-center gap-4 flex-1">
-          <div className="relative w-64 group">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">
-              search
-            </span>
+          <div className="relative w-72 group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
             <input
-              className="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 text-sm text-foreground focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/50 transition-all"
+              className={`w-full bg-surface-container-low border border-neutral-200 rounded-lg pl-10 pr-4 py-2 text-sm text-foreground 
+                focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none placeholder:text-muted-foreground/50 transition-all shadow-sm`}
               placeholder="Buscar no sistema..."
               type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
             />
+
+            {/* Live Search Dropdown */}
+            {isSearchFocused && searchQuery.trim() !== '' && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-card border border-neutral-200 rounded-xl shadow-soft py-2 min-w-[300px] z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="px-3 py-1.5 mb-1">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Resultados da Busca</span>
+                </div>
+                {filteredResults.length > 0 ? (
+                  filteredResults.map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => {
+                        navigate(item.path);
+                        setSearchQuery('');
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container-highest transition-colors text-left"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                      </div>
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-8 text-center">
+                    <p className="text-sm text-muted-foreground">Nenhum resultado para "{searchQuery}"</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4">
-          {isAdmin && (
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-              title={isDark ? 'Modo Claro' : 'Modo Escuro'}
-            >
-              {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-            </button>
-          )}
+          <button
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+            title={isDark ? 'Modo Claro' : 'Modo Escuro'}
+          >
+            {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+          </button>
           <NotificationBell />
         </div>
       </header>

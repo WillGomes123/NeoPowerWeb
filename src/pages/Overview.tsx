@@ -169,7 +169,7 @@ export const Overview = () => {
       {/* KPI Row 1: Bento Style */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Net Revenue */}
-        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group">
           <div className="flex justify-between items-start mb-4">
             <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">RECEITA LÍQUIDA</span>
             {revenueChange !== undefined && (
@@ -187,7 +187,7 @@ export const Overview = () => {
         </div>
 
         {/* Net Deposits */}
-        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft">
           <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">DEPÓSITOS LÍQUIDOS</p>
           <div className="flex items-baseline gap-1">
             <span className="text-on-surface-variant text-sm font-medium">R$</span>
@@ -196,7 +196,7 @@ export const Overview = () => {
         </div>
 
         {/* Tax */}
-        <div className="bg-surface-container-low p-6 rounded-lg border border-outline-variant/10">
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft">
           <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">TAXA MP</p>
           <div className="flex items-baseline gap-1">
             <span className="text-on-surface-variant text-sm font-medium">R$</span>
@@ -205,7 +205,7 @@ export const Overview = () => {
         </div>
 
         {/* Gross Deposits (Highlighted) */}
-        <div className="bg-surface-container-highest p-6 rounded-lg border border-primary/20 relative overflow-hidden">
+        <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-4">
               <span className="text-[10px] font-bold text-primary tracking-widest uppercase">DEPÓSITOS BRUTOS</span>
@@ -260,7 +260,7 @@ export const Overview = () => {
       {/* Charts Section: Asymmetric Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Revenue Chart */}
-        <div className="lg:col-span-7 bg-surface-container-low p-8 rounded-lg border border-outline-variant/10">
+        <div className="lg:col-span-7 bg-card p-8 rounded-2xl border border-neutral-200 shadow-soft">
           <div className="flex justify-between items-center mb-10">
             <div>
               <h3 className="font-headline text-lg font-bold">Análise de Receita</h3>
@@ -303,7 +303,7 @@ export const Overview = () => {
         </div>
 
         {/* Energy Consumption */}
-        <div className="lg:col-span-5 bg-surface-container-low p-8 rounded-lg border border-outline-variant/10">
+        <div className="lg:col-span-5 bg-card p-8 rounded-2xl border border-neutral-200 shadow-soft">
           <h3 className="font-headline text-lg font-bold mb-10">Consumo de Energia</h3>
           {(!data.last7DaysKwh || data.last7DaysKwh.length === 0) ? (
             <div className="h-48 flex flex-col items-center justify-center gap-3">
@@ -338,8 +338,8 @@ export const Overview = () => {
       {/* Bottom Section: Station Status + Side Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Station Status Table */}
-        <div className="bg-surface-container-low rounded-lg border border-outline-variant/10 overflow-hidden">
-          <div className="p-6 border-b border-outline-variant/10 flex justify-between items-center">
+        <div className="bg-card rounded-2xl border border-neutral-200 shadow-soft overflow-hidden">
+          <div className="p-6 border-b border-neutral-100 flex justify-between items-center">
             <h3 className="font-headline font-bold">Status das Estações</h3>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">
               <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
@@ -409,7 +409,7 @@ export const Overview = () => {
 
 function MetricPill({ icon, label, value, live }: { icon: string; label: string; value: string; live?: boolean }) {
   return (
-    <div className="flex items-center gap-4 bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/5">
+    <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-neutral-200 shadow-soft">
       <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
         <span className="material-symbols-outlined text-primary text-xl">{icon}</span>
       </div>
@@ -426,10 +426,10 @@ function MetricPill({ icon, label, value, live }: { icon: string; label: string;
 
 function SideMetric({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: boolean }) {
   return (
-    <div className={`p-6 rounded-lg border relative overflow-hidden group ${
+    <div className={`p-6 rounded-2xl border shadow-soft relative overflow-hidden group ${
       accent
-        ? 'bg-surface-container-highest border-primary/20'
-        : 'bg-surface-container-low border-outline-variant/10'
+        ? 'bg-card border-primary/20'
+        : 'bg-card border-neutral-200'
     }`}>
       <div className="flex items-center gap-4">
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${accent ? 'bg-primary/10' : 'bg-surface-container'}`}>

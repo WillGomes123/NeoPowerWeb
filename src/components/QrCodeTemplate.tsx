@@ -23,7 +23,7 @@ function QrCodePage({ page }: { page: QrCodePageProps }) {
   const branding = user?.branding;
   const primaryColor = branding?.primaryColor || '#00FF66';
   const logo = branding?.logoUri || NeoPowerLogo;
-  const brandName = branding?.appName || 'NeoPower';
+  const brandName = branding?.companyName || 'NeoPower';
 
   const qrContent = `${page.chargePointId}:${page.connectorIndex}`;
 
