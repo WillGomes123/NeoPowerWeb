@@ -56,7 +56,7 @@ export const userSchema = z.object({
     .regex(/[a-zA-Z]/, 'Senha deve conter pelo menos uma letra')
     .regex(/[0-9]/, 'Senha deve conter pelo menos um número')
     .optional(),
-  role: z.enum(['admin', 'atem', 'comum']),
+  role: z.enum(['admin', 'comum']),
 });
 
 export type UserFormData = z.infer<typeof userSchema>;

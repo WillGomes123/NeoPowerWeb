@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
@@ -11,7 +11,9 @@ import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 
-type ManagedRole = 'admin' | 'atem' | 'comum' | 'blocked';
+type ManagedRole = 'admin' | 'comum' | 'blocked';
+type Platform = 'web' | 'mobile' | null;
+type PlatformFilter = 'web' | 'mobile';
 
 interface User {
   id: number;
@@ -20,6 +22,7 @@ interface User {
   phone: string | null;
   role: ManagedRole;
   clientId?: string | null;
+  platform?: Platform;
   locationIds?: string[];
 }
 
@@ -41,6 +44,7 @@ export const Users = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '' });
+  const [platformTab, setPlatformTab] = useState<PlatformFilter>('web');
 
   useEffect(() => { void fetchUsers(); void fetchLocations(); }, []);
 
@@ -129,6 +133,18 @@ export const Users = () => {
     } catch { toast.error('Erro ao atualizar telefone'); }
   };
 
+  // Separa usuários por plataforma. NULL é tratado como 'web' (legado)
+  const webUsers = useMemo(
+    () => users.filter(u => u.platform === 'web' || u.platform == null),
+    [users]
+  );
+  const mobileUsers = useMemo(
+    () => users.filter(u => u.platform === 'mobile'),
+    [users]
+  );
+
+  const visibleUsers = platformTab === 'web' ? webUsers : mobileUsers;
+
   const formatPhone = (phone: string | null) => {
     if (!phone) return '—';
     const c = phone.replace(/\D/g, '');
@@ -196,7 +212,6 @@ export const Users = () => {
                       <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-surface-container border-outline-variant/20">
                         <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
-                        <SelectItem value="atem" className="text-on-surface focus:bg-surface-container-highest">ATEM</SelectItem>
                         <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
                       </SelectContent>
                     </Select>
@@ -222,15 +237,56 @@ export const Users = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <SummaryCard icon="group" label="TOTAL USUÁRIOS" value={String(users.length)} />
         <SummaryCard icon="admin_panel_settings" label="ADMINS" value={String(users.filter(u => u.role === 'admin').length)} color="text-primary" />
-        <SummaryCard icon="badge" label="OPERADORES" value={String(users.filter(u => u.role === 'atem').length)} color="text-tertiary" />
-        <SummaryCard icon="person" label="COMUNS" value={String(users.filter(u => u.role === 'comum').length)} color="text-secondary" />
+        <SummaryCard icon="desktop_windows" label="USUÁRIOS WEB" value={String(webUsers.length)} color="text-foreground" />
+        <SummaryCard icon="smartphone" label="USUÁRIOS MOBILE" value={String(mobileUsers.length)} color="text-foreground" />
+      </div>
+
+      {/* Platform Tabs */}
+      <div className="flex items-center gap-2 border-b border-outline-variant/10">
+        <button
+          onClick={() => setPlatformTab('web')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
+            platformTab === 'web'
+              ? 'text-primary border-primary'
+              : 'text-on-surface-variant border-transparent hover:text-on-surface'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">desktop_windows</span>
+          Painel Web
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            platformTab === 'web' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
+          }`}>
+            {webUsers.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setPlatformTab('mobile')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
+            platformTab === 'mobile'
+              ? 'text-primary border-primary'
+              : 'text-on-surface-variant border-transparent hover:text-on-surface'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base">smartphone</span>
+          App Mobile
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            platformTab === 'mobile' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
+          }`}>
+            {mobileUsers.length}
+          </span>
+        </button>
       </div>
 
       {/* Users Table */}
       <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface">Lista de Usuários</h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{users.length} registros</span>
+          <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-xl">
+              {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
+            </span>
+            {platformTab === 'web' ? 'Usuários do Painel Web' : 'Usuários do App Mobile'}
+          </h3>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{visibleUsers.length} registros</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -245,7 +301,21 @@ export const Users = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
-              {users.map(user => (
+              {visibleUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <span className="material-symbols-outlined text-4xl text-outline mb-3 block">
+                      {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
+                    </span>
+                    <p className="text-sm text-on-surface-variant">
+                      {platformTab === 'web'
+                        ? 'Nenhum usuário web cadastrado. Crie um pelo botão "Novo Usuário".'
+                        : 'Nenhum usuário mobile cadastrado. Os usuários do app aparecem aqui ao se registrarem.'}
+                    </p>
+                  </td>
+                </tr>
+              )}
+              {visibleUsers.map(user => (
                 <tr key={user.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                   {/* Name + Email */}
                   <td className="px-6 py-4">
@@ -291,7 +361,6 @@ export const Users = () => {
                       </SelectTrigger>
                       <SelectContent className="bg-surface-container border-outline-variant/20">
                         <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
-                        <SelectItem value="atem" className="text-on-surface focus:bg-surface-container-highest">ATEM</SelectItem>
                         <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
                         <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
                       </SelectContent>

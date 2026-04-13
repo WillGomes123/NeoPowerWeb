@@ -1,6 +1,6 @@
 // Types for the NeoPower Dashboard
 
-export type UserRole = 'admin' | 'atem' | 'comum';
+export type UserRole = 'admin' | 'comum';
 
 export interface User {
   id: string;

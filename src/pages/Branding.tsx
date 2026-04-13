@@ -367,8 +367,6 @@ export const Branding = () => {
     switch (role) {
       case 'admin':
         return 'Admin';
-      case 'atem':
-        return 'ATEM';
       case 'comum':
         return 'Comum';
       case 'blocked':
@@ -381,8 +379,6 @@ export const Branding = () => {
   const roleBadgeClass = (role: string | null) => {
     switch (role) {
       case 'admin':
-        return 'border-amber-500/30 text-amber-400 bg-amber-500/10';
-      case 'atem':
         return 'border-primary/30 text-primary bg-primary/10';
       case 'blocked':
         return 'border-red-500/30 text-red-400 bg-red-500/10';

@@ -20,11 +20,10 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding);
-  const isAdmin = user?.role === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -73,22 +72,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const roleLabels: Record<UserRole, string> = {
     admin: 'Admin',
-    atem: 'Atem',
     comum: 'Comum',
-  };
-
-  const roleCycle: UserRole[] = ['admin', 'comum'];
-  const currentRole = user?.role || 'comum';
-  const nextRole = roleCycle[(roleCycle.indexOf(currentRole) + 1) % roleCycle.length];
-
-  const handleRoleSwitch = () => {
-    // APENAS EM DESENVOLVIMENTO - Desabilitado em produção
-    if (import.meta.env.MODE !== 'production') {
-      switchRole(nextRole);
-    } else {
-      console.warn('⚠️ Role switching is disabled in production for security reasons');
-      alert('Troca de role desabilitada em produção por segurança');
-    }
   };
 
   const handleLogout = () => {
@@ -177,17 +161,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <DropdownMenuLabel className="text-muted-foreground">Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-border" />
-              {isAdmin && import.meta.env.MODE !== 'production' && (
-                <>
-                  <DropdownMenuItem
-                    onClick={handleRoleSwitch}
-                    className="text-muted-foreground focus:bg-accent focus:text-foreground cursor-pointer"
-                  >
-                    Alternar para {roleLabels[nextRole]}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
-                </>
-              )}
               <DropdownMenuItem
                 onClick={handleLogout}
                 className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer"

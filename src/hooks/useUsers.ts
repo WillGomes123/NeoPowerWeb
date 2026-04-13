@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useCallback } from 'react';
 import { api } from '../lib/api';
 
-type ManagedRole = 'admin' | 'atem' | 'comum' | 'blocked';
+type ManagedRole = 'admin' | 'comum' | 'blocked';
 
 interface User {
   id: number;
