@@ -90,7 +90,7 @@ const AppRoutes = () => {
       <Route path="/indicadores" element={createProtectedRoute(Indicators)} />
 
       {/* Admin Only Routes */}
-      <Route path="/operacoes" element={createProtectedRoute(Operations, true)} />
+      <Route path="/operacoes" element={createProtectedRoute(Operations)} />
       <Route path="/relatorio-financeiro" element={createProtectedRoute(FinancialReport)} />
       <Route path="/usuarios" element={createProtectedRoute(Users, true)} />
       <Route path="/vouchers" element={createProtectedRoute(Vouchers)} />

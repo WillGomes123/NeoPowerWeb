@@ -25,7 +25,7 @@ interface WalletTransaction {
   amount: number;
   balanceBefore: number;
   balanceAfter: number;
-  description: string | null;
+  description: string | null;  
   referenceId: string | null;
   createdAt: string;
 }

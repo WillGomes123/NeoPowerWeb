@@ -117,7 +117,7 @@ export const EnhancedTableCell = ({
       className={cn(
         'text-zinc-300 py-4 transition-colors duration-200',
         'group-hover:text-white',
-        highlight && 'text-emerald-400 font-semibold',
+        highlight && 'text-primary font-semibold',
         className
       )}
     >

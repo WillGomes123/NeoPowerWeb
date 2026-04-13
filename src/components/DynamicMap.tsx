@@ -2,8 +2,8 @@ import React, { Suspense, lazy } from 'react';
 
 // Componente de loading
 const MapLoading = () => (
-  <div className="flex items-center justify-center h-full w-full bg-emerald-950/20">
-    <p className="text-emerald-400/50 animate-pulse">Carregando mapa...</p>
+  <div className="flex items-center justify-center h-full w-full bg-background">
+    <p className="text-muted-foreground animate-pulse">Carregando mapa...</p>
   </div>
 );
 

@@ -20,7 +20,7 @@ const SEVERITY_CONFIG: Record<AlarmSeverity, { color: string; bg: string; border
   critical: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', dot: 'bg-red-400 animate-pulse', label: 'Crítico', icon: 'warning' },
   high: { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', dot: 'bg-orange-400', label: 'Alto', icon: 'error' },
   medium: { color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', dot: 'bg-yellow-400', label: 'Médio', icon: 'info' },
-  low: { color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', dot: 'bg-blue-400', label: 'Baixo', icon: 'notifications' },
+  low: { color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-border', dot: 'bg-muted-foreground', label: 'Baixo', icon: 'notifications' },
 };
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; border: string; label: string }> = {

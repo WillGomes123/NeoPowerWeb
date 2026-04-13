@@ -477,33 +477,33 @@ export const FinancialReport = () => {
           </div>
         </div>
 
-        <div className="glass-card rounded-xl p-5 border-red-500/10">
+        <div className="glass-card rounded-xl p-5 border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-red-600 dark:text-red-400/70 font-medium uppercase tracking-wide">Total Taxas</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
+              <p className="text-xs text-foreground font-medium uppercase tracking-wide">Total Taxas</p>
+              <p className="text-2xl font-bold text-foreground mt-1">
                 -R$ {fmt(isAdmin ? taxasTotais : taxasRecargas)}
               </p>
-              <p className="text-xs text-red-600 dark:text-red-400/40 mt-1">
+              <p className="text-xs text-on-surface-variant mt-1">
                 {isAdmin ? 'Recargas + MP (1%)' : '14.26% sobre recargas'}
               </p>
             </div>
-            <div className="p-3 bg-red-500/10 rounded-xl">
-              <span className="material-symbols-outlined text-red-600 dark:text-red-400 text-2xl">percent</span>
+            <div className="p-3 bg-surface-container-highest rounded-xl">
+              <span className="material-symbols-outlined text-foreground text-2xl">percent</span>
             </div>
           </div>
         </div>
 
         {isAdmin && (
-          <div className="glass-card rounded-xl p-5 border-purple-500/10">
+          <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-purple-600 dark:text-purple-400/70 font-medium uppercase tracking-wide">Depósitos Líquidos</p>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">R$ {fmt(netDeposits)}</p>
-                <p className="text-xs text-purple-600 dark:text-purple-400/40 mt-1">{deposits.length} depósito(s)</p>
+                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Depósitos Líquidos</p>
+                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(netDeposits)}</p>
+                <p className="text-xs text-on-surface-variant mt-1">{deposits.length} depósito(s)</p>
               </div>
-              <div className="p-3 bg-purple-500/10 rounded-xl">
-                <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-2xl">account_balance_wallet</span>
+              <div className="p-3 bg-surface-container-highest rounded-xl">
+                <span className="material-symbols-outlined text-foreground text-2xl">account_balance_wallet</span>
               </div>
             </div>
           </div>
@@ -513,15 +513,15 @@ export const FinancialReport = () => {
       {/* Admin Only: Revenue Distribution Cards */}
       {isAdmin && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="glass-card rounded-xl p-5 border-blue-500/10">
+          <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-blue-600 dark:text-blue-400/70 font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-blue-600 dark:text-blue-400/40 mt-1">70% do líquido</p>
+                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
+                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(valorPagoCliente)}</p>
+                <p className="text-xs text-on-surface-variant mt-1">70% do líquido</p>
               </div>
-              <div className="p-3 bg-blue-500/10 rounded-xl">
-                <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-2xl">group</span>
+              <div className="p-3 bg-surface-container-highest rounded-xl">
+                <span className="material-symbols-outlined text-foreground text-2xl">group</span>
               </div>
             </div>
           </div>
@@ -539,15 +539,15 @@ export const FinancialReport = () => {
             </div>
           </div>
 
-          <div className="glass-card rounded-xl p-5 border-cyan-500/10">
+          <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-cyan-600 dark:text-cyan-400/70 font-medium uppercase tracking-wide">Manutenção do Site</p>
-                <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 mt-1">R$ {fmt(manutencaoSite)}</p>
-                <p className="text-xs text-cyan-600 dark:text-cyan-400/40 mt-1">10% do líquido</p>
+                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Manutenção do Site</p>
+                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(manutencaoSite)}</p>
+                <p className="text-xs text-on-surface-variant mt-1">10% do líquido</p>
               </div>
-              <div className="p-3 bg-cyan-500/10 rounded-xl">
-                <span className="material-symbols-outlined text-cyan-600 dark:text-cyan-400 text-2xl">bolt</span>
+              <div className="p-3 bg-surface-container-highest rounded-xl">
+                <span className="material-symbols-outlined text-foreground text-2xl">bolt</span>
               </div>
             </div>
           </div>
@@ -569,7 +569,7 @@ export const FinancialReport = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
               <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Energia Total</p>
-              <p className="text-xl font-bold text-amber-600 dark:text-amber-400">{totals.energy.toFixed(2)} kWh</p>
+              <p className="text-xl font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
             </div>
             <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
               <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Valor Recebido</p>
@@ -577,7 +577,7 @@ export const FinancialReport = () => {
             </div>
             <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
               <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Pago ao Cliente</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">R$ {fmt(totals.payout)}</p>
+              <p className="text-xl font-bold text-foreground">R$ {fmt(totals.payout)}</p>
             </div>
           </div>
         </div>
@@ -588,27 +588,27 @@ export const FinancialReport = () => {
         <div className="glass-card rounded-xl overflow-hidden">
           <div className="px-6 py-5 border-b border-outline-variant/15">
             <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-              <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">account_balance_wallet</span>
+              <span className="material-symbols-outlined text-foreground">account_balance_wallet</span>
               Depósitos em Carteira
             </h2>
             <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-background/50 border border-purple-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
-                  <p className="text-xs text-purple-600 dark:text-purple-400/60 font-medium uppercase">Total Depósitos</p>
+                  <p className="text-xs text-foreground font-medium uppercase">Total Depósitos</p>
                 </div>
-                <p className="text-lg font-bold text-purple-300">R$ {fmt(totalDeposits)}</p>
+                <p className="text-lg font-bold text-foreground">R$ {fmt(totalDeposits)}</p>
                 <p className="text-xs text-outline mt-1">{deposits.length} depósitos</p>
               </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-red-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                  <p className="text-xs text-red-600 dark:text-red-400/60 font-medium uppercase">Taxa Mercado Pago</p>
+                  <p className="text-xs text-foreground font-medium uppercase">Taxa Mercado Pago</p>
                 </div>
-                <p className="text-lg font-bold text-red-600 dark:text-red-400">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
+                <p className="text-lg font-bold text-foreground">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
                 <p className="text-xs text-outline mt-1">1% sobre depósitos</p>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
@@ -619,12 +619,12 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-primary">R$ {fmt(netDeposits)}</p>
                 <p className="text-xs text-outline mt-1">Valor disponível</p>
               </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-blue-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                  <p className="text-xs text-blue-600 dark:text-blue-400/60 font-medium uppercase">Média por Depósito</p>
+                  <p className="text-xs text-foreground font-medium uppercase">Média por Depósito</p>
                 </div>
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                <p className="text-lg font-bold text-foreground">
                   R$ {deposits.length > 0 ? fmt(totalDeposits / deposits.length) : '0,00'}
                 </p>
                 <p className="text-xs text-outline mt-1">Valor médio</p>
@@ -652,7 +652,7 @@ export const FinancialReport = () => {
                           <p className="text-xs text-outline">{deposit.userEmail}</p>
                         </td>
                         <td className="py-3 px-4 text-sm text-on-surface-variant">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-purple-600 dark:text-purple-400">R$ {fmt(deposit.amount)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(deposit.amount)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">-R$ {fmt(deposit.amount * 0.01)}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount * 0.99)}</td>
                         <td className="py-3 px-4 text-sm text-on-surface-variant">{deposit.referenceId || '-'}</td>
@@ -694,15 +694,15 @@ export const FinancialReport = () => {
                   <div className="flex justify-between text-on-surface-variant"><span>Recargas:</span><span>R$ {fmt(grossRevenue)}</span></div>
                 </div>
               </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-red-500/10">
+              <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                  <p className="text-xs text-red-600 dark:text-red-400/60 font-medium uppercase">Total Taxas</p>
+                  <p className="text-xs text-foreground font-medium uppercase">Total Taxas</p>
                 </div>
-                <p className="text-xl font-bold text-red-600 dark:text-red-400">-R$ {fmt(taxasTotais)}</p>
+                <p className="text-xl font-bold text-foreground">-R$ {fmt(taxasTotais)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-red-600 dark:text-red-400/60"><span>Taxa MP (1%):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
-                  <div className="flex justify-between text-red-600 dark:text-red-400/60"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Taxa MP (1%):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
@@ -896,7 +896,7 @@ export const FinancialReport = () => {
                         <td className="py-3 px-4 text-sm font-medium text-foreground max-w-[160px] truncate">{row['Estação']}</td>
                         <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-amber-500">{row['Recarga (kWh)']} kWh</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
                         <td className="py-3 px-4 text-center">{getNfseStatusBadge(row.invoice_status || '')}</td>
                         <td className="py-3 px-4 text-center">
                           {row.invoice_pdf_url ? (
@@ -927,7 +927,7 @@ export const FinancialReport = () => {
                         <td className="py-3 px-4 text-right font-mono text-sm font-bold text-primary">
                           R$ {fmt(filtered.reduce((s, r) => s + (parseFloat(r['Receita (R$)']) || 0), 0))}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-amber-500">
+                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-foreground">
                           {filtered.reduce((s, r) => s + (parseFloat(r['Recarga (kWh)']) || 0), 0).toFixed(2)} kWh
                         </td>
                         <td colSpan={2} />
@@ -971,11 +971,11 @@ export const FinancialReport = () => {
                     <td className="py-3 px-4 text-sm font-medium text-foreground">{row['Estação']}</td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-amber-600 dark:text-amber-400">{row['Recarga (kWh)']} kWh</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {row['Valor Total de Taxas (R$)']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-primary/80">R$ {row['Valor Recebido (R$)']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-blue-600 dark:text-blue-400">R$ {row['Valor Pago ao Cliente (R$)']}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {row['Valor Pago ao Cliente (R$)']}</td>
                     <td className="py-3 px-4 text-center">{getStatusBadge(row['Status'])}</td>
                   </tr>
                 ))
@@ -1006,7 +1006,7 @@ export const FinancialReport = () => {
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Energia Total</p>
-                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{totals.energy.toFixed(2)} kWh</p>
+                <p className="text-lg font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Receita Total</p>

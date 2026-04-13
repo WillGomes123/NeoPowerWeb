@@ -39,9 +39,9 @@ export const MapWrapper: React.FC<MapWrapperProps> = ({
     return (
       <div
         style={style}
-        className={`flex items-center justify-center bg-emerald-950/20 ${className}`}
+        className={`flex items-center justify-center bg-background ${className}`}
       >
-        <p className="text-emerald-400/50 animate-pulse">Carregando mapa...</p>
+        <p className="text-muted-foreground animate-pulse">Carregando mapa...</p>
       </div>
     );
   }

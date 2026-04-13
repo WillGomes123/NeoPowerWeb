@@ -114,8 +114,8 @@ export function LocationFinancialTab({ locationId }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <DollarSign className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Receita Total</p>
@@ -130,8 +130,8 @@ export function LocationFinancialTab({ locationId }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-500/20 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <TrendingUp className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Média Diária</p>
@@ -146,8 +146,8 @@ export function LocationFinancialTab({ locationId }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Activity className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <Activity className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Sessões</p>
@@ -160,8 +160,8 @@ export function LocationFinancialTab({ locationId }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <Zap className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Energia Total</p>
@@ -176,8 +176,8 @@ export function LocationFinancialTab({ locationId }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-cyan-500/20 rounded-lg">
-                <DollarSign className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <DollarSign className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Preço/kWh</p>
@@ -195,7 +195,7 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle className="text-lg text-foreground flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <TrendingUp className="w-5 h-5 text-foreground" />
               Receita ao Longo do Tempo
             </CardTitle>
 
@@ -208,7 +208,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                     onClick={() => setPeriod(p)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       period === p
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
@@ -232,7 +232,7 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardContent className="pt-6">
           {isLoading ? (
             <div className="h-[300px] flex items-center justify-center">
-              <RefreshCw className="w-8 h-8 text-foreground0 animate-spin" />
+              <RefreshCw className="w-8 h-8 text-foreground/70 animate-spin" />
             </div>
           ) : (
             <div className="h-[300px]">
@@ -278,7 +278,7 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardHeader className="border-b border-border pb-4">
           <CardTitle className="text-lg text-foreground flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <Zap className="w-5 h-5 text-foreground" />
               Receita por Carregador
             </span>
             <span className="text-sm font-normal text-muted-foreground">
@@ -289,7 +289,7 @@ export function LocationFinancialTab({ locationId }: Props) {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 text-foreground0 animate-spin" />
+              <RefreshCw className="w-6 h-6 text-foreground/70 animate-spin" />
             </div>
           ) : !data?.revenueByCharger?.length ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -319,7 +319,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                         <Zap className="w-3 h-3" />
                         {(Number(charger.energy) / 1000).toFixed(2)} kWh
                       </td>
-                      <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-medium">
+                      <td className="py-3 px-4 text-foreground font-medium">
                         R$ {charger.revenue.toFixed(2)}
                       </td>
                     </tr>

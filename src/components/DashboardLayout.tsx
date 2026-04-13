@@ -41,7 +41,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       icon: 'leaderboard',
       roles: ['admin', 'comum'],
     },
-    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin'] },
+    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'comum'] },
     {
       path: '/relatorio-financeiro',
       label: 'Relatório Financeiro',

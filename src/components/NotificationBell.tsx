@@ -197,7 +197,7 @@ export const NotificationBell: React.FC = () => {
             <BellOff className="w-5 h-5" />
           )}
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 text-foreground text-xs rounded-full flex items-center justify-center font-medium">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-foreground text-xs rounded-full flex items-center justify-center font-medium">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -316,7 +316,7 @@ export const NotificationBell: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => markAsRead(notification.id)}
-                            className="h-6 px-2 text-xs text-muted-foreground hover:text-emerald-400"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-primary"
                           >
                             <Check className="w-3 h-3 mr-1" />
                             Marcar como lida

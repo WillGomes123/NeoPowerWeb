@@ -337,12 +337,14 @@ export const Overview = () => {
 
       {/* Bottom Section: Station Status + Side Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Station Status Table */}
+        {/* Station Status */}
         <div className="bg-card rounded-2xl border border-neutral-200 shadow-soft overflow-hidden">
           <div className="p-6 border-b border-neutral-100 flex justify-between items-center">
             <h3 className="font-headline font-bold">Status das Estações</h3>
-            <span className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+            <span className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full ${
+              statusCounts.online > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusCounts.online > 0 ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
               {statusCounts.online} ONLINE
             </span>
           </div>
@@ -350,6 +352,30 @@ export const Overview = () => {
             <div className="p-12 flex flex-col items-center justify-center gap-3">
               <span className="material-symbols-outlined text-4xl text-outline">ev_station</span>
               <p className="text-sm text-on-surface-variant">Nenhuma estação registrada</p>
+            </div>
+          ) : statusCounts.online === 0 && statusCounts.charging === 0 ? (
+            /* Todas offline — mostrar status detalhado sem gráfico vazio */
+            <div className="p-8 flex flex-col items-center gap-5">
+              <div className="relative">
+                <div className="w-32 h-32 rounded-full border-[10px] border-muted flex items-center justify-center">
+                  <div className="text-center">
+                    <span className="material-symbols-outlined text-3xl text-muted-foreground">wifi_off</span>
+                    <p className="text-2xl font-headline font-bold text-muted-foreground mt-1">{statusCounts.offline}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">Todas as estações estão offline</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Verifique a conexão dos carregadores</p>
+              </div>
+              <div className="flex justify-center gap-6">
+                {statusData.map(d => (
+                  <span key={d.name} className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                    {d.name}: <span className="font-bold text-on-surface">{d.value}</span>
+                  </span>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="p-6">

@@ -383,7 +383,7 @@ export const Branding = () => {
       case 'admin':
         return 'border-amber-500/30 text-amber-400 bg-amber-500/10';
       case 'atem':
-        return 'border-blue-500/30 text-blue-400 bg-blue-500/10';
+        return 'border-primary/30 text-primary bg-primary/10';
       case 'blocked':
         return 'border-red-500/30 text-red-400 bg-red-500/10';
       default:
@@ -809,8 +809,8 @@ export const Branding = () => {
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
                         config.theme === 'light' 
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          ? 'bg-surface-container-highest text-foreground border border-border'
+                          : 'bg-surface-container-highest text-foreground border border-border'
                       }`}>
                         <span className="material-symbols-outlined text-xs">
                           {config.theme === 'light' ? 'light_mode' : 'dark_mode'}

@@ -3,9 +3,11 @@ import { ExportButton } from '../components/ExportButton';
 import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import type { ExportColumn } from '../lib/export';
 
 interface Transaction {
+  id: number;
   transaction_id: number;
   charge_point_id: string;
   start_timestamp: string;
@@ -30,6 +32,8 @@ const exportColumns: ExportColumn[] = [
 const fmt = (v: number, d = 2) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 export const Transactions = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +41,12 @@ export const Transactions = () => {
   const [timeFilter, setTimeFilter] = useState<'all' | '30d' | '7d'>('all');
   const [curveOpen, setCurveOpen] = useState(false);
   const [curveTransaction, setCurveTransaction] = useState<{ id: number; chargerId: string } | null>(null);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundTx, setRefundTx] = useState<Transaction | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundToMP, setRefundToMP] = useState(false);
   const itemsPerPage = 10;
 
   const exportData = transactions.map(tx => ({
@@ -93,9 +103,47 @@ export const Transactions = () => {
     return new Date(iso).toLocaleString('pt-BR');
   };
 
+  const handleRefund = async () => {
+    if (!refundTx) return;
+    setRefundLoading(true);
+    try {
+      const body: { reason?: string; amount?: number; refundToPaymentMethod?: boolean } = {};
+      if (refundReason.trim()) body.reason = refundReason.trim();
+      const amt = parseFloat(refundAmount);
+      if (!isNaN(amt) && amt > 0) body.amount = amt;
+      if (refundToMP) body.refundToPaymentMethod = true;
+
+      const response = await api.put(`/transactions/${refundTx.id}/refund`, body);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data?.message || data?.error || 'Falha ao realizar estorno.');
+      }
+      const result = await response.json();
+      const method = result?.refund_method === 'mercadopago'
+        ? 'Valor devolvido ao meio de pagamento original.'
+        : 'Valor creditado na carteira do cliente.';
+      toast.success(`Estorno realizado! ${method}`);
+      if (result?.mp_error) {
+        toast.warning(`Aviso: ${result.mp_error}. Valor creditado na carteira.`);
+      }
+      setRefundOpen(false);
+      setRefundTx(null);
+      setRefundAmount('');
+      setRefundReason('');
+      setRefundToMP(false);
+      void fetchTransactions();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao realizar estorno.');
+    } finally {
+      setRefundLoading(false);
+    }
+  };
+
   const statusStyle = (status: string) => {
     const s = (status || '').toLowerCase();
     if (s === 'completed' || s === 'finalizado') return { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', dot: 'bg-primary', label: 'Concluído' };
+    if (s === 'refunded') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estornado' };
+    if (s === 'partialrefund') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estorno Parcial' };
     if (s === 'failed' || s === 'falhou') return { bg: 'bg-error/10', text: 'text-error', border: 'border-error/20', dot: 'bg-error', label: 'Falhou' };
     return { bg: 'bg-tertiary/10', text: 'text-tertiary', border: 'border-tertiary/20', dot: 'bg-tertiary animate-pulse', label: 'Em andamento' };
   };
@@ -157,9 +205,9 @@ export const Transactions = () => {
 
       {/* Bento Summary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        <MetricCard icon="payments" iconColor="text-primary" iconBg="bg-primary/10" badge={`${filtered.length} tx`} badgeColor="text-primary bg-primary/10" label="RECEITA TOTAL" value={`R$ ${fmt(totalRevenue)}`} />
-        <MetricCard icon="confirmation_number" iconColor="text-tertiary" iconBg="bg-tertiary/10" label="TICKET MÉDIO" value={`R$ ${fmt(avgTicket)}`} />
-        <MetricCard icon="bolt" iconColor="text-secondary" iconBg="bg-secondary/10" label="ENERGIA TOTAL" value={`${fmt(totalKwh, 1)} kWh`} />
+        <MetricCard icon="payments" badge={`${filtered.length} tx`} label="RECEITA TOTAL" value={`R$ ${fmt(totalRevenue)}`} />
+        <MetricCard icon="confirmation_number" label="TICKET MÉDIO" value={`R$ ${fmt(avgTicket)}`} />
+        <MetricCard icon="bolt" label="ENERGIA TOTAL" value={`${fmt(totalKwh, 1)} kWh`} />
         {/* Health card */}
         <div className="bg-surface-container-highest p-6 rounded-xl border border-primary/20 relative overflow-hidden flex flex-col justify-center">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
@@ -180,6 +228,7 @@ export const Transactions = () => {
           <h3 className="text-lg font-headline font-bold text-on-surface">Atividade Recente</h3>
           <div className="flex items-center gap-4">
             <Legend dot="bg-primary" label="Concluído" />
+            <Legend dot="bg-amber-500" label="Estornado" />
             <Legend dot="bg-error" label="Falhou" />
             <Legend dot="bg-tertiary animate-pulse" label="Em andamento" />
           </div>
@@ -197,18 +246,20 @@ export const Transactions = () => {
                 <th className="px-6 py-4">Endereço</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Curva</th>
+                {isAdmin && <th className="px-6 py-4">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
+                  <td colSpan={isAdmin ? 10 : 9} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
                 </tr>
               ) : current.map(tx => {
                 const st = statusStyle(tx.status);
+                const canRefund = isAdmin && tx.status?.toLowerCase() === 'completed';
                 return (
                   <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
                     <td className="px-6 py-4">
@@ -235,6 +286,28 @@ export const Transactions = () => {
                     <td className="px-6 py-4">
                       <span className="material-symbols-outlined text-base text-on-surface-variant group-hover:text-primary transition-colors">show_chart</span>
                     </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4">
+                        {canRefund ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRefundTx(tx);
+                              setRefundAmount(tx.total_cost != null ? parseFloat(tx.total_cost.toString()).toFixed(2) : '0');
+                              setRefundReason('');
+                              setRefundOpen(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors text-xs font-bold"
+                            title="Realizar estorno"
+                          >
+                            <span className="material-symbols-outlined text-sm">undo</span>
+                            Estornar
+                          </button>
+                        ) : (
+                          <span className="text-xs text-on-surface-variant/50">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -277,24 +350,110 @@ export const Transactions = () => {
           onClose={() => { setCurveOpen(false); setCurveTransaction(null); }}
         />
       )}
+
+      {/* Refund Dialog */}
+      {refundOpen && refundTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setRefundOpen(false)}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
+                <span className="material-symbols-outlined">undo</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-headline font-bold text-foreground">Estornar Transação</h3>
+                <p className="text-xs text-muted-foreground">#{refundTx.transaction_id} — {refundTx.charge_point_id}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Valor do Estorno (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={refundTx.total_cost != null ? parseFloat(refundTx.total_cost.toString()) : undefined}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                  placeholder="0,00"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Valor original: R$ {refundTx.total_cost != null ? fmt(parseFloat(refundTx.total_cost.toString())) : '0,00'}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Motivo (opcional)</label>
+                <textarea
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                  placeholder="Descreva o motivo do estorno..."
+                />
+              </div>
+
+              {/* Opção de devolver ao meio de pagamento original */}
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant/20">
+                <button
+                  type="button"
+                  onClick={() => setRefundToMP(!refundToMP)}
+                  className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                    refundToMP ? 'bg-primary border-primary' : 'border-outline-variant'
+                  }`}
+                >
+                  {refundToMP && <span className="material-symbols-outlined text-white text-sm">check</span>}
+                </button>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Devolver ao meio de pagamento</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    O valor será estornado via MercadoPago (cartão/Pix). Se não for possível, será creditado na carteira.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setRefundOpen(false)}
+                className="px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void handleRefund()}
+                disabled={refundLoading || !refundAmount || parseFloat(refundAmount) <= 0}
+                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {refundLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <span className="material-symbols-outlined text-sm">undo</span>
+                )}
+                Confirmar Estorno
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 /* ── Sub-components ── */
 
-function MetricCard({ icon, iconColor, iconBg, badge, badgeColor, label, value }: {
-  icon: string; iconColor: string; iconBg: string; badge?: string; badgeColor?: string; label: string; value: string;
+function MetricCard({ icon, badge, label, value }: {
+  icon: string; badge?: string; label: string; value: string;
 }) {
   return (
     <div className="glass-card p-6 rounded-xl border border-outline-variant/10 relative overflow-hidden group">
-      <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
       <div className="flex justify-between items-start mb-4">
-        <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center ${iconColor}`}>
+        <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
           <span className="material-symbols-outlined">{icon}</span>
         </div>
         {badge && (
-          <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${badgeColor}`}>{badge}</span>
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full text-muted-foreground bg-surface-container-highest">{badge}</span>
         )}
       </div>
       <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>

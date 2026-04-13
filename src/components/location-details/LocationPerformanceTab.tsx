@@ -251,8 +251,8 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <TrendingUp className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Taxa Ocupação</p>
@@ -265,8 +265,8 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <Zap className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Energia Total</p>
@@ -279,8 +279,8 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <Clock className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Disponibilidade</p>
@@ -293,8 +293,8 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-lg">
-                <Activity className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <Activity className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Sessões</p>
@@ -307,8 +307,8 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <Card className="bg-card border-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-cyan-500/20 rounded-lg">
-                <BarChart3 className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+              <div className="p-2 bg-surface-container-highest rounded-lg">
+                <BarChart3 className="w-5 h-5 text-foreground" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Média Diária</p>
@@ -323,7 +323,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
         <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <CardTitle className="text-lg text-foreground flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <BarChart3 className="w-5 h-5 text-foreground" />
               Performance
             </CardTitle>
 
@@ -335,7 +335,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                     onClick={() => setSelectedMetric(metric)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       selectedMetric === metric
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
@@ -351,7 +351,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                     onClick={() => setPeriod(p)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                       period === p
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >
@@ -367,7 +367,7 @@ export function LocationPerformanceTab({ locationId, locationName }: Props) {
                     onClick={() => setChartType(type)}
                     className={`px-2 py-1.5 text-xs font-medium rounded-md transition-all ${
                       chartType === type
-                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:text-foreground/70'
                     }`}
                   >

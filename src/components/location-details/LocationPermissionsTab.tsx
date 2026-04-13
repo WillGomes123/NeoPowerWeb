@@ -200,7 +200,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400/50" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground" />
               <Input
                 placeholder="Buscar usuário..."
                 value={searchTerm}
@@ -222,7 +222,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
               <Button
                 size="sm"
                 onClick={() => setShowAddUser(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-foreground"
+                className="bg-primary hover:bg-primary/80 text-on-primary"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Adicionar Usuário
@@ -234,11 +234,11 @@ export function LocationPermissionsTab({ locationId }: Props) {
 
       {/* Modal Adicionar Usuário */}
       {showAddUser && (
-        <Card className="bg-card border-emerald-600/50">
+        <Card className="bg-card border-primary/20">
           <CardHeader className="border-b border-border pb-4">
             <CardTitle className="text-lg text-foreground flex items-center justify-between">
               <span className="flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <UserPlus className="w-5 h-5 text-foreground" />
                 Adicionar Novo Usuário
               </span>
               <Button
@@ -283,7 +283,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                         className={`
                           flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-all
                           ${newUserPermissions[key]
-                            ? 'bg-emerald-500/20 border border-emerald-500/50'
+                            ? 'bg-primary/10 border border-primary/20'
                             : 'bg-surface-container border border-border hover:border-border'
                           }
                         `}
@@ -302,7 +302,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                         <div
                           className={`w-5 h-5 rounded flex items-center justify-center ${
                             newUserPermissions[key]
-                              ? 'bg-emerald-500 text-foreground'
+                              ? 'bg-primary text-on-primary'
                               : 'bg-surface-container border border-border'
                           }`}
                         >
@@ -328,7 +328,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 <Button
                   onClick={handleAddUser}
                   disabled={!selectedUserId || isSaving === -1}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-foreground"
+                  className="bg-primary hover:bg-primary/80 text-on-primary"
                 >
                   {isSaving === -1 ? (
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
@@ -348,7 +348,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
         <CardHeader className="border-b border-border pb-4">
           <CardTitle className="text-lg text-foreground flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <Users className="w-5 h-5 text-foreground" />
               Usuários com Acesso
             </span>
             <span className="text-sm font-normal text-muted-foreground">
@@ -359,11 +359,11 @@ export function LocationPermissionsTab({ locationId }: Props) {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
+              <RefreshCw className="w-6 h-6 text-primary animate-spin" />
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-12">
-              <Shield className="w-12 h-12 text-emerald-500/30 mx-auto mb-3" />
+              <Shield className="w-12 h-12 text-primary/30 mx-auto mb-3" />
               <p className="text-muted-foreground">
                 {searchTerm
                   ? 'Nenhum usuário encontrado'
@@ -373,7 +373,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 <Button
                   size="sm"
                   onClick={() => setShowAddUser(true)}
-                  className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-foreground"
+                  className="mt-4 bg-primary hover:bg-primary/80 text-on-primary"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
                   Adicionar Primeiro Usuário
@@ -389,8 +389,8 @@ export function LocationPermissionsTab({ locationId }: Props) {
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-primary font-medium">
                           {user.userName?.charAt(0)?.toUpperCase() || 'U'}
                         </span>
                       </div>
@@ -424,7 +424,7 @@ export function LocationPermissionsTab({ locationId }: Props) {
                           className={`
                             flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all
                             ${user.permissions[key]
-                              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-primary/10 text-primary border border-primary/20'
                               : 'bg-surface-container text-muted-foreground border border-border hover:border-border'
                             }
                             ${isSaving === user.userId ? 'opacity-50 cursor-not-allowed' : ''}

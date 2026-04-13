@@ -165,7 +165,7 @@ export function LocationDetails() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+          <RefreshCw className="w-8 h-8 text-primary animate-spin" />
           <p className="text-muted-foreground">Carregando local...</p>
         </div>
       </div>
@@ -177,7 +177,7 @@ export function LocationDetails() {
       <div className="flex items-center justify-center min-h-screen">
         <Card className="bg-card border-border p-8">
           <div className="text-center">
-            <Building2 className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
+            <Building2 className="w-12 h-12 text-primary mx-auto mb-4" />
             <h2 className="text-xl font-bold text-foreground mb-2">Local não encontrado</h2>
             <p className="text-muted-foreground mb-4">O local solicitado não existe ou foi removido.</p>
             <Button onClick={() => navigate('/locais')} variant="outline">

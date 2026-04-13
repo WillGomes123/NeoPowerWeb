@@ -96,15 +96,15 @@ export function LocationTransactionsTab({ locationId }: Props) {
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
     if (statusLower === 'completed') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">Concluída</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">Concluída</span>;
     }
     if (statusLower === 'active') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400">Em andamento</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">Em andamento</span>;
     }
     if (statusLower === 'failed') {
-      return <span className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-600 dark:text-red-400">Falhou</span>;
+      return <span className="px-2 py-1 rounded-full text-xs bg-error/10 text-error">Falhou</span>;
     }
-    return <span className="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400">{status}</span>;
+    return <span className="px-2 py-1 rounded-full text-xs bg-muted text-muted-foreground">{status}</span>;
   };
 
   const filteredTransactions = searchTerm
@@ -121,7 +121,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 dark:text-emerald-400/50" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground" />
               <Input
                 placeholder="Buscar por carregador ou usuário..."
                 value={searchTerm}
@@ -158,7 +158,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
         <CardHeader className="border-b border-border pb-4">
           <CardTitle className="text-lg text-foreground flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <Activity className="w-5 h-5 text-foreground" />
               Transações
             </span>
             <span className="text-sm font-normal text-muted-foreground">
@@ -169,7 +169,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 text-emerald-500 animate-spin" />
+              <RefreshCw className="w-6 h-6 text-primary animate-spin" />
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -201,13 +201,13 @@ export function LocationTransactionsTab({ locationId }: Props) {
                           {formatDuration(t.startTimestamp, t.stopTimestamp)}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-amber-600 dark:text-amber-600 dark:text-amber-400 text-sm">
+                      <td className="py-3 px-4 text-amber-600 dark:text-amber-400 text-sm">
                         <span className="inline-flex items-center gap-1">
                           <Zap className="w-3 h-3" />
                           {((t.consumedWh || 0) / 1000).toFixed(2)} kWh
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 text-sm">
+                      <td className="py-3 px-4 text-foreground text-sm">
                         <span className="inline-flex items-center gap-1">
                           <DollarSign className="w-3 h-3" />
                           R$ {parseFloat(String(t.totalCost || 0)).toFixed(2)}

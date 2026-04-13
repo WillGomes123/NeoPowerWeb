@@ -148,14 +148,14 @@ const operations: Operation[] = [
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  basic: { label: 'Comandos Básicos', color: 'text-emerald-600 dark:text-emerald-600 dark:text-emerald-400', bgColor: 'from-emerald-50 to-emerald-100/50 dark:from-zinc-900/50 dark:to-zinc-800/50', borderColor: 'border-emerald-200 dark:border-zinc-800' },
-  configuration: { label: 'Configuração', color: 'text-blue-600 dark:text-blue-600 dark:text-blue-400', bgColor: 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20', borderColor: 'border-blue-200 dark:border-blue-800/30' },
-  transactions: { label: 'Transações', color: 'text-green-600 dark:text-green-600 dark:text-green-400', bgColor: 'from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20', borderColor: 'border-green-200 dark:border-green-800/30' },
-  reservations: { label: 'Reservas', color: 'text-orange-600 dark:text-orange-600 dark:text-orange-400', bgColor: 'from-orange-50 to-orange-100/50 dark:from-orange-950/40 dark:to-orange-900/20', borderColor: 'border-orange-200 dark:border-orange-800/30' },
-  smartcharging: { label: 'Smart Charging', color: 'text-amber-600 dark:text-amber-600 dark:text-amber-400', bgColor: 'from-amber-50 to-amber-100/50 dark:from-amber-950/40 dark:to-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800/30' },
-  locallist: { label: 'Local Auth List', color: 'text-cyan-600 dark:text-cyan-600 dark:text-cyan-400', bgColor: 'from-cyan-50 to-cyan-100/50 dark:from-cyan-950/40 dark:to-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800/30' },
-  firmware: { label: 'Firmware & Diagnósticos', color: 'text-violet-600 dark:text-violet-600 dark:text-violet-400', bgColor: 'from-violet-50 to-violet-100/50 dark:from-violet-950/40 dark:to-violet-900/20', borderColor: 'border-violet-200 dark:border-violet-800/30' },
-  security: { label: 'Security Extensions', color: 'text-purple-600 dark:text-purple-600 dark:text-purple-400', bgColor: 'from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800/30' },
+  basic: { label: 'Comandos Básicos', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  configuration: { label: 'Configuração', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  transactions: { label: 'Transações', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  reservations: { label: 'Reservas', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  smartcharging: { label: 'Smart Charging', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  locallist: { label: 'Local Auth List', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  firmware: { label: 'Firmware & Diagnósticos', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  security: { label: 'Security Extensions', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
 };
 
 // ============================================================================
@@ -926,7 +926,7 @@ export const Operations = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <RefreshCw className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
+        <RefreshCw className="w-8 h-8 text-primary animate-spin" />
         <p className="text-muted-foreground">Carregando carregadores...</p>
       </div>
     );
@@ -938,7 +938,7 @@ export const Operations = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <Server className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+            <Server className="w-8 h-8 text-foreground" />
             Centro de Operações OCPP
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -950,8 +950,8 @@ export const Operations = () => {
             {socketConnected ? (
               <>
                 <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
                 <span className="text-xs text-on-surface-variant">Tempo real</span>
               </>
@@ -990,29 +990,29 @@ export const Operations = () => {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/20 rounded-xl">
-              <Server className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div className="p-3 bg-surface-container-highest rounded-xl">
+              <Server className="w-6 h-6 text-foreground" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{mergedChargePoints.length}</p>
+              <p className="text-2xl font-bold text-foreground">{mergedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/20 rounded-xl">
-              <Wifi className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <Wifi className="w-6 h-6 text-primary" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Online</p>
-              <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{connectedCount}</p>
+              <p className="text-2xl font-bold text-primary">{connectedCount}</p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-3 bg-surface-container-highest rounded-xl">
               <WifiOff className="w-6 h-6 text-muted-foreground" />
@@ -1024,14 +1024,14 @@ export const Operations = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 border-blue-200 dark:border-blue-800/30">
+        <Card className="bg-card border-border">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-blue-500/20 rounded-xl">
-              <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div className="p-3 bg-surface-container-highest rounded-xl">
+              <CheckCircle2 className="w-6 h-6 text-foreground" />
             </div>
             <div>
-              <p className="text-sm text-blue-300/60">Selecionados</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{selectedChargePoints.length}</p>
+              <p className="text-sm text-muted-foreground">Selecionados</p>
+              <p className="text-2xl font-bold text-foreground">{selectedChargePoints.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -1040,15 +1040,15 @@ export const Operations = () => {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-surface-container border border-border">
-          <TabsTrigger value="operations" className="data-[state=active]:bg-emerald-600">
+          <TabsTrigger value="operations" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
             <Zap className="w-4 h-4 mr-2" />
             Operações
           </TabsTrigger>
-          <TabsTrigger value="results" className="data-[state=active]:bg-emerald-600">
+          <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
             <Activity className="w-4 h-4 mr-2" />
             Resultados
             {results.length > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">{results.length}</Badge>
+              <Badge variant="secondary" className="ml-2 bg-primary/20 text-primary">{results.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -1081,15 +1081,15 @@ export const Operations = () => {
                         onClick={() => toggleChargePointSelection(cp.charge_point_id)}
                         className={`w-full p-3 rounded-lg border text-left transition-all ${
                           selectedChargePoints.includes(cp.charge_point_id)
-                            ? 'bg-emerald-500/20 border-emerald-500'
+                            ? 'bg-primary/20 border-primary'
                             : 'bg-surface-container border-border hover:border-primary/50'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-emerald-400' : 'bg-outline'}`} />
+                            <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-primary' : 'bg-outline'}`} />
                             {cp.isConnected && (
-                              <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping opacity-75" />
+                              <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-primary animate-ping opacity-75" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1097,7 +1097,7 @@ export const Operations = () => {
                             <p className="text-xs text-muted-foreground truncate">{cp.vendor || 'N/A'} {cp.model || ''}</p>
                           </div>
                           {selectedChargePoints.includes(cp.charge_point_id) && (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
                           )}
                         </div>
                       </button>
@@ -1150,7 +1150,7 @@ export const Operations = () => {
               <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-zinc-700">
                 <div className="flex items-center gap-4 flex-wrap">
                   {selectedOperation && (
-                    <Badge variant="outline" className="border-emerald-500 text-emerald-300 bg-emerald-500/10">
+                    <Badge variant="outline" className="border-primary text-primary bg-primary/10">
                       {operations.find(op => op.id === selectedOperation)?.name}
                     </Badge>
                   )}
@@ -1169,7 +1169,7 @@ export const Operations = () => {
                   size="lg"
                   onClick={handleExecute}
                   disabled={!selectedOperation || selectedChargePoints.length === 0}
-                  className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
+                  className="bg-primary hover:bg-primary/80 text-on-primary disabled:opacity-50"
                 >
                   <Play className="w-4 h-4 mr-2" />
                   Executar
@@ -1207,7 +1207,7 @@ export const Operations = () => {
                         key={result.id}
                         className={`p-3 rounded-lg border ${
                           result.status === 'success'
-                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            ? 'bg-primary/10 border-primary/30'
                             : result.status === 'error'
                             ? 'bg-red-500/10 border-red-500/30'
                             : 'bg-amber-500/10 border-amber-500/30'
@@ -1215,7 +1215,7 @@ export const Operations = () => {
                       >
                         <div className="flex items-start gap-3">
                           {result.status === 'success' ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                           ) : result.status === 'error' ? (
                             <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
                           ) : (
@@ -1260,7 +1260,7 @@ export const Operations = () => {
               {operations.find(op => op.id === selectedOperation)?.name}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Executar em <span className="text-emerald-600 dark:text-emerald-400 font-medium">{selectedChargePoints.length} carregador(es)</span>
+              Executar em <span className="text-primary font-medium">{selectedChargePoints.length} carregador(es)</span>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1270,7 +1270,7 @@ export const Operations = () => {
             <Button variant="outline" onClick={() => setShowCommandDialog(false)} className="border-border text-muted-foreground hover:bg-accent">
               Cancelar
             </Button>
-            <Button onClick={() => void handleCommandConfirm()} disabled={executing} className="bg-emerald-600 hover:bg-emerald-500">
+            <Button onClick={() => void handleCommandConfirm()} disabled={executing} className="bg-primary hover:bg-primary/80 text-on-primary">
               {executing ? (
                 <>
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />

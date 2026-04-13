@@ -20,26 +20,26 @@ export const StatusBadge = ({ status, size = 'md' }: StatusBadgeProps) => {
       case 'online':
         return {
           label: 'Online',
-          className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+          className: 'bg-primary/20 text-primary border-primary/50',
         };
       case 'offline':
-        return { label: 'Offline', className: 'bg-zinc-700/50 text-zinc-400 border-zinc-600' };
+        return { label: 'Offline', className: 'bg-muted text-muted-foreground border-border' };
       case 'charging':
         return {
           label: 'Carregando',
-          className: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
+          className: 'bg-primary/20 text-primary border-primary/50',
         };
       case 'active':
         return {
           label: 'Ativo',
-          className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+          className: 'bg-primary/20 text-primary border-primary/50',
         };
       case 'inactive':
-        return { label: 'Inativo', className: 'bg-zinc-700/50 text-zinc-400 border-zinc-600' };
+        return { label: 'Inativo', className: 'bg-muted text-muted-foreground border-border' };
       case 'completed':
         return {
           label: 'Finalizado',
-          className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+          className: 'bg-primary/20 text-primary border-primary/50',
         };
       case 'failed':
         return { label: 'Falhou', className: 'bg-red-500/20 text-red-400 border-red-500/50' };
@@ -49,7 +49,7 @@ export const StatusBadge = ({ status, size = 'md' }: StatusBadgeProps) => {
           className: 'bg-amber-500/20 text-amber-400 border-amber-500/50',
         };
       default:
-        return { label: status, className: 'bg-zinc-700/50 text-zinc-400 border-zinc-600' };
+        return { label: status, className: 'bg-muted text-muted-foreground border-border' };
     }
   };
 
