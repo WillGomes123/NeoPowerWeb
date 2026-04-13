@@ -11,7 +11,8 @@ import {
   Users,
   RefreshCw,
   Building2,
-  Trash2
+  Trash2,
+  FileKey
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import { LocationPerformanceTab } from '@/components/location-details/LocationPe
 import { LocationFinancialTab } from '@/components/location-details/LocationFinancialTab';
 import { LocationMonitoringTab } from '@/components/location-details/LocationMonitoringTab';
 import { LocationPermissionsTab } from '@/components/location-details/LocationPermissionsTab';
+import { LocationCertificadoTab } from '@/components/location-details/LocationCertificadoTab';
 
 interface LocationData {
   id: number;
@@ -54,9 +56,10 @@ interface UserPermissions {
   monitoring: boolean;
   info: boolean;
   permissions: boolean;
+  certificado: boolean;
 }
 
-type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions';
+type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado';
 
 interface Tab {
   id: TabId;
@@ -72,6 +75,7 @@ const tabs: Tab[] = [
   { id: 'financial', label: 'Financeiro', icon: DollarSign, permissionKey: 'financial' },
   { id: 'monitoring', label: 'Monitoramento', icon: MapPin, permissionKey: 'monitoring' },
   { id: 'permissions', label: 'Permissões', icon: Users, permissionKey: 'permissions' },
+  { id: 'certificado', label: 'Certificado Digital', icon: FileKey, permissionKey: 'info' }, // Usa permissão de 'info' ou admin
 ];
 
 export function LocationDetails() {
@@ -305,6 +309,9 @@ export function LocationDetails() {
         )}
         {activeTab === 'permissions' && permissions?.permissions && (
           <LocationPermissionsTab locationId={parseInt(id!)} />
+        )}
+        {activeTab === 'certificado' && isAdmin && (
+          <LocationCertificadoTab locationId={parseInt(id!)} />
         )}
       </div>
     </div>
