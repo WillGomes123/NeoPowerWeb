@@ -137,14 +137,17 @@ export const Branding = () => {
         });
         void fetchConfigs();
 
-        // Se a marca editada for a do próprio usuário logado ou se for admin, atualiza o preview
-        if (user?.role === 'admin' || user?.branding?.clientId === formData.clientId || user?.branding?.logoUri === formData.logoUri) {
+        // Só aplica a nova marca no preview se for a marca DO PRÓPRIO usuário logado.
+        // Admin editando/criando marcas de OUTROS tenants NÃO deve ver a mudança no seu dashboard.
+        const isEditingOwnBranding = user?.branding?.clientId === formData.clientId;
+
+        if (isEditingOwnBranding) {
           try {
             const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
             userData.branding = { ...formData };
             sessionStorage.setItem('userData', JSON.stringify(userData));
 
-            // Força a atualização do tema local para refletir a escolha do Branco/Escuro feita no admin
+            // Força a atualização do tema local para refletir a escolha do Branco/Escuro
             if (formData.theme) {
               localStorage.setItem('neopower-theme', formData.theme);
             }

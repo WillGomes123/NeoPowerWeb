@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -7,6 +8,29 @@ import { exportToCSV, exportToExcel } from '../lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { ReportTemplate } from '../components/ReportTemplate';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
+interface TenantFinancialSummary {
+  clientId: string;
+  companyName: string;
+  transactions: number;
+  kWh: number;
+  revenue: number;
+  fees: number;
+  net: number;
+}
+
+interface TenantOverviewResponse {
+  aggregate: {
+    transactions: number;
+    kWh: number;
+    revenue: number;
+    fees: number;
+    net: number;
+    deposits: { total: number; count: number; mpFee: number };
+  };
+  byTenant: TenantFinancialSummary[];
+}
 
 interface FinancialReportItem {
   Estação: string;
@@ -42,9 +66,18 @@ interface WalletTransactionItem {
 export const FinancialReport = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const userClientId = user?.branding?.clientId || null;
+  // Super admin = admin sem whitelabel específico → vê todos os tenants
+  const isSuperAdmin = isAdmin && !userClientId;
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const drillDownClientId = searchParams.get('clientId');
+  // Modo overview: só ativa pra super admin sem drill-down selecionado
+  const overviewMode = isSuperAdmin && !drillDownClientId;
 
   const [reportData, setReportData] = useState<FinancialReportItem[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
+  const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -84,6 +117,8 @@ export const FinancialReport = () => {
     if (submittedFilter) params.append('chargerId', submittedFilter);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    // Super admin drill-down: filtra o relatório por whitelabel específico
+    if (drillDownClientId) params.append('clientId', drillDownClientId);
 
     if (params.toString()) {
       endpoint += `?${params.toString()}`;
@@ -114,7 +149,31 @@ export const FinancialReport = () => {
     } finally {
       setLoading(false);
     }
-  }, [submittedFilter, startDate, endDate, isAdmin, userLocationNames]);
+  }, [submittedFilter, startDate, endDate, isAdmin, userLocationNames, drillDownClientId]);
+
+  const fetchTenantOverview = useCallback(async () => {
+    if (!isSuperAdmin) {
+      setTenantOverview(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const qs = params.toString();
+      const response = await api.get(`/reports/financial/by-tenant${qs ? `?${qs}` : ''}`);
+      if (!response.ok) throw new Error('Erro ao buscar overview');
+      const data: TenantOverviewResponse = await response.json();
+      setTenantOverview(data);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao buscar overview por whitelabel');
+      setTenantOverview(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [isSuperAdmin, startDate, endDate]);
 
   const fetchWalletTransactions = useCallback(async () => {
     if (!isAdmin) {
@@ -144,15 +203,31 @@ export const FinancialReport = () => {
 
   useEffect(() => {
     if (!locationsLoaded) return;
-    void fetchReport();
-    void fetchWalletTransactions();
-  }, [locationsLoaded, fetchReport, fetchWalletTransactions]);
+    if (overviewMode) {
+      void fetchTenantOverview();
+    } else {
+      void fetchReport();
+      void fetchWalletTransactions();
+    }
+  }, [locationsLoaded, overviewMode, fetchReport, fetchWalletTransactions, fetchTenantOverview]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([fetchReport(), fetchWalletTransactions()]);
+    if (overviewMode) {
+      await fetchTenantOverview();
+    } else {
+      await Promise.all([fetchReport(), fetchWalletTransactions()]);
+    }
     setRefreshing(false);
     toast.success('Relatório atualizado!');
+  };
+
+  const handleBackToOverview = () => {
+    setSearchParams({});
+  };
+
+  const handleDrillDown = (clientId: string) => {
+    setSearchParams({ clientId });
   };
 
   const handleFilterSubmit = (e: React.FormEvent) => {
@@ -380,7 +455,7 @@ export const FinancialReport = () => {
 
   const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  if (loading && reportData.length === 0) {
+  if (loading && reportData.length === 0 && !tenantOverview) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -389,14 +464,289 @@ export const FinancialReport = () => {
     );
   }
 
+  // ───── OVERVIEW POR WHITELABEL (só super admin sem drill-down) ─────
+  if (overviewMode && tenantOverview) {
+    const agg = tenantOverview.aggregate;
+    const activeTenants = tenantOverview.byTenant.filter(t => t.transactions > 0);
+    const topTenants = [...activeTenants].sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+    const totalRevenue = agg.revenue || 1; // evita div por zero
+    const margin = agg.revenue > 0 ? (agg.net / agg.revenue) * 100 : 0;
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-headline font-bold text-foreground flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-3xl">insights</span>
+              Relatório Financeiro — Visão Geral
+            </h1>
+            <p className="text-on-surface-variant mt-1">
+              Consolidado de todos os whitelabels. Clique num card para abrir o relatório detalhado.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-2xl text-on-surface-variant transition-all"
+            >
+              <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin' : ''}`}>refresh</span>
+              Atualizar
+            </button>
+          </div>
+        </div>
+
+        {/* Date filter */}
+        <div className="glass-card rounded-2xl p-4 flex flex-wrap items-end gap-4">
+          <div className="flex-1 min-w-[280px]">
+            <label className="text-xs text-on-surface-variant uppercase tracking-wide font-medium mb-2 block">
+              Período
+            </label>
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              onClear={() => { setStartDate(''); setEndDate(''); }}
+            />
+          </div>
+          {(startDate || endDate) && (
+            <button
+              onClick={() => { setStartDate(''); setEndDate(''); }}
+              className="px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-2xl text-on-surface-variant text-sm transition-all"
+            >
+              Limpar período
+            </button>
+          )}
+        </div>
+
+        {/* ─── Hero Card: consolidado da plataforma ─── */}
+        <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">leaderboard</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium">
+                Consolidado da plataforma
+              </p>
+            </div>
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="text-4xl sm:text-5xl font-headline font-bold text-foreground">
+                  R$ {fmt(agg.net)}
+                </p>
+                <p className="text-sm text-on-surface-variant mt-1">
+                  receita líquida após taxas • margem {margin.toFixed(1)}%
+                </p>
+              </div>
+              <div className="flex gap-6">
+                <div className="text-right">
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
+                  <p className="text-2xl font-bold text-foreground">{agg.transactions}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Energia</p>
+                  <p className="text-2xl font-bold text-foreground">{fmt(agg.kWh)} <span className="text-sm text-on-surface-variant">kWh</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de composição da receita */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-on-surface-variant">
+                <span>Receita bruta: R$ {fmt(agg.revenue)}</span>
+                <span>Taxas: R$ {fmt(agg.fees + agg.deposits.mpFee)}</span>
+              </div>
+              <div className="h-3 rounded-full bg-surface-container-highest overflow-hidden flex">
+                <div
+                  className="bg-primary transition-all"
+                  style={{ width: `${(agg.net / totalRevenue) * 100}%` }}
+                  title={`Líquido: R$ ${fmt(agg.net)}`}
+                />
+                <div
+                  className="bg-red-500/70 transition-all"
+                  style={{ width: `${(agg.fees / totalRevenue) * 100}%` }}
+                  title={`Taxas operacionais: R$ ${fmt(agg.fees)}`}
+                />
+              </div>
+              <div className="flex gap-4 text-xs">
+                <span className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  Líquido
+                </span>
+                <span className="flex items-center gap-1.5 text-on-surface-variant">
+                  <span className="w-2 h-2 rounded-full bg-red-500/70" />
+                  Taxas operacionais
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── KPIs secundários ─── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">attach_money</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Receita Bruta</p>
+            </div>
+            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">{activeTenants.length} whitelabels ativos</p>
+          </div>
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-red-500">trending_down</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Taxas Totais</p>
+            </div>
+            <p className="text-2xl font-bold text-red-500">R$ {fmt(agg.fees + agg.deposits.mpFee)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">operação + {fmt(agg.deposits.mpFee)} MP</p>
+          </div>
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">savings</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Ticket Médio</p>
+            </div>
+            <p className="text-2xl font-bold text-foreground">
+              R$ {fmt(agg.transactions > 0 ? agg.revenue / agg.transactions : 0)}
+            </p>
+            <p className="text-xs text-on-surface-variant mt-1">por transação</p>
+          </div>
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Depósitos Wallet</p>
+            </div>
+            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.deposits.total)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósitos no período</p>
+          </div>
+        </div>
+
+        {/* ─── Chart: Top whitelabels por receita ─── */}
+        {topTenants.length > 0 && (
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">bar_chart</span>
+                Top whitelabels por receita
+              </h2>
+              <span className="text-xs text-on-surface-variant">Top {topTenants.length}</span>
+            </div>
+            <div className="w-full h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topTenants} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+                  <XAxis type="number" stroke="var(--color-muted-foreground)" fontSize={11} tickFormatter={(v) => `R$ ${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
+                  <YAxis type="category" dataKey="companyName" stroke="var(--color-muted-foreground)" fontSize={11} width={120} />
+                  <Tooltip
+                    contentStyle={{
+                      background: 'var(--color-card)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '12px',
+                    }}
+                    formatter={(v: number) => [`R$ ${fmt(v)}`, 'Receita']}
+                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                  />
+                  <Bar dataKey="revenue" fill="var(--primary)" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Whitelabel cards ─── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-foreground">Por whitelabel</h2>
+            <span className="text-xs text-on-surface-variant">
+              {activeTenants.length} de {tenantOverview.byTenant.length} com movimento
+            </span>
+          </div>
+          {tenantOverview.byTenant.length === 0 ? (
+            <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
+              Nenhum whitelabel cadastrado.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tenantOverview.byTenant.map(t => {
+                const hasActivity = t.transactions > 0;
+                const shareOfRevenue = agg.revenue > 0 ? (t.revenue / agg.revenue) * 100 : 0;
+                return (
+                  <button
+                    key={t.clientId}
+                    onClick={() => handleDrillDown(t.clientId)}
+                    className={`glass-card rounded-2xl p-5 text-left transition-all hover:scale-[1.02] hover:shadow-xl hover:border-primary/30 group ${hasActivity ? '' : 'opacity-60'}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">{t.clientId}</p>
+                        <h3 className="text-lg font-semibold text-foreground truncate">{t.companyName}</h3>
+                      </div>
+                      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Receita</p>
+                        <p className="text-base font-bold text-foreground">R$ {fmt(t.revenue)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Líquida</p>
+                        <p className="text-base font-bold text-primary">R$ {fmt(t.net)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Taxas</p>
+                        <p className="text-sm text-red-500">R$ {fmt(t.fees)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
+                        <p className="text-sm text-foreground">{t.transactions}</p>
+                      </div>
+                    </div>
+                    {hasActivity && (
+                      <>
+                        <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all"
+                            style={{ width: `${shareOfRevenue}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-on-surface-variant mt-1.5">
+                          {shareOfRevenue.toFixed(1)}% da receita total
+                        </p>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Back button — só quando super admin fez drill-down num whitelabel */}
+      {isSuperAdmin && drillDownClientId && (
+        <button
+          onClick={handleBackToOverview}
+          className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-foreground transition-colors"
+        >
+          <span className="material-symbols-outlined text-base">arrow_back</span>
+          Voltar ao overview
+        </button>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-headline font-bold text-foreground flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-3xl">payments</span>
             Relatório Financeiro
+            {drillDownClientId && (
+              <span className="text-base font-normal text-on-surface-variant">— {drillDownClientId}</span>
+            )}
           </h1>
           <p className="text-on-surface-variant mt-1">
             {isAdmin ? 'Análise detalhada de receitas, custos e lucros' : `Relatório das suas estações (${userLocationNames.length} local/is)`}

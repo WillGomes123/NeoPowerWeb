@@ -27,7 +27,9 @@ export const Login = () => {
     setError('');
     setLoading(true);
 
-    const success = await login(email, password);
+    // Email é case-insensitive — normaliza antes de enviar
+    const normalizedEmail = email.trim().toLowerCase();
+    const success = await login(normalizedEmail, password);
     setLoading(false);
 
     if (success) {

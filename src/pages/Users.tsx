@@ -45,6 +45,7 @@ export const Users = () => {
   const [creating, setCreating] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '' });
   const [platformTab, setPlatformTab] = useState<PlatformFilter>('web');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => { void fetchUsers(); void fetchLocations(); }, []);
 
@@ -113,7 +114,9 @@ export const Users = () => {
     if (!newUser.name || !newUser.email || !newUser.password) { toast.error('Nome, email e senha são obrigatórios'); return; }
     setCreating(true);
     try {
-      const r = await api.post('/admin/users', { name: newUser.name, email: newUser.email, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined });
+      // Email é case-insensitive — normaliza antes de enviar
+      const normalizedEmail = newUser.email.trim().toLowerCase();
+      const r = await api.post('/admin/users', { name: newUser.name, email: normalizedEmail, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
       toast.success('Usuário criado!');
       setCreateDialogOpen(false);
@@ -143,7 +146,16 @@ export const Users = () => {
     [users]
   );
 
-  const visibleUsers = platformTab === 'web' ? webUsers : mobileUsers;
+  const visibleUsers = useMemo(() => {
+    const base = platformTab === 'web' ? webUsers : mobileUsers;
+    if (!searchQuery.trim()) return base;
+    const q = searchQuery.trim().toLowerCase();
+    return base.filter(u =>
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.phone?.toLowerCase().includes(q),
+    );
+  }, [platformTab, webUsers, mobileUsers, searchQuery]);
 
   const formatPhone = (phone: string | null) => {
     if (!phone) return '—';
@@ -275,6 +287,30 @@ export const Users = () => {
             {mobileUsers.length}
           </span>
         </button>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por nome, email ou telefone..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+          />
+        </div>
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="px-3 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-foreground transition-colors text-xs font-bold flex items-center gap-1"
+            title="Limpar busca"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+            Limpar
+          </button>
+        )}
       </div>
 
       {/* Users Table */}

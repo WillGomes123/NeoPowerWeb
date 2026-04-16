@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -6,7 +6,13 @@ import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { DynamicMap, TileLayer, Marker, useMap, L } from './DynamicMap';
+
+interface TenantOption {
+  clientId: string;
+  companyName: string;
+}
 
 // Inicializar Leaflet icons
 if (typeof window !== 'undefined' && L) {
@@ -28,6 +34,7 @@ interface AddLocationFormProps {
 }
 
 interface LocationFormData {
+  client_id: string | null;
   name: string;
   cep: string;
   address: string;
@@ -106,14 +113,40 @@ const getNeonIcon = () => {
 };
 
 export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'admin' && !user?.branding?.clientId;
+
   const [activeTab, setActiveTab] = useState('info');
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-14.235, -51.925]);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [pinPosition, setPinPosition] = useState<[number, number] | null>(null);
+  const [tenants, setTenants] = useState<TenantOption[]>([]);
+
+  // Buscar lista de tenants disponíveis (apenas super admin)
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    (async () => {
+      try {
+        const r = await api.get('/admin/branding');
+        if (!r.ok) return;
+        const data = await r.json();
+        const list: TenantOption[] = (Array.isArray(data) ? data : data?.payload || [])
+          .filter((b: any) => b?.clientId)
+          .map((b: any) => ({
+            clientId: b.clientId,
+            companyName: b.companyName || b.clientId,
+          }));
+        setTenants(list);
+      } catch {
+        // silencioso
+      }
+    })();
+  }, [isSuperAdmin]);
 
   const [formData, setFormData] = useState<LocationFormData>({
+    client_id: null,
     name: '',
     cep: '',
     address: '',
@@ -269,6 +302,17 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
       return;
     }
 
+    // Aviso: super admin criando location sem tenant
+    if (isSuperAdmin && !formData.client_id) {
+      const ok = window.confirm(
+        'Você não selecionou um operador (white-label). Esta location ficará invisível para os apps mobile e só você (super admin) poderá vê-la. Deseja continuar?'
+      );
+      if (!ok) {
+        setActiveTab('info');
+        return;
+      }
+    }
+
     // Validação Aba 2: Negócio
     if (!formData.razao_social || !formData.cnpj) {
       toast.error('Preencha todos os campos obrigatórios da aba Negócio');
@@ -315,6 +359,8 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         logo_url: formData.logo_url || null,
         imagem_local_url: formData.imagem_local_url || null,
         observacoes: formData.observacoes || null,
+        // Tenant: enviado pelo super admin (backend valida)
+        client_id: formData.client_id || null,
         // Campos fiscais NFS-e
         fortes_im: formData.inscricao_municipal || null,
         cidade_ibge: formData.cidade_ibge || null,
@@ -488,6 +534,45 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                   />
                 </div>
+
+                {/* Seletor de Tenant — apenas Super Admin */}
+                {isSuperAdmin && (
+                  <div>
+                    <Label htmlFor="tenant" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm text-primary">domain</span>
+                      Operador (White-Label) <span className="text-primary">*</span>
+                    </Label>
+                    <Select
+                      value={formData.client_id || '__none__'}
+                      onValueChange={(v) => setFormData({ ...formData, client_id: v === '__none__' ? null : v })}
+                    >
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm">
+                        <SelectValue placeholder="Selecione o operador" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="__none__" className="text-on-surface-variant focus:bg-surface-container-highest">
+                          <span className="text-on-surface-variant">Sem operador (apenas super admin enxerga)</span>
+                        </SelectItem>
+                        {tenants.length === 0 && (
+                          <SelectItem value="__loading__" disabled className="text-on-surface-variant">
+                            Carregando operadores...
+                          </SelectItem>
+                        )}
+                        {tenants.map(t => (
+                          <SelectItem key={t.clientId} value={t.clientId} className="text-on-surface focus:bg-surface-container-highest">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{t.companyName}</span>
+                              <span className="text-[10px] font-mono text-on-surface-variant">({t.clientId})</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-on-surface-variant mt-1.5">
+                      Define qual white-label terá acesso a este local. Apenas usuários do operador selecionado poderão visualizá-lo.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
