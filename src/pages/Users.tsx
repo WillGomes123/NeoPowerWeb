@@ -5,6 +5,12 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '../components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -46,6 +52,11 @@ export const Users = () => {
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos' });
   const [platformTab, setPlatformTab] = useState<PlatformFilter>('web');
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editUserData, setEditUserData] = useState({ id: 0, name: '', email: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos', password: '' });
 
   useEffect(() => { void fetchUsers(); void fetchLocations(); }, []);
 
@@ -134,6 +145,42 @@ export const Users = () => {
       setEditingPhone(null);
       void fetchUsers();
     } catch { toast.error('Erro ao atualizar telefone'); }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    setDeleting(true);
+    try {
+      const r = await api.delete(`/admin/users/${selectedUser.id}`);
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro ao excluir'); }
+      toast.success('Usuário excluído!');
+      setDeleteUserDialogOpen(false);
+      void fetchUsers();
+    } catch (e: any) { toast.error(e.message || 'Erro interno ao excluir'); }
+    finally { setDeleting(false); }
+  };
+
+  const handleEditUser = async () => {
+    if (!editUserData.name || !editUserData.email) return toast.error('Nome e email obrigatórios');
+    setEditing(true);
+    try {
+      const normalizedEmail = editUserData.email.trim().toLowerCase();
+      const payload: any = { name: editUserData.name, email: normalizedEmail, role: editUserData.role, phone: editUserData.phone || undefined, platform: editUserData.platform };
+      if (editUserData.password) payload.password = editUserData.password;
+      
+      const r = await api.put(`/admin/users/${editUserData.id}`, payload);
+      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
+      toast.success('Usuário atualizado!');
+      setEditUserDialogOpen(false);
+      void fetchUsers();
+    } catch (e: any) { toast.error(e.message || 'Erro ao editar usuário'); }
+    finally { setEditing(false); }
+  };
+
+  const openEditModal = (user: User) => {
+    const plat = user.platform === 'mobile' ? 'app' : user.platform === null ? 'ambos' : 'web';
+    setEditUserData({ id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone || '', platform: plat as any, password: '' });
+    setEditUserDialogOpen(true);
   };
 
   // Separa usuários por plataforma. NULL é tratado como 'web' (legado)
@@ -464,69 +511,39 @@ export const Users = () => {
 
                   {/* Actions */}
                   <td className="px-6 py-4">
-                    {user.role !== 'admin' && user.role !== 'blocked' && (
-                      <Dialog
-                        open={dialogOpen && selectedUser?.id === user.id}
-                        onOpenChange={open => { setDialogOpen(open); if (!open) setSelectedUser(null); }}
-                      >
-                        <DialogTrigger
-                          onClick={() => handleManageLocations(user)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface text-xs font-bold hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-container-highest transition-colors text-on-surface-variant outline-none focus:ring-2 focus:ring-primary/20">
+                          <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 bg-surface-container border-outline-variant/20">
+                        {user.role !== 'admin' && user.role !== 'blocked' && (
+                          <DropdownMenuItem
+                            onClick={() => handleManageLocations(user)}
+                            className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
+                          >
+                            <span className="material-symbols-outlined text-[18px] text-tertiary">location_on</span>
+                            Gerenciar Locais
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => openEditModal(user)}
+                          className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
                         >
-                          <span className="material-symbols-outlined text-sm">location_on</span>
-                          Locais
-                        </DialogTrigger>
-                        <DialogContent className="bg-surface-container border-outline-variant/20 text-on-surface">
-                          <DialogHeader>
-                            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-                              <span className="material-symbols-outlined text-primary">location_on</span>
-                              Gerenciar Locais — {user.name}
-                            </DialogTitle>
-                            <DialogDescription className="text-on-surface-variant">
-                              Adicione ou remova locais que este usuário pode acessar
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Adicionar Local</label>
-                              <Select onValueChange={handleAddLocation}>
-                                <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
-                                  <SelectValue placeholder="Selecione um local" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-surface-container border-outline-variant/20">
-                                  {locations.filter(l => !userLocations.some(ul => ul.locationId === l.id)).map(l => (
-                                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Locais Permitidos</label>
-                              {userLocations.length === 0 ? (
-                                <p className="text-on-surface-variant text-sm py-4 text-center">Nenhum local atribuído</p>
-                              ) : (
-                                <div className="space-y-2">
-                                  {userLocations.map(ul => (
-                                    <div key={ul.locationId} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-outline-variant/5">
-                                      <div className="flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-                                        <span className="text-sm text-on-surface">{locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}</span>
-                                      </div>
-                                      <button onClick={() => handleRemoveLocation(ul.locationId)} className="text-error text-xs font-bold hover:bg-error/10 px-2 py-1 rounded transition-colors">
-                                        Remover
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex justify-end pt-4 border-t border-outline-variant/10">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Fechar</Button>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
+                          <span className="material-symbols-outlined text-[18px] text-primary">edit</span>
+                          Editar Usuário
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-outline-variant/10" />
+                        <DropdownMenuItem
+                          onClick={() => { setSelectedUser(user); setDeleteUserDialogOpen(true); }}
+                          className="flex items-center gap-2 cursor-pointer text-error focus:bg-error/10 focus:text-error"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                          Excluir Usuário
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))}
@@ -534,6 +551,149 @@ export const Users = () => {
           </table>
         </div>
       </div>
+
+      {/* Gerenciar Locais Dialog (Standalone) */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="bg-surface-container border-outline-variant/20 text-on-surface">
+          <DialogHeader>
+            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">location_on</span>
+              Gerenciar Locais — {selectedUser?.name}
+            </DialogTitle>
+            <DialogDescription className="text-on-surface-variant">
+              Adicione ou remova locais que este usuário pode acessar
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Adicionar Local</label>
+              <Select onValueChange={handleAddLocation}>
+                <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                  <SelectValue placeholder="Selecione um local" />
+                </SelectTrigger>
+                <SelectContent className="bg-surface-container border-outline-variant/20">
+                  {locations.filter(l => !userLocations.some(ul => ul.locationId === l.id)).map(l => (
+                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Locais Permitidos</label>
+              {userLocations.length === 0 ? (
+                <p className="text-on-surface-variant text-sm py-4 text-center">Nenhum local atribuído</p>
+              ) : (
+                <div className="space-y-2">
+                  {userLocations.map(ul => (
+                    <div key={ul.locationId} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-outline-variant/5">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-primary">location_on</span>
+                        <span className="text-sm text-on-surface">{locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}</span>
+                      </div>
+                      <button onClick={() => handleRemoveLocation(ul.locationId)} className="text-error text-xs font-bold hover:bg-error/10 px-2 py-1 rounded transition-colors">
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end pt-4 border-t border-outline-variant/10">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
+        <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">edit</span>
+              Editar Usuário
+            </DialogTitle>
+            <DialogDescription className="text-on-surface-variant">
+              Atualize as informações principais do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nome</Label>
+                <Input value={editUserData.name} onChange={e => setEditUserData({ ...editUserData, name: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Função</Label>
+                <Select value={editUserData.role} onValueChange={v => setEditUserData({ ...editUserData, role: v as ManagedRole })}>
+                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-surface-container border-outline-variant/20">
+                    <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+                    <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
+                    <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Email</Label>
+              <Input type="email" value={editUserData.email} onChange={e => setEditUserData({ ...editUserData, email: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Acesso do Usuário</Label>
+                <Select value={editUserData.platform} onValueChange={v => setEditUserData({ ...editUserData, platform: v as any })}>
+                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-surface-container border-outline-variant/20">
+                    <SelectItem value="web" className="text-on-surface focus:bg-surface-container-highest">Painel Web</SelectItem>
+                    <SelectItem value="app" className="text-on-surface focus:bg-surface-container-highest">App Mobile</SelectItem>
+                    <SelectItem value="ambos" className="text-on-surface focus:bg-surface-container-highest">Ambos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nova Senha</Label>
+                <Input type="password" placeholder="Deixe em branco p/ manter" value={editUserData.password} onChange={e => setEditUserData({ ...editUserData, password: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
+              <Input value={editUserData.phone} onChange={e => setEditUserData({ ...editUserData, phone: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setEditUserDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</Button>
+            <button onClick={handleEditUser} disabled={editing} className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
+              {editing ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
+        <AlertDialogContent className="bg-surface-container border-outline-variant/20 font-sans">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-on-surface font-headline text-xl">Excluir Usuário</AlertDialogTitle>
+            <AlertDialogDescription className="text-on-surface-variant">
+              Tem certeza que deseja excluir o usuário <strong>{selectedUser?.name}</strong>? Esta ação removerá o acesso dele ao sistema permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-outline-variant/20 text-on-surface hover:bg-surface-container-highest rounded-full px-6">
+              Cancelar
+            </AlertDialogCancel>
+            <button
+              onClick={handleDeleteUser}
+              disabled={deleting}
+              className="bg-error text-on-error hover:bg-error/90 px-6 py-2 rounded-full font-bold text-sm disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
+            >
+              {deleting ? 'Aguarde...' : 'Sim, Excluir'}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 };
