@@ -43,7 +43,7 @@ export const Users = () => {
   const [phoneValue, setPhoneValue] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos' });
   const [platformTab, setPlatformTab] = useState<PlatformFilter>('web');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -116,11 +116,11 @@ export const Users = () => {
     try {
       // Email é case-insensitive — normaliza antes de enviar
       const normalizedEmail = newUser.email.trim().toLowerCase();
-      const r = await api.post('/admin/users', { name: newUser.name, email: normalizedEmail, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined });
+      const r = await api.post('/admin/users', { name: newUser.name, email: normalizedEmail, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined, platform: newUser.platform });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
       toast.success('Usuário criado!');
       setCreateDialogOpen(false);
-      setNewUser({ name: '', email: '', password: '', role: 'comum', phone: '' });
+      setNewUser({ name: '', email: '', password: '', role: 'comum', phone: '', platform: 'web' });
       void fetchUsers();
     } catch (e: any) { toast.error(e.message || 'Erro ao criar usuário'); }
     finally { setCreating(false); }
@@ -142,7 +142,7 @@ export const Users = () => {
     [users]
   );
   const mobileUsers = useMemo(
-    () => users.filter(u => u.platform === 'mobile'),
+    () => users.filter(u => u.platform === 'mobile' || u.platform == null),
     [users]
   );
 
@@ -229,9 +229,20 @@ export const Users = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
-                    <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Acesso do Usuário</Label>
+                    <Select value={newUser.platform} onValueChange={v => setNewUser({ ...newUser, platform: v as 'web' | 'app' | 'ambos' })}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="web" className="text-on-surface focus:bg-surface-container-highest">Painel Web</SelectItem>
+                        <SelectItem value="app" className="text-on-surface focus:bg-surface-container-highest">App Mobile</SelectItem>
+                        <SelectItem value="ambos" className="text-on-surface focus:bg-surface-container-highest">Ambos</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
+                  <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
@@ -330,9 +341,10 @@ export const Users = () => {
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                 <th className="px-6 py-4">Usuário</th>
                 <th className="px-6 py-4">Telefone</th>
-                <th className="px-6 py-4">Função</th>
+                <th className="px-6 py-4">Função & Acesso</th>
                 <th className="px-6 py-4">Marca</th>
                 <th className="px-6 py-4">Locais</th>
+                <th className="px-6 py-4">Acesso</th>
                 <th className="px-6 py-4">Ações</th>
               </tr>
             </thead>
@@ -424,6 +436,28 @@ export const Users = () => {
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
                         TODOS
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Platform Access */}
+                  <td className="px-6 py-4">
+                    {user.platform === 'web' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
+                        <span className="material-symbols-outlined text-xs">desktop_windows</span>
+                        WEB
+                      </span>
+                    )}
+                    {user.platform === 'mobile' && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold">
+                        <span className="material-symbols-outlined text-xs">smartphone</span>
+                        APP
+                      </span>
+                    )}
+                    {!user.platform && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant border border-outline-variant/10 text-[10px] font-bold">
+                        <span className="material-symbols-outlined text-xs">sync_alt</span>
+                        AMBOS
                       </span>
                     )}
                   </td>
