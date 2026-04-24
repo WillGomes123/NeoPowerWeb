@@ -18,7 +18,7 @@ const LAST_ACTIVITY_KEY = 'lastActivity';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   switchRole: (role: UserRole) => void;
@@ -173,7 +173,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Branding and role changes are handled by useAppTheme in components
   }, [user?.role, user?.branding]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // OCPP_API: endpoint /users/login com campos email e password
       const response = await fetch(`${API_BASE_URL}/users/login`, {
@@ -199,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           description: `Aguarde ${retryAfter} minuto(s) antes de tentar novamente. Se você está tentando acessar de múltiplos dispositivos, aguarde um momento.`,
           duration: 10000,
         });
-        return false;
+        return { success: false, error: `Muitas tentativas. Aguarde ${retryAfter} minuto(s).` };
       }
 
       const responseData = await response.json();
@@ -207,7 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!response.ok || responseData.success === false) {
         const errorMsg = responseData.message || responseData.error || 'Email ou senha incorretos.';
         toast.error('Erro ao fazer login', { description: errorMsg });
-        return false;
+        return { success: false, error: errorMsg };
       }
 
       const payload = responseData.data || responseData;
@@ -248,14 +248,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Inicializar timestamp de atividade para o timeout de sessão
       localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
 
-      return true;
+      return { success: true };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erro de conexão com o servidor.';
       toast.error('Erro ao fazer login', { description: errorMsg });
       if (import.meta.env.DEV) {
         console.error('Login error:', err);
       }
-      return false;
+      return { success: false, error: errorMsg };
     }
   };
 

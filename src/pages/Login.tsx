@@ -31,15 +31,17 @@ export const Login = () => {
 
     // Email é case-insensitive — normaliza antes de enviar
     const normalizedEmail = email.trim().toLowerCase();
-    const success = await login(normalizedEmail, password);
+    const result = await login(normalizedEmail, password);
     setLoading(false);
 
-    if (success) {
+    if (result.success) {
       toast.success('Login realizado com sucesso!');
       navigate('/');
     } else {
-      setError('Email ou senha incorretos');
-      toast.error('Email ou senha incorretos');
+      const msg = result.error || 'Email ou senha incorretos';
+      setError(msg);
+      // O toast de erro já está sendo disparado dentro da função login em auth.tsx, 
+      // então não precisamos disparar outro toast genérico aqui.
     }
   };
 
