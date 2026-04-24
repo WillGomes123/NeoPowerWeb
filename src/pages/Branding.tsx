@@ -124,10 +124,10 @@ export const Branding = () => {
       const { updatedAt, ...baseDataToSave } = formData;
       const dataToSave = {
         ...baseDataToSave,
-        primaryColorLight: useSameColors ? null : baseDataToSave.primaryColorLight,
-        primaryColorDark: useSameColors ? null : baseDataToSave.primaryColorDark,
-        splashBgColorLight: useSameColors ? null : baseDataToSave.splashBgColorLight,
-        splashBgColorDark: useSameColors ? null : baseDataToSave.splashBgColorDark,
+        primaryColorLight: useSameColors ? null : (baseDataToSave.primaryColorLight || baseDataToSave.primaryColor),
+        primaryColorDark: useSameColors ? null : (baseDataToSave.primaryColorDark || baseDataToSave.primaryColor),
+        splashBgColorLight: useSameColors ? null : (baseDataToSave.splashBgColorLight || baseDataToSave.splashBgColor),
+        splashBgColorDark: useSameColors ? null : (baseDataToSave.splashBgColorDark || baseDataToSave.splashBgColor),
       };
 
       if (updatedAt) {
@@ -887,14 +887,26 @@ export const Branding = () => {
                       <span className="text-sm font-medium text-on-surface">{config.companyName}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-5 h-5 rounded-full border border-outline-variant/20"
-                          style={{ backgroundColor: config.primaryColor }}
-                        />
-                        <span className="text-on-surface-variant text-xs font-mono">
-                          {config.primaryColor}
-                        </span>
+                      <div className="flex flex-col gap-1.5">
+                        {(!config.primaryColorLight && !config.primaryColorDark) ? (
+                          <div className="flex items-center gap-2" title="Cor Unificada">
+                            <div className="w-4 h-4 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColor }} />
+                            <span className="text-on-surface-variant text-xs font-mono">{config.primaryColor}</span>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2" title="Tema Claro">
+                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">light_mode</span>
+                              <div className="w-3.5 h-3.5 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColorLight || config.primaryColor }} />
+                              <span className="text-on-surface-variant text-[10px] font-mono">{config.primaryColorLight || config.primaryColor}</span>
+                            </div>
+                            <div className="flex items-center gap-2" title="Tema Escuro">
+                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">dark_mode</span>
+                              <div className="w-3.5 h-3.5 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColorDark || config.primaryColor }} />
+                              <span className="text-on-surface-variant text-[10px] font-mono">{config.primaryColorDark || config.primaryColor}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">

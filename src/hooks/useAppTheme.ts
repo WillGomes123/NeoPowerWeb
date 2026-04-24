@@ -20,9 +20,15 @@ function applyTheme(isDark: boolean, branding?: any) {
   // Determine base variables
   const baseVars = isDark ? darkVars : lightVars;
 
-  // Determine primary color
+  // Determine primary color based on current theme
   const defaultPrimary = !isDark ? '#059669' : '#39FF14';
-  const activePrimary = branding?.primaryColor || defaultPrimary;
+  let activePrimary = branding?.primaryColor || defaultPrimary;
+  
+  if (isDark && branding?.primaryColorDark) {
+    activePrimary = branding.primaryColorDark;
+  } else if (!isDark && branding?.primaryColorLight) {
+    activePrimary = branding.primaryColorLight;
+  }
 
   // Prepare primary-related derivations (matching auth.tsx logic)
   const hex = activePrimary.replace('#', '');
@@ -30,19 +36,23 @@ function applyTheme(isDark: boolean, branding?: any) {
   const g = parseInt(hex.substring(2, 4), 16) || 0;
   const b = parseInt(hex.substring(4, 6), 16) || 0;
   
-  // Calculate a "container" color (dimmed version)
-  const dimR = Math.max(0, Math.floor(r * 0.7));
-  const dimG = Math.max(0, Math.floor(g * 0.7));
-  const dimB = Math.max(0, Math.floor(b * 0.7));
-  const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
-  
   // Contrast color for text on primary
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   const onPrimary = luminance > 0.5 ? '#000000' : '#ffffff';
 
+  // Calculate a "container" color for gradients
+  // Se a cor principal for muito escura, o container precisa ser ligeiramente mais claro para dar o efeito de gradiente
+  const isDarkColor = luminance < 0.25;
+  const factor = isDarkColor ? 1.4 : 0.7; // Clarear se for escuro, escurecer se for claro
+  const dimR = Math.min(255, Math.max(0, Math.floor(r * factor)));
+  const dimG = Math.min(255, Math.max(0, Math.floor(g * factor)));
+  const dimB = Math.min(255, Math.max(0, Math.floor(b * factor)));
+  const containerHex = `#${dimR.toString(16).padStart(2,'0')}${dimG.toString(16).padStart(2,'0')}${dimB.toString(16).padStart(2,'0')}`;
+
   // Branding variables
   const brandingVars: Record<string, string> = {
     '--primary': activePrimary,
+    '--primary-rgb': `${r}, ${g}, ${b}`,
     '--ring': activePrimary,
     '--sidebar-primary': activePrimary,
     '--sidebar-ring': activePrimary,

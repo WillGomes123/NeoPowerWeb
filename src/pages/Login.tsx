@@ -77,8 +77,14 @@ export const Login = () => {
         }}
       >
         {/* Ambient Radial Glows */}
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
+        <div 
+          className="absolute top-1/4 -left-20 w-96 h-96 blur-[120px] rounded-full pointer-events-none" 
+          style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 15%, transparent)' }} 
+        />
+        <div 
+          className="absolute bottom-1/4 -right-20 w-96 h-96 blur-[120px] rounded-full pointer-events-none" 
+          style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 20%, transparent)' }} 
+        />
 
         {/* Login Container */}
         <div className="relative z-10 w-full max-w-md px-6">
@@ -88,8 +94,8 @@ export const Login = () => {
               background: 'rgba(22, 22, 22, 0.7)',
               backdropFilter: 'blur(24px)',
               WebkitBackdropFilter: 'blur(24px)',
-              border: '1px solid rgba(142, 255, 113, 0.08)',
-              boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(142, 255, 113, 0.03)',
+              border: '1px solid color-mix(in srgb, var(--primary) 20%, transparent)',
+              boxShadow: '0 0 40px rgba(0, 0, 0, 0.5), 0 0 20px color-mix(in srgb, var(--primary) 10%, transparent)',
               borderTop: '1px solid rgba(255,255,255,0.05)',
               borderLeft: '1px solid rgba(255,255,255,0.05)',
             }}
@@ -185,7 +191,7 @@ export const Login = () => {
                 type="submit"
                 disabled={loading}
                 className="w-full bg-gradient-to-r from-primary to-primary-container text-on-primary font-headline font-black py-4 rounded-full flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all duration-300 group disabled:opacity-60 disabled:scale-100"
-                style={{ boxShadow: '0 0 25px rgba(142, 255, 113, 0.25)' }}
+                style={{ boxShadow: '0 0 25px color-mix(in srgb, var(--primary) 35%, transparent)' }}
               >
                 {loading ? (
                   <div className="w-5 h-5 animate-spin rounded-full border-2 border-on-primary border-t-transparent" />
