@@ -70,9 +70,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     sessionStorage.removeItem('userData');
     setUser(null);
-    // Redirecionar para login com mensagem
+    // Redirecionar para login com mensagem preservando o tenant
     if (typeof window !== 'undefined') {
-      window.location.href = '/login?expired=true';
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      const tenant = pathParts[0] && !['login', 'dashboard'].includes(pathParts[0]) ? pathParts[0] : 'neopower';
+      window.location.href = `/${tenant}/login?expired=true`;
     }
   }, []);
 

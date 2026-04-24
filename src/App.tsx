@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './lib/auth';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { DashboardLayout } from './components/DashboardLayout';
 import { Toaster } from './components/ui/sonner';
+import { TenantProvider, useTenant } from './contexts/TenantContext';
 
 // Eager load login (usada imediatamente)
 import { Login } from './pages/Login';
@@ -110,22 +111,32 @@ const AppRoutes = () => {
   );
 };
 
+// Main App Router (Requires Tenant context to set basename)
+const AppRouter = () => {
+  const { tenantSlug } = useTenant();
+  return (
+    <Router basename={`/${tenantSlug}`}>
+      <ErrorBoundary>
+        <AppRoutes />
+      </ErrorBoundary>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          className: 'bg-card text-card-foreground border-border',
+        }}
+      />
+    </Router>
+  );
+};
+
 // Main App Component
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
-          <ErrorBoundary>
-            <AppRoutes />
-          </ErrorBoundary>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              className: 'bg-card text-card-foreground border-border',
-            }}
-          />
-        </Router>
+        <TenantProvider>
+          <AppRouter />
+        </TenantProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

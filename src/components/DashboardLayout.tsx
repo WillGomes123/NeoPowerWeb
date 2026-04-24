@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
 import { LogOut, Sun, Moon, Search } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
-import { useAppTheme } from '../hooks/useAppTheme';
+import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
 import {
   DropdownMenu,
@@ -23,7 +23,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isDark, toggle: toggleTheme } = useAppTheme(user?.branding);
+  const { isDark, toggleTheme, tenantBranding } = useTenant();
+  
+  const activeBranding = user?.branding || tenantBranding;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -86,37 +88,37 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <aside className="fixed left-0 top-0 h-full flex flex-col pt-3 pb-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50">
         {/* Logo */}
         <div className="px-2 mb-3">
-          {user?.branding?.logoType === 'image' ? (
-            <div className={user?.branding?.companyName ? "flex items-center gap-3" : "flex items-center justify-center w-full"}>
+          {activeBranding?.logoType === 'image' ? (
+            <div className={activeBranding?.companyName ? "flex items-center gap-3" : "flex items-center justify-center w-full"}>
               <img
                 src={isDark 
-                  ? (user.branding.logoUriDark || user.branding.logoUri || NeoPowerLogo) 
-                  : (user.branding.logoUriLight || user.branding.logoUri || NeoPowerLogo)
+                  ? (activeBranding.logoUriDark || activeBranding.logoUri || NeoPowerLogo) 
+                  : (activeBranding.logoUriLight || activeBranding.logoUri || NeoPowerLogo)
                 }
                 alt="Logo"
-                className={user?.branding?.companyName 
+                className={activeBranding?.companyName 
                   ? "w-8 h-8 rounded-lg object-contain shrink-0 bg-white" 
                   : "max-h-24 w-full object-contain"
                 }
               />
-              {user?.branding?.companyName && (
+              {activeBranding?.companyName && (
                 <div>
                   <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-sidebar-foreground">
-                    {user.branding.companyName}
+                    {activeBranding.companyName}
                   </h2>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center justify-center w-fit">
+            <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center gap-3 w-fit">
               <img
                 src={NeoPowerLogo}
                 alt="NeoPower"
                 className="h-6 w-auto"
               />
-              {user?.branding?.companyName && (
-                <span className="ml-3 font-headline font-bold text-lg text-sidebar-foreground">
-                  {user.branding.companyName}
+              {activeBranding?.companyName && (
+                <span className="font-headline font-bold text-lg text-sidebar-foreground">
+                  {activeBranding.companyName}
                 </span>
               )}
             </div>

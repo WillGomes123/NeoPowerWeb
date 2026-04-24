@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
+import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
 
 export const Login = () => {
@@ -13,6 +14,7 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { tenantBranding, isDark } = useTenant();
 
   const sessionExpired = searchParams.get('expired') === 'true';
 
@@ -48,10 +50,17 @@ export const Login = () => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-2xl shadow-white/10">
             <img 
-              src={NeoPowerLogo} 
-              alt="NeoPower" 
-              className="h-8 w-auto" 
+              src={isDark 
+                ? (tenantBranding?.logoUriDark || tenantBranding?.logoUri || NeoPowerLogo) 
+                : (tenantBranding?.logoUriLight || tenantBranding?.logoUri || NeoPowerLogo)}
+              alt={tenantBranding?.companyName || 'NeoPower'}
+              className="h-8 w-auto object-contain" 
             />
+            {tenantBranding?.companyName && tenantBranding?.logoType !== 'image' && (
+              <span className="ml-2 font-headline font-bold text-lg text-black">
+                {tenantBranding.companyName}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -86,7 +95,9 @@ export const Login = () => {
             {/* Header */}
             <div className="space-y-2">
               <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">Acesso Seguro</span>
-              <h2 className="font-headline text-3xl font-bold tracking-tight text-white leading-none">NeoPower</h2>
+              <h2 className="font-headline text-3xl font-bold tracking-tight text-white leading-none">
+                {tenantBranding?.companyName || 'NeoPower'}
+              </h2>
               <p className="text-on-surface-variant text-sm">Gestão inteligente de recarga para veículos elétricos.</p>
             </div>
 
@@ -190,10 +201,10 @@ export const Login = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-background w-full py-8 border-t border-border/10">
+      <footer className="bg-background w-full py-8 border-t border-border/10 mt-auto">
         <div className="flex flex-col md:flex-row justify-between items-center px-8 max-w-7xl mx-auto gap-4">
           <div className="text-sm tracking-wide text-on-surface-variant">
-            © 2025 NeoPower Systems. Todos os Direitos Reservados.
+            © {new Date().getFullYear()} {tenantBranding?.companyName || 'NeoPower Systems'}. Todos os Direitos Reservados.
           </div>
           <nav className="flex gap-8">
             <span className="text-sm tracking-wide text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Segurança</span>

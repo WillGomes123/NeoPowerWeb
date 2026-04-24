@@ -18,6 +18,8 @@ interface ExportButtonProps {
   disabled?: boolean;
   variant?: 'default' | 'outline' | 'secondary' | 'ghost';
   size?: 'default' | 'sm' | 'lg' | 'icon';
+  onCustomPdfExport?: () => void;
+  pdfLoading?: boolean;
 }
 
 /**
@@ -32,8 +34,15 @@ export function ExportButton({
   disabled = false,
   variant = 'outline',
   size = 'default',
+  onCustomPdfExport,
+  pdfLoading = false,
 }: ExportButtonProps) {
   const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+    if (format === 'pdf' && onCustomPdfExport) {
+      onCustomPdfExport();
+      return;
+    }
+
     if (!data || data.length === 0) {
       toast.error('Nenhum dado para exportar');
       return;
@@ -80,8 +89,12 @@ export function ExportButton({
           <FileSpreadsheet className="h-4 w-4 mr-2" />
           Excel (.xls)
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('pdf')}>
-          <File className="h-4 w-4 mr-2" />
+        <DropdownMenuItem onClick={() => handleExport('pdf')} disabled={pdfLoading}>
+          {pdfLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2" />
+          ) : (
+            <File className="h-4 w-4 mr-2" />
+          )}
           PDF (Imprimir)
         </DropdownMenuItem>
       </DropdownMenuContent>
