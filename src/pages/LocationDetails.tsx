@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Building2,
   Trash2,
-  FileKey
+  FileKey,
+  Receipt
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import { LocationFinancialTab } from '@/components/location-details/LocationFina
 import { LocationMonitoringTab } from '@/components/location-details/LocationMonitoringTab';
 import { LocationPermissionsTab } from '@/components/location-details/LocationPermissionsTab';
 import { LocationCertificadoTab } from '@/components/location-details/LocationCertificadoTab';
+import { LocationNfseTab } from '@/components/location-details/LocationNfseTab';
 
 interface LocationData {
   id: number;
@@ -57,9 +59,10 @@ interface UserPermissions {
   info: boolean;
   permissions: boolean;
   certificado: boolean;
+  nfse: boolean;
 }
 
-type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado';
+type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado' | 'nfse';
 
 interface Tab {
   id: TabId;
@@ -75,6 +78,7 @@ const tabs: Tab[] = [
   { id: 'financial', label: 'Financeiro', icon: DollarSign, permissionKey: 'financial' },
   { id: 'monitoring', label: 'Monitoramento', icon: MapPin, permissionKey: 'monitoring' },
   { id: 'permissions', label: 'Permissões', icon: Users, permissionKey: 'permissions' },
+  { id: 'nfse', label: 'NFS-e', icon: Receipt, permissionKey: 'info' }, // Usa permissão de 'info' ou admin
   { id: 'certificado', label: 'Certificado Digital', icon: FileKey, permissionKey: 'info' }, // Usa permissão de 'info' ou admin
 ];
 
@@ -309,6 +313,9 @@ export function LocationDetails() {
         )}
         {activeTab === 'permissions' && permissions?.permissions && (
           <LocationPermissionsTab locationId={parseInt(id!)} />
+        )}
+        {activeTab === 'nfse' && isAdmin && (
+          <LocationNfseTab locationId={parseInt(id!)} />
         )}
         {activeTab === 'certificado' && isAdmin && (
           <LocationCertificadoTab locationId={parseInt(id!)} />
