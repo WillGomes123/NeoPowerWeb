@@ -316,7 +316,16 @@ export const Operations = () => {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(errData.details || errData.error || 'Erro desconhecido');
+        const friendly = errData.details || errData.error || 'Erro desconhecido';
+
+        // 503 = charger offline / inacessível. Toast claro pro admin.
+        if (response.status === 503) {
+          toast.error(`${cpId} está offline. ${friendly}`, { duration: 5000 });
+        } else if (response.status === 404) {
+          toast.error(`${cpId}: ${friendly}`, { duration: 4000 });
+        }
+
+        throw new Error(friendly);
       }
       const result = await response.json();
       addResult({ chargePointId: cpId, command: commandName, status: 'success', response: result, message: 'Executado com sucesso' });
