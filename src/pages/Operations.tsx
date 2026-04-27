@@ -173,6 +173,19 @@ export const Operations = () => {
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
+  // Transactions ativas dos chargers selecionados — populadas quando o admin
+  // abre o command "remoteStopTransaction" pra escolher qual sessão parar.
+  const [activeTransactions, setActiveTransactions] = useState<Array<{
+    id: number;
+    transactionId: number;
+    chargerId: string;
+    userId: number | null;
+    idTag: string;
+    startTimestamp: string;
+    consumedWh: number;
+    totalCost: number;
+  }>>([]);
+  const [loadingActiveTxs, setLoadingActiveTxs] = useState(false);
 
   // Real-time socket connection for live charger status updates
   const { isConnected: socketConnected, chargerStatuses } = useSocket();
@@ -213,6 +226,40 @@ export const Operations = () => {
     const interval = setInterval(() => void fetchChargePoints(), 10000);
     return () => clearInterval(interval);
   }, [fetchChargePoints]);
+
+  // Carrega transactions ativas dos chargers selecionados quando o admin
+  // abre o dialog do remoteStopTransaction. Permite escolher transactionId
+  // sem digitar — fim do erro 400 "ID da transação inválido".
+  const loadActiveTransactions = useCallback(async (chargerIds: string[]) => {
+    if (chargerIds.length === 0) {
+      setActiveTransactions([]);
+      return;
+    }
+    setLoadingActiveTxs(true);
+    try {
+      const all = await Promise.all(
+        chargerIds.map(async (cpId) => {
+          const r = await api.get(`/transactions/active?chargerId=${encodeURIComponent(cpId)}`);
+          if (!r.ok) return [];
+          const data = await r.json();
+          return Array.isArray(data) ? data : [];
+        })
+      );
+      setActiveTransactions(all.flat());
+    } catch (e) {
+      console.error('[Operations] Failed loading active transactions:', e);
+      setActiveTransactions([]);
+    } finally {
+      setLoadingActiveTxs(false);
+    }
+  }, []);
+
+  // Quando o user abre o dialog pra remoteStopTransaction, puxa as ativas.
+  useEffect(() => {
+    if (showCommandDialog && selectedOperation === 'remoteStopTransaction') {
+      void loadActiveTransactions(selectedChargePoints);
+    }
+  }, [showCommandDialog, selectedOperation, selectedChargePoints, loadActiveTransactions]);
 
   // Selection handlers
   const toggleChargePointSelection = (cpId: string) => {
@@ -341,12 +388,18 @@ export const Operations = () => {
               connectorId: params.connectorId ? parseInt(params.connectorId) : 1
             }, commandName);
             break;
-          case 'remoteStopTransaction':
+          case 'remoteStopTransaction': {
+            const txId = parseInt(params.transactionId);
+            if (!Number.isFinite(txId) || txId <= 0) {
+              addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Transaction ID inválido. Selecione uma transação ativa.' });
+              break;
+            }
             await executeCommand(cpId, '/command/stop', {
               chargerId: cpId,
-              transactionId: parseInt(params.transactionId)
+              transactionId: txId
             }, commandName);
             break;
+          }
           case 'reserveNow':
             await executeCommand(cpId, 'reserve', {
               connectorId: parseInt(params.connectorId) || 0,
@@ -589,8 +642,50 @@ export const Operations = () => {
       case 'remoteStopTransaction':
         return (
           <div className="space-y-2">
-            <Label>Transaction ID *</Label>
-            <Input className={inputClass} type="number" placeholder="Ex: 123" value={commandParams.transactionId || ''} onChange={e => setCommandParams({ ...commandParams, transactionId: e.target.value })} />
+            <Label>Transação ativa *</Label>
+            {loadingActiveTxs ? (
+              <p className="text-sm text-on-surface-variant">Carregando transações ativas...</p>
+            ) : activeTransactions.length === 0 ? (
+              <div className="rounded-lg border border-outline-variant/20 bg-surface-container p-3">
+                <p className="text-sm text-on-surface-variant">
+                  Nenhuma transação ativa nos chargers selecionados.
+                </p>
+                <p className="text-xs text-on-surface-variant/70 mt-1">
+                  Você pode digitar o ID manualmente abaixo se souber:
+                </p>
+                <Input
+                  className={`${inputClass} mt-2`}
+                  type="number"
+                  placeholder="Ex: 123"
+                  value={commandParams.transactionId || ''}
+                  onChange={e => setCommandParams({ ...commandParams, transactionId: e.target.value })}
+                />
+              </div>
+            ) : (
+              <Select
+                value={commandParams.transactionId || ''}
+                onValueChange={(v) => setCommandParams({ ...commandParams, transactionId: v })}
+              >
+                <SelectTrigger className={inputClass}>
+                  <SelectValue placeholder="Selecione qual transação parar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeTransactions.map((tx) => {
+                    const elapsedMin = Math.floor((Date.now() - new Date(tx.startTimestamp).getTime()) / 60000);
+                    return (
+                      <SelectItem key={tx.transactionId} value={String(tx.transactionId)}>
+                        #{tx.transactionId} • {tx.chargerId} • {(tx.consumedWh / 1000).toFixed(2)} kWh • R$ {tx.totalCost.toFixed(2)} • {elapsedMin}min
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
+            {commandParams.transactionId && (
+              <p className="text-xs text-on-surface-variant">
+                Transaction ID selecionado: <span className="font-mono font-semibold">{commandParams.transactionId}</span>
+              </p>
+            )}
           </div>
         );
 
