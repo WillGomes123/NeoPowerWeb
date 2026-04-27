@@ -334,6 +334,30 @@ export const Operations = () => {
       toast.error('Selecione um comando e pelo menos um carregador');
       return;
     }
+
+    // Comandos OCPP só funcionam contra carregadores conectados em tempo real.
+    // Bloqueia cedo com mensagem clara em vez de deixar o backend retornar 404
+    // "Carregador X não encontrado ou não conectado" pra cada um.
+    const offlineSelected = selectedChargePoints.filter((cpId) => {
+      const cp = mergedChargePoints.find((c) => c.charge_point_id === cpId);
+      return cp && !cp.isConnected;
+    });
+    if (offlineSelected.length === selectedChargePoints.length) {
+      toast.error(
+        offlineSelected.length === 1
+          ? `Carregador ${offlineSelected[0]} está offline. Aguarde reconectar pra enviar comandos.`
+          : `Nenhum carregador selecionado está online. Comandos OCPP só funcionam com charger conectado.`,
+        { duration: 5000 }
+      );
+      return;
+    }
+    if (offlineSelected.length > 0) {
+      toast.warning(
+        `${offlineSelected.length} carregador(es) offline serão pulados: ${offlineSelected.join(', ')}`,
+        { duration: 4000 }
+      );
+    }
+
     setCommandParams({});
     setShowCommandDialog(true);
   };
@@ -350,6 +374,19 @@ export const Operations = () => {
     let errorCount = 0;
 
     for (const cpId of selectedChargePoints) {
+      // Pula chargers offline — comandos OCPP exigem WebSocket ativo
+      const cp = mergedChargePoints.find((c) => c.charge_point_id === cpId);
+      if (cp && !cp.isConnected) {
+        addResult({
+          chargePointId: cpId,
+          command: commandName,
+          status: 'error',
+          message: 'Carregador offline. Comando não enviado.',
+        });
+        errorCount++;
+        continue;
+      }
+
       try {
         const params = commandParams;
 

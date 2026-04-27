@@ -54,10 +54,17 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         }
 
         const slug = potentialTenant.toLowerCase();
-        
+
+        // Mapa URL-slug → backend clientId. A URL pública /neopower/... é
+        // reconhecível pro usuário, mas o whitelabel real no banco é 'neo'.
+        const SLUG_ALIASES: Record<string, string> = {
+          neopower: 'neo',
+        };
+        const backendSlug = SLUG_ALIASES[slug] ?? slug;
+
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const response = await fetch(`${apiUrl}/branding/${slug}`);
-        
+        const response = await fetch(`${apiUrl}/branding/${backendSlug}`);
+
         if (response.ok) {
           const result = await response.json();
           setTenantBranding(result.data);
