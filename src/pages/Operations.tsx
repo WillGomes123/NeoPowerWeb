@@ -169,7 +169,7 @@ export const Operations = () => {
   const [selectedChargePoints, setSelectedChargePoints] = useState<string[]>([]);
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [showCommandDialog, setShowCommandDialog] = useState(false);
-  const [commandParams, setCommandParams] = useState<Record<string, string>>({});
+  const [commandParams, setCommandParams] = useState<Record<string, string>>({ idTag: 'USER001' });
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
@@ -565,14 +565,14 @@ export const Operations = () => {
     setExecuting(false);
     setShowCommandDialog(false);
     setSelectedOperation(null);
-    setCommandParams({});
+    setCommandParams({ idTag: 'USER001' });
 
     if (successCount > 0 && errorCount === 0) {
       toast.success(`Comando executado em ${successCount} carregador(es)`);
     } else if (errorCount > 0 && successCount > 0) {
-      toast.warning(`${successCount} sucesso(s), ${errorCount} erro(s)`);
+      toast.warning(`${successCount} sucesso(s), ${errorCount} erro(s). Veja a aba de Resultados.`);
     } else if (errorCount > 0) {
-      toast.error(`Falha em ${errorCount} carregador(es)`);
+      toast.error(`Falha em ${errorCount} carregador(es). Verifique a aba de Resultados para detalhes do erro (ex: ID Tag obrigatório).`);
     }
   };
 
