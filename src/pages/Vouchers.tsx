@@ -51,6 +51,20 @@ interface Charger {
   locationAddress?: string;
 }
 
+/**
+ * Returns the effective status of a voucher considering both is_active flag and end_date expiration.
+ */
+function getVoucherStatus(voucher: Voucher): 'active' | 'expired' | 'inactive' {
+  if (!voucher.is_active) return 'inactive';
+  if (voucher.end_date) {
+    const endDate = new Date(voucher.end_date);
+    // Set end of day for the end_date so it's valid through the entire last day
+    endDate.setHours(23, 59, 59, 999);
+    if (endDate < new Date()) return 'expired';
+  }
+  return 'active';
+}
+
 export const Vouchers = () => {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -490,13 +504,19 @@ export const Vouchers = () => {
 
   const filteredVouchers = vouchers.filter(v => {
     const matchesCode = v.code.toLowerCase().includes(filterCode.toLowerCase()) || v.name.toLowerCase().includes(filterCode.toLowerCase());
-    const matchesStatus = filterStatus === 'all' ? true : filterStatus === 'active' ? v.is_active : !v.is_active;
+    const status = getVoucherStatus(v);
+    const matchesStatus =
+      filterStatus === 'all'
+        ? true
+        : filterStatus === 'active'
+          ? status === 'active'
+          : status !== 'active'; // 'inactive' filter shows both inactive and expired
     const matchesLocation = filterLocation === 'all' ? true : v.location_id?.toString() === filterLocation;
     return matchesCode && matchesStatus && matchesLocation;
   });
 
-  const activeCount = vouchers.filter(v => v.is_active).length;
-  const inactiveCount = vouchers.filter(v => !v.is_active).length;
+  const activeCount = vouchers.filter(v => getVoucherStatus(v) === 'active').length;
+  const inactiveCount = vouchers.filter(v => getVoucherStatus(v) !== 'active').length;
   const totalUsed = vouchers.reduce((s, v) => s + (v.used_quantity || 0), 0);
 
   return (
@@ -699,17 +719,31 @@ export const Vouchers = () => {
 
                       {/* Status */}
                       <td className="px-6 py-4">
-                        {voucher.is_active ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-primary/10 text-primary border-primary/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                            Ativo
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-outline/10 text-on-surface-variant border-outline/20">
-                            <span className="w-1.5 h-1.5 rounded-full bg-outline" />
-                            Inativo
-                          </span>
-                        )}
+                        {(() => {
+                          const status = getVoucherStatus(voucher);
+                          if (status === 'active') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-primary/10 text-primary border-primary/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                                Ativo
+                              </span>
+                            );
+                          }
+                          if (status === 'expired') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-500 border-amber-500/20">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                Expirado
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-outline/10 text-on-surface-variant border-outline/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-outline" />
+                              Inativo
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}
