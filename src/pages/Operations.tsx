@@ -51,6 +51,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
 
@@ -105,46 +106,46 @@ const toISO = (datetimeLocal: string | undefined): string | undefined => {
 // ============================================================================
 
 const operations: Operation[] = [
-  // Basic Operations
-  { id: 'reset', name: 'Reset', icon: <RotateCcw className="w-4 h-4" />, description: 'Reiniciar carregador (Soft/Hard)', category: 'basic' },
-  { id: 'clearCache', name: 'Clear Cache', icon: <Trash2 className="w-4 h-4" />, description: 'Limpar cache de autorização', category: 'basic' },
-  { id: 'changeAvailability', name: 'Change Availability', icon: <Wifi className="w-4 h-4" />, description: 'Alterar disponibilidade do conector', category: 'basic' },
-  { id: 'unlockConnector', name: 'Unlock Connector', icon: <Unlock className="w-4 h-4" />, description: 'Destravar conector', category: 'basic' },
+  // Básico
+  { id: 'reset', name: 'Reinicializar', icon: <RotateCcw className="w-4 h-4" />, description: 'Reinicia o carregador. Soft mantém sessões ativas; Hard força reinicialização completa e desconecta tudo.', category: 'basic' },
+  { id: 'clearCache', name: 'Limpar Cache', icon: <Trash2 className="w-4 h-4" />, description: 'Apaga o cache local de autorizações RFID. Use quando um cartão válido está sendo rejeitado pelo carregador.', category: 'basic' },
+  { id: 'changeAvailability', name: 'Alterar Disponibilidade', icon: <Wifi className="w-4 h-4" />, description: 'Marca o conector como Operativo (disponível para recarga) ou Inoperativo (fora de serviço temporariamente).', category: 'basic' },
+  { id: 'unlockConnector', name: 'Destrancar Conector', icon: <Unlock className="w-4 h-4" />, description: 'Libera o travamento físico do conector. Use quando o cabo ficou preso após encerrar a recarga.', category: 'basic' },
 
-  // Configuration
-  { id: 'getConfiguration', name: 'Get Configuration', icon: <Settings className="w-4 h-4" />, description: 'Obter configuração do carregador', category: 'configuration' },
-  { id: 'changeConfiguration', name: 'Change Configuration', icon: <Settings className="w-4 h-4" />, description: 'Alterar configuração do carregador', category: 'configuration' },
-  { id: 'triggerMessage', name: 'Trigger Message', icon: <Send className="w-4 h-4" />, description: 'Disparar mensagem OCPP', category: 'configuration' },
+  // Configuração
+  { id: 'getConfiguration', name: 'Ler Configuração', icon: <Settings className="w-4 h-4" />, description: 'Consulta os parâmetros de configuração do carregador (ex.: intervalo de heartbeat, número de conectores, modo de autorização).', category: 'configuration' },
+  { id: 'changeConfiguration', name: 'Alterar Configuração', icon: <Settings className="w-4 h-4" />, description: 'Modifica um parâmetro de configuração do carregador. Algumas mudanças exigem reinicialização para entrar em vigor.', category: 'configuration' },
+  { id: 'triggerMessage', name: 'Disparar Mensagem', icon: <Send className="w-4 h-4" />, description: 'Solicita que o carregador envie imediatamente uma mensagem OCPP (ex.: StatusNotification para atualizar status, Heartbeat para verificar conexão).', category: 'configuration' },
 
-  // Transactions
-  { id: 'remoteStartTransaction', name: 'Remote Start Transaction', icon: <Play className="w-4 h-4" />, description: 'Iniciar sessão de carregamento', category: 'transactions' },
-  { id: 'remoteStopTransaction', name: 'Remote Stop Transaction', icon: <Square className="w-4 h-4" />, description: 'Parar sessão de carregamento', category: 'transactions' },
+  // Transações
+  { id: 'remoteStartTransaction', name: 'Iniciar Recarga', icon: <Play className="w-4 h-4" />, description: 'Inicia remotamente uma sessão de carregamento. Requer um ID Tag (código RFID) autorizado no sistema.', category: 'transactions' },
+  { id: 'remoteStopTransaction', name: 'Parar Recarga', icon: <Square className="w-4 h-4" />, description: 'Encerra uma sessão de carregamento ativa. Selecione a transação pelo ID listado para parar a sessão correta.', category: 'transactions' },
 
-  // Reservations
-  { id: 'reserveNow', name: 'Reserve Now', icon: <Calendar className="w-4 h-4" />, description: 'Reservar conector', category: 'reservations' },
-  { id: 'cancelReservation', name: 'Cancel Reservation', icon: <XCircle className="w-4 h-4" />, description: 'Cancelar reserva', category: 'reservations' },
+  // Reservas
+  { id: 'reserveNow', name: 'Fazer Reserva', icon: <Calendar className="w-4 h-4" />, description: 'Bloqueia um conector para uso exclusivo de um ID Tag por tempo determinado. Outros usuários não conseguem iniciar recarga.', category: 'reservations' },
+  { id: 'cancelReservation', name: 'Cancelar Reserva', icon: <XCircle className="w-4 h-4" />, description: 'Remove uma reserva ativa pelo ID da reserva, liberando imediatamente o conector para outros usuários.', category: 'reservations' },
 
   // Smart Charging
-  { id: 'setChargingProfile', name: 'Set Charging Profile', icon: <Battery className="w-4 h-4" />, description: 'Definir perfil de carregamento', category: 'smartcharging' },
-  { id: 'clearChargingProfile', name: 'Clear Charging Profile', icon: <Trash2 className="w-4 h-4" />, description: 'Limpar perfil de carregamento', category: 'smartcharging' },
-  { id: 'getCompositeSchedule', name: 'Get Composite Schedule', icon: <Clock className="w-4 h-4" />, description: 'Obter agenda composta', category: 'smartcharging' },
+  { id: 'setChargingProfile', name: 'Limitar Potência', icon: <Battery className="w-4 h-4" />, description: 'Define o limite máximo de potência de carregamento (W). Use para controlar a velocidade de carga do veículo e gerenciar a demanda elétrica.', category: 'smartcharging' },
+  { id: 'clearChargingProfile', name: 'Remover Limite', icon: <Trash2 className="w-4 h-4" />, description: 'Remove um perfil de carregamento aplicado, voltando ao comportamento padrão do carregador sem restrições de potência.', category: 'smartcharging' },
+  { id: 'getCompositeSchedule', name: 'Agenda de Carga', icon: <Clock className="w-4 h-4" />, description: 'Consulta a agenda de carregamento resultante (combinação de todos os perfis ativos) para um conector e período de tempo.', category: 'smartcharging' },
 
-  // Local Auth List
-  { id: 'getLocalListVersion', name: 'Get Local List Version', icon: <Database className="w-4 h-4" />, description: 'Obter versão da lista local', category: 'locallist' },
-  { id: 'sendLocalList', name: 'Send Local List', icon: <List className="w-4 h-4" />, description: 'Enviar lista de autorização local', category: 'locallist' },
+  // Lista Local
+  { id: 'getLocalListVersion', name: 'Versão Lista Local', icon: <Database className="w-4 h-4" />, description: 'Consulta o número de versão da lista de autorização local armazenada no carregador. Útil para verificar se a lista está atualizada.', category: 'locallist' },
+  { id: 'sendLocalList', name: 'Enviar Lista Local', icon: <List className="w-4 h-4" />, description: 'Atualiza os IDs Tag autorizados diretamente no carregador. Funciona mesmo sem conexão ao servidor central (autorização offline).', category: 'locallist' },
 
-  // Firmware & Diagnostics
-  { id: 'updateFirmware', name: 'Update Firmware', icon: <Upload className="w-4 h-4" />, description: 'Atualizar firmware', category: 'firmware' },
-  { id: 'getDiagnostics', name: 'Get Diagnostics', icon: <FileText className="w-4 h-4" />, description: 'Obter diagnósticos', category: 'firmware' },
-  { id: 'dataTransfer', name: 'Data Transfer', icon: <Download className="w-4 h-4" />, description: 'Transferência de dados proprietários', category: 'firmware' },
+  // Firmware & Diagnósticos
+  { id: 'updateFirmware', name: 'Atualizar Firmware', icon: <Upload className="w-4 h-4" />, description: 'Solicita que o carregador baixe e instale um novo firmware a partir de uma URL. O carregador fará o download na data/hora especificada.', category: 'firmware' },
+  { id: 'getDiagnostics', name: 'Obter Diagnósticos', icon: <FileText className="w-4 h-4" />, description: 'Faz o carregador enviar seus logs de diagnóstico para um servidor FTP/HTTP. Essencial para análise de problemas de hardware.', category: 'firmware' },
+  { id: 'dataTransfer', name: 'Transferir Dados', icon: <Download className="w-4 h-4" />, description: 'Envia mensagens proprietárias do fabricante ao carregador (funcionalidades específicas não cobertas pelo protocolo OCPP padrão).', category: 'firmware' },
 
-  // Security Extensions (OCPP 1.6J)
-  { id: 'extendedTriggerMessage', name: 'Extended Trigger Message', icon: <MessageSquare className="w-4 h-4" />, description: 'Trigger estendido (Security)', category: 'security' },
-  { id: 'getLog', name: 'Get Log', icon: <FileText className="w-4 h-4" />, description: 'Obter logs do carregador', category: 'security' },
-  { id: 'signedUpdateFirmware', name: 'Signed Update Firmware', icon: <Shield className="w-4 h-4" />, description: 'Atualizar firmware assinado', category: 'security' },
-  { id: 'installCertificate', name: 'Install Certificate', icon: <Key className="w-4 h-4" />, description: 'Instalar certificado', category: 'security' },
-  { id: 'deleteCertificate', name: 'Delete Certificate', icon: <Trash2 className="w-4 h-4" />, description: 'Deletar certificado', category: 'security' },
-  { id: 'getInstalledCertificateIds', name: 'Get Installed Certificates', icon: <List className="w-4 h-4" />, description: 'Listar certificados instalados', category: 'security' },
+  // Segurança (OCPP 1.6J)
+  { id: 'extendedTriggerMessage', name: 'Mensagem Estendida', icon: <MessageSquare className="w-4 h-4" />, description: 'Versão segura do Disparar Mensagem, com tipos adicionais como LogStatus e SignChargePointCertificate (extensão OCPP 1.6J).', category: 'security' },
+  { id: 'getLog', name: 'Obter Log', icon: <FileText className="w-4 h-4" />, description: 'Solicita o envio de logs de diagnóstico ou segurança para um servidor remoto. Identifica erros internos do carregador.', category: 'security' },
+  { id: 'signedUpdateFirmware', name: 'Firmware Assinado', icon: <Shield className="w-4 h-4" />, description: 'Atualiza o firmware com verificação de assinatura digital para garantir autenticidade e integridade (extensão de segurança OCPP 1.6J).', category: 'security' },
+  { id: 'installCertificate', name: 'Instalar Certificado', icon: <Key className="w-4 h-4" />, description: 'Instala um certificado TLS/SSL no carregador para comunicação segura e autenticada com o servidor central.', category: 'security' },
+  { id: 'deleteCertificate', name: 'Excluir Certificado', icon: <Trash2 className="w-4 h-4" />, description: 'Remove um certificado instalado no carregador, identificado pelo hash do emissor e número de série.', category: 'security' },
+  { id: 'getInstalledCertificateIds', name: 'Listar Certificados', icon: <List className="w-4 h-4" />, description: 'Lista todos os certificados TLS/SSL instalados no carregador, com seus tipos e identificadores.', category: 'security' },
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
@@ -367,7 +368,7 @@ export const Operations = () => {
       );
     }
 
-    setCommandParams({});
+    setCommandParams({ idTag: 'USER001' });
     setShowCommandDialog(true);
   };
 
@@ -427,13 +428,20 @@ export const Operations = () => {
               connectorId: params.connectorId ? parseInt(params.connectorId) : undefined
             }, commandName);
             break;
-          case 'remoteStartTransaction':
+          case 'remoteStartTransaction': {
+            const tag = params.idTag?.trim();
+            if (!tag) {
+              addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'ID Tag obrigatório. Preencha o código RFID do usuário.' });
+              errorCount++;
+              continue;
+            }
             await executeCommand(cpId, '/command/start', {
               chargerId: cpId,
-              idTag: params.idTag,
+              idTag: tag,
               connectorId: params.connectorId ? parseInt(params.connectorId) : 1
             }, commandName);
             break;
+          }
           case 'remoteStopTransaction': {
             const txId = parseInt(params.transactionId);
             if (!Number.isFinite(txId) || txId <= 0) {
@@ -457,12 +465,41 @@ export const Operations = () => {
           case 'cancelReservation':
             await executeCommand(cpId, 'cancel-reservation', { reservationId: parseInt(params.reservationId) }, commandName);
             break;
-          case 'setChargingProfile':
+          case 'setChargingProfile': {
+            let csChargingProfiles: Record<string, unknown>;
+            if (params.powerLimitW) {
+              const limitW = parseFloat(params.powerLimitW);
+              if (isNaN(limitW) || limitW <= 0) {
+                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Limite de potência inválido.' });
+                errorCount++;
+                continue;
+              }
+              csChargingProfiles = {
+                chargingProfileId: 1,
+                stackLevel: 0,
+                chargingProfilePurpose: 'TxDefaultProfile',
+                chargingProfileKind: 'Recurring',
+                recurrencyKind: 'Daily',
+                chargingSchedule: {
+                  chargingRateUnit: 'W',
+                  chargingSchedulePeriod: [{ startPeriod: 0, limit: limitW }],
+                },
+              };
+            } else {
+              try {
+                csChargingProfiles = JSON.parse(params.chargingProfile || '{}') as Record<string, unknown>;
+              } catch {
+                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'JSON do perfil de carga inválido.' });
+                errorCount++;
+                continue;
+              }
+            }
             await executeCommand(cpId, 'charging-profile', {
               connectorId: parseInt(params.connectorId) || 0,
-              csChargingProfiles: JSON.parse(params.chargingProfile || '{}')
+              csChargingProfiles,
             }, commandName);
             break;
+          }
           case 'clearChargingProfile':
             await executeCommand(cpId, 'clear-charging-profile', {
               id: params.profileId ? parseInt(params.profileId) : undefined,
@@ -769,19 +806,32 @@ export const Operations = () => {
         return (
           <>
             <div className="space-y-2">
-              <Label>Connector ID</Label>
+              <Label>Conector</Label>
               <Input className={inputClass} type="number" placeholder="0" value={commandParams.connectorId || ''} onChange={e => setCommandParams({ ...commandParams, connectorId: e.target.value })} />
-              <p className="text-xs text-muted-foreground">0 = ChargePoint como um todo</p>
+              <p className="text-xs text-muted-foreground">0 = carregador inteiro; 1, 2... = conector específico</p>
             </div>
             <div className="space-y-2">
-              <Label>Charging Profile (JSON)</Label>
-              <textarea
-                className={`${inputClass} w-full h-32 p-2 rounded-md border font-mono text-sm`}
-                placeholder='{"chargingProfileId": 1, "stackLevel": 0, ...}'
-                value={commandParams.chargingProfile || ''}
-                onChange={e => setCommandParams({ ...commandParams, chargingProfile: e.target.value })}
+              <Label>Limite de Potência (W) — modo simples</Label>
+              <Input
+                className={inputClass}
+                type="number"
+                placeholder="Ex: 7400 (7,4 kW) | 11000 (11 kW) | 22000 (22 kW)"
+                value={commandParams.powerLimitW || ''}
+                onChange={e => setCommandParams({ ...commandParams, powerLimitW: e.target.value, chargingProfile: '' })}
               />
+              <p className="text-xs text-muted-foreground">Preencha aqui para limitar a potência automaticamente. Deixe em branco para usar o JSON avançado abaixo.</p>
             </div>
+            {!commandParams.powerLimitW && (
+              <div className="space-y-2">
+                <Label>Perfil Avançado (JSON)</Label>
+                <textarea
+                  className={`${inputClass} w-full h-28 p-2 rounded-md border font-mono text-xs`}
+                  placeholder='{"chargingProfileId": 1, "stackLevel": 0, "chargingProfilePurpose": "TxDefaultProfile", ...}'
+                  value={commandParams.chargingProfile || ''}
+                  onChange={e => setCommandParams({ ...commandParams, chargingProfile: e.target.value })}
+                />
+              </div>
+            )}
           </>
         );
 
@@ -1042,8 +1092,21 @@ export const Operations = () => {
           </div>
         );
 
-      case 'clearCache':
       case 'getConfiguration':
+        return (
+          <div className="space-y-2">
+            <Label>Chaves de configuração (opcional)</Label>
+            <Input
+              className={inputClass}
+              placeholder="Ex: HeartbeatInterval, NumberOfConnectors (vazio = todas)"
+              value={commandParams.keys || ''}
+              onChange={e => setCommandParams({ ...commandParams, keys: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">Separe múltiplas chaves por vírgula. Deixe vazio para retornar todas as configurações.</p>
+          </div>
+        );
+
+      case 'clearCache':
       case 'getLocalListVersion':
         return (
           <p className="text-muted-foreground text-sm py-4">
@@ -1265,21 +1328,27 @@ export const Operations = () => {
                       </CardHeader>
                       <CardContent className="grid grid-cols-2 gap-2">
                         {categoryOps.map(op => (
-                          <button
-                            key={op.id}
-                            onClick={() => setSelectedOperation(op.id)}
-                            disabled={selectedChargePoints.length === 0}
-                            className={`p-2 rounded-lg border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                              selectedOperation === op.id
-                                ? 'bg-white/10 border-white/30'
-                                : 'bg-black/20 border-white/10 hover:border-white/20'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={config.color}>{op.icon}</span>
-                              <span className="text-xs font-medium text-foreground truncate">{op.name}</span>
-                            </div>
-                          </button>
+                          <Tooltip key={op.id}>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setSelectedOperation(op.id)}
+                                disabled={selectedChargePoints.length === 0}
+                                className={`w-full p-2 rounded-lg border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                  selectedOperation === op.id
+                                    ? 'bg-primary/20 border-primary'
+                                    : 'bg-surface-container border-border hover:border-primary/50 hover:bg-primary/5'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={selectedOperation === op.id ? 'text-primary' : config.color}>{op.icon}</span>
+                                  <span className={`text-xs font-medium truncate ${selectedOperation === op.id ? 'text-primary' : 'text-foreground'}`}>{op.name}</span>
+                                </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-snug">
+                              {op.description}
+                            </TooltipContent>
+                          </Tooltip>
                         ))}
                       </CardContent>
                     </Card>
@@ -1375,7 +1444,7 @@ export const Operations = () => {
                                 {result.message}
                               </p>
                             )}
-                            {result.response && (
+                            {result.response != null && (
                               <pre className="mt-2 text-xs text-muted-foreground bg-black/20 p-2 rounded overflow-x-auto">
                                 {JSON.stringify(result.response, null, 2)}
                               </pre>
