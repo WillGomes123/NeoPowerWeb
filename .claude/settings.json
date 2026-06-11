@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/lucas/OCPP_API/src/validators/**)",
+      "Read(//c/Users/lucas/OCPP_API/src/ocpp/**)",
+      "Read(//c/Users/lucas/OCPP_API/src/services/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\lucas\\OCPP_API\\src\\models",
+      "C:\\Users\\lucas\\OCPP_API\\src\\migrations",
+      "C:\\Users\\lucas\\OCPP_API\\src\\validators",
+      "C:\\Users\\lucas\\OCPP_API\\src\\controllers",
+      "C:\\Users\\lucas\\OCPP_API\\src\\routes",
+      "C:\\Users\\lucas\\OCPP_API\\src\\utils",
+      "C:\\Users\\lucas\\OCPP_API\\src\\ocpp",
+      "C:\\Users\\lucas\\OCPP_API\\src\\services"
+    ]
+  }
+}

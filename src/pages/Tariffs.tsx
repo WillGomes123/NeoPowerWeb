@@ -26,6 +26,8 @@ interface Tariff {
   price_per_kwh: number;
   min_price?: number;
   location_address: string | null;
+  profileId?: number | null;
+  profileName?: string | null;
   created_at: string;
   is_current: boolean;
 }
@@ -36,15 +38,23 @@ interface Location {
   endereco: string;
 }
 
-type FilterType = 'all' | 'global' | 'local';
+interface ProfileOption {
+  id: number;
+  name: string;
+  color?: string | null;
+}
+
+type FilterType = 'all' | 'global' | 'profile' | 'local';
 
 export const Tariffs = () => {
   const [allTariffs, setAllTariffs] = useState<Tariff[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<string>('global');
+  // Escopo da tarifa: 'global' | 'profile:<id>' | 'location:<id>'
+  const [selectedTarget, setSelectedTarget] = useState<string>('global');
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,6 +71,12 @@ export const Tariffs = () => {
         loadedLocations = locationsData.locations || locationsData || [];
         setLocations(loadedLocations);
       }
+
+      // Carrega perfis de cliente (para tarifa por perfil)
+      try {
+        const profilesRes = await api.get('/profiles');
+        if (profilesRes.ok) setProfiles(await profilesRes.json());
+      } catch { /* perfis são opcionais */ }
 
       // Tenta endpoint novo (retorna todas de uma vez)
       let usedNewEndpoint = false;
@@ -150,15 +166,16 @@ export const Tariffs = () => {
 
     setSubmitting(true);
     try {
-      const payload: { newPrice: number; locationAddress?: string } = {
+      const payload: { newPrice: number; locationAddress?: string; profileId?: number } = {
         newPrice: parseFloat(newPrice),
       };
 
-      if (selectedLocation !== 'global') {
-        const location = locations.find(l => l.id.toString() === selectedLocation);
-        if (location) {
-          payload.locationAddress = location.endereco;
-        }
+      if (selectedTarget.startsWith('profile:')) {
+        payload.profileId = parseInt(selectedTarget.split(':')[1]);
+      } else if (selectedTarget.startsWith('location:')) {
+        const locId = selectedTarget.split(':')[1];
+        const location = locations.find(l => l.id.toString() === locId);
+        if (location) payload.locationAddress = location.endereco;
       }
 
       const response = await api.post('/tariffs', payload);
@@ -167,7 +184,7 @@ export const Tariffs = () => {
         toast.success('Tarifa atualizada com sucesso!');
         setIsDialogOpen(false);
         setNewPrice('');
-        setSelectedLocation('global');
+        setSelectedTarget('global');
         void fetchData();
       } else {
         const errData = await response.json();
@@ -190,10 +207,12 @@ export const Tariffs = () => {
 
   /* ── Dados derivados ── */
   const currentTariffs = useMemo(() => allTariffs.filter(t => t.is_current), [allTariffs]);
-  const globalTariff = currentTariffs.find(t => !t.location_address);
+  const globalTariff = currentTariffs.find(t => !t.location_address && !t.profileId);
+  const profileTariffs = useMemo(() => currentTariffs.filter(t => !!t.profileId), [currentTariffs]);
 
   const filtered = useMemo(() => {
-    if (filter === 'global') return allTariffs.filter(t => !t.location_address);
+    if (filter === 'global') return allTariffs.filter(t => !t.location_address && !t.profileId);
+    if (filter === 'profile') return allTariffs.filter(t => !!t.profileId);
     if (filter === 'local') return allTariffs.filter(t => !!t.location_address);
     return allTariffs;
   }, [allTariffs, filter]);
@@ -271,7 +290,7 @@ export const Tariffs = () => {
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
                     Aplicar para
                   </Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <Select value={selectedTarget} onValueChange={setSelectedTarget}>
                     <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
@@ -279,10 +298,25 @@ export const Tariffs = () => {
                       <SelectItem value="global" className="text-on-surface focus:bg-surface-container-highest">
                         Tarifa Global (toda a rede)
                       </SelectItem>
+                      {profiles.length > 0 && (
+                        <div className="px-2 py-1.5 text-[10px] font-bold text-secondary uppercase tracking-widest">Por Perfil de Cliente</div>
+                      )}
+                      {profiles.map(profile => (
+                        <SelectItem
+                          key={`p-${profile.id}`}
+                          value={`profile:${profile.id}`}
+                          className="text-on-surface focus:bg-surface-container-highest"
+                        >
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                      {locations.length > 0 && (
+                        <div className="px-2 py-1.5 text-[10px] font-bold text-tertiary uppercase tracking-widest">Por Local</div>
+                      )}
                       {locations.map(location => (
                         <SelectItem
-                          key={location.id}
-                          value={location.id.toString()}
+                          key={`l-${location.id}`}
+                          value={`location:${location.id}`}
                           className="text-on-surface focus:bg-surface-container-highest"
                         >
                           {location.nomeDoLocal}
@@ -341,6 +375,39 @@ export const Tariffs = () => {
           </div>
         </div>
 
+        {/* Per-Profile Tariff Cards */}
+        {profileTariffs.map(tariff => (
+          <div key={`profile-${tariff.id}`} className="glass-card rounded-xl border border-secondary/20 relative overflow-hidden p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-secondary text-base" style={{ fontVariationSettings: "'FILL' 1" }}>badge</span>
+              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest truncate max-w-[200px]">
+                {tariff.profileName || `Perfil #${tariff.profileId}`}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
+                {formatCurrency(tariff.price_per_kwh)}
+              </span>
+              <span className="text-sm text-on-surface-variant">/kWh</span>
+            </div>
+            <p className="text-[10px] text-on-surface-variant">
+              Atualizado em {formatDate(tariff.created_at)}
+            </p>
+            {globalTariff && tariff.price_per_kwh !== globalTariff.price_per_kwh && (
+              <div className="mt-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  tariff.price_per_kwh > globalTariff.price_per_kwh
+                    ? 'bg-error/10 text-error'
+                    : 'bg-primary/10 text-primary'
+                }`}>
+                  {tariff.price_per_kwh > globalTariff.price_per_kwh ? '↑' : '↓'}{' '}
+                  {Math.abs(((tariff.price_per_kwh - globalTariff.price_per_kwh) / globalTariff.price_per_kwh) * 100).toFixed(0)}% vs global
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+
         {/* Per-Location Tariff Cards */}
         {uniqueLocations.map(tariff => (
           <div key={tariff.id} className="glass-card rounded-xl border border-outline-variant/10 relative overflow-hidden p-6">
@@ -393,7 +460,7 @@ export const Tariffs = () => {
           </div>
           <div className="flex items-center gap-3">
             <div className="bg-surface-container p-1 rounded-lg flex items-center border border-outline-variant/10">
-              {(['all', 'global', 'local'] as FilterType[]).map(f => (
+              {(['all', 'global', 'profile', 'local'] as FilterType[]).map(f => (
                 <button
                   key={f}
                   onClick={() => { setFilter(f); setCurrentPage(1); }}
@@ -401,7 +468,7 @@ export const Tariffs = () => {
                     filter === f ? 'bg-surface-container-highest text-primary' : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
-                  {f === 'all' ? 'TODAS' : f === 'global' ? 'GLOBAL' : 'POR LOCAL'}
+                  {f === 'all' ? 'TODAS' : f === 'global' ? 'GLOBAL' : f === 'profile' ? 'POR PERFIL' : 'POR LOCAL'}
                 </button>
               ))}
             </div>
@@ -416,7 +483,7 @@ export const Tariffs = () => {
                   <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                     <th className="px-6 py-4">Data</th>
                     <th className="px-6 py-4">Preço/kWh</th>
-                    <th className="px-6 py-4">Local</th>
+                    <th className="px-6 py-4">Escopo</th>
                     <th className="px-6 py-4">Status</th>
                   </tr>
                 </thead>
@@ -433,7 +500,12 @@ export const Tariffs = () => {
                         {formatCurrency(tariff.price_per_kwh)}
                       </td>
                       <td className="px-6 py-4">
-                        {tariff.location_address ? (
+                        {tariff.profileId ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
+                            <span className="material-symbols-outlined text-sm text-secondary">badge</span>
+                            {tariff.profileName || `Perfil #${tariff.profileId}`}
+                          </span>
+                        ) : tariff.location_address ? (
                           <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
                             <span className="material-symbols-outlined text-sm text-tertiary">location_on</span>
                             {tariff.location_address}

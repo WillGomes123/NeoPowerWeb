@@ -9,7 +9,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -30,6 +30,8 @@ interface User {
   clientId?: string | null;
   platform?: Platform;
   locationIds?: string[];
+  profileId?: number | null;
+  profileName?: string | null;
 }
 
 interface Location {
@@ -38,9 +40,16 @@ interface Location {
   endereco: string;
 }
 
+interface ProfileOption {
+  id: number;
+  name: string;
+  color?: string | null;
+}
+
 export const Users = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userLocations, setUserLocations] = useState<{ locationId: number; locationAddress: string }[]>([]);
@@ -49,16 +58,16 @@ export const Users = () => {
   const [phoneValue, setPhoneValue] = useState('');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos' });
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos', profileId: '' as string });
   const [platformTab, setPlatformTab] = useState<PlatformFilter>('web');
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editUserData, setEditUserData] = useState({ id: 0, name: '', email: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos', password: '' });
+  const [editUserData, setEditUserData] = useState({ id: 0, name: '', email: '', role: 'comum' as ManagedRole, phone: '', platform: 'web' as 'web' | 'app' | 'ambos', password: '', profileId: '' as string });
 
-  useEffect(() => { void fetchUsers(); void fetchLocations(); }, []);
+  useEffect(() => { void fetchUsers(); void fetchLocations(); void fetchProfiles(); }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -77,6 +86,14 @@ export const Users = () => {
       const d = await r.json();
       setLocations(d.locations || []);
     } catch { toast.error('Erro ao buscar locais'); }
+  };
+
+  const fetchProfiles = async () => {
+    try {
+      const r = await api.get('/profiles');
+      if (!r.ok) throw new Error();
+      setProfiles(await r.json());
+    } catch { /* perfis são opcionais — silencioso */ }
   };
 
   const handleRoleChange = async (userId: number, newRole: ManagedRole) => {
@@ -127,11 +144,11 @@ export const Users = () => {
     try {
       // Email é case-insensitive — normaliza antes de enviar
       const normalizedEmail = newUser.email.trim().toLowerCase();
-      const r = await api.post('/admin/users', { name: newUser.name, email: normalizedEmail, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined, platform: newUser.platform });
+      const r = await api.post('/admin/users', { name: newUser.name, email: normalizedEmail, password: newUser.password, role: newUser.role, phone: newUser.phone || undefined, platform: newUser.platform, profileId: newUser.profileId ? parseInt(newUser.profileId) : null });
       if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
       toast.success('Usuário criado!');
       setCreateDialogOpen(false);
-      setNewUser({ name: '', email: '', password: '', role: 'comum', phone: '', platform: 'web' });
+      setNewUser({ name: '', email: '', password: '', role: 'comum', phone: '', platform: 'web', profileId: '' });
       void fetchUsers();
     } catch (e: any) { toast.error(e.message || 'Erro ao criar usuário'); }
     finally { setCreating(false); }
@@ -165,7 +182,7 @@ export const Users = () => {
     setEditing(true);
     try {
       const normalizedEmail = editUserData.email.trim().toLowerCase();
-      const payload: any = { name: editUserData.name, email: normalizedEmail, role: editUserData.role, phone: editUserData.phone || undefined, platform: editUserData.platform };
+      const payload: any = { name: editUserData.name, email: normalizedEmail, role: editUserData.role, phone: editUserData.phone || undefined, platform: editUserData.platform, profileId: editUserData.profileId ? parseInt(editUserData.profileId) : null };
       if (editUserData.password) payload.password = editUserData.password;
       
       const r = await api.put(`/admin/users/${editUserData.id}`, payload);
@@ -179,7 +196,7 @@ export const Users = () => {
 
   const openEditModal = (user: User) => {
     const plat = user.platform === 'mobile' ? 'app' : user.platform === null ? 'ambos' : 'web';
-    setEditUserData({ id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone || '', platform: plat as any, password: '' });
+    setEditUserData({ id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone || '', platform: plat as any, password: '', profileId: user.profileId ? String(user.profileId) : '' });
     setEditUserDialogOpen(true);
   };
 
@@ -287,9 +304,23 @@ export const Users = () => {
                     </Select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
-                  <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
+                    <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Perfil de Cliente</Label>
+                    <Select value={newUser.profileId || 'none'} onValueChange={v => setNewUser({ ...newUser, profileId: v === 'none' ? '' : v })}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        <SelectItem value="none" className="text-on-surface-variant focus:bg-surface-container-highest">Sem perfil (tarifa global)</SelectItem>
+                        {profiles.map(p => (
+                          <SelectItem key={p.id} value={String(p.id)} className="text-on-surface focus:bg-surface-container-highest">{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
@@ -389,6 +420,7 @@ export const Users = () => {
                 <th className="px-6 py-4">Usuário</th>
                 <th className="px-6 py-4">Telefone</th>
                 <th className="px-6 py-4">Função & Acesso</th>
+                <th className="px-6 py-4">Perfil</th>
                 <th className="px-6 py-4">Marca</th>
                 <th className="px-6 py-4">Locais</th>
                 <th className="px-6 py-4">Acesso</th>
@@ -398,7 +430,7 @@ export const Users = () => {
             <tbody className="divide-y divide-outline-variant/5">
               {visibleUsers.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">
                       {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
                     </span>
@@ -460,6 +492,18 @@ export const Users = () => {
                         <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
                       </SelectContent>
                     </Select>
+                  </td>
+
+                  {/* Profile (segmento de cliente) */}
+                  <td className="px-6 py-4">
+                    {user.profileName ? (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/10 text-secondary border border-secondary/20 text-[10px] font-bold">
+                        <span className="material-symbols-outlined text-xs">badge</span>
+                        {user.profileName}
+                      </span>
+                    ) : (
+                      <span className="text-on-surface-variant text-xs">—</span>
+                    )}
                   </td>
 
                   {/* Brand */}
@@ -656,9 +700,23 @@ export const Users = () => {
                 <Input type="password" placeholder="Deixe em branco p/ manter" value={editUserData.password} onChange={e => setEditUserData({ ...editUserData, password: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
-              <Input value={editUserData.phone} onChange={e => setEditUserData({ ...editUserData, phone: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
+                <Input value={editUserData.phone} onChange={e => setEditUserData({ ...editUserData, phone: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Perfil de Cliente</Label>
+                <Select value={editUserData.profileId || 'none'} onValueChange={v => setEditUserData({ ...editUserData, profileId: v === 'none' ? '' : v })}>
+                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
+                  <SelectContent className="bg-surface-container border-outline-variant/20">
+                    <SelectItem value="none" className="text-on-surface-variant focus:bg-surface-container-highest">Sem perfil (tarifa global)</SelectItem>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)} className="text-on-surface focus:bg-surface-container-highest">{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">

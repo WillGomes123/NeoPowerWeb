@@ -24,8 +24,9 @@ interface Campaign {
   title: string;
   message: string;
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
-  targetAudience: 'all_users' | 'specific_location' | 'specific_users';
+  targetAudience: 'all_users' | 'specific_location' | 'specific_users' | 'specific_profile';
   locationId: number | null;
+  profileId: number | null;
   sentCount: number;
   failedCount: number;
   scheduledAt: string | null;
@@ -51,6 +52,12 @@ interface Location {
   nomeDoLocal: string;
 }
 
+interface ProfileOption {
+  id: number;
+  name: string;
+  color?: string | null;
+}
+
 const statusConfig: Record<Campaign['status'], { label: string; pillClass: string }> = {
   draft: { label: 'Rascunho', pillClass: 'bg-outline/10 text-on-surface-variant' },
   scheduled: { label: 'Agendada', pillClass: 'bg-tertiary/10 text-tertiary' },
@@ -71,12 +78,14 @@ const audienceLabels = {
   all_users: 'Todos os Usuários',
   specific_location: 'Local Específico',
   specific_users: 'Usuários Específicos',
+  specific_profile: 'Perfil Específico',
 };
 
 export const PushNotifications = () => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [stats, setStats] = useState<PushStats | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sending, setSending] = useState<number | null>(null);
@@ -86,6 +95,7 @@ export const PushNotifications = () => {
   const [message, setMessage] = useState('');
   const [targetAudience, setTargetAudience] = useState<string>('all_users');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
+  const [selectedProfile, setSelectedProfile] = useState<string>('');
 
   useEffect(() => {
     fetchData();
@@ -94,10 +104,11 @@ export const PushNotifications = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [campaignsRes, statsRes, locationsRes] = await Promise.all([
+      const [campaignsRes, statsRes, locationsRes, profilesRes] = await Promise.all([
         api.get('/push/campaigns'),
         api.get('/push/stats'),
-        api.get('/locations/all')
+        api.get('/locations/all'),
+        api.get('/profiles')
       ]);
 
       if (campaignsRes.ok) {
@@ -114,6 +125,10 @@ export const PushNotifications = () => {
         const data = await locationsRes.json();
         setLocations(data.locations || []);
       }
+
+      if (profilesRes.ok) {
+        setProfiles(await profilesRes.json());
+      }
     } catch (error) {
       console.error('Erro ao buscar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -128,6 +143,15 @@ export const PushNotifications = () => {
       return;
     }
 
+    if (targetAudience === 'specific_location' && !selectedLocation) {
+      toast.error('Selecione um local');
+      return;
+    }
+    if (targetAudience === 'specific_profile' && !selectedProfile) {
+      toast.error('Selecione um perfil');
+      return;
+    }
+
     try {
       const payload: any = {
         title: title.trim(),
@@ -137,6 +161,9 @@ export const PushNotifications = () => {
 
       if (targetAudience === 'specific_location' && selectedLocation) {
         payload.locationId = parseInt(selectedLocation);
+      }
+      if (targetAudience === 'specific_profile' && selectedProfile) {
+        payload.profileId = parseInt(selectedProfile);
       }
 
       const response = await api.post('/push/campaigns', payload);
@@ -199,6 +226,7 @@ export const PushNotifications = () => {
     setMessage('');
     setTargetAudience('all_users');
     setSelectedLocation('');
+    setSelectedProfile('');
   };
 
   const formatDate = (dateString: string | null) => {
@@ -290,6 +318,12 @@ export const PushNotifications = () => {
                           Local Específico
                         </div>
                       </SelectItem>
+                      <SelectItem value="specific_profile" className="text-on-surface focus:bg-surface-container-highest">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">badge</span>
+                          Perfil Específico
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -309,6 +343,31 @@ export const PushNotifications = () => {
                             className="text-on-surface focus:bg-surface-container-highest"
                           >
                             {loc.nomeDoLocal}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {targetAudience === 'specific_profile' && (
+                  <div className="space-y-2">
+                    <label className="text-on-surface-variant text-xs uppercase tracking-widest">Selecione o Perfil</label>
+                    <Select value={selectedProfile} onValueChange={setSelectedProfile}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                        <SelectValue placeholder="Escolha um perfil" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        {profiles.length === 0 && (
+                          <div className="px-3 py-2 text-xs text-on-surface-variant">Nenhum perfil cadastrado</div>
+                        )}
+                        {profiles.map(p => (
+                          <SelectItem
+                            key={p.id}
+                            value={p.id.toString()}
+                            className="text-on-surface focus:bg-surface-container-highest"
+                          >
+                            {p.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

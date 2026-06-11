@@ -11,6 +11,18 @@ export interface User {
   branding?: BrandingConfig | null;
 }
 
+// Perfil de cliente (segmento): Comum, Uber, Parceiro...
+export interface CustomerProfile {
+  id: number;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  isDefault?: boolean;
+  clientId?: string | null;
+  userCount?: number;
+  createdAt?: string;
+}
+
 export interface BrandingConfig {
   clientId: string;
   companyName?: string;

@@ -23,6 +23,7 @@ const FinancialReport = lazy(() =>
   import('./pages/FinancialReport').then(m => ({ default: m.FinancialReport }))
 );
 const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
+const Profiles = lazy(() => import('./pages/Profiles').then(m => ({ default: m.Profiles })));
 const Vouchers = lazy(() => import('./pages/Vouchers').then(m => ({ default: m.Vouchers })));
 const Tariffs = lazy(() => import('./pages/Tariffs').then(m => ({ default: m.Tariffs })));
 const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wallets })));
@@ -94,6 +95,7 @@ const AppRoutes = () => {
       <Route path="/operacoes" element={createProtectedRoute(Operations)} />
       <Route path="/relatorio-financeiro" element={createProtectedRoute(FinancialReport)} />
       <Route path="/usuarios" element={createProtectedRoute(Users, true)} />
+      <Route path="/perfis" element={createProtectedRoute(Profiles, true)} />
       <Route path="/vouchers" element={createProtectedRoute(Vouchers)} />
       <Route path="/tarifas" element={createProtectedRoute(Tariffs)} />
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
