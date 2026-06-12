@@ -14,6 +14,7 @@ import {
 } from '../components/ui/dialog';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { PromotionsDialog } from '../components/PromotionsDialog';
 
 interface BrandingConfig {
   clientId: string;
@@ -59,6 +60,7 @@ export const Branding = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [buildingClientId, setBuildingClientId] = useState<string | null>(null);
+  const [promoDialogClient, setPromoDialogClient] = useState<BrandingConfig | null>(null);
 
   // Build Dialog State
   const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false);
@@ -1009,6 +1011,13 @@ export const Branding = () => {
                           <span className="material-symbols-outlined text-lg">group</span>
                         </button>
                         <button
+                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                          title="Promoções desta marca"
+                          onClick={() => setPromoDialogClient(config)}
+                        >
+                          <span className="material-symbols-outlined text-lg">campaign</span>
+                        </button>
+                        <button
                           className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all disabled:opacity-40"
                           title="Gerar build do App (EAS)"
                           disabled={buildingClientId !== null}
@@ -1392,6 +1401,15 @@ export const Branding = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {promoDialogClient && (
+        <PromotionsDialog
+          open={!!promoDialogClient}
+          onOpenChange={(o) => !o && setPromoDialogClient(null)}
+          clientId={promoDialogClient.clientId}
+          clientName={promoDialogClient.companyName}
+        />
+      )}
     </div>
   );
 };
