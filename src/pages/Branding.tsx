@@ -31,6 +31,8 @@ interface BrandingConfig {
   splashBgColorLight?: string;
   splashBgColorDark?: string;
   theme?: 'dark' | 'light';
+  cashbackEnabled?: boolean;
+  cashbackPercentage?: number;
   updatedAt?: string;
 }
 
@@ -90,6 +92,8 @@ export const Branding = () => {
     splashBgColorLight: '',
     splashBgColorDark: '',
     theme: 'dark' as 'dark' | 'light',
+    cashbackEnabled: false,
+    cashbackPercentage: 3,
   });
 
   const fetchConfigs = async () => {
@@ -157,6 +161,8 @@ export const Branding = () => {
           splashBgColorLight: '',
           splashBgColorDark: '',
           theme: 'dark',
+          cashbackEnabled: false,
+          cashbackPercentage: 3,
         });
         setUseSameColors(true);
         void fetchConfigs();
@@ -454,6 +460,8 @@ export const Branding = () => {
                   splashBgColorLight: '',
                   splashBgColorDark: '',
                   theme: 'dark',
+                  cashbackEnabled: false,
+                  cashbackPercentage: 3,
                 });
                 setUseSameColors(true);
               }}
@@ -477,10 +485,11 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-3 mb-6 bg-surface-container-highest">
+                <TabsList className="grid w-full grid-cols-4 mb-6 bg-surface-container-highest">
                   <TabsTrigger value="identity" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Identidade</TabsTrigger>
                   <TabsTrigger value="logos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Logos</TabsTrigger>
                   <TabsTrigger value="colors" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cores do App</TabsTrigger>
+                  <TabsTrigger value="cashback" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cashback</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="identity" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
@@ -835,6 +844,51 @@ export const Branding = () => {
                     </div>
                   )}
                 </TabsContent>
+
+                <TabsContent value="cashback" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                  <div className="space-y-4">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Programa de Cashback</p>
+
+                    <div className="flex items-center space-x-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                      <Checkbox
+                        id="cashbackEnabled"
+                        checked={!!formData.cashbackEnabled}
+                        onCheckedChange={(checked) => setFormData({ ...formData, cashbackEnabled: !!checked })}
+                        className="data-[state=checked]:bg-primary data-[state=checked]:text-on-primary"
+                      />
+                      <label htmlFor="cashbackEnabled" className="text-sm font-bold leading-none text-on-surface cursor-pointer">
+                        Ativar cashback para este operador
+                      </label>
+                    </div>
+
+                    <div className="space-y-1.5 max-w-[260px]">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Percentual de cashback</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.5}
+                          value={formData.cashbackPercentage ?? 3}
+                          onChange={e => setFormData({ ...formData, cashbackPercentage: e.target.value === '' ? undefined : Number(e.target.value) })}
+                          disabled={!formData.cashbackEnabled}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm disabled:opacity-50"
+                        />
+                        <span className="text-on-surface-variant text-lg font-bold">%</span>
+                      </div>
+                      <p className="text-on-surface-variant text-xs leading-relaxed">
+                        Percentual do valor de cada recarga creditado de volta na carteira do cliente. Padrão: 3%.
+                      </p>
+                    </div>
+
+                    <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 flex items-start gap-2">
+                      <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">info</span>
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        O cashback é creditado automaticamente como saldo na carteira do cliente ao final de cada recarga. Vale apenas para recargas feitas após a ativação.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
               </Tabs>
             </div>
 
@@ -874,6 +928,7 @@ export const Branding = () => {
                   <th className="px-6 py-4">Cores</th>
                   <th className="px-6 py-4">Tipo Logo</th>
                   <th className="px-6 py-4 text-center">Tema Web</th>
+                  <th className="px-6 py-4 text-center">Cashback</th>
                   <th className="px-6 py-4 text-right">Acoes</th>
                 </tr>
               </thead>
@@ -933,6 +988,16 @@ export const Branding = () => {
                         </span>
                         {config.theme === 'light' ? 'CLARO' : 'ESCURO'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {config.cashbackEnabled ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                          <span className="material-symbols-outlined text-xs">savings</span>
+                          {Number(config.cashbackPercentage ?? 0)}%
+                        </span>
+                      ) : (
+                        <span className="text-on-surface-variant text-xs">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-1.5">
