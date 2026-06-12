@@ -20,6 +20,7 @@ import {
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Profiles } from './Profiles';
 
 interface Tariff {
   id: number;
@@ -53,9 +54,12 @@ export const Tariffs = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
-  // Escopo da tarifa: 'global' | 'profile:<id>' | 'location:<id>'
-  const [selectedTarget, setSelectedTarget] = useState<string>('global');
+  // Local e Perfil são independentes e combináveis. 'all' = sem filtro
+  // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedProfile, setSelectedProfile] = useState<string>('all');
   const [submitting, setSubmitting] = useState(false);
+  const [pageTab, setPageTab] = useState<'tarifas' | 'perfis'>('tarifas');
   const [filter, setFilter] = useState<FilterType>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -170,12 +174,12 @@ export const Tariffs = () => {
         newPrice: parseFloat(newPrice),
       };
 
-      if (selectedTarget.startsWith('profile:')) {
-        payload.profileId = parseInt(selectedTarget.split(':')[1]);
-      } else if (selectedTarget.startsWith('location:')) {
-        const locId = selectedTarget.split(':')[1];
-        const location = locations.find(l => l.id.toString() === locId);
+      if (selectedLocation !== 'all') {
+        const location = locations.find(l => l.id.toString() === selectedLocation);
         if (location) payload.locationAddress = location.endereco;
+      }
+      if (selectedProfile !== 'all') {
+        payload.profileId = parseInt(selectedProfile);
       }
 
       const response = await api.post('/tariffs', payload);
@@ -184,7 +188,8 @@ export const Tariffs = () => {
         toast.success('Tarifa atualizada com sucesso!');
         setIsDialogOpen(false);
         setNewPrice('');
-        setSelectedTarget('global');
+        setSelectedLocation('all');
+        setSelectedProfile('all');
         void fetchData();
       } else {
         const errData = await response.json();
@@ -248,6 +253,7 @@ export const Tariffs = () => {
           <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Tarifas</h1>
           <p className="text-on-surface-variant mt-1">Gerencie os preços por kWh da rede</p>
         </div>
+        {pageTab === 'tarifas' && (
         <div className="flex items-center gap-3">
           <button onClick={() => void fetchData()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
             <span className="material-symbols-outlined text-lg">refresh</span>
@@ -267,7 +273,7 @@ export const Tariffs = () => {
                   Definir Nova Tarifa
                 </DialogTitle>
                 <DialogDescription className="text-on-surface-variant">
-                  Configure o preço por kWh para a rede ou para um local específico.
+                  Configure o preço por kWh por local, por perfil de cliente, ou os dois combinados.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -288,35 +294,20 @@ export const Tariffs = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                    Aplicar para
+                    Local
                   </Label>
-                  <Select value={selectedTarget} onValueChange={setSelectedTarget}>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                     <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="bg-surface-container border-outline-variant/20">
-                      <SelectItem value="global" className="text-on-surface focus:bg-surface-container-highest">
-                        Tarifa Global (toda a rede)
+                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">
+                        Toda a rede
                       </SelectItem>
-                      {profiles.length > 0 && (
-                        <div className="px-2 py-1.5 text-[10px] font-bold text-secondary uppercase tracking-widest">Por Perfil de Cliente</div>
-                      )}
-                      {profiles.map(profile => (
-                        <SelectItem
-                          key={`p-${profile.id}`}
-                          value={`profile:${profile.id}`}
-                          className="text-on-surface focus:bg-surface-container-highest"
-                        >
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                      {locations.length > 0 && (
-                        <div className="px-2 py-1.5 text-[10px] font-bold text-tertiary uppercase tracking-widest">Por Local</div>
-                      )}
                       {locations.map(location => (
                         <SelectItem
                           key={`l-${location.id}`}
-                          value={`location:${location.id}`}
+                          value={location.id.toString()}
                           className="text-on-surface focus:bg-surface-container-highest"
                         >
                           {location.nomeDoLocal}
@@ -325,6 +316,33 @@ export const Tariffs = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Perfil de cliente
+                  </Label>
+                  <Select value={selectedProfile} onValueChange={setSelectedProfile}>
+                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container border-outline-variant/20">
+                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">
+                        Padrão (todos os perfis)
+                      </SelectItem>
+                      {profiles.map(profile => (
+                        <SelectItem
+                          key={`p-${profile.id}`}
+                          value={profile.id.toString()}
+                          className="text-on-surface focus:bg-surface-container-highest"
+                        >
+                          {profile.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                  Combine os dois para uma tarifa específica — ex.: um local com preço exclusivo para o perfil "Uber". Deixe ambos no padrão para a tarifa global.
+                </p>
               </div>
               <DialogFooter className="flex justify-end gap-3 pt-2">
                 <Button
@@ -345,8 +363,26 @@ export const Tariffs = () => {
             </DialogContent>
           </Dialog>
         </div>
+        )}
       </div>
 
+      {/* Sub-abas: Tarifas | Perfis */}
+      <div className="bg-surface-container p-1 rounded-lg inline-flex items-center border border-outline-variant/10">
+        {(['tarifas', 'perfis'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setPageTab(tab)}
+            className={`px-5 py-1.5 text-xs font-bold font-headline rounded-md transition-all ${pageTab === tab ? 'bg-surface-container-highest text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+          >
+            {tab === 'tarifas' ? 'TARIFAS' : 'PERFIS'}
+          </button>
+        ))}
+      </div>
+
+      {pageTab === 'perfis' && <Profiles embedded />}
+
+      {pageTab === 'tarifas' && (
+      <>
       {/* Current Tariffs — Global + Per-Location Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Global Tariff Card */}
@@ -568,6 +604,8 @@ export const Tariffs = () => {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 };

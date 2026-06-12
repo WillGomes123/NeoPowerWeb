@@ -17,7 +17,7 @@ const PRESET_COLORS = ['#39FF14', '#22D3EE', '#F59E0B', '#A78BFA', '#F472B6', '#
 
 const emptyForm = { id: 0, name: '', description: '', color: PRESET_COLORS[0], isDefault: false };
 
-export const Profiles = () => {
+export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
   const [profiles, setProfiles] = useState<CustomerProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -99,11 +99,13 @@ export const Profiles = () => {
     <div className="space-y-8 pb-12">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        {!embedded ? (
         <div>
           <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">SEGMENTAÇÃO</span>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Perfis de Cliente</h1>
           <p className="text-on-surface-variant mt-1">Crie segmentos (ex.: Comum, Uber) para tarifas e notificações direcionadas</p>
         </div>
+        ) : <div />}
         <div className="flex items-center gap-3">
           <button onClick={() => void fetchProfiles()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
             <span className="material-symbols-outlined text-lg">refresh</span>

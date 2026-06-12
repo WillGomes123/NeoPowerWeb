@@ -50,7 +50,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       roles: ['admin', 'comum'],
     },
     { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
-    { path: '/perfis', label: 'Perfis', icon: 'badge', roles: ['admin'] },
     { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'comum'] },
     { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'comum'] },
     { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
