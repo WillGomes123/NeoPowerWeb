@@ -66,6 +66,7 @@ export const Branding = () => {
   const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false);
   const [selectedBuildClient, setSelectedBuildClient] = useState<BrandingConfig | null>(null);
   const [buildPlatform, setBuildPlatform] = useState<'android' | 'ios' | 'all'>('android');
+  const [buildTarget, setBuildTarget] = useState<'preview' | 'production'>('preview');
 
   // Users management state
   const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
@@ -266,6 +267,7 @@ export const Branding = () => {
   const openBuildDialog = (config: BrandingConfig) => {
     setSelectedBuildClient(config);
     setBuildPlatform('android'); // reset to default
+    setBuildTarget('preview');
     setIsBuildDialogOpen(true);
   };
 
@@ -279,13 +281,17 @@ export const Branding = () => {
         `/admin/branding/${encodeURIComponent(selectedBuildClient.clientId)}/build`,
         {
           platform: buildPlatform,
-          profile: 'preview', // Build de teste/instalação direta
+          // Preview = build de teste; Produção = build whitelabel-production + envio à loja.
+          profile: buildTarget === 'production' ? 'whitelabel-production' : 'preview',
+          submitToStores: buildTarget === 'production',
         }
       );
 
       if (response.ok) {
         toast.success(
-          `Build para ${buildPlatform.toUpperCase()} iniciado com sucesso! Verifique o painel da Expo.`
+          buildTarget === 'production'
+            ? `Build de PRODUÇÃO (${buildPlatform.toUpperCase()}) iniciado! Após compilar, será enviado para a(s) loja(s). Acompanhe no painel da Expo.`
+            : `Build de preview (${buildPlatform.toUpperCase()}) iniciado! Verifique o painel da Expo.`
         );
       } else {
         const err = await response.json();
@@ -1382,10 +1388,40 @@ export const Branding = () => {
               </div>
             </div>
 
+            <div className="space-y-2.5">
+              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Tipo de build</p>
+              <div className="space-y-2">
+                <div
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildTarget === 'preview' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
+                  onClick={() => setBuildTarget('preview')}
+                >
+                  <div className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'preview' ? 'border-primary' : 'border-outline-variant/40'}`}>
+                    {buildTarget === 'preview' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium text-sm ${buildTarget === 'preview' ? 'text-primary' : 'text-on-surface-variant'}`}>Preview (teste / instalação direta)</p>
+                  </div>
+                </div>
+                <div
+                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildTarget === 'production' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
+                  onClick={() => setBuildTarget('production')}
+                >
+                  <div className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'production' ? 'border-primary' : 'border-outline-variant/40'}`}>
+                    {buildTarget === 'production' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-medium text-sm ${buildTarget === 'production' ? 'text-primary' : 'text-on-surface-variant'}`}>Produção (enviar para a loja)</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 flex items-start gap-2">
-              <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">schedule</span>
+              <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">{buildTarget === 'production' ? 'store' : 'schedule'}</span>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                O processo pode levar de 5 a 15 min. Verifique o GitHub Actions.
+                {buildTarget === 'production'
+                  ? 'O build de produção compila e envia para a(s) loja(s) (App Store / Play Store) automaticamente. Pode levar 30+ min. Requer o app já cadastrado nas lojas e as credenciais configuradas na EAS.'
+                  : 'O build de preview dispara a compilação para teste/instalação direta. Pode levar de 5 a 15 min. Acompanhe no GitHub Actions / painel da Expo.'}
               </p>
             </div>
           </div>

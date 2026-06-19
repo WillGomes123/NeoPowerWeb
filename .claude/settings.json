@@ -3,7 +3,16 @@
     "allow": [
       "Read(//c/Users/lucas/OCPP_API/src/validators/**)",
       "Read(//c/Users/lucas/OCPP_API/src/ocpp/**)",
-      "Read(//c/Users/lucas/OCPP_API/src/services/**)"
+      "Read(//c/Users/lucas/OCPP_API/src/services/**)",
+      "Read(//c/Users/lucas/OneDrive/Documentos/NeoPower/AppNeoPower/**)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo-updates:', \\(p.dependencies&&p.dependencies['expo-updates']\\)||'\\(NÃO instalado\\)'\\);\")",
+      "Bash(node -e \"try{const a=require\\('./app.json'\\); const e=a.expo||a; console.log\\('updates:', JSON.stringify\\(e.updates||null\\)\\); console.log\\('runtimeVersion:', JSON.stringify\\(e.runtimeVersion||null\\)\\); console.log\\('version:', e.version\\); console.log\\('ios.buildNumber:', e.ios&&e.ios.buildNumber\\); console.log\\('android.versionCode:', e.android&&e.android.versionCode\\);}catch\\(err\\){console.log\\('erro app.json:',err.message\\)}\")",
+      "Read(//c/Users/lucas/OCPP_API/src/**)",
+      "Bash(ls -la .github/workflows/)",
+      "Bash(find .github -name \"*.yml\")",
+      "Bash(cat .easignore)",
+      "Bash(grep -nE \"google-service|service-account|\\\\.json\" .gitignore)",
+      "Bash(node -e \"const j=require\\('./eas.json'\\); console.log\\('eas.json OK ✅'\\); console.log\\('submit.whitelabel-production:', JSON.stringify\\(j.submit['whitelabel-production']\\)\\);\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\lucas\\OCPP_API\\src\\models",
@@ -13,7 +22,8 @@
       "C:\\Users\\lucas\\OCPP_API\\src\\routes",
       "C:\\Users\\lucas\\OCPP_API\\src\\utils",
       "C:\\Users\\lucas\\OCPP_API\\src\\ocpp",
-      "C:\\Users\\lucas\\OCPP_API\\src\\services"
+      "C:\\Users\\lucas\\OCPP_API\\src\\services",
+      "C:\\Users\\lucas\\OneDrive\\Documentos\\NeoPower\\AppNeoPower"
     ]
   }
 }
