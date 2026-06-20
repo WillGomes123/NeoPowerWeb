@@ -166,95 +166,110 @@ export const Overview = () => {
         </div>
       </div>
 
-      {/* KPI Row 1: Bento Style */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Net Revenue */}
-        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group">
-          <div className="flex justify-between items-start mb-4">
-            <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">RECEITA LÍQUIDA</span>
-            {revenueChange !== undefined && (
-              <div className={`flex items-center text-xs font-bold ${revenueChange >= 0 ? 'text-primary' : 'text-error'}`}>
-                <span className="material-symbols-outlined text-sm">{revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
-                {Math.abs(revenueChange).toFixed(1)}%
-              </div>
-            )}
+      {/* KPI Section: Bento Style (4 Consolidated Cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Card 1: Receita Líquida */}
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
+          <div>
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
+              {revenueChange !== undefined && (
+                <div className={`flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${revenueChange >= 0 ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
+                  <span className="material-symbols-outlined text-sm mr-0.5">{revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
+                  {Math.abs(revenueChange).toFixed(1)}%
+                </div>
+              )}
+            </div>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="text-on-surface-variant text-sm font-medium">R$</span>
+              <span className="text-3xl font-headline font-bold text-foreground">{fmt(netRevenue)}</span>
+            </div>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-on-surface-variant text-sm font-medium">R$</span>
-            <span className="text-3xl font-headline font-bold">{fmt(netRevenue)}</span>
+          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+            <span className="text-on-surface-variant">Depósitos Líquidos</span>
+            <span className="font-semibold text-on-surface">R$ {fmt(data.totalDepositsNet || 0)}</span>
           </div>
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
-        {/* Net Deposits */}
-        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft">
-          <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">DEPÓSITOS LÍQUIDOS</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-on-surface-variant text-sm font-medium">R$</span>
-            <span className="text-3xl font-headline font-bold">{fmt(data.totalDepositsNet || 0)}</span>
+        {/* Card 2: Receita Operacional */}
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
+          <div>
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Operacional</span>
+              <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-primary text-lg">calendar_month</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="text-on-surface-variant text-sm font-medium">R$</span>
+              <span className="text-3xl font-headline font-bold text-foreground">{fmt(data.revenueMonth)}</span>
+            </div>
           </div>
+          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-on-surface-variant">{startDate || endDate ? 'No Período' : 'Hoje'}</span>
+              {!startDate && !endDate && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+            </div>
+            <span className="font-semibold text-on-surface">R$ {fmt(data.revenueToday)}</span>
+          </div>
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
-        {/* Tax */}
-        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft">
-          <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-4">TAXA MP</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-on-surface-variant text-sm font-medium">R$</span>
-            <span className="text-3xl font-headline font-bold">{fmt(data.mercadoPagoFee || 0)}</span>
-          </div>
-        </div>
-
-        {/* Gross Deposits (Highlighted) */}
-        <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden">
+        {/* Card 3: Depósitos & Taxas */}
+        <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden flex flex-col justify-between min-h-[160px]">
           <div className="relative z-10">
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-[10px] font-bold text-primary tracking-widest uppercase">DEPÓSITOS BRUTOS</span>
-              <span className="px-2 py-0.5 bg-primary text-on-primary text-[10px] font-extrabold rounded">
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Depósitos Brutos</span>
+              <span className="px-2 py-0.5 bg-primary/15 text-primary text-[10px] font-extrabold rounded">
                 {data.depositsCount || 0} DEP.
               </span>
             </div>
-            <div className="flex items-baseline gap-1 mb-2">
+            <div className="flex items-baseline gap-1 mt-2">
               <span className="text-primary/70 text-sm font-medium">R$</span>
               <span className="text-3xl font-headline font-bold text-primary">{fmt(grossDeposits)}</span>
             </div>
+            
             <div className="w-full bg-surface/50 h-1.5 rounded-full mt-4">
               <div
                 className="bg-primary h-full rounded-full"
                 style={{ width: `${depositQuota}%`, boxShadow: '0 0 8px var(--primary)' }}
               />
             </div>
-            <p className="text-[10px] text-on-surface-variant mt-2 text-right font-medium">
-              {depositQuota.toFixed(1)}% DO ALVO
-            </p>
           </div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] rounded-full" />
+          <div className="mt-3 pt-3 border-t border-outline-variant/10 flex justify-between items-center text-xs relative z-10">
+            <span className="text-on-surface-variant flex items-center gap-1">
+              <span className="material-symbols-outlined text-xs text-error">trending_down</span>
+              Taxa Mercado Pago
+            </span>
+            <span className="font-semibold text-error">- R$ {fmt(data.mercadoPagoFee || 0)}</span>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
         </div>
-      </div>
 
-      {/* KPI Row 2: Operational Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <MetricPill
-          icon="today"
-          label={startDate || endDate ? 'RECEITA (PERÍODO)' : 'RECEITA (HOJE)'}
-          value={`R$ ${fmt(data.revenueToday)}`}
-          live={!startDate && !endDate}
-        />
-        <MetricPill
-          icon="calendar_month"
-          label="RECEITA (MÊS)"
-          value={`R$ ${fmt(data.revenueMonth)}`}
-        />
-        <MetricPill
-          icon="bolt"
-          label={startDate || endDate ? 'ENERGIA (PERÍODO)' : 'ENERGIA (HOJE)'}
-          value={`${fmt(data.kwhToday, 1)} kWh`}
-          live={!startDate && !endDate}
-        />
-        <MetricPill
-          icon="electric_car"
-          label="ENERGIA (MÊS)"
-          value={`${fmt(data.kwhMonth, 1)} kWh`}
-        />
+        {/* Card 4: Energia Consumida */}
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
+          <div>
+            <div className="flex justify-between items-start mb-2">
+              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Energia Consumida</span>
+              <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
+                <span className="material-symbols-outlined text-tertiary text-lg">bolt</span>
+              </div>
+            </div>
+            <div className="flex items-baseline gap-1 mt-2">
+              <span className="text-3xl font-headline font-bold text-foreground">{fmt(data.kwhMonth, 1)}</span>
+              <span className="text-on-surface-variant text-sm font-medium">kWh</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-on-surface-variant">{startDate || endDate ? 'No Período' : 'Hoje'}</span>
+              {!startDate && !endDate && <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />}
+            </div>
+            <span className="font-semibold text-on-surface">{fmt(data.kwhToday, 1)} kWh</span>
+          </div>
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-tertiary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </div>
       </div>
 
       {/* Charts Section: Asymmetric Layout */}
@@ -275,9 +290,14 @@ export const Overview = () => {
             </div>
           </div>
           {(!data.last7DaysRevenue || data.last7DaysRevenue.length === 0) ? (
-            <div className="h-48 flex flex-col items-center justify-center gap-3">
-              <span className="material-symbols-outlined text-4xl text-outline">payments</span>
-              <p className="text-sm text-on-surface-variant">Sem dados de receita no período</p>
+            <div className="h-[220px] flex flex-col items-center justify-center gap-3 bg-surface-container-low/20 rounded-xl border border-dashed border-outline-variant/30 p-6">
+              <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-muted-foreground shadow-sm">
+                <span className="material-symbols-outlined text-2xl">payments</span>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-on-surface">Nenhum faturamento registrado</p>
+                <p className="text-xs text-on-surface-variant mt-1">Não houve transações com receita neste período.</p>
+              </div>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -306,9 +326,14 @@ export const Overview = () => {
         <div className="lg:col-span-5 bg-card p-8 rounded-2xl border border-neutral-200 shadow-soft">
           <h3 className="font-headline text-lg font-bold mb-10">Consumo de Energia</h3>
           {(!data.last7DaysKwh || data.last7DaysKwh.length === 0) ? (
-            <div className="h-48 flex flex-col items-center justify-center gap-3">
-              <span className="material-symbols-outlined text-4xl text-outline">bolt</span>
-              <p className="text-sm text-on-surface-variant">Sem dados de energia no período</p>
+            <div className="h-[220px] flex flex-col items-center justify-center gap-3 bg-surface-container-low/20 rounded-xl border border-dashed border-outline-variant/30 p-6">
+              <div className="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-muted-foreground shadow-sm">
+                <span className="material-symbols-outlined text-2xl">bolt</span>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-on-surface">Nenhum consumo de energia</p>
+                <p className="text-xs text-on-surface-variant mt-1">Não houve recargas efetuadas neste período.</p>
+              </div>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -432,23 +457,6 @@ export const Overview = () => {
 };
 
 /* ── Sub-components ── */
-
-function MetricPill({ icon, label, value, live }: { icon: string; label: string; value: string; live?: boolean }) {
-  return (
-    <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border border-neutral-200 shadow-soft">
-      <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center">
-        <span className="material-symbols-outlined text-primary text-xl">{icon}</span>
-      </div>
-      <div>
-        <p className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">{label}</p>
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-bold font-headline">{value}</span>
-          {live && <span className="w-2 h-2 rounded-full bg-primary animate-pulse" style={{ boxShadow: '0 0 5px var(--primary)' }} />}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SideMetric({ icon, label, value, accent }: { icon: string; label: string; value: string; accent?: boolean }) {
   return (

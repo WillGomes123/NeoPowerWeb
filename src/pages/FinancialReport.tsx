@@ -8,7 +8,7 @@ import { exportToCSV, exportToExcel } from '../lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { ReportTemplate } from '../components/ReportTemplate';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Line } from 'recharts';
 
 interface TenantFinancialSummary {
   clientId: string;
@@ -389,6 +389,53 @@ export const FinancialReport = () => {
   const platformProfit = manutencaoSite + lucroNeoPower;
   // profitMargin calculated for future use: (platformProfit / entradaBrutaTotal) * 100
 
+  const visibleReportData = React.useMemo(() => {
+    return reportData.filter(row => {
+      const revenue = parseFloat(row['Receita (R$)']?.replace(',', '.')) || 0;
+      const energy = parseFloat(row['Recarga (kWh)']?.replace(',', '.')) || 0;
+      return revenue > 0 || energy > 0;
+    });
+  }, [reportData]);
+
+  const dailyData = React.useMemo(() => {
+    const groups: { [date: string]: { date: string; revenue: number; energy: number } } = {};
+    
+    const sortedReport = [...reportData].sort((a, b) => {
+      const parseDate = (dStr: string) => {
+        if (!dStr) return 0;
+        const parts = dStr.split(' ');
+        if (parts[0]?.includes('/')) {
+          const dParts = parts[0].split('/');
+          const tParts = parts[1] ? parts[1].split(':') : ['0','0','0'];
+          return new Date(
+            parseInt(dParts[2]), 
+            parseInt(dParts[1]) - 1, 
+            parseInt(dParts[0]),
+            tParts[0] ? parseInt(tParts[0]) : 0,
+            tParts[1] ? parseInt(tParts[1]) : 0,
+            tParts[2] ? parseInt(tParts[2]) : 0
+          ).getTime();
+        }
+        return new Date(dStr).getTime();
+      };
+      return parseDate(a['Início']) - parseDate(b['Início']);
+    });
+
+    sortedReport.forEach((row) => {
+      const dateStr = row['Início']?.split(' ')[0] || 'Outro';
+      const revenue = parseFloat(row['Receita (R$)']?.replace(',', '.')) || 0;
+      const energy = parseFloat(row['Recarga (kWh)']?.replace(',', '.')) || 0;
+      
+      if (!groups[dateStr]) {
+        groups[dateStr] = { date: dateStr, revenue: 0, energy: 0 };
+      }
+      groups[dateStr].revenue += revenue;
+      groups[dateStr].energy += energy;
+    });
+
+    return Object.values(groups);
+  }, [reportData]);
+
   // Dados para o ReportTemplate (PDF)
   const reportTemplateData = {
     locationName: isAdmin ? 'Painel Administrativo' : `Estações de ${user?.name || 'Usuário'}`,
@@ -558,26 +605,26 @@ export const FinancialReport = () => {
                 <span>Receita bruta: R$ {fmt(agg.revenue)}</span>
                 <span>Taxas: R$ {fmt(agg.fees + agg.deposits.mpFee)}</span>
               </div>
-              <div className="h-3 rounded-full bg-surface-container-highest overflow-hidden flex">
+              <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
                 <div
-                  className="bg-primary transition-all"
+                  className="bg-primary/70 transition-all"
                   style={{ width: `${(agg.net / totalRevenue) * 100}%` }}
                   title={`Líquido: R$ ${fmt(agg.net)}`}
                 />
                 <div
-                  className="bg-red-500/70 transition-all"
+                  className="bg-red-500/40 transition-all"
                   style={{ width: `${(agg.fees / totalRevenue) * 100}%` }}
                   title={`Taxas operacionais: R$ ${fmt(agg.fees)}`}
                 />
               </div>
-              <div className="flex gap-4 text-xs">
+              <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider">
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="w-2 h-2 rounded-full bg-primary" />
-                  Líquido
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
+                  Líquido ({((agg.net / totalRevenue) * 100).toFixed(0)}%)
                 </span>
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="w-2 h-2 rounded-full bg-red-500/70" />
-                  Taxas operacionais
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
+                  Taxas operacionais ({((agg.fees / totalRevenue) * 100).toFixed(0)}%)
                 </span>
               </div>
             </div>
@@ -659,23 +706,24 @@ export const FinancialReport = () => {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Por whitelabel</h2>
             <span className="text-xs text-on-surface-variant">
-              {activeTenants.length} de {tenantOverview.byTenant.length} com movimento
+              {activeTenants.length} whitelabels ativos
             </span>
           </div>
-          {tenantOverview.byTenant.length === 0 ? (
-            <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant">
-              Nenhum whitelabel cadastrado.
+          {activeTenants.length === 0 ? (
+            <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant flex flex-col items-center justify-center">
+              <span className="material-symbols-outlined text-outline-variant text-5xl mb-2">payments</span>
+              <p className="text-sm font-semibold">Nenhuma movimentação financeira registrada</p>
+              <p className="text-xs text-outline">Todos os whitelabels estão zerados para o período selecionado.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tenantOverview.byTenant.map(t => {
-                const hasActivity = t.transactions > 0;
+              {activeTenants.map(t => {
                 const shareOfRevenue = agg.revenue > 0 ? (t.revenue / agg.revenue) * 100 : 0;
                 return (
                   <button
                     key={t.clientId}
                     onClick={() => handleDrillDown(t.clientId)}
-                    className={`glass-card rounded-2xl p-5 text-left transition-all hover:scale-[1.02] hover:shadow-xl hover:border-primary/30 group ${hasActivity ? '' : 'opacity-60'}`}
+                    className="glass-card rounded-2xl p-5 text-left transition-all hover:scale-[1.02] hover:shadow-xl hover:border-primary/30 group"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="min-w-0 flex-1">
@@ -702,19 +750,15 @@ export const FinancialReport = () => {
                         <p className="text-sm text-foreground">{t.transactions}</p>
                       </div>
                     </div>
-                    {hasActivity && (
-                      <>
-                        <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all"
-                            style={{ width: `${shareOfRevenue}%` }}
-                          />
-                        </div>
-                        <p className="text-xs text-on-surface-variant mt-1.5">
-                          {shareOfRevenue.toFixed(1)}% da receita total
-                        </p>
-                      </>
-                    )}
+                    <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all"
+                        style={{ width: `${shareOfRevenue}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-1.5">
+                      {shareOfRevenue.toFixed(1)}% da receita total
+                    </p>
                   </button>
                 );
               })}
@@ -861,7 +905,7 @@ export const FinancialReport = () => {
       </div>
 
       {/* Admin Only: Revenue Distribution Cards */}
-      {isAdmin && (
+      {isAdmin && liquidoTotal > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
@@ -1078,25 +1122,29 @@ export const FinancialReport = () => {
                 const percManutencao = entradaBrutaTotal > 0 ? (manutencaoSite / entradaBrutaTotal) * 100 : 0;
                 return (
                   <>
-                    <div className="h-6 rounded-full overflow-hidden flex bg-surface-container-highest">
-                      <div className="h-full bg-red-500 flex items-center justify-center" style={{ width: `${percTaxas}%` }}>
-                        <span className="text-[10px] text-foreground font-medium">{percTaxas.toFixed(1)}%</span>
-                      </div>
-                      <div className="h-full bg-blue-500 flex items-center justify-center" style={{ width: `${percCliente}%` }}>
-                        <span className="text-[10px] text-foreground font-medium">{percCliente.toFixed(1)}%</span>
-                      </div>
-                      <div className="h-full bg-primary flex items-center justify-center" style={{ width: `${percNeoPower}%` }}>
-                        <span className="text-[10px] text-black font-medium">{percNeoPower.toFixed(1)}%</span>
-                      </div>
-                      <div className="h-full bg-cyan-500 flex items-center justify-center" style={{ width: `${percManutencao}%` }}>
-                        <span className="text-[10px] text-foreground font-medium">{percManutencao.toFixed(1)}%</span>
-                      </div>
+                    <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
+                      <div className="bg-red-500/40 transition-all" style={{ width: `${percTaxas}%` }} title={`Taxas: R$ ${fmt(taxasTotais)}`} />
+                      <div className="bg-blue-500/50 transition-all" style={{ width: `${percCliente}%` }} title={`Cliente: R$ ${fmt(valorPagoCliente)}`} />
+                      <div className="bg-primary/70 transition-all" style={{ width: `${percNeoPower}%` }} title={`NeoPower: R$ ${fmt(lucroNeoPower)}`} />
+                      <div className="bg-cyan-500/50 transition-all" style={{ width: `${percManutencao}%` }} title={`Manutenção: R$ ${fmt(manutencaoSite)}`} />
                     </div>
-                    <div className="grid grid-cols-4 gap-2 mt-2 text-xs">
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div><span className="text-red-600 dark:text-red-400/70">Taxas</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div><span className="text-blue-600 dark:text-blue-400/70">Cliente</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div><span className="text-on-surface-variant">NeoPower</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-cyan-500"></div><span className="text-cyan-600 dark:text-cyan-400/70">Manutenção</span></div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-xs">
+                      <div className="flex items-center gap-1.5 text-on-surface-variant">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
+                        <span>Taxas ({percTaxas.toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-on-surface-variant">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />
+                        <span>Cliente ({percCliente.toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-on-surface-variant">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
+                        <span>NeoPower ({percNeoPower.toFixed(1)}%)</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-on-surface-variant">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/50" />
+                        <span>Manutenção ({percManutencao.toFixed(1)}%)</span>
+                      </div>
                     </div>
                   </>
                 );
@@ -1291,12 +1339,59 @@ export const FinancialReport = () => {
         );
       })()}
 
+      {/* Daily Evolution Chart */}
+      {!overviewMode && dailyData.length > 0 && (
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">show_chart</span>
+                Evolução Diária de Receita e Consumo
+              </h2>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Desempenho financeiro e energético ao longo do período selecionado
+              </p>
+            </div>
+          </div>
+          <div className="w-full h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.15} />
+                <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} />
+                <YAxis yAxisId="left" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} tickFormatter={(v) => `R$ ${v}`} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} tickFormatter={(v) => `${v} kWh`} />
+                <Tooltip
+                  contentStyle={{
+                    background: 'var(--color-card)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '12px',
+                  }}
+                  formatter={(value: any, name: string) => {
+                    if (name === 'revenue') return [`R$ ${fmt(Number(value))}`, 'Receita'];
+                    return [`${Number(value).toFixed(2)} kWh`, 'Consumo'];
+                  }}
+                  labelStyle={{ color: 'var(--color-foreground)', fontWeight: 'bold' }}
+                />
+                <Area yAxisId="left" type="monotone" dataKey="revenue" fill="url(#colorRevenue)" stroke="var(--primary)" strokeWidth={2} name="revenue" />
+                <Line yAxisId="right" type="monotone" dataKey="energy" stroke="#00d2ff" strokeWidth={2} dot={dailyData.length < 30} activeDot={{ r: 6 }} name="energy" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Data Table */}
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="px-6 py-5 border-b border-outline-variant/15">
           <h2 className="text-lg font-headline font-semibold text-foreground">Detalhamento por Transação</h2>
           <p className="text-sm text-on-surface-variant mt-1">
-            {reportData.length} {reportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
+            {visibleReportData.length} {visibleReportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -1315,8 +1410,8 @@ export const FinancialReport = () => {
               </tr>
             </thead>
             <tbody>
-              {reportData.length > 0 ? (
-                reportData.map((row, index) => (
+              {visibleReportData.length > 0 ? (
+                visibleReportData.map((row, index) => (
                   <tr key={index} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
                     <td className="py-3 px-4 text-sm font-medium text-foreground">{row['Estação']}</td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
@@ -1347,12 +1442,12 @@ export const FinancialReport = () => {
           </table>
         </div>
 
-        {reportData.length > 0 && (
+        {visibleReportData.length > 0 && (
           <div className="px-6 py-5 border-t border-outline-variant/15">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Total Transações</p>
-                <p className="text-lg font-bold text-foreground">{reportData.length}</p>
+                <p className="text-lg font-bold text-foreground">{visibleReportData.length}</p>
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Energia Total</p>

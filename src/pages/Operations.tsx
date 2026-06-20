@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -48,7 +49,6 @@ import {
   Activity,
   Send,
   Wifi,
-  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
@@ -69,6 +69,14 @@ interface ChargePoint {
   firmwareVersion?: string;
   lastHeartbeat?: string;
   protocol?: string;
+  locationId?: number | null;
+  description?: string;
+}
+
+interface Location {
+  id: number;
+  nomeDoLocal: string;
+  endereco: string;
 }
 
 interface OperationResult {
@@ -165,6 +173,7 @@ const categoryConfig: Record<OperationCategory, { label: string; color: string; 
 
 export const Operations = () => {
   const [chargePoints, setChargePoints] = useState<ChargePoint[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [selectedChargePoints, setSelectedChargePoints] = useState<string[]>([]);
@@ -205,13 +214,60 @@ export const Operations = () => {
     });
   }, [chargePoints, chargerStatuses]);
 
+  // Group chargers by location
+  const chargersByLocation = useMemo(() => {
+    const groups: Record<string, { name: string; chargers: ChargePoint[] }> = {};
+
+    // Initialize groups for known locations
+    locations.forEach(loc => {
+      groups[loc.id.toString()] = {
+        name: loc.nomeDoLocal,
+        chargers: []
+      };
+    });
+
+    // Fallback group for chargers without a valid location
+    const noLocationKey = 'unassigned';
+    groups[noLocationKey] = {
+      name: 'Sem Local Atribuído',
+      chargers: []
+    };
+
+    mergedChargePoints.forEach(cp => {
+      const locId = cp.locationId?.toString();
+      if (locId && groups[locId]) {
+        groups[locId].chargers.push(cp);
+      } else {
+        groups[noLocationKey].chargers.push(cp);
+      }
+    });
+
+    // Filter out groups that have no chargers
+    return Object.entries(groups).filter(([_, group]) => group.chargers.length > 0);
+  }, [locations, mergedChargePoints]);
+
+  // Fetch locations
+  const fetchLocations = useCallback(async () => {
+    try {
+      const response = await api.get('/locations/all');
+      if (response.ok) {
+        const data = await response.json();
+        const ll = data.locations || data.data?.locations || data || [];
+        setLocations(ll);
+      }
+    } catch (err) {
+      console.error('Error fetching locations:', err);
+    }
+  }, []);
+
   // Fetch charge points
   const fetchChargePoints = useCallback(async () => {
     try {
       const response = await api.get('/chargers');
       if (!response.ok) throw new Error('Failed to fetch chargers');
       const data = await response.json();
-      setChargePoints(data);
+      const list = Array.isArray(data) ? data : (data.data || []);
+      setChargePoints(list);
       setApiError(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -221,6 +277,10 @@ export const Operations = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void fetchLocations();
+  }, [fetchLocations]);
 
   useEffect(() => {
     void fetchChargePoints();
@@ -618,7 +678,6 @@ export const Operations = () => {
     operations.filter(op => op.category === category);
 
   const connectedCount = mergedChargePoints.filter(cp => cp.isConnected).length;
-  const offlineCount = mergedChargePoints.filter(cp => !cp.isConnected).length;
 
   // ============================================================================
   // Render Command Form
@@ -1190,56 +1249,7 @@ export const Operations = () => {
         </div>
       )}
 
-      {/* Status Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-surface-container-highest rounded-xl">
-              <Server className="w-6 h-6 text-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total</p>
-              <p className="text-2xl font-bold text-foreground">{mergedChargePoints.length}</p>
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-primary/10 rounded-xl">
-              <Wifi className="w-6 h-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Online</p>
-              <p className="text-2xl font-bold text-primary">{connectedCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-surface-container-highest rounded-xl">
-              <WifiOff className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Offline</p>
-              <p className="text-2xl font-bold text-on-surface-variant">{offlineCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 bg-surface-container-highest rounded-xl">
-              <CheckCircle2 className="w-6 h-6 text-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Selecionados</p>
-              <p className="text-2xl font-bold text-foreground">{selectedChargePoints.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1259,9 +1269,9 @@ export const Operations = () => {
 
         {/* Tab: Operations */}
         <TabsContent value="operations" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Charge Point Selection */}
-            <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
+            <Card className="lg:col-span-4 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
               <CardHeader className="pb-3">
                 <CardTitle className="text-foreground text-lg">Carregadores</CardTitle>
                 <CardDescription className="text-muted-foreground">
@@ -1277,34 +1287,58 @@ export const Operations = () => {
                     Limpar
                   </Button>
                 </div>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2 pr-4">
-                    {mergedChargePoints.map(cp => (
-                      <button
-                        key={cp.charge_point_id}
-                        onClick={() => toggleChargePointSelection(cp.charge_point_id)}
-                        className={`w-full p-3 rounded-lg border text-left transition-all ${
-                          selectedChargePoints.includes(cp.charge_point_id)
-                            ? 'bg-primary/20 border-primary'
-                            : 'bg-surface-container border-border hover:border-primary/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="relative">
-                            <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-primary' : 'bg-outline'}`} />
-                            {cp.isConnected && (
-                              <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-primary animate-ping opacity-75" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-foreground truncate text-sm">{cp.charge_point_id}</p>
-                            <p className="text-xs text-muted-foreground truncate">{cp.vendor || 'N/A'} {cp.model || ''}</p>
-                          </div>
-                          {selectedChargePoints.includes(cp.charge_point_id) && (
-                            <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                          )}
+                <ScrollArea className="h-[400px] pr-3">
+                  <div className="space-y-4 pr-1 min-w-0">
+                    {chargersByLocation.map(([locId, group]) => (
+                      <div key={locId} className="space-y-1.5 min-w-0">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 px-1.5 py-1 bg-surface-container-highest/20 rounded border-b border-outline-variant/5 min-w-0">
+                          <span className="material-symbols-outlined text-[12px] text-primary flex-shrink-0">location_on</span>
+                          <span className="truncate flex-1 min-w-0">{group.name}</span>
                         </div>
-                      </button>
+                        <div className="space-y-1 pl-1 min-w-0">
+                          {group.chargers.map(cp => {
+                            const hasName = !!cp.description;
+                            const typeStr = `${cp.vendor || 'N/A'} ${cp.model || ''}`.trim();
+                            const displayName = cp.description || typeStr || cp.charge_point_id;
+                            
+                            return (
+                              <button
+                                key={cp.charge_point_id}
+                                onClick={() => toggleChargePointSelection(cp.charge_point_id)}
+                                className={`w-full p-2.5 rounded-lg border text-left transition-all min-w-0 ${
+                                  selectedChargePoints.includes(cp.charge_point_id)
+                                    ? 'bg-primary/20 border-primary'
+                                    : 'bg-surface-container border-border hover:border-primary/50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="relative flex-shrink-0">
+                                    <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-primary' : 'bg-outline'}`} />
+                                    {cp.isConnected && (
+                                      <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-primary animate-ping opacity-75" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs truncate ${hasName ? 'font-medium text-foreground' : 'font-bold text-primary dark:text-primary'}`}>
+                                      {displayName}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                      {hasName ? `${typeStr} • ` : ''}{cp.charge_point_id}
+                                    </p>
+                                    <p className="text-[9px] text-muted-foreground/60 truncate flex items-center gap-0.5 mt-0.5">
+                                      <span className="material-symbols-outlined text-[9px] text-primary/70 flex-shrink-0">location_on</span>
+                                      <span className="truncate">{group.name}</span>
+                                    </p>
+                                  </div>
+                                  {selectedChargePoints.includes(cp.charge_point_id) && (
+                                    <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </ScrollArea>
@@ -1312,49 +1346,82 @@ export const Operations = () => {
             </Card>
 
             {/* Operations Panel */}
-            <div className="lg:col-span-3 space-y-4">
-              {/* Operations by Category */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(Object.entries(categoryConfig) as [OperationCategory, typeof categoryConfig[OperationCategory]][]).map(([category, config]) => {
-                  const categoryOps = getOperationsByCategory(category);
-                  if (categoryOps.length === 0) return null;
+            <div className="lg:col-span-8 space-y-4">
+              {selectedChargePoints.length === 0 ? (
+                /* Empty State */
+                <div className="flex flex-col items-center justify-center p-12 border border-dashed border-outline-variant/30 rounded-xl bg-surface-container/30 text-center h-[400px]">
+                  <div className="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant mb-4">
+                    <span className="material-symbols-outlined text-3xl">ev_station</span>
+                  </div>
+                  <h3 className="text-lg font-headline font-bold text-foreground mb-1">Nenhum carregador selecionado</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm">
+                    Selecione um ou mais carregadores no painel lateral esquerdo para liberar e enviar comandos operacionais.
+                  </p>
+                </div>
+              ) : (
+                /* Grouped Operations in Accordion */
+                <Accordion type="multiple" defaultValue={['basic']} className="space-y-4">
+                  {(Object.entries(categoryConfig) as [OperationCategory, typeof categoryConfig[OperationCategory]][]).map(([category, config]) => {
+                    const categoryOps = getOperationsByCategory(category);
+                    if (categoryOps.length === 0) return null;
 
-                  return (
-                    <Card key={category} className={`bg-gradient-to-br ${config.bgColor} ${config.borderColor}`}>
-                      <CardHeader className="pb-2">
-                        <CardTitle className={`text-sm font-medium ${config.color}`}>
-                          {config.label}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="grid grid-cols-2 gap-2">
-                        {categoryOps.map(op => (
-                          <Tooltip key={op.id}>
-                            <TooltipTrigger asChild>
-                              <button
-                                onClick={() => setSelectedOperation(op.id)}
-                                disabled={selectedChargePoints.length === 0}
-                                className={`w-full p-2 rounded-lg border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                                  selectedOperation === op.id
-                                    ? 'bg-primary/20 border-primary'
-                                    : 'bg-surface-container border-border hover:border-primary/50 hover:bg-primary/5'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className={selectedOperation === op.id ? 'text-primary' : config.color}>{op.icon}</span>
-                                  <span className={`text-xs font-medium truncate ${selectedOperation === op.id ? 'text-primary' : 'text-foreground'}`}>{op.name}</span>
-                                </div>
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-snug">
-                              {op.description}
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                    return (
+                      <AccordionItem key={category} value={category} className="border border-outline-variant/10 rounded-xl bg-card overflow-hidden">
+                        <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-surface-container-highest/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-base ${config.color}`}>
+                              {categoryOps[0]?.icon}
+                            </span>
+                            <span className="font-headline font-bold text-on-surface">{config.label}</span>
+                            <span className="text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full font-bold">
+                              {categoryOps.length}
+                            </span>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-6 pb-6 pt-2 bg-surface-container/10 border-t border-outline-variant/5">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {categoryOps.map(op => {
+                              const isSelected = selectedOperation === op.id;
+                              return (
+                                <Tooltip key={op.id}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => setSelectedOperation(op.id)}
+                                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-36 w-full ${
+                                        isSelected
+                                          ? 'bg-primary/20 border-primary ring-1 ring-primary/20'
+                                          : 'bg-surface-container border-outline-variant/10 hover:border-primary/50 hover:bg-primary/5'
+                                      }`}
+                                    >
+                                      <div className="flex justify-between items-start gap-2 w-full">
+                                        <span className={`text-xs font-bold font-headline truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>{op.name}</span>
+                                        <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-primary/20 text-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
+                                          {op.icon}
+                                        </div>
+                                      </div>
+                                      <p className="text-[10px] text-muted-foreground line-clamp-3 leading-relaxed mt-2 flex-1">
+                                        {op.description}
+                                      </p>
+                                      <div className="flex justify-end mt-2 w-full">
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
+                                          {isSelected ? 'Selecionado' : 'Selecionar'}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-snug">
+                                    {op.description}
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              )}
 
               {/* Execute Button */}
               <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-zinc-700">

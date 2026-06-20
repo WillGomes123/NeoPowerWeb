@@ -62,6 +62,63 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
   ];
 
+  const navigationGroups = [
+    {
+      id: 'gestao',
+      label: 'Gestão',
+      icon: 'business_center',
+      items: [
+        { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'comum'] },
+        { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'comum'] },
+        { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'comum'] },
+        { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'comum'] },
+        { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'comum'] },
+        { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'comum'] },
+      ],
+    },
+    {
+      id: 'financeiro',
+      label: 'Financeiro',
+      icon: 'payments',
+      items: [
+        { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'comum'] },
+        { path: '/relatorio-financeiro', label: 'Relatório Financeiro', icon: 'payments', roles: ['admin', 'comum'] },
+        { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'comum'] },
+        { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'comum'] },
+        { path: '/metas', label: 'Metas de Recarga', icon: 'flag', roles: ['admin'] },
+        { path: '/sustentabilidade', label: 'Sustentabilidade', icon: 'eco', roles: ['admin', 'comum'] },
+      ],
+    },
+    {
+      id: 'configuracoes',
+      label: 'Configurações',
+      icon: 'settings',
+      items: [
+        { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
+        { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
+        { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
+        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
+        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
+      ],
+    },
+  ];
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const path = location.pathname;
+    return {
+      gestao: ['/estacoes', '/locais', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
+      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas', '/metas', '/sustentabilidade'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+    };
+  });
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
   const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
 
   const filteredResults = useMemo(() => {
@@ -126,22 +183,75 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-          {visibleNavItems.map(item => {
-            const isActive = location.pathname === item.path;
+        <nav className="flex-1 px-3 space-y-2 overflow-y-auto">
+          {/* Visão Geral (Standalone) */}
+          {visibleNavItems.find(item => item.path === '/') && (() => {
+            const item = navItems[0]; // Visão Geral
+            const isActive = location.pathname === '/';
             return (
               <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 text-sm ${
+                to="/"
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 text-sm ${
                   isActive
-                    ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
+                    ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-semibold'
                     : 'text-muted-foreground hover:bg-surface-container-highest hover:text-primary'
                 }`}
               >
                 <span className="material-symbols-outlined text-xl">{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
+            );
+          })()}
+
+          {/* Grouped Items */}
+          {navigationGroups.map(group => {
+            const groupVisibleItems = group.items.filter(item => item.roles.includes(user?.role || 'comum'));
+            if (groupVisibleItems.length === 0) return null;
+
+            const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
+            const isOpen = openGroups[group.id];
+
+            return (
+              <div key={group.id} className="space-y-1">
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className={`w-full flex items-center justify-between px-4 py-2 rounded-lg text-sm transition-all duration-200 text-left ${
+                    isGroupActive
+                      ? 'text-primary font-semibold bg-surface-container-highest/20'
+                      : 'text-muted-foreground hover:bg-surface-container-highest/40 hover:text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`material-symbols-outlined text-xl ${isGroupActive ? 'text-primary' : 'text-muted-foreground'}`}>{group.icon}</span>
+                    <span>{group.label}</span>
+                  </div>
+                  <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                    expand_more
+                  </span>
+                </button>
+                
+                {isOpen && (
+                  <div className="pl-4 space-y-1 border-l border-sidebar-border/10 ml-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {groupVisibleItems.map(item => {
+                      const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200 text-sm ${
+                            isActive
+                              ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
+                              : 'text-muted-foreground hover:bg-surface-container-highest hover:text-primary'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

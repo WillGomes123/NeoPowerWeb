@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { DateRangePicker } from '../components/ui/date-range-picker';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 type MetricType = 'sessions' | 'revenue' | 'energy' | 'users';
-type PeriodType = '7d' | '30d' | '90d';
 type ChartType = 'area' | 'bar' | 'line';
 
 interface PerformanceData {
@@ -18,14 +18,6 @@ interface PerformanceData {
   users: number;
 }
 
-interface DashboardStats {
-  totalTransactions: number;
-  totalRevenue: number;
-  totalEnergy: number;
-  activeChargers: number;
-  totalUsers?: number;
-}
-
 const metricsConfig = {
   sessions: { label: 'Sessões', unit: '', color: 'var(--primary)', icon: 'bolt', colorClass: 'text-primary', bgClass: 'bg-primary/10' },
   revenue: { label: 'Receita', unit: 'R$', color: '#90f9a3', icon: 'payments', colorClass: 'text-secondary', bgClass: 'bg-secondary/10' },
@@ -33,45 +25,61 @@ const metricsConfig = {
   users: { label: 'Usuários Ativos', unit: '', color: '#00deea', icon: 'group', colorClass: 'text-tertiary-dim', bgClass: 'bg-tertiary-dim/10' },
 };
 
+const getThirtyDaysAgoString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const Indicators = () => {
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('revenue');
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>('30d');
+  const [startDate, setStartDate] = useState<string>(getThirtyDaysAgoString());
+  const [endDate, setEndDate] = useState<string>(getTodayString());
   const [chartType, setChartType] = useState<ChartType>('area');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { void fetchData(); }, [selectedPeriod]);
+  useEffect(() => { void fetchData(); }, [startDate, endDate]);
 
   const fetchData = async () => {
     if (!refreshing) setLoading(true);
     setError(null);
     try {
-      const days = selectedPeriod === '7d' ? 7 : selectedPeriod === '30d' ? 30 : 90;
-      const [perfRes, statsRes] = await Promise.all([
-        api.get(`/performance-data?days=${days}`),
-        api.get('/dashboard-stats'),
-      ]);
-      if (perfRes.ok) { const d = await perfRes.json(); setPerformanceData(Array.isArray(d) ? d : []); }
-      else { setPerformanceData([]); setError('Falha ao carregar dados'); }
-      if (statsRes.ok) {
-        const s = await statsRes.json();
-        const k = s.kpis || s;
-        setDashboardStats({
-          totalTransactions: k.totalTransactions ?? 0,
-          totalRevenue: k.totalRevenue ?? 0,
-          totalEnergy: k.totalKwh ?? k.totalEnergy ?? 0,
-          activeChargers: k.onlineStations ?? k.activeChargers ?? 0,
-          totalUsers: k.totalUsers ?? 0,
-        });
+      const response = await api.get(`/performance-data?startDate=${startDate}&endDate=${endDate}`);
+      if (response.ok) { 
+        const d = await response.json(); 
+        setPerformanceData(Array.isArray(d) ? d : []); 
+      } else { 
+        setPerformanceData([]); 
+        setError('Falha ao carregar dados'); 
       }
-    } catch { setError('Erro ao conectar com o servidor'); setPerformanceData([]); }
-    finally { setLoading(false); }
+    } catch { 
+      setError('Erro ao conectar com o servidor'); 
+      setPerformanceData([]); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  const handleRefresh = async () => { setRefreshing(true); await fetchData(); setRefreshing(false); toast.success('Dados atualizados!'); };
+  const handleRefresh = async () => { 
+    setRefreshing(true); 
+    await fetchData(); 
+    setRefreshing(false); 
+    toast.success('Dados atualizados!'); 
+  };
 
   const chartData = performanceData.map(d => ({
     date: `${d.date.slice(8, 10)}/${d.date.slice(5, 7)}`,
@@ -182,7 +190,7 @@ export const Indicators = () => {
         <div className="bg-error/10 border border-error/30 rounded-lg p-4 text-error text-sm">{error}</div>
       )}
 
-      {/* KPI Bento Grid */}
+      {/* KPI Bento Grid (Selectable) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {(Object.keys(metricsConfig) as MetricType[]).map(key => {
           const cfg = metricsConfig[key];
@@ -195,9 +203,10 @@ export const Indicators = () => {
               onClick={() => setSelectedMetric(key)}
               className={`glass-panel p-6 rounded-lg border-2 flex flex-col justify-between h-32 cursor-pointer transition-all duration-200 ${
                 isSelected
-                  ? 'border-primary shadow-lg shadow-primary/10 ring-2 ring-primary/20 bg-primary/5'
+                  ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10 ring-2 ring-primary/20'
                   : 'border-transparent hover:border-primary/30'
               }`}
+              style={isSelected ? { borderColor: 'var(--primary)' } : undefined}
             >
               <div className="flex justify-between items-start">
                 <span className="text-on-surface-variant text-xs uppercase tracking-widest">{cfg.label}</span>
@@ -214,11 +223,11 @@ export const Indicators = () => {
         })}
       </div>
 
-      {/* Main Chart: Asymmetric Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart (2/3 width) */}
-        <div className="lg:col-span-2 glass-panel rounded-lg border border-outline-variant/10 p-8 overflow-hidden relative">
-          <div className="flex justify-between items-center mb-10">
+      {/* Main Chart: Expanded Full Width Layout */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Chart (Full width) */}
+        <div className="glass-panel rounded-lg border border-outline-variant/10 p-8 overflow-hidden relative">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
             <div>
               <h3 className="font-headline text-lg font-bold text-on-surface uppercase tracking-tight">
                 {config.label} ao Longo do Tempo
@@ -227,20 +236,17 @@ export const Indicators = () => {
                 Média diária: {formatValue(calculateMetrics(selectedMetric).avg, selectedMetric)}
               </p>
             </div>
-            <div className="flex gap-2">
-              {(['7d', '30d', '90d'] as PeriodType[]).map(p => (
-                <button
-                  key={p}
-                  onClick={() => setSelectedPeriod(p)}
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold transition-colors ${
-                    selectedPeriod === p
-                      ? 'bg-primary/20 text-primary border border-primary/30'
-                      : 'bg-surface-container-highest text-on-surface-variant hover:text-primary'
-                  }`}
-                >
-                  {p.toUpperCase()}
-                </button>
-              ))}
+            <div>
+              <DateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={(d) => setStartDate(d)}
+                onEndDateChange={(d) => setEndDate(d)}
+                onClear={() => {
+                  setStartDate(getThirtyDaysAgoString());
+                  setEndDate(getTodayString());
+                }}
+              />
             </div>
           </div>
 
@@ -279,50 +285,7 @@ export const Indicators = () => {
             {renderChart()}
           </ResponsiveContainer>
         </div>
-
-        {/* Side Panel: Summary Stats */}
-        <div className="glass-panel rounded-lg border border-outline-variant/10 p-8 flex flex-col justify-between">
-          <div>
-            <h3 className="font-headline text-lg font-bold text-on-surface uppercase tracking-tight mb-8">Resumo do Sistema</h3>
-            <div className="space-y-6">
-              <SummaryRow icon="receipt_long" label="Transações" value={(dashboardStats?.totalTransactions ?? 0).toLocaleString('pt-BR')} color="text-primary" />
-              <SummaryRow icon="payments" label="Receita Total" value={`R$ ${(dashboardStats?.totalRevenue ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color="text-secondary" />
-              <SummaryRow icon="bolt" label="Energia Total" value={`${(dashboardStats?.totalEnergy ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 1 })} kWh`} color="text-tertiary" />
-              <SummaryRow icon="group" label="Usuários" value={(dashboardStats?.totalUsers ?? 0).toLocaleString('pt-BR')} color="text-tertiary-dim" />
-            </div>
-          </div>
-
-          {/* Active chargers indicator */}
-          <div className="mt-8 pt-6 border-t border-outline-variant/10">
-            <div className="flex items-center justify-between">
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase">ESTAÇÕES ATIVAS</p>
-                <p className="text-lg font-headline font-bold">{dashboardStats?.activeChargers ?? 0}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase">PERÍODO</p>
-                <p className="text-lg font-headline font-bold">
-                  {selectedPeriod === '7d' ? '7 dias' : selectedPeriod === '30d' ? '30 dias' : '90 dias'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
 };
-
-function SummaryRow({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center`}>
-          <span className={`material-symbols-outlined text-base ${color}`}>{icon}</span>
-        </div>
-        <span className="text-xs text-on-surface">{label}</span>
-      </div>
-      <span className="text-xs font-bold text-on-surface">{value}</span>
-    </div>
-  );
-}

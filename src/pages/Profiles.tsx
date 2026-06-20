@@ -3,9 +3,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '../components/ui/dialog';
 import {
-  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '../components/ui/alert-dialog';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
@@ -158,8 +157,19 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
                 </label>
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</Button>
-                <button onClick={handleSave} disabled={saving} className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
+                <button
+                  type="button"
+                  onClick={() => setDialogOpen(false)}
+                  className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-sm hover:bg-surface-container-high active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                >
                   {saving ? 'Salvando...' : (isEdit ? 'Salvar Alterações' : 'Criar Perfil')}
                 </button>
               </div>
@@ -260,11 +270,16 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
               Tem certeza que deseja excluir o perfil <strong>{deleteTarget?.name}</strong>? Não é possível excluir perfis em uso por usuários, tarifas ou campanhas.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-outline-variant/20 text-on-surface hover:bg-surface-container-highest rounded-full px-6">
-              Cancelar
-            </AlertDialogCancel>
+          <AlertDialogFooter className="flex justify-end gap-3 pt-2">
             <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface font-bold text-sm hover:bg-surface-container-highest active:scale-95 transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
               onClick={handleDelete}
               disabled={deleting}
               className="bg-error text-on-error hover:bg-error/90 px-6 py-2 rounded-full font-bold text-sm disabled:opacity-50 transition-all hover:scale-105 active:scale-95"

@@ -516,7 +516,6 @@ export const Vouchers = () => {
   });
 
   const activeCount = vouchers.filter(v => getVoucherStatus(v) === 'active').length;
-  const inactiveCount = vouchers.filter(v => getVoucherStatus(v) !== 'active').length;
   const totalUsed = vouchers.reduce((s, v) => s + (v.used_quantity || 0), 0);
 
   return (
@@ -526,7 +525,9 @@ export const Vouchers = () => {
         <div>
           <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">PROMOTIONS</span>
           <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Vouchers</h1>
-          <p className="text-on-surface-variant mt-1">Gerenciamento de cupons e descontos</p>
+          <p className="text-on-surface-variant mt-1">
+            Gerenciamento de cupons e descontos • <span className="text-primary font-semibold">{activeCount} ativos</span> • <span className="text-tertiary font-semibold">{totalUsed} utilizados</span>
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => void fetchVouchers()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
@@ -541,14 +542,6 @@ export const Vouchers = () => {
             Novo Voucher
           </button>
         </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <SummaryCard icon="confirmation_number" label="TOTAL VOUCHERS" value={String(vouchers.length)} />
-        <SummaryCard icon="check_circle" label="ATIVOS" value={String(activeCount)} color="text-primary" />
-        <SummaryCard icon="cancel" label="INATIVOS" value={String(inactiveCount)} color="text-on-surface-variant" />
-        <SummaryCard icon="sell" label="TOTAL UTILIZADOS" value={String(totalUsed)} color="text-tertiary" />
       </div>
 
       {/* Filters */}
@@ -610,8 +603,7 @@ export const Vouchers = () => {
                 <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                   <th className="px-6 py-4">Código</th>
                   <th className="px-6 py-4">Nome</th>
-                  <th className="px-6 py-4">Tipo</th>
-                  <th className="px-6 py-4">Valor</th>
+                  <th className="px-6 py-4">Desconto</th>
                   <th className="px-6 py-4">Restrição</th>
                   <th className="px-6 py-4">Validade</th>
                   <th className="px-6 py-4">Uso</th>
@@ -621,21 +613,22 @@ export const Vouchers = () => {
               </thead>
               <tbody className="divide-y divide-outline-variant/5">
                 {filteredVouchers.map((voucher) => {
-                  const typeLabels = {
-                    percent: '%',
-                    fixed: 'R$',
-                    kwh: 'kWh',
-                  };
-
                   const usagePct = voucher.total_quantity
                     ? ((voucher.used_quantity || 0) / voucher.total_quantity) * 100
                     : 0;
 
+                  const status = getVoucherStatus(voucher);
+                  const isInactive = status !== 'active';
+
                   return (
-                    <tr key={voucher.id} className="hover:bg-surface-container-highest/30 transition-colors group">
+                    <tr key={voucher.id} className={`hover:bg-surface-container-highest/30 transition-colors group ${isInactive ? 'opacity-40 grayscale-[30%] bg-surface-container/10' : ''}`}>
                       {/* Code */}
                       <td className="px-6 py-4">
-                        <span className="px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-mono font-bold border ${
+                          isInactive 
+                            ? 'bg-outline/10 border-outline/20 text-on-surface-variant' 
+                            : 'bg-primary/10 border-primary/20 text-primary'
+                        }`}>
                           {voucher.code}
                         </span>
                       </td>
@@ -645,21 +638,21 @@ export const Vouchers = () => {
                         <span className="text-sm font-medium text-on-surface">{voucher.name}</span>
                       </td>
 
-                      {/* Type */}
+                      {/* Desconto (Merged Type & Value) */}
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface border border-outline-variant/10 text-[10px] font-bold">
-                          {voucher.type === 'percent' && '%'}
-                          {voucher.type === 'fixed' && 'R$'}
-                          {voucher.type === 'kwh' && 'kWh'}
-                          <span className="text-on-surface-variant">{voucher.type}</span>
-                        </span>
-                      </td>
-
-                      {/* Value */}
-                      <td className="px-6 py-4">
-                        <span className="text-lg font-headline font-bold text-on-surface">
-                          {voucher.value} <span className="text-xs font-normal text-on-surface-variant">{typeLabels[voucher.type]}</span>
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-headline font-bold text-on-surface">
+                            {voucher.type === 'fixed' ? 'R$ ' : ''}
+                            {voucher.value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                            {voucher.type === 'percent' ? ' %' : ''}
+                            {voucher.type === 'kwh' ? ' kWh' : ''}
+                          </span>
+                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">
+                            {voucher.type === 'percent' && 'Percentual'}
+                            {voucher.type === 'fixed' && 'Fixo'}
+                            {voucher.type === 'kwh' && 'Energia (kWh)'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Restriction */}
@@ -804,15 +797,3 @@ export const Vouchers = () => {
     </div>
   );
 };
-
-function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
-  return (
-    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
-      <div className="flex justify-between items-start">
-        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
-        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
-      </div>
-      <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
-    </div>
-  );
-}

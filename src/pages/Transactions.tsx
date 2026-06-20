@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ExportButton } from '../components/ExportButton';
 import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
+import { DateRangePicker } from '../components/ui/date-range-picker';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -55,7 +56,17 @@ export const Transactions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [timeFilter, setTimeFilter] = useState<'all' | '30d' | '7d'>('all');
+
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [startDate, setStartDate] = useState<string>(getTodayString());
+  const [endDate, setEndDate] = useState<string>(getTodayString());
   const [curveOpen, setCurveOpen] = useState(false);
   const [curveTransaction, setCurveTransaction] = useState<{ id: number; chargerId: string } | null>(null);
   // Search filter
@@ -158,12 +169,15 @@ export const Transactions = () => {
   const filtered = useMemo(() => {
     let list = transactions;
 
-    // Filtro por período rápido
-    if (timeFilter !== 'all') {
-      const days = timeFilter === '30d' ? 30 : 7;
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
-      list = list.filter(tx => new Date(tx.start_timestamp) >= cutoff);
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      list = list.filter(tx => new Date(tx.start_timestamp) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      list = list.filter(tx => new Date(tx.start_timestamp) <= end);
     }
 
     // Filtro por texto (carregador, endereço, ID)
@@ -177,7 +191,7 @@ export const Transactions = () => {
     }
 
     return list;
-  }, [transactions, timeFilter, searchQuery]);
+  }, [transactions, startDate, endDate, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -188,17 +202,20 @@ export const Transactions = () => {
   const totalKwh = useMemo(() => filtered.reduce((s, tx) => s + (tx.consumed_wh ? tx.consumed_wh / 1000 : 0), 0), [filtered]);
   const avgTicket = filtered.length > 0 ? totalRevenue / filtered.length : 0;
   const completedCount = filtered.filter(tx => (tx.status || '').toLowerCase() === 'completed' || tx.status === 'finalizado').length;
-  const healthPct = filtered.length > 0 ? (completedCount / filtered.length * 100) : 0;
 
   // Wallet deposits filtered & metrics
   const filteredDeposits = useMemo(() => {
     let list = walletTxs;
 
-    if (timeFilter !== 'all') {
-      const days = timeFilter === '30d' ? 30 : 7;
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
-      list = list.filter(wt => new Date(wt.createdAt) >= cutoff);
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      list = list.filter(wt => new Date(wt.createdAt) >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      list = list.filter(wt => new Date(wt.createdAt) <= end);
     }
 
     if (searchQuery.trim()) {
@@ -212,7 +229,7 @@ export const Transactions = () => {
     }
 
     return list;
-  }, [walletTxs, timeFilter, searchQuery]);
+  }, [walletTxs, startDate, endDate, searchQuery]);
 
   const totalDeposits = useMemo(() => filteredDeposits.reduce((s, wt) => s + wt.amount, 0), [filteredDeposits]);
   const avgDeposit = filteredDeposits.length > 0 ? totalDeposits / filteredDeposits.length : 0;
@@ -258,22 +275,17 @@ export const Transactions = () => {
           <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Transações</h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {/* Time filter pills */}
-          <div className="bg-surface-container-low p-1 rounded-lg flex items-center border border-outline-variant/10">
-            {(['all', '30d', '7d'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => { setTimeFilter(f); setCurrentPage(1); }}
-                className={`px-4 py-2 text-xs font-bold font-headline rounded-md transition-all ${
-                  timeFilter === f
-                    ? 'bg-surface-container-highest text-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {f === 'all' ? 'TODOS' : f.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={(d) => { setStartDate(d); setCurrentPage(1); }}
+            onEndDateChange={(d) => { setEndDate(d); setCurrentPage(1); }}
+            onClear={() => {
+              setStartDate(getTodayString());
+              setEndDate(getTodayString());
+              setCurrentPage(1);
+            }}
+          />
           <button onClick={() => void fetchTransactions()} className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors">
             <span className="material-symbols-outlined text-sm">refresh</span>
             <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
@@ -329,20 +341,51 @@ export const Transactions = () => {
       {/* Bento Summary Metrics */}
       {txTab === 'recargas' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          <MetricCard icon="payments" badge={`${filtered.length} tx`} label="RECEITA TOTAL" value={`R$ ${fmt(totalRevenue)}`} />
-          <MetricCard icon="confirmation_number" label="TICKET MÉDIO" value={`R$ ${fmt(avgTicket)}`} />
-          <MetricCard icon="bolt" label="ENERGIA TOTAL" value={`${fmt(totalKwh, 1)} kWh`} />
-          {/* Health card */}
-          <div className="bg-surface-container-highest p-6 rounded-xl border border-primary/20 relative overflow-hidden flex flex-col justify-center">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-            <p className="text-xs font-medium text-primary uppercase tracking-widest mb-1 relative z-10">TAXA DE SUCESSO</p>
-            <div className="flex items-center gap-3 relative z-10">
-              <div className="flex-1 h-2 bg-background rounded-full overflow-hidden">
-                <div className="h-full bg-primary shadow-[0_0_10px_#39FF14]" style={{ width: `${healthPct}%` }} />
+          {/* Primary KPI: Ticket Médio + Receita Total */}
+          <div className="glass-card p-4 rounded-xl border border-primary/20 relative overflow-hidden group col-span-1 md:col-span-2 flex flex-col justify-between">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-lg">confirmation_number</span>
               </div>
-              <span className="text-lg font-headline font-bold text-on-surface">{healthPct.toFixed(1)}%</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-muted-foreground bg-surface-container-highest">
+                {filtered.length} transações
+              </span>
             </div>
-            <p className="text-[10px] text-on-surface-variant mt-2 relative z-10">{completedCount} concluídas / {filtered.length - completedCount} outras</p>
+            
+            <div className="space-y-2">
+              <div>
+                <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-0.5">Ticket Médio (Período)</p>
+                <h2 className="text-2xl font-headline font-bold text-primary">R$ {fmt(avgTicket)}</h2>
+              </div>
+              <div className="pt-2 border-t border-outline-variant/10">
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-0.5">Receita Total</p>
+                <p className="text-base font-headline font-bold text-foreground">R$ {fmt(totalRevenue)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Energia Total */}
+          <MetricCard icon="bolt" label="ENERGIA TOTAL" value={`${fmt(totalKwh, 1)} kWh`} />
+
+          {/* Status das Transações */}
+          <div className="glass-card p-4 rounded-xl border border-outline-variant/10 relative overflow-hidden flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-2">
+              <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
+                <span className="material-symbols-outlined text-lg">check_circle</span>
+              </div>
+            </div>
+            <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-1.5">Status das Transações</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Concluídas</p>
+                <p className="text-xl font-headline font-bold text-foreground">{completedCount}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-error uppercase tracking-widest">Não Concluídas</p>
+                <p className="text-xl font-headline font-bold text-foreground">{filtered.length - completedCount}</p>
+              </div>
+            </div>
           </div>
         </div>
       ) : (
@@ -384,7 +427,6 @@ export const Transactions = () => {
                 <th className="px-6 py-4">Carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
-                <th className="px-6 py-4">Energia</th>
                 <th className="px-6 py-4">Custo</th>
                 <th className="px-6 py-4">Endereço</th>
                 <th className="px-6 py-4">Status</th>
@@ -394,7 +436,7 @@ export const Transactions = () => {
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
@@ -411,9 +453,6 @@ export const Transactions = () => {
                     <td className="px-6 py-4 font-medium text-sm">{tx.charge_point_id}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
-                    <td className="px-6 py-4 text-sm font-bold font-headline">
-                      {tx.consumed_wh != null ? fmt(tx.consumed_wh / 1000, 2) : '0,00'} <span className="text-xs font-normal text-on-surface-variant">kWh</span>
-                    </td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">
                       <span className="text-on-surface-variant text-xs">R$</span> {tx.total_cost != null ? fmt(parseFloat(tx.total_cost.toString())) : '0,00'}
                     </td>
@@ -697,17 +736,17 @@ function MetricCard({ icon, badge, label, value }: {
   icon: string; badge?: string; label: string; value: string;
 }) {
   return (
-    <div className="glass-card p-6 rounded-xl border border-outline-variant/10 relative overflow-hidden group">
-      <div className="flex justify-between items-start mb-4">
-        <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
-          <span className="material-symbols-outlined">{icon}</span>
+    <div className="glass-card p-4 rounded-xl border border-outline-variant/10 relative overflow-hidden group flex flex-col justify-between">
+      <div className="flex justify-between items-start mb-2">
+        <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
+          <span className="material-symbols-outlined text-lg">{icon}</span>
         </div>
         {badge && (
-          <span className="text-[10px] font-bold px-2 py-1 rounded-full text-muted-foreground bg-surface-container-highest">{badge}</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-muted-foreground bg-surface-container-highest">{badge}</span>
         )}
       </div>
-      <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
-      <h3 className="text-2xl font-headline font-bold text-on-surface">{value}</h3>
+      <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
+      <h3 className="text-xl font-headline font-bold text-on-surface">{value}</h3>
     </div>
   );
 }

@@ -162,12 +162,12 @@ export const Wallets = () => {
 
   const getTypePill = (type: string) => {
     const styles: Record<string, string> = {
-      deposit: 'bg-primary/10 text-primary border-primary/20',
-      withdrawal: 'bg-tertiary/10 text-tertiary border-tertiary/20',
-      charge: 'bg-error/10 text-error border-error/20',
-      refund: 'bg-secondary/10 text-secondary border-secondary/20',
+      deposit: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      withdrawal: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      charge: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      refund: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
     };
-    return styles[type] || 'bg-outline/10 text-on-surface-variant border-outline/20';
+    return styles[type] || 'bg-surface-container-highest text-on-surface-variant border-outline-variant/20';
   };
 
   const handleCustomPdfExport = async () => {
@@ -265,10 +265,10 @@ export const Wallets = () => {
         <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
           <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
               <span className="material-symbols-outlined">account_balance_wallet</span>
             </div>
-            <span className="text-[10px] font-bold px-2 py-1 rounded-full text-primary bg-primary/10">{filteredWallets.length} carteiras</span>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full text-on-surface-variant bg-surface-container-highest border border-outline-variant/15">{filteredWallets.length} carteiras</span>
           </div>
           <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">SALDO TOTAL</p>
           <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalBalance)}</h3>
@@ -277,23 +277,23 @@ export const Wallets = () => {
         <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
           <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
               <span className="material-symbols-outlined">trending_up</span>
             </div>
           </div>
           <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL DEPOSITOS</p>
-          <h3 className="text-2xl font-headline font-bold text-primary">{formatCurrency(totalDeposits)}</h3>
+          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalDeposits)}</h3>
         </div>
 
         <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-24 h-24 bg-error/5 rounded-full blur-2xl group-hover:bg-error/10 transition-all" />
           <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-error/10 flex items-center justify-center text-error">
+            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
               <span className="material-symbols-outlined">trending_down</span>
             </div>
           </div>
           <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL COBRADO</p>
-          <h3 className="text-2xl font-headline font-bold text-error">{formatCurrency(totalCharges)}</h3>
+          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalCharges)}</h3>
         </div>
       </div>
 
@@ -392,7 +392,7 @@ export const Wallets = () => {
                 ) : filteredWallets.slice(startIndex, endIndex).map(wallet => (
                   <tr key={wallet.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                      <span className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-on-surface-variant text-xs font-mono font-bold">
                         #{wallet.id}
                       </span>
                     </td>
@@ -402,10 +402,8 @@ export const Wallets = () => {
                     <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {wallet.userEmail}
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold font-headline">
-                      <span className={wallet.balance > 0 ? 'text-primary' : 'text-on-surface-variant'}>
-                        {formatCurrency(wallet.balance)}
-                      </span>
+                    <td className="px-6 py-4 text-sm font-bold font-headline text-on-surface">
+                      {formatCurrency(wallet.balance)}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">
                       {formatDateTime(wallet.updatedAt)}
@@ -439,7 +437,7 @@ export const Wallets = () => {
                 ) : filteredTransactions.slice(startIndex, endIndex).map(tx => (
                   <tr key={tx.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                      <span className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-on-surface-variant text-xs font-mono font-bold">
                         #{tx.id}
                       </span>
                     </td>
@@ -452,7 +450,7 @@ export const Wallets = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">
-                      <span className={tx.type === 'deposit' || tx.type === 'refund' ? 'text-primary' : 'text-error'}>
+                      <span className={tx.type === 'deposit' || tx.type === 'refund' ? 'text-emerald-400' : 'text-rose-400'}>
                         {tx.type === 'deposit' || tx.type === 'refund' ? '+' : '-'}{formatCurrency(tx.amount)}
                       </span>
                     </td>

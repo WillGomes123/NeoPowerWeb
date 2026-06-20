@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Profiles } from './Profiles';
@@ -47,6 +46,149 @@ interface ProfileOption {
 
 type FilterType = 'all' | 'global' | 'profile' | 'local';
 
+interface TariffCardProps {
+  type: 'global' | 'profile' | 'local';
+  title: string;
+  price: number;
+  updatedAt: string;
+  globalPrice?: number;
+  isEditing: boolean;
+  editPrice: string;
+  setEditPrice: (v: string) => void;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: () => Promise<void>;
+  submitting: boolean;
+}
+
+const TariffCard = ({
+  type,
+  title,
+  price,
+  updatedAt,
+  globalPrice,
+  isEditing,
+  editPrice,
+  setEditPrice,
+  onStartEdit,
+  onCancelEdit,
+  onSave,
+  submitting,
+}: TariffCardProps) => {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+
+  const config = {
+    global: {
+      border: 'border-primary/20',
+      text: 'text-primary',
+      icon: 'public',
+    },
+    profile: {
+      border: 'border-secondary/20',
+      text: 'text-secondary',
+      icon: 'badge',
+    },
+    local: {
+      border: 'border-tertiary/20',
+      text: 'text-tertiary',
+      icon: 'location_on',
+    },
+  }[type];
+
+  const showComparison = type !== 'global' && globalPrice !== undefined && price !== globalPrice;
+
+  return (
+    <div className={`glass-card rounded-xl border ${config.border} relative overflow-hidden p-6 hover:shadow-xl hover:border-primary/30 transition-all group flex flex-col justify-between min-h-[220px]`}>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] pointer-events-none" />
+      <div className="relative z-10 flex-1">
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`material-symbols-outlined ${config.text} text-base`} style={{ fontVariationSettings: "'FILL' 1" }}>
+            {config.icon}
+          </span>
+          <span className={`text-[10px] font-bold ${config.text} uppercase tracking-widest truncate max-w-[200px]`}>
+            {type === 'global' ? 'TARIFA GLOBAL' : title}
+          </span>
+        </div>
+
+        {isEditing ? (
+          <div className="flex items-center gap-1.5 mb-2 mt-4">
+            <span className="text-xl font-headline font-bold text-on-surface">R$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={editPrice}
+              onChange={e => setEditPrice(e.target.value)}
+              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded px-2 py-1 text-lg font-bold font-headline focus:outline-none focus:border-primary"
+              autoFocus
+            />
+            <span className="text-sm text-on-surface-variant">/kWh</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
+                {formatCurrency(price)}
+              </span>
+              <span className="text-sm text-on-surface-variant">/kWh</span>
+            </div>
+            <p className="text-[10px] text-on-surface-variant">
+              Atualizado em {formatDate(updatedAt)}
+            </p>
+            {showComparison && globalPrice && (
+              <div className="mt-2">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  price > globalPrice
+                    ? 'bg-error/10 text-error'
+                    : 'bg-primary/10 text-primary'
+                }`}>
+                  {price > globalPrice ? '↑' : '↓'}{' '}
+                  {Math.abs(((price - globalPrice) / globalPrice) * 100).toFixed(0)}% vs global
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="relative z-10 mt-4 pt-3 border-t border-outline-variant/5">
+        {isEditing ? (
+          <div className="flex gap-2">
+            <button
+              onClick={onSave}
+              disabled={submitting}
+              className="flex-1 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {submitting ? 'Salvando...' : 'Salvar'}
+            </button>
+            <button
+              onClick={onCancelEdit}
+              className="flex-1 py-1.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-xs hover:bg-surface-container-high active:scale-95 transition-all"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onStartEdit}
+            className="flex items-center gap-1.5 text-xs text-primary hover:underline font-bold"
+          >
+            <span className="material-symbols-outlined text-sm">edit</span>
+            Alterar Valor
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const Tariffs = () => {
   const [allTariffs, setAllTariffs] = useState<Tariff[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -63,6 +205,14 @@ export const Tariffs = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const [editingCard, setEditingCard] = useState<{
+    type: 'global' | 'profile' | 'local';
+    id?: number | null;
+    address?: string | null;
+  } | null>(null);
+  const [editPrice, setEditPrice] = useState('');
+  const [inlineSubmitting, setInlineSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -202,6 +352,42 @@ export const Tariffs = () => {
     }
   };
 
+  const handleSaveInline = async (type: 'global' | 'profile' | 'local', id?: number | null, address?: string | null) => {
+    if (!editPrice || parseFloat(editPrice) <= 0) {
+      toast.error('Informe um preço válido');
+      return;
+    }
+
+    setInlineSubmitting(true);
+    try {
+      const payload: { newPrice: number; locationAddress?: string; profileId?: number } = {
+        newPrice: parseFloat(editPrice),
+      };
+
+      if (type === 'local' && address) {
+        payload.locationAddress = address;
+      } else if (type === 'profile' && id) {
+        payload.profileId = id;
+      }
+
+      const response = await api.post('/tariffs', payload);
+
+      if (response.ok) {
+        toast.success('Tarifa atualizada com sucesso!');
+        setEditingCard(null);
+        setEditPrice('');
+        void fetchData();
+      } else {
+        const errData = await response.json();
+        toast.error(errData.error || 'Erro ao atualizar tarifa');
+      }
+    } catch {
+      toast.error('Erro ao atualizar tarifa');
+    } finally {
+      setInlineSubmitting(false);
+    }
+  };
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -255,7 +441,7 @@ export const Tariffs = () => {
         </div>
         {pageTab === 'tarifas' && (
         <div className="flex items-center gap-3">
-          <button onClick={() => void fetchData()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
+          <button onClick={() => void fetchData()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-bold text-sm">
             <span className="material-symbols-outlined text-lg">refresh</span>
             Atualizar
           </button>
@@ -345,14 +531,15 @@ export const Tariffs = () => {
                 </p>
               </div>
               <DialogFooter className="flex justify-end gap-3 pt-2">
-                <Button
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={() => setIsDialogOpen(false)}
-                  className="border-outline-variant/20 text-on-surface-variant rounded-full px-6"
+                  className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-sm hover:bg-surface-container-high active:scale-95 transition-all"
                 >
                   Cancelar
-                </Button>
+                </button>
                 <button
+                  type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
                   className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
@@ -386,96 +573,87 @@ export const Tariffs = () => {
       {/* Current Tariffs — Global + Per-Location Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Global Tariff Card */}
-        <div className="bg-surface-container-highest rounded-xl border border-primary/20 relative overflow-hidden p-6">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px]" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>public</span>
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest">TARIFA GLOBAL</span>
-            </div>
-            {globalTariff ? (
-              <>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-3xl font-headline font-bold text-primary tracking-tighter">
-                    {formatCurrency(globalTariff.price_per_kwh)}
-                  </span>
-                  <span className="text-sm text-on-surface-variant">/kWh</span>
-                </div>
-                <p className="text-[10px] text-on-surface-variant">
-                  Atualizado em {formatDate(globalTariff.created_at)}
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-on-surface-variant">Nenhuma tarifa global configurada</p>
-            )}
+        {globalTariff ? (
+          <TariffCard
+            type="global"
+            title="TARIFA GLOBAL"
+            price={globalTariff.price_per_kwh}
+            updatedAt={globalTariff.created_at}
+            isEditing={editingCard?.type === 'global'}
+            editPrice={editPrice}
+            setEditPrice={setEditPrice}
+            onStartEdit={() => {
+              setEditingCard({ type: 'global' });
+              setEditPrice(globalTariff.price_per_kwh.toString());
+            }}
+            onCancelEdit={() => {
+              setEditingCard(null);
+              setEditPrice('');
+            }}
+            onSave={() => handleSaveInline('global')}
+            submitting={inlineSubmitting}
+          />
+        ) : (
+          <div className="glass-card rounded-xl border border-primary/20 p-6 flex flex-col justify-center min-h-[220px]">
+            <p className="text-sm text-on-surface-variant">Nenhuma tarifa global configurada</p>
           </div>
-        </div>
+        )}
 
         {/* Per-Profile Tariff Cards */}
-        {profileTariffs.map(tariff => (
-          <div key={`profile-${tariff.id}`} className="glass-card rounded-xl border border-secondary/20 relative overflow-hidden p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="material-symbols-outlined text-secondary text-base" style={{ fontVariationSettings: "'FILL' 1" }}>badge</span>
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-widest truncate max-w-[200px]">
-                {tariff.profileName || `Perfil #${tariff.profileId}`}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-1 mb-2">
-              <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
-                {formatCurrency(tariff.price_per_kwh)}
-              </span>
-              <span className="text-sm text-on-surface-variant">/kWh</span>
-            </div>
-            <p className="text-[10px] text-on-surface-variant">
-              Atualizado em {formatDate(tariff.created_at)}
-            </p>
-            {globalTariff && tariff.price_per_kwh !== globalTariff.price_per_kwh && (
-              <div className="mt-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  tariff.price_per_kwh > globalTariff.price_per_kwh
-                    ? 'bg-error/10 text-error'
-                    : 'bg-primary/10 text-primary'
-                }`}>
-                  {tariff.price_per_kwh > globalTariff.price_per_kwh ? '↑' : '↓'}{' '}
-                  {Math.abs(((tariff.price_per_kwh - globalTariff.price_per_kwh) / globalTariff.price_per_kwh) * 100).toFixed(0)}% vs global
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
+        {profileTariffs.map(tariff => {
+          const isCurrentEditing = editingCard?.type === 'profile' && editingCard.id === tariff.profileId;
+          return (
+            <TariffCard
+              key={`profile-${tariff.id}`}
+              type="profile"
+              title={tariff.profileName || `Perfil #${tariff.profileId}`}
+              price={tariff.price_per_kwh}
+              updatedAt={tariff.created_at}
+              globalPrice={globalTariff?.price_per_kwh}
+              isEditing={isCurrentEditing}
+              editPrice={editPrice}
+              setEditPrice={setEditPrice}
+              onStartEdit={() => {
+                setEditingCard({ type: 'profile', id: tariff.profileId });
+                setEditPrice(tariff.price_per_kwh.toString());
+              }}
+              onCancelEdit={() => {
+                setEditingCard(null);
+                setEditPrice('');
+              }}
+              onSave={() => handleSaveInline('profile', tariff.profileId)}
+              submitting={inlineSubmitting}
+            />
+          );
+        })}
 
         {/* Per-Location Tariff Cards */}
-        {uniqueLocations.map(tariff => (
-          <div key={tariff.id} className="glass-card rounded-xl border border-outline-variant/10 relative overflow-hidden p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="material-symbols-outlined text-tertiary text-base">location_on</span>
-              <span className="text-[10px] font-bold text-tertiary uppercase tracking-widest truncate max-w-[200px]">
-                {tariff.location_address}
-              </span>
-            </div>
-            <div className="flex items-baseline gap-1 mb-2">
-              <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
-                {formatCurrency(tariff.price_per_kwh)}
-              </span>
-              <span className="text-sm text-on-surface-variant">/kWh</span>
-            </div>
-            <p className="text-[10px] text-on-surface-variant">
-              Atualizado em {formatDate(tariff.created_at)}
-            </p>
-            {globalTariff && tariff.price_per_kwh !== globalTariff.price_per_kwh && (
-              <div className="mt-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  tariff.price_per_kwh > globalTariff.price_per_kwh
-                    ? 'bg-error/10 text-error'
-                    : 'bg-primary/10 text-primary'
-                }`}>
-                  {tariff.price_per_kwh > globalTariff.price_per_kwh ? '↑' : '↓'}{' '}
-                  {Math.abs(((tariff.price_per_kwh - globalTariff.price_per_kwh) / globalTariff.price_per_kwh) * 100).toFixed(0)}% vs global
-                </span>
-              </div>
-            )}
-          </div>
-        ))}
+        {uniqueLocations.map(tariff => {
+          const isCurrentEditing = editingCard?.type === 'local' && editingCard.address === tariff.location_address;
+          return (
+            <TariffCard
+              key={tariff.id}
+              type="local"
+              title={tariff.location_address || ''}
+              price={tariff.price_per_kwh}
+              updatedAt={tariff.created_at}
+              globalPrice={globalTariff?.price_per_kwh}
+              isEditing={isCurrentEditing}
+              editPrice={editPrice}
+              setEditPrice={setEditPrice}
+              onStartEdit={() => {
+                setEditingCard({ type: 'local', address: tariff.location_address });
+                setEditPrice(tariff.price_per_kwh.toString());
+              }}
+              onCancelEdit={() => {
+                setEditingCard(null);
+                setEditPrice('');
+              }}
+              onSave={() => handleSaveInline('local', null, tariff.location_address)}
+              submitting={inlineSubmitting}
+            />
+          );
+        })}
 
         {/* Empty state for local tariffs */}
         {uniqueLocations.length === 0 && (
@@ -495,20 +673,18 @@ export const Tariffs = () => {
             <h3 className="text-lg font-headline font-bold text-on-surface">Histórico de Tarifas</h3>
           </div>
           <div className="flex items-center gap-3">
-            <div className="bg-surface-container p-1 rounded-lg flex items-center border border-outline-variant/10">
-              {(['all', 'global', 'profile', 'local'] as FilterType[]).map(f => (
-                <button
-                  key={f}
-                  onClick={() => { setFilter(f); setCurrentPage(1); }}
-                  className={`px-3 py-1.5 text-xs font-bold font-headline rounded-md transition-all ${
-                    filter === f ? 'bg-surface-container-highest text-primary' : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  {f === 'all' ? 'TODAS' : f === 'global' ? 'GLOBAL' : f === 'profile' ? 'POR PERFIL' : 'POR LOCAL'}
-                </button>
-              ))}
-            </div>
-            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{filtered.length} registros</span>
+            <Select value={filter} onValueChange={(v: FilterType) => { setFilter(v); setCurrentPage(1); }}>
+              <SelectTrigger className="w-[150px] bg-surface-container-low border-outline-variant/20 text-on-surface text-xs h-9">
+                <SelectValue placeholder="Filtrar escopo" />
+              </SelectTrigger>
+              <SelectContent className="bg-surface-container border-outline-variant/20">
+                <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Todas</SelectItem>
+                <SelectItem value="global" className="text-on-surface focus:bg-surface-container-highest">Global</SelectItem>
+                <SelectItem value="profile" className="text-on-surface focus:bg-surface-container-highest">Por Perfil</SelectItem>
+                <SelectItem value="local" className="text-on-surface focus:bg-surface-container-highest">Por Local</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap">{filtered.length} registros</span>
           </div>
         </div>
         {filtered.length > 0 ? (

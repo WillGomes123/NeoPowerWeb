@@ -7,6 +7,7 @@ import {
 } from '../components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
 } from '../components/ui/dropdown-menu';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -162,6 +163,17 @@ export const Users = () => {
       setEditingPhone(null);
       void fetchUsers();
     } catch { toast.error('Erro ao atualizar telefone'); }
+  };
+
+  const handlePlatformAccessChange = async (userId: number, newPlatform: 'web' | 'mobile' | null) => {
+    try {
+      const r = await api.put(`/admin/users/${userId}`, { platform: newPlatform });
+      if (!r.ok) throw new Error();
+      toast.success('Acesso atualizado com sucesso!');
+      void fetchUsers();
+    } catch {
+      toast.error('Erro ao atualizar acesso');
+    }
   };
 
   const handleDeleteUser = async () => {
@@ -419,18 +431,17 @@ export const Users = () => {
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                 <th className="px-6 py-4">Usuário</th>
                 <th className="px-6 py-4">Telefone</th>
-                <th className="px-6 py-4">Função & Acesso</th>
+                <th className="px-6 py-4">Função</th>
                 <th className="px-6 py-4">Perfil</th>
                 <th className="px-6 py-4">Marca</th>
                 <th className="px-6 py-4">Locais</th>
-                <th className="px-6 py-4">Acesso</th>
                 <th className="px-6 py-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/5">
               {visibleUsers.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={7} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">
                       {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
                     </span>
@@ -531,28 +542,6 @@ export const Users = () => {
                     )}
                   </td>
 
-                  {/* Platform Access */}
-                  <td className="px-6 py-4">
-                    {user.platform === 'web' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
-                        <span className="material-symbols-outlined text-xs">desktop_windows</span>
-                        WEB
-                      </span>
-                    )}
-                    {user.platform === 'mobile' && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold">
-                        <span className="material-symbols-outlined text-xs">smartphone</span>
-                        APP
-                      </span>
-                    )}
-                    {!user.platform && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant border border-outline-variant/10 text-[10px] font-bold">
-                        <span className="material-symbols-outlined text-xs">sync_alt</span>
-                        AMBOS
-                      </span>
-                    )}
-                  </td>
-
                   {/* Actions */}
                   <td className="px-6 py-4">
                     <DropdownMenu>
@@ -561,7 +550,7 @@ export const Users = () => {
                           <span className="material-symbols-outlined text-[20px]">more_vert</span>
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 bg-surface-container border-outline-variant/20">
+                      <DropdownMenuContent align="end" className="w-52 bg-surface-container border-outline-variant/20">
                         {user.role !== 'admin' && user.role !== 'blocked' && (
                           <DropdownMenuItem
                             onClick={() => handleManageLocations(user)}
@@ -578,6 +567,37 @@ export const Users = () => {
                           <span className="material-symbols-outlined text-[18px] text-primary">edit</span>
                           Editar Usuário
                         </DropdownMenuItem>
+                        
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest">
+                            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">sync_alt</span>
+                            Alterar Acesso
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="bg-surface-container border-outline-variant/20 w-44">
+                            <DropdownMenuItem
+                              onClick={() => handlePlatformAccessChange(user.id, 'web')}
+                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
+                            >
+                              <span className="material-symbols-outlined text-[16px] text-primary">desktop_windows</span>
+                              Painel Web
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handlePlatformAccessChange(user.id, 'mobile')}
+                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
+                            >
+                              <span className="material-symbols-outlined text-[16px] text-tertiary">smartphone</span>
+                              App Mobile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handlePlatformAccessChange(user.id, null)}
+                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
+                            >
+                              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">sync_alt</span>
+                              Ambos
+                            </DropdownMenuItem>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+
                         <DropdownMenuSeparator className="bg-outline-variant/10" />
                         <DropdownMenuItem
                           onClick={() => { setSelectedUser(user); setDeleteUserDialogOpen(true); }}
@@ -758,12 +778,12 @@ export const Users = () => {
 
 function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
   return (
-    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
-      <div className="flex justify-between items-start">
-        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
-        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
+    <div className="glass-panel px-4 py-3 rounded-lg border border-outline-variant/10 flex items-center justify-between h-16 hover:border-primary/20 transition-colors">
+      <div className="min-w-0">
+        <span className="text-on-surface-variant text-[9px] uppercase tracking-wider block truncate">{label}</span>
+        <span className="text-xl font-headline font-bold text-on-surface block mt-0.5">{value}</span>
       </div>
-      <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
+      <span className={`material-symbols-outlined text-base ${color || 'text-primary'} flex-shrink-0`}>{icon}</span>
     </div>
   );
 }
