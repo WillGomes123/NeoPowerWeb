@@ -1,4 +1,4 @@
-import { ReactNode, useState, useMemo } from 'react';
+import { ReactNode, useState, useMemo, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
@@ -6,6 +6,7 @@ import { LogOut, Sun, Moon, Search } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
+import { KairosPanel } from './KairosPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +30,12 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isKairosOpen, setIsKairosOpen] = useState(false);
+
+  // Close KAIROS when route changes
+  useEffect(() => {
+    setIsKairosOpen(false);
+  }, [location.pathname]);
 
 
   const navItems = [
@@ -187,7 +194,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           {/* Visão Geral (Standalone) */}
           {visibleNavItems.find(item => item.path === '/') && (() => {
             const item = navItems[0]; // Visão Geral
-            const isActive = location.pathname === '/';
+            const isActive = location.pathname === '/' && !isKairosOpen;
             return (
               <Link
                 to="/"
@@ -203,12 +210,14 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             );
           })()}
 
+
+
           {/* Grouped Items */}
           {navigationGroups.map(group => {
             const groupVisibleItems = group.items.filter(item => item.roles.includes(user?.role || 'comum'));
             if (groupVisibleItems.length === 0) return null;
 
-            const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
+            const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;
             const isOpen = openGroups[group.id];
 
             return (
@@ -233,7 +242,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 {isOpen && (
                   <div className="pl-4 space-y-1 border-l border-sidebar-border/10 ml-6 animate-in fade-in slide-in-from-top-1 duration-200">
                     {groupVisibleItems.map(item => {
-                      const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                      const isActive = (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;
                       return (
                         <Link
                           key={item.path}
@@ -256,8 +265,31 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           })}
         </nav>
 
+        {/* KAIROS Trigger Button (Círculo Brilhante) */}
+        <div className="flex flex-col items-center justify-center pb-6 pt-2 mt-auto shrink-0">
+          <button
+            onClick={() => setIsKairosOpen(!isKairosOpen)}
+            className={`relative w-14 h-14 rounded-full bg-zinc-950 border flex items-center justify-center shadow-lg active:scale-95 transition-all hover:scale-105 group ${
+              isKairosOpen 
+                ? 'border-primary shadow-[0_0_20px_rgba(142,255,113,0.3)] text-primary' 
+                : 'border-outline-variant/30 text-muted-foreground hover:border-primary hover:text-primary hover:shadow-[0_0_15px_rgba(142,255,113,0.15)]'
+            }`}
+            title="Falar com o KAIROS"
+          >
+            {!isKairosOpen && (
+              <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping opacity-60 pointer-events-none" />
+            )}
+            <span className="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform duration-300">smart_toy</span>
+          </button>
+          <span className={`text-[9px] font-bold uppercase tracking-wider mt-2 transition-colors ${
+            isKairosOpen ? 'text-primary shadow-sm' : 'text-muted-foreground/60'
+          }`}>
+            KAIROS IA
+          </span>
+        </div>
+
         {/* User Profile at bottom */}
-        <div className="px-6 mt-auto border-t border-sidebar-border/15 pt-6">
+        <div className="px-6 border-t border-sidebar-border/15 pt-4">
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full flex items-center gap-3 text-left">
               <div className="w-10 h-10 rounded-full bg-primary/15 overflow-hidden flex items-center justify-center shrink-0">
@@ -348,6 +380,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <main className="pl-64 pt-16 flex-1 min-h-screen overflow-auto">
         <div className="p-8 max-w-[1600px] mx-auto">{children}</div>
       </main>
+      {isKairosOpen && <KairosPanel onClose={() => setIsKairosOpen(false)} />}
     </div>
   );
 };
