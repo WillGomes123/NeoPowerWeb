@@ -119,6 +119,30 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingStepText, setLoadingStepText] = useState('processando sua solicitação...');
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStepText('processando sua solicitação...');
+      return;
+    }
+
+    const steps = [
+      'consultando o banco de dados...',
+      'analisando dados da plataforma...',
+      'executando ferramentas administrativas...',
+      'consolidando informações e gerando resposta...'
+    ];
+
+    let current = 0;
+    const interval = setInterval(() => {
+      setLoadingStepText(steps[current % steps.length]);
+      current++;
+    }, 1800);
+
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitleText, setEditTitleText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -164,7 +188,7 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
       history: [
         {
           role: 'model',
-          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower.\n\nNo momento, estou operando em **Modo de Demonstração** (pois a chave `GEMINI_API_KEY` não foi encontrada nas variáveis de ambiente).\n\nEu posso ajudar a tirar dúvidas de fluxo do sistema e explicar como funciona a operação.\n\nSe quiser simular as minhas capacidades administrativas, você pode pedir para eu **"alterar a tarifa"** ou **"registrar um carregador"** que eu simularei o processo diretamente no banco!' }],
+          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower. Como posso te ajudar hoje?' }],
           animate: true
         }
       ],
@@ -555,7 +579,7 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
                   <div className="flex gap-3 max-w-[85%]">
                     {isModel && (
                       <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 self-end mb-1">
-                        <Sparkles className="w-4.5 h-4.5" />
+                        <Bot className="w-4.5 h-4.5" />
                       </div>
                     )}
                     <div
@@ -588,12 +612,17 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="flex gap-3 max-w-[85%]">
                   <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 self-end mb-1">
-                    <Sparkles className="w-4.5 h-4.5 animate-spin" />
+                    <Bot className="w-4.5 h-4.5 animate-pulse" />
                   </div>
-                  <div className="bg-surface-container-highest border border-outline-variant/10 text-on-surface px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-sm">
-                    <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex flex-col">
+                    <div className="bg-surface-container-highest border border-outline-variant/10 text-on-surface px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-sm">
+                      <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2.5 h-2.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-[10px] text-on-surface-variant/70 animate-pulse font-mono block mt-1 px-1">
+                      KAIROS está {loadingStepText}
+                    </span>
                   </div>
                 </div>
               </div>

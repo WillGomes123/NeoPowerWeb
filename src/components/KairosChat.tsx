@@ -151,7 +151,7 @@ export const KairosChat = () => {
       history: [
         {
           role: 'model',
-          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower.\n\nNo momento, estou operando em **Modo de Demonstração** (pois a chave `GEMINI_API_KEY` não foi encontrada nas variáveis de ambiente).\n\nEu posso ajudar a tirar dúvidas de fluxo do sistema e explicar como funciona a operação.\n\nSe quiser simular as minhas capacidades administrativas, você pode pedir para eu **"alterar a tarifa"** ou **"registrar um carregador"** que eu simularei o processo diretamente no banco!' }],
+          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower. Como posso ajudar você hoje?' }],
           animate: true
         }
       ],
