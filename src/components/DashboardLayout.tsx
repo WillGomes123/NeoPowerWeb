@@ -198,6 +198,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             return (
               <Link
                 to="/"
+                onClick={() => setIsKairosOpen(false)}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 text-sm ${
                   isActive
                     ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-semibold'
@@ -247,6 +248,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         <Link
                           key={item.path}
                           to={item.path}
+                          onClick={() => setIsKairosOpen(false)}
                           className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200 text-sm ${
                             isActive
                               ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
