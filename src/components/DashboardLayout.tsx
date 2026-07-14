@@ -103,6 +103,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
         { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
+        { path: '/migracao-saldo', label: 'Migração de Saldo', icon: 'swap_horiz', roles: ['admin'] },
         { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
         { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
         { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
@@ -115,7 +116,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return {
       gestao: ['/estacoes', '/locais', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
       financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas', '/metas', '/sustentabilidade'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/migracao-saldo', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
   });
 

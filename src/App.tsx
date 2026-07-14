@@ -34,6 +34,7 @@ const Sustainability = lazy(() => import('./pages/Sustainability').then(m => ({ 
 const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
 const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default: m.Scheduling })));
 const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
+const MigracaoSaldo = lazy(() => import('./pages/MigracaoSaldo').then(m => ({ default: m.MigracaoSaldo })));
 
 // Loading Component
 const PageLoader = () => (
@@ -106,6 +107,7 @@ const AppRoutes = () => {
       <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
       <Route path="/agendamentos" element={createProtectedRoute(Scheduling, true)} />
       <Route path="/metas" element={createProtectedRoute(ChargingGoals, true)} />
+      <Route path="/migracao-saldo" element={createProtectedRoute(MigracaoSaldo, true)} />
 
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
