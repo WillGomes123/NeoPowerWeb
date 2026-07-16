@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { LocationEnergyTab } from './LocationEnergyTab';
 
 interface LocationData {
   id: number;
@@ -596,6 +597,11 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
           {renderHorario()}
         </CardContent>
       </Card>
+
+      <LocationEnergyTab
+        locationId={location.id}
+        locationAddress={`${location.endereco}, ${location.numero} - ${location.cidade}, ${location.estado}`}
+      />
     </div>
   );
 }

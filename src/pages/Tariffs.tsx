@@ -50,11 +50,14 @@ interface TariffCardProps {
   type: 'global' | 'profile' | 'local';
   title: string;
   price: number;
+  minPrice?: number | null;
   updatedAt: string;
   globalPrice?: number;
   isEditing: boolean;
   editPrice: string;
   setEditPrice: (v: string) => void;
+  editMinPrice: string;
+  setEditMinPrice: (v: string) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSave: () => Promise<void>;
@@ -65,11 +68,14 @@ const TariffCard = ({
   type,
   title,
   price,
+  minPrice,
   updatedAt,
   globalPrice,
   isEditing,
   editPrice,
   setEditPrice,
+  editMinPrice,
+  setEditMinPrice,
   onStartEdit,
   onCancelEdit,
   onSave,
@@ -117,28 +123,51 @@ const TariffCard = ({
         </div>
 
         {isEditing ? (
-          <div className="flex items-center gap-1.5 mb-2 mt-4">
-            <span className="text-xl font-headline font-bold text-on-surface">R$</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-              value={editPrice}
-              onChange={e => setEditPrice(e.target.value)}
-              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded px-2 py-1 text-lg font-bold font-headline focus:outline-none focus:border-primary"
-              autoFocus
-            />
-            <span className="text-sm text-on-surface-variant">/kWh</span>
+          <div className="space-y-2 mt-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-headline font-bold text-on-surface">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={editPrice}
+                onChange={e => setEditPrice(e.target.value)}
+                className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded px-2 py-1 text-base font-bold font-headline focus:outline-none focus:border-primary"
+                autoFocus
+              />
+              <span className="text-xs text-on-surface-variant">/kWh</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-on-surface-variant w-5">≥</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="mín. (opcional)"
+                value={editMinPrice}
+                onChange={e => setEditMinPrice(e.target.value)}
+                className="w-28 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded px-2 py-1 text-xs font-headline focus:outline-none focus:border-primary"
+              />
+              <span className="text-[10px] text-on-surface-variant">piso/kWh</span>
+            </div>
           </div>
         ) : (
           <>
-            <div className="flex items-baseline gap-1 mb-2">
+            <div className="flex items-baseline gap-1 mb-1">
               <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
                 {formatCurrency(price)}
               </span>
               <span className="text-sm text-on-surface-variant">/kWh</span>
             </div>
+            {minPrice != null && minPrice > 0 && (
+              <div className="mb-1">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <span className="material-symbols-outlined text-[12px]">bolt</span>
+                  Piso: {formatCurrency(minPrice)}/kWh
+                </span>
+              </div>
+            )}
             <p className="text-[10px] text-on-surface-variant">
               Atualizado em {formatDate(updatedAt)}
             </p>
@@ -196,6 +225,7 @@ export const Tariffs = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
+  const [newMinPrice, setNewMinPrice] = useState('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
   // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -212,6 +242,7 @@ export const Tariffs = () => {
     address?: string | null;
   } | null>(null);
   const [editPrice, setEditPrice] = useState('');
+  const [editMinPrice, setEditMinPrice] = useState('');
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -320,9 +351,10 @@ export const Tariffs = () => {
 
     setSubmitting(true);
     try {
-      const payload: { newPrice: number; locationAddress?: string; profileId?: number } = {
+      const payload: { newPrice: number; minPrice?: number; locationAddress?: string; profileId?: number } = {
         newPrice: parseFloat(newPrice),
       };
+      if (newMinPrice && parseFloat(newMinPrice) > 0) payload.minPrice = parseFloat(newMinPrice);
 
       if (selectedLocation !== 'all') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
@@ -338,6 +370,7 @@ export const Tariffs = () => {
         toast.success('Tarifa atualizada com sucesso!');
         setIsDialogOpen(false);
         setNewPrice('');
+        setNewMinPrice('');
         setSelectedLocation('all');
         setSelectedProfile('all');
         void fetchData();
@@ -360,9 +393,10 @@ export const Tariffs = () => {
 
     setInlineSubmitting(true);
     try {
-      const payload: { newPrice: number; locationAddress?: string; profileId?: number } = {
+      const payload: { newPrice: number; minPrice?: number; locationAddress?: string; profileId?: number } = {
         newPrice: parseFloat(editPrice),
       };
+      if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
       if (type === 'local' && address) {
         payload.locationAddress = address;
@@ -376,6 +410,7 @@ export const Tariffs = () => {
         toast.success('Tarifa atualizada com sucesso!');
         setEditingCard(null);
         setEditPrice('');
+        setEditMinPrice('');
         void fetchData();
       } else {
         const errData = await response.json();
@@ -463,21 +498,42 @@ export const Tariffs = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                    Preço por kWh (R$)
-                  </Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={newPrice}
-                    onChange={e => setNewPrice(e.target.value)}
-                    className="bg-surface-container-low border-outline-variant/20 text-on-surface"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                      Preço por kWh (R$)
+                    </Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newPrice}
+                      onChange={e => setNewPrice(e.target.value)}
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Piso mínimo (R$/kWh)
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
+                    </Label>
+                    <Input
+                      id="minPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newMinPrice}
+                      onChange={e => setNewMinPrice(e.target.value)}
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                  </div>
                 </div>
+                <p className="text-[11px] text-on-surface-variant leading-relaxed -mt-2">
+                  O piso mínimo garante que a cobrança nunca fique abaixo desse valor/kWh — útil para proteger o custo da conta de energia.
+                </p>
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
                     Local
@@ -578,17 +634,22 @@ export const Tariffs = () => {
             type="global"
             title="TARIFA GLOBAL"
             price={globalTariff.price_per_kwh}
+            minPrice={globalTariff.min_price}
             updatedAt={globalTariff.created_at}
             isEditing={editingCard?.type === 'global'}
             editPrice={editPrice}
             setEditPrice={setEditPrice}
+            editMinPrice={editMinPrice}
+            setEditMinPrice={setEditMinPrice}
             onStartEdit={() => {
               setEditingCard({ type: 'global' });
               setEditPrice(globalTariff.price_per_kwh.toString());
+              setEditMinPrice(globalTariff.min_price ? globalTariff.min_price.toString() : '');
             }}
             onCancelEdit={() => {
               setEditingCard(null);
               setEditPrice('');
+              setEditMinPrice('');
             }}
             onSave={() => handleSaveInline('global')}
             submitting={inlineSubmitting}
@@ -608,18 +669,23 @@ export const Tariffs = () => {
               type="profile"
               title={tariff.profileName || `Perfil #${tariff.profileId}`}
               price={tariff.price_per_kwh}
+              minPrice={tariff.min_price}
               updatedAt={tariff.created_at}
               globalPrice={globalTariff?.price_per_kwh}
               isEditing={isCurrentEditing}
               editPrice={editPrice}
               setEditPrice={setEditPrice}
+              editMinPrice={editMinPrice}
+              setEditMinPrice={setEditMinPrice}
               onStartEdit={() => {
                 setEditingCard({ type: 'profile', id: tariff.profileId });
                 setEditPrice(tariff.price_per_kwh.toString());
+                setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
               }}
               onCancelEdit={() => {
                 setEditingCard(null);
                 setEditPrice('');
+                setEditMinPrice('');
               }}
               onSave={() => handleSaveInline('profile', tariff.profileId)}
               submitting={inlineSubmitting}
@@ -636,18 +702,23 @@ export const Tariffs = () => {
               type="local"
               title={tariff.location_address || ''}
               price={tariff.price_per_kwh}
+              minPrice={tariff.min_price}
               updatedAt={tariff.created_at}
               globalPrice={globalTariff?.price_per_kwh}
               isEditing={isCurrentEditing}
               editPrice={editPrice}
               setEditPrice={setEditPrice}
+              editMinPrice={editMinPrice}
+              setEditMinPrice={setEditMinPrice}
               onStartEdit={() => {
                 setEditingCard({ type: 'local', address: tariff.location_address });
                 setEditPrice(tariff.price_per_kwh.toString());
+                setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
               }}
               onCancelEdit={() => {
                 setEditingCard(null);
                 setEditPrice('');
+                setEditMinPrice('');
               }}
               onSave={() => handleSaveInline('local', null, tariff.location_address)}
               submitting={inlineSubmitting}
