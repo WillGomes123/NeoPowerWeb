@@ -13,7 +13,8 @@ import {
   Building2,
   Trash2,
   FileKey,
-  Receipt
+  Receipt,
+  Zap
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import { LocationMonitoringTab } from '@/components/location-details/LocationMon
 import { LocationPermissionsTab } from '@/components/location-details/LocationPermissionsTab';
 import { LocationCertificadoTab } from '@/components/location-details/LocationCertificadoTab';
 import { LocationNfseTab } from '@/components/location-details/LocationNfseTab';
+import { LocationEnergyTab } from '@/components/location-details/LocationEnergyTab';
 
 interface LocationData {
   id: number;
@@ -62,7 +64,7 @@ interface UserPermissions {
   nfse: boolean;
 }
 
-type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado' | 'nfse';
+type TabId = 'info' | 'energy' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado' | 'nfse';
 
 interface Tab {
   id: TabId;
@@ -73,6 +75,7 @@ interface Tab {
 
 const tabs: Tab[] = [
   { id: 'info', label: 'Informações', icon: Info, permissionKey: 'info' },
+  { id: 'energy', label: 'Conta de Energia', icon: Zap, permissionKey: 'info' },
   { id: 'transactions', label: 'Transações', icon: Activity, permissionKey: 'transactions' },
   { id: 'performance', label: 'Performance', icon: Monitor, permissionKey: 'performance' },
   { id: 'financial', label: 'Financeiro', icon: DollarSign, permissionKey: 'financial' },
@@ -295,6 +298,12 @@ export function LocationDetails() {
       <div className="min-h-[500px]">
         {activeTab === 'info' && permissions?.info && (
           <LocationInfoTab location={location} onUpdate={fetchData} />
+        )}
+        {activeTab === 'energy' && permissions?.info && (
+          <LocationEnergyTab
+            locationId={location.id}
+            locationAddress={`${location.endereco}, ${location.numero} - ${location.cidade}, ${location.estado}`}
+          />
         )}
         {activeTab === 'transactions' && permissions?.transactions && (
           <LocationTransactionsTab locationId={parseInt(id!)} />
