@@ -1,0 +1,10 @@
+# Quem é chamado para revisar cada parte do painel.
+* @WillGomes123
+
+# Telas onde erro vira decisão errada de negócio.
+/src/pages/FinancialReport.tsx @WillGomes123
+/src/pages/Transactions.tsx    @WillGomes123
+/src/pages/Wallets.tsx         @WillGomes123
+/src/pages/Tariffs.tsx         @WillGomes123
+/src/lib/                      @WillGomes123
+/.github/                      @WillGomes123
