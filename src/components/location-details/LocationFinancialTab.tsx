@@ -73,7 +73,7 @@ export function LocationFinancialTab({ locationId }: Props) {
     const exportData = data.revenueByCharger.map(c => ({
       'Carregador': c.chargerName || c.chargerId,
       'Sessões': c.sessions,
-      'Energia (kWh)': (Number(c.energy) / 1000).toFixed(2),
+      'Energia (kWh)': Number(c.energy).toFixed(2),
       'Receita (R$)': Number(c.revenue).toFixed(2)
     }));
 
@@ -166,7 +166,7 @@ export function LocationFinancialTab({ locationId }: Props) {
               <div>
                 <p className="text-xs text-muted-foreground uppercase">Energia Total</p>
                 <p className="text-xl font-bold text-foreground">
-                  {(Number(data?.totalEnergy || 0) / 1000).toFixed(1)} kWh
+                  {Number(data?.totalEnergy || 0).toFixed(1)} kWh
                 </p>
               </div>
             </div>
@@ -317,7 +317,7 @@ export function LocationFinancialTab({ locationId }: Props) {
                       </td>
                       <td className="py-3 px-4 text-amber-600 dark:text-amber-400 flex items-center gap-1">
                         <Zap className="w-3 h-3" />
-                        {(Number(charger.energy) / 1000).toFixed(2)} kWh
+                        {Number(charger.energy).toFixed(2)} kWh
                       </td>
                       <td className="py-3 px-4 text-foreground font-medium">
                         R$ {charger.revenue.toFixed(2)}

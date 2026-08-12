@@ -109,7 +109,12 @@ export class ErrorBoundary extends Component<Props, State> {
                 </Button>
               </div>
 
-              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+              {/* import.meta.env, não process.env: o Vite não injeta `process`
+                  no bundle e não há `define` para ele no vite.config.ts, então
+                  esta linha lançava "process is not defined" DENTRO do próprio
+                  fallback — o operador via tela branca em vez do aviso de erro,
+                  justamente quando algo já tinha quebrado. */}
+              {import.meta.env?.DEV && this.state.errorInfo && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-emerald-300/60 text-sm hover:text-emerald-300">
                     Detalhes do erro (desenvolvimento)
