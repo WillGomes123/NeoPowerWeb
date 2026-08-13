@@ -70,6 +70,27 @@ export const Branding = () => {
 
   // Users management state
   const [isUsersDialogOpen, setIsUsersDialogOpen] = useState(false);
+  // Credenciais de pagamento — endpoint separado do branding, porque segredo
+  // não pode transitar pelo mesmo objeto que é servido publicamente em
+  // /branding/resolve.
+  const [pagamento, setPagamento] = useState({
+    accessToken: '',
+    publicKey: '',
+    webhookSecret: '',
+    ambiente: 'teste',
+    ativo: false,
+    pixKey: '',
+    pixKeyTipo: '',
+    pixTitular: '',
+  });
+  // O que já está gravado, mascarado — os campos acima ficam vazios e só são
+  // enviados quando o operador digitar algo novo.
+  const [pagamentoAtual, setPagamentoAtual] = useState<{
+    accessToken: string | null;
+    pixKey: string | null;
+    temWebhookSecret: boolean;
+  } | null>(null);
+
   const [usersDialogClientId, setUsersDialogClientId] = useState<string>('');
   const [brandingUsers, setBrandingUsers] = useState<BrandingUser[]>([]);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
@@ -146,6 +167,36 @@ export const Branding = () => {
       }
 
       if (response.ok) {
+        // Credenciais vão para o endpoint próprio. Só enviamos se houver algo
+        // a mudar — campo em branco significa "manter o que já está gravado".
+        const mudouAlgo =
+          pagamento.accessToken || pagamento.webhookSecret || pagamento.pixKey ||
+          pagamentoAtual !== null || pagamento.publicKey || pagamento.pixTitular;
+
+        if (mudouAlgo) {
+          try {
+            const rc = await api.put(
+              `/admin/payment-credentials/${encodeURIComponent(formData.clientId!)}`,
+              {
+                ...(pagamento.accessToken ? { accessToken: pagamento.accessToken } : {}),
+                ...(pagamento.webhookSecret ? { webhookSecret: pagamento.webhookSecret } : {}),
+                ...(pagamento.pixKey ? { pixKey: pagamento.pixKey } : {}),
+                publicKey: pagamento.publicKey,
+                pixKeyTipo: pagamento.pixKeyTipo,
+                pixTitular: pagamento.pixTitular,
+                ambiente: pagamento.ambiente,
+                ativo: pagamento.ativo,
+              }
+            );
+            if (!rc.ok) {
+              const err = await rc.json().catch(() => null);
+              toast.error(err?.error || 'Marca salva, mas as credenciais de pagamento não foram');
+            }
+          } catch {
+            toast.error('Marca salva, mas as credenciais de pagamento não foram');
+          }
+        }
+
         toast.success('Configuração de marca salva com sucesso!');
         setIsDialogOpen(false);
         setFormData({
@@ -304,11 +355,44 @@ export const Branding = () => {
     }
   };
 
-  const handleEdit = (config: BrandingConfig) => {
+  const handleEdit = async (config: BrandingConfig) => {
     setFormData(config);
     const hasSpecificColors = !!(config.primaryColorLight || config.primaryColorDark || config.splashBgColorLight || config.splashBgColorDark);
     setUseSameColors(!hasSpecificColors);
     setIsDialogOpen(true);
+
+    // Zera os campos de digitação e carrega apenas o que existe, mascarado.
+    setPagamento({
+      accessToken: '', publicKey: '', webhookSecret: '',
+      ambiente: 'teste', ativo: false,
+      pixKey: '', pixKeyTipo: '', pixTitular: '',
+    });
+    setPagamentoAtual(null);
+
+    try {
+      const r = await api.get(`/admin/payment-credentials/${encodeURIComponent(config.clientId)}`);
+      if (r.ok) {
+        const d = await r.json();
+        const c = d?.data ?? d;
+        setPagamentoAtual({
+          accessToken: c.accessToken ?? null,
+          pixKey: c.pixKey ?? null,
+          temWebhookSecret: !!c.temWebhookSecret,
+        });
+        setPagamento(p => ({
+          ...p,
+          publicKey: c.publicKey ?? '',
+          ambiente: c.ambiente ?? 'teste',
+          ativo: !!c.ativo,
+          pixKeyTipo: c.pixKeyTipo ?? '',
+          pixTitular: c.pixTitular ?? '',
+        }));
+      }
+      // 404 é esperado para operador que ainda não configurou — segue com os
+      // campos em branco.
+    } catch {
+      toast.error('Não foi possível carregar as credenciais de pagamento');
+    }
   };
 
   const handleOpenUsersDialog = async (clientId: string) => {
@@ -493,11 +577,12 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-4 mb-6 bg-surface-container-highest">
+                <TabsList className="grid w-full grid-cols-5 mb-6 bg-surface-container-highest">
                   <TabsTrigger value="identity" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Identidade</TabsTrigger>
                   <TabsTrigger value="logos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Logos</TabsTrigger>
                   <TabsTrigger value="colors" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cores do App</TabsTrigger>
                   <TabsTrigger value="cashback" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cashback</TabsTrigger>
+                  <TabsTrigger value="pagamentos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Pagamentos</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="identity" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
@@ -893,6 +978,159 @@ export const Branding = () => {
                       <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">info</span>
                       <p className="text-muted-foreground text-xs leading-relaxed">
                         O cashback é creditado automaticamente como saldo na carteira do cliente ao final de cada recarga. Vale apenas para recargas feitas após a ativação.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="pagamentos" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                  {/* Conta que recebe as recargas do usuario final */}
+                  <div className="space-y-4">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Conta que recebe as recargas
+                    </p>
+
+                    <div className="p-4 bg-surface-container-highest rounded-xl border border-outline-variant space-y-1">
+                      <p className="text-on-surface text-sm font-bold">Como funciona</p>
+                      <p className="text-on-surface-variant text-xs leading-relaxed">
+                        Com as credenciais preenchidas e ativas, o dinheiro das recargas cai direto na
+                        conta Mercado Pago deste operador. Sem elas, cai na conta da NeoPower.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Access Token</Label>
+                      <Input
+                        type="password"
+                        autoComplete="off"
+                        value={pagamento.accessToken}
+                        onChange={(e) => setPagamento({ ...pagamento, accessToken: e.target.value })}
+                        placeholder={pagamentoAtual?.accessToken ? `Salvo: ${pagamentoAtual.accessToken}` : 'APP_USR-...'}
+                      />
+                      <p className="text-on-surface-variant text-[11px]">
+                        {pagamentoAtual?.accessToken
+                          ? 'Ja existe um token salvo. Deixe em branco para mante-lo.'
+                          : 'Painel do Mercado Pago, em Suas integracoes, na sua aplicacao, Credenciais.'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Public Key</Label>
+                      <Input
+                        value={pagamento.publicKey}
+                        onChange={(e) => setPagamento({ ...pagamento, publicKey: e.target.value })}
+                        placeholder="APP_USR-..."
+                      />
+                      <p className="text-on-surface-variant text-[11px]">
+                        Nao e segredo. O aplicativo usa para montar a tela de cartao.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                        Assinatura secreta do webhook
+                      </Label>
+                      <Input
+                        type="password"
+                        autoComplete="off"
+                        value={pagamento.webhookSecret}
+                        onChange={(e) => setPagamento({ ...pagamento, webhookSecret: e.target.value })}
+                        placeholder={pagamentoAtual?.temWebhookSecret ? 'Salva. Deixe em branco para manter' : 'Aparece so uma vez ao configurar o webhook'}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Ambiente</Label>
+                        <select
+                          value={pagamento.ambiente}
+                          onChange={(e) => setPagamento({ ...pagamento, ambiente: e.target.value })}
+                          className="w-full h-10 px-3 rounded-md bg-surface-container-highest border border-outline-variant text-on-surface text-sm"
+                        >
+                          <option value="teste">Teste (nenhum dinheiro real)</option>
+                          <option value="producao">Producao (cobranca real)</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-end pb-1">
+                        <div className="flex items-center space-x-3">
+                          <Checkbox
+                            id="pagamentoAtivo"
+                            checked={pagamento.ativo}
+                            onCheckedChange={(c) => setPagamento({ ...pagamento, ativo: !!c })}
+                          />
+                          <Label htmlFor="pagamentoAtivo" className="text-on-surface text-sm cursor-pointer">
+                            Usar esta conta para receber
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {pagamento.ativo && pagamento.ambiente === 'producao' && (
+                      <div className="p-3 bg-error/10 rounded-lg border border-error/30">
+                        <p className="text-on-surface text-xs leading-relaxed">
+                          A partir de agora as recargas deste operador movimentam dinheiro real na conta
+                          acima. Confira um primeiro pagamento de valor baixo.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Chave Pix de repasse: NeoPower para o operador */}
+                  <div className="space-y-4 pt-2 border-t border-outline-variant">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Chave Pix para repasses
+                    </p>
+
+                    <div className="p-4 bg-surface-container-highest rounded-xl border border-outline-variant space-y-1">
+                      <p className="text-on-surface text-sm font-bold">Esta chave nao aparece no aplicativo</p>
+                      <p className="text-on-surface-variant text-xs leading-relaxed">
+                        A recarga do usuario usa Pix dinamico: cada pagamento gera um QR Code proprio,
+                        com o valor exato, emitido pelo Mercado Pago. A chave abaixo e usada apenas pela
+                        NeoPower para repassar a parte do operador, e fica guardada criptografada.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Tipo da chave</Label>
+                        <select
+                          value={pagamento.pixKeyTipo}
+                          onChange={(e) => setPagamento({ ...pagamento, pixKeyTipo: e.target.value })}
+                          className="w-full h-10 px-3 rounded-md bg-surface-container-highest border border-outline-variant text-on-surface text-sm"
+                        >
+                          <option value="">Selecione</option>
+                          <option value="cnpj">CNPJ</option>
+                          <option value="cpf">CPF</option>
+                          <option value="email">E-mail</option>
+                          <option value="telefone">Telefone</option>
+                          <option value="aleatoria">Aleatoria</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Titular da conta</Label>
+                        <Input
+                          value={pagamento.pixTitular}
+                          onChange={(e) => setPagamento({ ...pagamento, pixTitular: e.target.value })}
+                          placeholder="Nome que aparece na conta"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Chave Pix</Label>
+                      <Input
+                        type="password"
+                        autoComplete="off"
+                        value={pagamento.pixKey}
+                        onChange={(e) => setPagamento({ ...pagamento, pixKey: e.target.value })}
+                        placeholder={pagamentoAtual?.pixKey ? `Salva: ${pagamentoAtual.pixKey}` : 'Chave de recebimento'}
+                      />
+                      <p className="text-on-surface-variant text-[11px]">
+                        {pagamentoAtual?.pixKey
+                          ? 'Ja existe uma chave salva. Deixe em branco para mante-la.'
+                          : 'Confira o titular antes de salvar. O repasse vai para esta conta.'}
                       </p>
                     </div>
                   </div>
