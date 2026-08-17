@@ -55,6 +55,9 @@ export function LocationCertificadoTab({ locationId }: Props) {
       if (response.ok) {
         const data = await response.json();
         setStatus(data);
+        if (data.nfse_provider) {
+          setProvider(data.nfse_provider);
+        }
       }
     } catch (error) {
       console.error('Erro ao buscar status do certificado:', error);
