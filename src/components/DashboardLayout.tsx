@@ -77,6 +77,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'comum'] },
         { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'comum'] },
+        { path: '/cameras', label: 'Câmeras', icon: 'videocam', roles: ['admin', 'comum'] },
         { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'comum'] },
         { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'comum'] },
         { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'comum'] },
@@ -103,7 +104,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
         { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-        { path: '/migracao-saldo', label: 'Migração de Saldo', icon: 'swap_horiz', roles: ['admin'] },
         { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
         { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
         { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
@@ -114,9 +114,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const path = location.pathname;
     return {
-      gestao: ['/estacoes', '/locais', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
+      gestao: ['/estacoes', '/locais', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
       financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas', '/metas', '/sustentabilidade'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/migracao-saldo', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
   });
 

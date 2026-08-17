@@ -1,8 +1,20 @@
+# O build sai do Dockerfile, nao do nixpacks: o arquivo declarava nixpacks mas
+# o Railway sempre usou o Dockerfile (ele tem precedencia quando existe), entao
+# buildCommand e installCommand daqui nunca valeram nada.
+
 [build]
-builder = "nixpacks"
-buildCommand = "npm run build"
-installCommand = "npm install"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+# Sem startCommand de proposito.
+#
+# O Railway executa startCommand SEM shell, entao "$PORT" chegava literal ao
+# serve, que nao entendia a porta e caia no padrao 3000 — enquanto o
+# healthcheck batia na porta sorteada pelo Railway. Resultado: o container
+# subia, respondia em 3000, e o deploy era reprovado por "service unavailable".
+#
+# O CMD do Dockerfile e shell form, entao ${PORT:-3000} expande corretamente.
+# Deixar o start a cargo dele e o que faz a porta bater.
 
 [deploy]
-startCommand = "npx serve -s build -l tcp://0.0.0.0:$PORT"
 restartPolicyType = "ON_FAILURE"

@@ -200,3 +200,24 @@ Este projeto é privado e de uso exclusivo.
 ## Autor
 
 William Gomes - [@WillGomes123](https://github.com/WillGomes123)
+
+## 🚧 Melhorias possíveis / O que falta implementar
+
+Detalhes em `ANALISE_RBAC_E_PENDENCIAS.md` e `MELHORIAS_FINAIS.md`.
+
+**Segurança (crítico)**
+- [ ] **Validar RBAC no BACKEND** — hoje a checagem de papéis é feita
+      principalmente no frontend; a autorização precisa ser garantida no servidor
+      (senão dá pra burlar via chamada direta à API).
+- [ ] Desabilitar o *switch de role* em produção.
+- [ ] Rate limiting, refresh tokens e logging estruturado no backend.
+
+**Testes / Performance**
+- [ ] Subir cobertura de testes (integração RBAC + E2E).
+- [ ] React Query + memoization onde couber.
+
+**Funcionalidades**
+- [ ] Concluir a feature **White Label por cliente** (ver `feat.md`).
+
+**Polimento**
+- [ ] PWA, Sentry (monitoramento), pipeline CI/CD, Storybook.
