@@ -13,6 +13,7 @@ import { Login } from './pages/Login';
 const Overview = lazy(() => import('./pages/Overview').then(m => ({ default: m.Overview })));
 const Stations = lazy(() => import('./pages/Stations').then(m => ({ default: m.Stations })));
 const Locations = lazy(() => import('./pages/Locations').then(m => ({ default: m.Locations })));
+const Cameras = lazy(() => import('./pages/Cameras').then(m => ({ default: m.Cameras })));
 const LocationDetails = lazy(() => import('./pages/LocationDetails').then(m => ({ default: m.LocationDetails })));
 const Transactions = lazy(() =>
   import('./pages/Transactions').then(m => ({ default: m.Transactions }))
@@ -87,6 +88,7 @@ const AppRoutes = () => {
       <Route path="/" element={createProtectedRoute(Overview)} />
       <Route path="/estacoes" element={createProtectedRoute(Stations)} />
       <Route path="/locais" element={createProtectedRoute(Locations)} />
+      <Route path="/cameras" element={createProtectedRoute(Cameras)} />
       <Route path="/locais/:id" element={createProtectedRoute(LocationDetails)} />
       <Route path="/transacoes" element={createProtectedRoute(Transactions)} />
       <Route path="/indicadores" element={createProtectedRoute(Indicators)} />
