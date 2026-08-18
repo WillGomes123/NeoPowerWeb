@@ -117,6 +117,11 @@ export const Stations = () => {
     } catch { toast.error('Erro ao atribuir'); }
   };
 
+  // URL de conexao do carregador recem-cadastrado, devolvida pelo backend.
+  // Mostrada no proprio modal: e o momento em que o instalador esta com o
+  // equipamento na mao e precisa do endereco para configurar.
+  const [connectionUrl, setConnectionUrl] = useState<string | null>(null);
+
   const handleRegisterCharger = async () => {
     if (!regForm.charge_point_id.trim()) { toast.error('ID obrigatório'); return; }
     setRegistering(true);
@@ -130,9 +135,11 @@ export const Stations = () => {
       if (regForm.num_connectors) p.num_connectors = parseInt(regForm.num_connectors);
       if (regForm.locationId) p.locationId = parseInt(regForm.locationId);
       const r = await api.post('/chargers/register', p);
-      if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
+      const d = await r.json();
+      if (!r.ok) { throw new Error(d.error || 'Erro'); }
       toast.success('Carregador registrado!');
-      setRegisterOpen(false);
+      // Nao fecha ainda: mostra a URL de conexao para o instalador copiar.
+      setConnectionUrl(d?.data?.connectionUrl ?? null);
       setRegForm({ charge_point_id: '', description: '', model: '', vendor: '', connector_type: '', power_kw: '', num_connectors: '1', locationId: '' });
       void fetchData();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erro'); }
@@ -651,7 +658,7 @@ export const Stations = () => {
       <ChargerDetailsDialog chargePointId={selectedCharger} open={detailsOpen} onOpenChange={setDetailsOpen} onUpdate={fetchData} />
 
       {/* Register Charger Dialog */}
-      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+      <Dialog open={registerOpen} onOpenChange={o => { setRegisterOpen(o); if (!o) setConnectionUrl(null); }}>
         <DialogContent className="bg-surface-container border-outline-variant/20 max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
@@ -659,6 +666,34 @@ export const Stations = () => {
               Registrar Novo Carregador
             </DialogTitle>
           </DialogHeader>
+          {connectionUrl ? (
+            <div className="space-y-4 mt-2">
+              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+                <p className="text-on-surface font-bold text-sm flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">check_circle</span>
+                  Carregador registrado
+                </p>
+                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">
+                  Configure esta URL no equipamento. Só carregadores pré-cadastrados
+                  conseguem conectar por ela — se o ID não bater, o servidor recusa.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Input readOnly value={connectionUrl} onFocus={e => e.currentTarget.select()}
+                  className="bg-surface-container-low border-outline-variant/20 text-on-surface font-mono text-xs" />
+                <Button variant="outline" className="shrink-0 border-outline-variant/20 text-on-surface-variant"
+                  onClick={() => { navigator.clipboard.writeText(connectionUrl).then(() => toast.success('URL copiada')).catch(() => toast.error('Não foi possível copiar')); }}>
+                  Copiar
+                </Button>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button onClick={() => { setRegisterOpen(false); setConnectionUrl(null); }}
+                  className="rounded-full px-6 bg-primary text-on-primary font-bold hover:opacity-90">
+                  Concluir
+                </Button>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
               <Label className="text-on-surface-variant text-xs uppercase tracking-widest">ID do Carregador *</Label>
@@ -726,6 +761,7 @@ export const Stations = () => {
               </button>
             </div>
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
