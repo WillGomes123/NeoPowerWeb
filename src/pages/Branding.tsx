@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import {
   Dialog,
@@ -532,6 +533,44 @@ export const Branding = () => {
                         className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
                       />
                     </div>
+
+                    {/* URL de conexão dos carregadores deste operador.
+                        Derivada do slug — não é editável: quem define o vínculo
+                        é o servidor OCPP ao receber a conexão por este caminho. */}
+                    {formData.clientId && (
+                      <div className="space-y-1.5 mt-3">
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                          URL de Conexão dos Carregadores
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            readOnly
+                            value={`wss://neocms.up.railway.app/ocpp/${formData.clientId}/ID-DO-CARREGADOR`}
+                            className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm font-mono"
+                            onFocus={e => e.currentTarget.select()}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 text-xs shrink-0"
+                            onClick={() => {
+                              navigator.clipboard
+                                .writeText(`wss://neocms.up.railway.app/ocpp/${formData.clientId}/`)
+                                .then(() => toast.success('URL copiada'))
+                                .catch(() => toast.error('Não foi possível copiar'));
+                            }}
+                          >
+                            Copiar
+                          </Button>
+                        </div>
+                        <p className="text-on-surface-variant text-xs leading-relaxed">
+                          Configure esta URL no carregador trocando <span className="font-mono">ID-DO-CARREGADOR</span> pelo
+                          identificador do equipamento. Todo carregador que conectar por ela já entra vinculado a este
+                          operador. A URL genérica (<span className="font-mono">wss://neocms.up.railway.app/ocpp/…</span>)
+                          continua caindo na plataforma NeoPower.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Tema da Web */}
