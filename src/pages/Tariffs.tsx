@@ -226,6 +226,7 @@ export const Tariffs = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newPrice, setNewPrice] = useState('');
   const [newMinPrice, setNewMinPrice] = useState('');
+  const [newFloorKwh, setNewFloorKwh] = useState('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
   // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -369,10 +370,12 @@ export const Tariffs = () => {
         locationAddress?: string;
         profileId?: number;
         chargePointId?: string;
+        floorPerKwh?: number;
       } = {
         newPrice: parseFloat(newPrice),
       };
       if (newMinPrice && parseFloat(newMinPrice) > 0) payload.minPrice = parseFloat(newMinPrice);
+      if (newFloorKwh && parseFloat(newFloorKwh) > 0) payload.floorPerKwh = parseFloat(newFloorKwh);
 
       // Carregador vence o local: quando selecionado, ignora o Local.
       if (selectedCharger !== 'all') {
@@ -392,6 +395,7 @@ export const Tariffs = () => {
         setIsDialogOpen(false);
         setNewPrice('');
         setNewMinPrice('');
+        setNewFloorKwh('');
         setSelectedLocation('all');
         setSelectedProfile('all');
         setSelectedCharger('all');
@@ -552,9 +556,26 @@ export const Tariffs = () => {
                       className="bg-surface-container-low border-outline-variant/20 text-on-surface"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Piso por kWh (custo)
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
+                    </Label>
+                    <Input
+                      id="floorKwh"
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      placeholder="0.0000"
+                      value={newFloorKwh}
+                      onChange={e => setNewFloorKwh(e.target.value)}
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                  </div>
                 </div>
                 <p className="text-[11px] text-on-surface-variant leading-relaxed -mt-2">
-                  Nenhuma recarga com energia entregue custa menos que este valor — cobre o custo de conexão de sessões curtas. Sessão sem consumo (0 kWh) não é cobrada.
+                  <b>Mínimo por sessão</b>: nenhuma recarga com energia custa menos que isso — cobre o custo de conexão de sessões curtas (sessão de 0 kWh não é cobrada).<br />
+                  <b>Piso por kWh</b>: a cobrança nunca fica abaixo desse custo por kWh — protege de vender energia no prejuízo. Normalmente vem preenchido pela aba <b>Conta de Energia</b> do local.
                 </p>
 
                 <div className="space-y-2">
