@@ -144,12 +144,12 @@ const TariffCard = ({
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="mín. (opcional)"
+                placeholder="mín/sessão (opc.)"
                 value={editMinPrice}
                 onChange={e => setEditMinPrice(e.target.value)}
                 className="w-28 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded px-2 py-1 text-xs font-headline focus:outline-none focus:border-primary"
               />
-              <span className="text-[10px] text-on-surface-variant">piso/kWh</span>
+              <span className="text-[10px] text-on-surface-variant">mín/sessão</span>
             </div>
           </div>
         ) : (
@@ -164,7 +164,7 @@ const TariffCard = ({
               <div className="mb-1">
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
                   <span className="material-symbols-outlined text-[12px]">bolt</span>
-                  Piso: {formatCurrency(minPrice)}/kWh
+                  Mín/sessão: {formatCurrency(minPrice)}
                 </span>
               </div>
             )}
@@ -230,6 +230,8 @@ export const Tariffs = () => {
   // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedProfile, setSelectedProfile] = useState<string>('all');
+  const [selectedCharger, setSelectedCharger] = useState<string>('all');
+  const [chargers, setChargers] = useState<{ charge_point_id: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [pageTab, setPageTab] = useState<'tarifas' | 'perfis'>('tarifas');
   const [filter, setFilter] = useState<FilterType>('all');
@@ -262,6 +264,16 @@ export const Tariffs = () => {
         const profilesRes = await api.get('/profiles');
         if (profilesRes.ok) setProfiles(await profilesRes.json());
       } catch { /* perfis são opcionais */ }
+
+      // Carrega carregadores (para tarifa por carregador)
+      try {
+        const chRes = await api.get('/chargers');
+        if (chRes.ok) {
+          const d = await chRes.json();
+          const lista = (d?.data ?? d) as { charge_point_id: string }[];
+          if (Array.isArray(lista)) setChargers(lista);
+        }
+      } catch { /* carregadores são opcionais */ }
 
       // Tenta endpoint novo (retorna todas de uma vez)
       let usedNewEndpoint = false;
@@ -351,12 +363,21 @@ export const Tariffs = () => {
 
     setSubmitting(true);
     try {
-      const payload: { newPrice: number; minPrice?: number; locationAddress?: string; profileId?: number } = {
+      const payload: {
+        newPrice: number;
+        minPrice?: number;
+        locationAddress?: string;
+        profileId?: number;
+        chargePointId?: string;
+      } = {
         newPrice: parseFloat(newPrice),
       };
       if (newMinPrice && parseFloat(newMinPrice) > 0) payload.minPrice = parseFloat(newMinPrice);
 
-      if (selectedLocation !== 'all') {
+      // Carregador vence o local: quando selecionado, ignora o Local.
+      if (selectedCharger !== 'all') {
+        payload.chargePointId = selectedCharger;
+      } else if (selectedLocation !== 'all') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
         if (location) payload.locationAddress = location.endereco;
       }
@@ -373,6 +394,7 @@ export const Tariffs = () => {
         setNewMinPrice('');
         setSelectedLocation('all');
         setSelectedProfile('all');
+        setSelectedCharger('all');
         void fetchData();
       } else {
         const errData = await response.json();
@@ -516,7 +538,7 @@ export const Tariffs = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
-                      Piso mínimo (R$/kWh)
+                      Mínimo por sessão (R$)
                       <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
                     </Label>
                     <Input
@@ -532,13 +554,45 @@ export const Tariffs = () => {
                   </div>
                 </div>
                 <p className="text-[11px] text-on-surface-variant leading-relaxed -mt-2">
-                  O piso mínimo garante que a cobrança nunca fique abaixo desse valor/kWh — útil para proteger o custo da conta de energia.
+                  Nenhuma recarga com energia entregue custa menos que este valor — cobre o custo de conexão de sessões curtas. Sessão sem consumo (0 kWh) não é cobrada.
                 </p>
+
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                    Carregador
+                    <span className="normal-case tracking-normal text-outline font-normal">mais específico que o local</span>
+                  </Label>
+                  <Select value={selectedCharger} onValueChange={setSelectedCharger}>
+                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container border-outline-variant/20">
+                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">
+                        Nenhum (usar Local abaixo)
+                      </SelectItem>
+                      {chargers.map(cp => (
+                        <SelectItem
+                          key={`c-${cp.charge_point_id}`}
+                          value={cp.charge_point_id}
+                          className="text-on-surface focus:bg-surface-container-highest"
+                        >
+                          {cp.charge_point_id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedCharger !== 'all' && (
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                      A tarifa vale só para este carregador e vence a do local. O campo Local abaixo é ignorado.
+                    </p>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
                     Local
                   </Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation} disabled={selectedCharger !== 'all'}>
                     <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
