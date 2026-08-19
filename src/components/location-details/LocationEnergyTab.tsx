@@ -161,7 +161,10 @@ export function LocationEnergyTab({ locationId, locationAddress }: Props) {
           const data = await res.json();
           const t = data.tariff ?? data;
           if (t?.price_per_kwh) setCurrentTariff(parseFloat(t.price_per_kwh));
-          if (t?.min_price) setCurrentMinPrice(parseFloat(t.min_price));
+          // Piso por kWh (custo do operador). Compatível com dados antigos que
+          // ainda tenham o custo em min_price.
+          const piso = t?.floor_per_kwh ?? t?.min_price;
+          if (piso) setCurrentMinPrice(parseFloat(piso));
         }
       } catch { /* silencioso */ }
     };
@@ -209,7 +212,9 @@ export function LocationEnergyTab({ locationId, locationAddress }: Props) {
     try {
       const res = await api.post('/tariffs', {
         newPrice: parseFloat(minTariff.toFixed(2)),
-        minPrice: parseFloat(result.avgCost.toFixed(2)),
+        // O custo médio do kWh da conta de luz vira o PISO POR kWh: a cobrança
+        // nunca fica abaixo do custo do operador (protege de vender no prejuízo).
+        floorPerKwh: parseFloat(result.avgCost.toFixed(4)),
         locationAddress,
       });
       if (res.ok) {
