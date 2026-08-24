@@ -65,7 +65,9 @@ export const Scheduling = () => {
       if (schedRes.ok) {
         const data = await schedRes.json();
         const arr = Array.isArray(data) ? data : [];
-        setSchedules(arr.map((s: any) => ({ ...s, id: String(s.id), charger_name: s.charger_id })));
+        // max_rate_kw vem do backend como string (coluna DECIMAL via pg cru);
+        // sem Number() aqui o form recebe string e o .toFixed do render quebra na edição.
+        setSchedules(arr.map((s: any) => ({ ...s, id: String(s.id), max_rate_kw: Number(s.max_rate_kw), charger_name: s.charger_id })));
       } else {
         setSchedules([]);
       }
@@ -265,7 +267,7 @@ export const Scheduling = () => {
                 <label className="block text-xs text-on-surface-variant uppercase tracking-widest font-bold mb-2">Potência Máxima (kW)</label>
                 <div className="flex items-center gap-4">
                   <input type="range" min={1} max={150} step={0.1} value={form.max_rate_kw} onChange={e => setForm(prev => ({ ...prev, max_rate_kw: Number(e.target.value) }))} className="flex-1 accent-primary" />
-                  <span className="text-sm font-bold font-headline text-on-surface w-20 text-right">{form.max_rate_kw.toFixed(1)} kW</span>
+                  <span className="text-sm font-bold font-headline text-on-surface w-20 text-right">{Number(form.max_rate_kw).toFixed(1)} kW</span>
                 </div>
                 <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant">
                   <span>1 kW</span>

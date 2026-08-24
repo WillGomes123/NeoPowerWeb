@@ -284,7 +284,16 @@ export const Tariffs = () => {
         if (allRes.ok) {
           const tariffData = await allRes.json();
           if (Array.isArray(tariffData) && tariffData.length > 0) {
-            setAllTariffs(tariffData);
+            // price_per_kwh/min_price vêm como string (decimal do TypeORM). Sem
+            // Number() a comparação price > globalPrice seria lexicográfica
+            // ("10.0" < "9.0") e a seta ↑/↓ apontaria errado.
+            setAllTariffs(
+              tariffData.map((t: Tariff) => ({
+                ...t,
+                price_per_kwh: Number(t.price_per_kwh),
+                min_price: t.min_price != null ? Number(t.min_price) : t.min_price,
+              })),
+            );
             usedNewEndpoint = true;
           }
         }
