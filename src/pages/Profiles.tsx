@@ -31,7 +31,8 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
     try {
       const r = await api.get('/profiles');
       if (!r.ok) throw new Error();
-      setProfiles(await r.json());
+      const d = await r.json();
+      setProfiles(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao buscar perfis'); }
     finally { setLoading(false); }
   };

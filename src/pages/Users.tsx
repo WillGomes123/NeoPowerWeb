@@ -75,7 +75,8 @@ export const Users = () => {
     try {
       const r = await api.get('/admin/users');
       if (!r.ok) throw new Error();
-      setUsers(await r.json());
+      const d = await r.json();
+      setUsers(Array.isArray(d) ? d : []);
     } catch { toast.error('Erro ao buscar usuários'); }
     finally { setLoading(false); }
   };
@@ -93,7 +94,8 @@ export const Users = () => {
     try {
       const r = await api.get('/profiles');
       if (!r.ok) throw new Error();
-      setProfiles(await r.json());
+      const d = await r.json();
+      setProfiles(Array.isArray(d) ? d : []);
     } catch { /* perfis são opcionais — silencioso */ }
   };
 

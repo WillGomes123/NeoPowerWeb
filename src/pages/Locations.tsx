@@ -66,7 +66,7 @@ export const Locations = () => {
     try {
       const [locRes, chRes] = await Promise.all([api.get('/locations/all'), api.get('/chargers')]);
       if (locRes.ok) { const d = await locRes.json(); setLocations(d.locations || []); }
-      if (chRes.ok) { const d = await chRes.json(); setChargers(d); }
+      if (chRes.ok) { const d = await chRes.json(); setChargers(Array.isArray(d) ? d : []); }
     } catch { toast.error('Erro ao carregar dados'); }
     finally { setLoading(false); }
   }, []);

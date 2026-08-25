@@ -109,7 +109,7 @@ export const Transactions = () => {
       const response = await api.get('/transactions');
       if (!response.ok) throw new Error('Falha ao buscar transações.');
       const data = await response.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(msg);
