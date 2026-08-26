@@ -40,6 +40,8 @@ interface Charger {
   locationId: number | null;
   isConnected: boolean;
   status?: string;
+  clientId?: string | null;
+  connection_url?: string;
 }
 
 interface Location {
@@ -144,6 +146,40 @@ export const Stations = () => {
       void fetchData();
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erro'); }
     finally { setRegistering(false); }
+  };
+
+  // Copia um texto (o link de conexão do servidor) para a área de transferência.
+  const copyLink = (url: string) => {
+    navigator.clipboard
+      .writeText(url)
+      .then(() => toast.success('Link copiado'))
+      .catch(() => toast.error('Não foi possível copiar'));
+  };
+
+  const handleDeleteCharger = async (chargerId: string) => {
+    if (!confirm(`Excluir o carregador "${chargerId}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      const r = await api.delete(`/chargers/${chargerId}`);
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || 'Erro ao excluir carregador');
+      toast.success('Carregador excluído');
+      void fetchData();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao excluir carregador');
+    }
+  };
+
+  const handleDeleteLocation = async (locId: number, nome: string) => {
+    if (!confirm(`Excluir o local "${nome}"? Remova os carregadores associados antes.`)) return;
+    try {
+      const r = await api.delete(`/locations/${locId}`);
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.error || 'Erro ao excluir local');
+      toast.success('Local excluído');
+      void fetchData();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao excluir local');
+    }
   };
 
   const handleDownloadQrCode = async (chargerId: string) => {
@@ -271,6 +307,15 @@ export const Stations = () => {
     return groups;
   }, [assignedChargers]);
 
+  // Base do link de conexão do operador (white label), derivada do connection_url
+  // de qualquer carregador (tira o ID do fim). O instalador acrescenta o ID de
+  // cada carregador ao final — ou copia o link completo em cada estação abaixo.
+  const serverBase = useMemo(() => {
+    const withUrl = mergedChargers.find(c => c.connection_url);
+    if (!withUrl?.connection_url) return null;
+    return withUrl.connection_url.replace(/\/[^/]+$/, '/');
+  }, [mergedChargers]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -297,6 +342,34 @@ export const Stations = () => {
             <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
             Nova Estação
           </button>
+        </div>
+      </div>
+
+      {/* Link de conexão do servidor (white label) — visível para o instalador */}
+      <div className="bg-surface-container rounded-2xl p-5 border border-primary/25 relative overflow-hidden shadow-soft">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <span className="material-symbols-outlined text-primary text-2xl shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>lan</span>
+            <div className="min-w-0">
+              <h4 className="font-headline font-bold text-on-surface text-sm">Link do servidor para instalar nos eletropostos</h4>
+              <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed max-w-xl">
+                Configure esta URL no equipamento OCPP e acrescente o <b>ID do carregador</b> ao final — ou copie o link completo em cada estação abaixo. Só carregadores cadastrados conseguem conectar.
+              </p>
+            </div>
+          </div>
+          {serverBase ? (
+            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+              <code className="flex-1 md:flex-none md:max-w-md truncate bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2 text-xs font-mono text-on-surface">
+                {`${serverBase}<ID>`}
+              </code>
+              <Button variant="outline" className="shrink-0 border-outline-variant/20 text-on-surface-variant" onClick={() => copyLink(serverBase)} title="Copiar base do link">
+                <span className="material-symbols-outlined text-base">content_copy</span>
+              </Button>
+            </div>
+          ) : (
+            <span className="text-xs text-on-surface-variant shrink-0">Cadastre um carregador para ver o link.</span>
+          )}
         </div>
       </div>
 
@@ -537,10 +610,36 @@ export const Stations = () => {
                                     <span className="material-symbols-outlined text-base">qr_code_2</span>
                                   )}
                                 </button>
+                                {c.connection_url && (
+                                  <button
+                                    onClick={() => copyLink(c.connection_url!)}
+                                    className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all flex items-center justify-center"
+                                    title="Copiar link do servidor"
+                                  >
+                                    <span className="material-symbols-outlined text-base">link</span>
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteCharger(c.charge_point_id)}
+                                  className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
+                                  title="Excluir carregador"
+                                >
+                                  <span className="material-symbols-outlined text-base">delete</span>
+                                </button>
                               </div>
                             </div>
                           );
                         })}
+                      </div>
+                      <div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
+                        <button
+                          onClick={() => handleDeleteLocation(loc.id, loc.nomeDoLocal)}
+                          className="flex items-center gap-1.5 text-xs font-bold text-error/80 hover:text-error px-3 py-1.5 rounded-lg hover:bg-error/10 transition-all"
+                          title="Excluir este local"
+                        >
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                          Excluir local
+                        </button>
                       </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -623,6 +722,22 @@ export const Stations = () => {
                                 ) : (
                                   <span className="material-symbols-outlined text-base">qr_code_2</span>
                                 )}
+                              </button>
+                              {c.connection_url && (
+                                <button
+                                  onClick={() => copyLink(c.connection_url!)}
+                                  className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all flex items-center justify-center"
+                                  title="Copiar link do servidor"
+                                >
+                                  <span className="material-symbols-outlined text-base">link</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDeleteCharger(c.charge_point_id)}
+                                className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
+                                title="Excluir carregador"
+                              >
+                                <span className="material-symbols-outlined text-base">delete</span>
                               </button>
                             </div>
                           </div>
