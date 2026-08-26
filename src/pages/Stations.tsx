@@ -481,21 +481,41 @@ export const Stations = () => {
                           <td className="px-6 py-3 text-sm text-on-surface-variant">{c.vendor || '—'}</td>
                           <td className="px-6 py-3 text-sm">{c.power_kw ? <span className="text-primary font-bold">{c.power_kw} kW</span> : '—'}</td>
                           <td className="px-6 py-3">
-                            <Select value={selectedLocations[c.charge_point_id] || ''} onValueChange={v => setSelectedLocations(p => ({ ...p, [c.charge_point_id]: v }))}>
-                              <SelectTrigger className="w-[220px] bg-surface-container-low border-outline-variant/20 text-on-surface text-sm">
-                                <SelectValue placeholder="Selecione..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-surface-container border-outline-variant/20">
-                                {locations.map(l => (
-                                  <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {locations.length === 0 ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs text-amber-400">
+                                <span className="material-symbols-outlined text-sm">info</span>
+                                Nenhum local cadastrado — crie um em <b>Locais</b> primeiro
+                              </span>
+                            ) : (
+                              <Select value={selectedLocations[c.charge_point_id] || ''} onValueChange={v => setSelectedLocations(p => ({ ...p, [c.charge_point_id]: v }))}>
+                                <SelectTrigger className="w-[220px] bg-surface-container-low border-outline-variant/20 text-on-surface text-sm">
+                                  <SelectValue placeholder="Selecione..." />
+                                </SelectTrigger>
+                                <SelectContent className="bg-surface-container border-outline-variant/20">
+                                  {locations.map(l => (
+                                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </td>
                           <td className="px-6 py-3">
-                            <button onClick={() => handleAssignCharger(c.charge_point_id)} className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:scale-105 active:scale-95 transition-all">
-                              Salvar
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAssignCharger(c.charge_point_id)}
+                                disabled={!selectedLocations[c.charge_point_id]}
+                                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                              >
+                                Salvar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCharger(c.charge_point_id)}
+                                className="p-1.5 rounded-lg border border-outline-variant/10 text-error/80 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all"
+                                title="Excluir carregador"
+                              >
+                                <span className="material-symbols-outlined text-base">delete</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
