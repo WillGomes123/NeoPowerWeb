@@ -83,7 +83,7 @@ export const Wallets = () => {
       const response = await api.get('/admin/wallets');
       if (!response.ok) throw new Error('Falha ao buscar carteiras');
       const data = await response.json();
-      setWallets(data);
+      setWallets(Array.isArray(data) ? data : []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
@@ -99,7 +99,7 @@ export const Wallets = () => {
       const response = await api.get('/admin/wallet-transactions');
       if (!response.ok) throw new Error('Falha ao buscar transacoes');
       const data = await response.json();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
@@ -147,7 +147,13 @@ export const Wallets = () => {
   };
 
   const formatCurrency = (value: number): string => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    // Number() defensivo: se um saldo/valor vier null/undefined ou string, o
+    // toLocaleString direto quebraria a linha inteira (ErrorBoundary global).
+    const n = Number(value);
+    return (Number.isFinite(n) ? n : 0).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
   };
 
   const getTypeLabel = (type: string): string => {

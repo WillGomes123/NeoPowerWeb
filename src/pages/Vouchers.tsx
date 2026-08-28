@@ -102,7 +102,7 @@ export const Vouchers = () => {
       const response = await api.get('/chargers');
       if (response.ok) {
         const data = await response.json();
-        setChargers(data);
+        setChargers(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Erro ao buscar carregadores:', error);
@@ -117,7 +117,7 @@ export const Vouchers = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
-      setVouchers(data);
+      setVouchers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Erro ao buscar vouchers:', error);
       toast.error('Erro ao buscar vouchers');
