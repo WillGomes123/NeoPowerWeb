@@ -223,8 +223,8 @@ export const Locations = () => {
           <div className="col-span-12 relative overflow-hidden rounded-xl border border-outline-variant/10 min-h-[650px]">
             <DynamicMap center={mapCenter} zoom={locations.length > 1 ? 10 : 13} style={{ height: '650px', width: '100%' }}>
               <TileLayer
-                attribution='&copy; <a href="https://carto.com">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://www.esri.com">Esri</a>'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
               />
               {locations.filter(l => l.latitude && l.longitude).map(loc => {
                 const stats = getStats(loc);
@@ -444,8 +444,8 @@ export const Locations = () => {
                   style={{ height: '100%', width: '100%' }}
                 >
                   <TileLayer
-                    attribution='&copy; <a href="https://carto.com">CARTO</a>'
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.esri.com">Esri</a>'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
                   />
                   <Marker
                     position={[Number(mapDialogLocation.latitude), Number(mapDialogLocation.longitude)]}
