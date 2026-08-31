@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useSocket } from '../lib/hooks/useSocket';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { DynamicMap, TileLayer, Marker, Popup, L } from '../components/DynamicMap';
+import { DynamicMap, TileLayer, Marker, Popup, L, useMap } from '../components/DynamicMap';
 
 interface Location {
   id: number;
@@ -33,6 +33,25 @@ interface Charger {
   locationId?: number;
   ocppStatus?: string; // Available, Charging, Faulted, Preparing, etc.
 }
+
+// Enquadra o mapa exatamente nos locais do operador (white label), em vez de um
+// centro/zoom fixo apontado para o Brasil inteiro. Assim o operador cai direto
+// onde estão seus carregadores. Um único local -> setView com zoom de rua;
+// vários -> fitBounds cobrindo todos, com um teto de zoom para não colar demais.
+const FitToMarkers = ({ positions }: { positions: [number, number][] }) => {
+  const map = useMap();
+  const sig = positions.map(p => p.join(',')).join('|');
+  useEffect(() => {
+    if (positions.length === 0) return;
+    if (positions.length === 1) {
+      map.setView(positions[0], 15);
+    } else {
+      map.fitBounds(positions, { padding: [60, 60], maxZoom: 15 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, sig]);
+  return null;
+};
 
 export const Locations = () => {
   const navigate = useNavigate();
@@ -103,6 +122,16 @@ export const Locations = () => {
     const avgLng = withCoords.reduce((s, l) => s + Number(l.longitude), 0) / withCoords.length;
     return [avgLat, avgLng];
   }, [locations]);
+
+  // Coordenadas dos locais com lat/lng válidos — usadas para enquadrar o mapa
+  // exatamente na rede do operador (ver FitToMarkers).
+  const locationPositions = useMemo<[number, number][]>(
+    () =>
+      locations
+        .filter(l => l.latitude && l.longitude)
+        .map(l => [Number(l.latitude), Number(l.longitude)] as [number, number]),
+    [locations]
+  );
 
   // Status-colored marker icons
   const getMarkerIcon = useCallback((status: 'available' | 'charging' | 'faulted' | 'offline') => {
@@ -226,6 +255,7 @@ export const Locations = () => {
                 attribution='&copy; <a href="https://www.esri.com">Esri</a>'
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
               />
+              <FitToMarkers positions={locationPositions} />
               {locations.filter(l => l.latitude && l.longitude).map(loc => {
                 const stats = getStats(loc);
                 return (
