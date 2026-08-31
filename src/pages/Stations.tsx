@@ -55,6 +55,13 @@ export const Stations = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
+  // Edições inline dos carregadores pendentes (descrição, modelo, fabricante,
+  // potência, tipo de conector) — permite configurar o equipamento antes mesmo
+  // de atribuir um local.
+  const [pendingEdits, setPendingEdits] = useState<{
+    [id: string]: { description: string; model: string; vendor: string; power_kw: string; connector_type: string };
+  }>({});
+  const [savingPending, setSavingPending] = useState<string | null>(null);
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -108,15 +115,56 @@ export const Stations = () => {
 
   useEffect(() => { void fetchData(); }, []);
 
-  const handleAssignCharger = async (chargerId: string) => {
-    const locationId = selectedLocations[chargerId];
-    if (!locationId) { toast.error('Selecione um local'); return; }
+  // Valores de edição de um pendente: o que o usuário digitou, ou os dados atuais.
+  const pendingDefaults = (c: Charger) => ({
+    description: c.description ?? '',
+    model: c.model ?? '',
+    vendor: c.vendor ?? '',
+    power_kw: c.power_kw != null ? String(c.power_kw) : '',
+    connector_type: c.connector_type ?? '',
+  });
+  const editOf = (c: Charger) => pendingEdits[c.charge_point_id] ?? pendingDefaults(c);
+  const setEdit = (c: Charger, patch: Partial<ReturnType<typeof pendingDefaults>>) =>
+    setPendingEdits(prev => ({
+      ...prev,
+      [c.charge_point_id]: { ...(prev[c.charge_point_id] ?? pendingDefaults(c)), ...patch },
+    }));
+
+  // Salva um pendente: grava as infos editadas (/info) e, se um local foi
+  // escolhido, associa (/assign-location). Assim dá pra editar as informações
+  // mesmo sem atribuir um local ainda.
+  const handleSavePending = async (c: Charger) => {
+    const ed = editOf(c);
+    const locationId = selectedLocations[c.charge_point_id];
+    setSavingPending(c.charge_point_id);
     try {
-      const r = await api.put(`/chargers/${chargerId}/assign-location`, { locationId: parseInt(locationId) });
-      if (!r.ok) throw new Error();
-      toast.success('Carregador associado!');
+      const info = await api.put(`/chargers/${c.charge_point_id}/info`, {
+        description: ed.description.trim() || null,
+        model: ed.model.trim() || null,
+        vendor: ed.vendor.trim() || null,
+        power_kw: ed.power_kw ? Number(ed.power_kw) : null,
+        connector_type: ed.connector_type || null,
+      });
+      if (!info.ok) {
+        const b = await info.json().catch(() => null);
+        throw new Error(b?.error || 'Erro ao salvar informações');
+      }
+      if (locationId) {
+        const assign = await api.put(`/chargers/${c.charge_point_id}/assign-location`, { locationId: parseInt(locationId) });
+        if (!assign.ok) {
+          const b = await assign.json().catch(() => null);
+          throw new Error(b?.error || 'Erro ao atribuir local');
+        }
+      }
+      // Limpa o rascunho para o valor recarregado do backend voltar a valer.
+      setPendingEdits(prev => { const n = { ...prev }; delete n[c.charge_point_id]; return n; });
+      toast.success(locationId ? 'Carregador salvo e associado!' : 'Informações salvas!');
       void fetchData();
-    } catch { toast.error('Erro ao atribuir'); }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao salvar');
+    } finally {
+      setSavingPending(null);
+    }
   };
 
   // URL de conexao do carregador recem-cadastrado, devolvida pelo backend.
@@ -466,20 +514,40 @@ export const Stations = () => {
                         <th className="px-6 py-3">Modelo</th>
                         <th className="px-6 py-3">Fabricante</th>
                         <th className="px-6 py-3">Potência</th>
+                        <th className="px-6 py-3">Tipo</th>
                         <th className="px-6 py-3">Atribuir Local</th>
                         <th className="px-6 py-3">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-outline-variant/5">
-                      {pendingChargers.map(c => (
-                        <tr key={c.charge_point_id} className="hover:bg-surface-container-highest/30 transition-colors">
+                      {pendingChargers.map(c => {
+                        const ed = editOf(c);
+                        const inputCls = 'h-8 bg-surface-container-low border-outline-variant/20 text-on-surface text-sm';
+                        return (
+                        <tr key={c.charge_point_id} className="hover:bg-surface-container-highest/30 transition-colors align-top">
                           <td className="px-6 py-3">
-                            <span className="text-sm font-medium">{c.description || c.charge_point_id}</span>
-                            {c.description && <p className="text-[10px] text-on-surface-variant font-mono">{c.charge_point_id}</p>}
+                            <p className="text-[10px] text-on-surface-variant font-mono mb-1">{c.charge_point_id}</p>
+                            <Input value={ed.description} onChange={e => setEdit(c, { description: e.target.value })} placeholder="Descrição" className={`${inputCls} w-[150px]`} />
                           </td>
-                          <td className="px-6 py-3 text-sm">{c.model || '—'}</td>
-                          <td className="px-6 py-3 text-sm text-on-surface-variant">{c.vendor || '—'}</td>
-                          <td className="px-6 py-3 text-sm">{c.power_kw ? <span className="text-primary font-bold">{c.power_kw} kW</span> : '—'}</td>
+                          <td className="px-6 py-3">
+                            <Input value={ed.model} onChange={e => setEdit(c, { model: e.target.value })} placeholder="Modelo" className={`${inputCls} w-[120px]`} />
+                          </td>
+                          <td className="px-6 py-3">
+                            <Input value={ed.vendor} onChange={e => setEdit(c, { vendor: e.target.value })} placeholder="Fabricante" className={`${inputCls} w-[120px]`} />
+                          </td>
+                          <td className="px-6 py-3">
+                            <Input type="number" value={ed.power_kw} onChange={e => setEdit(c, { power_kw: e.target.value })} placeholder="kW" className={`${inputCls} w-[80px]`} />
+                          </td>
+                          <td className="px-6 py-3">
+                            <Select value={ed.connector_type} onValueChange={v => setEdit(c, { connector_type: v })}>
+                              <SelectTrigger className={`w-[110px] ${inputCls}`}><SelectValue placeholder="Tipo" /></SelectTrigger>
+                              <SelectContent className="bg-surface-container border-outline-variant/20">
+                                {['Type1', 'Type2', 'CCS1', 'CCS2', 'CHAdeMO', 'GBT'].map(t => (
+                                  <SelectItem key={t} value={t} className="text-on-surface focus:bg-surface-container-highest">{t === 'GBT' ? 'GB/T' : t.replace('Type', 'Type ')}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
                           <td className="px-6 py-3">
                             {locations.length === 0 ? (
                               <span className="inline-flex items-center gap-1.5 text-xs text-amber-400">
@@ -488,7 +556,7 @@ export const Stations = () => {
                               </span>
                             ) : (
                               <Select value={selectedLocations[c.charge_point_id] || ''} onValueChange={v => setSelectedLocations(p => ({ ...p, [c.charge_point_id]: v }))}>
-                                <SelectTrigger className="w-[220px] bg-surface-container-low border-outline-variant/20 text-on-surface text-sm">
+                                <SelectTrigger className={`w-[200px] ${inputCls}`}>
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-surface-container border-outline-variant/20">
@@ -502,11 +570,11 @@ export const Stations = () => {
                           <td className="px-6 py-3">
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => handleAssignCharger(c.charge_point_id)}
-                                disabled={!selectedLocations[c.charge_point_id]}
-                                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                                onClick={() => handleSavePending(c)}
+                                disabled={savingPending === c.charge_point_id}
+                                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed whitespace-nowrap"
                               >
-                                Salvar
+                                {savingPending === c.charge_point_id ? 'Salvando…' : 'Salvar'}
                               </button>
                               <button
                                 onClick={() => handleDeleteCharger(c.charge_point_id)}
@@ -518,7 +586,8 @@ export const Stations = () => {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
