@@ -27,8 +27,10 @@ interface TenantProviderProps {
 const APP_ROUTES = [
   'login', 'estacoes', 'locais', 'transacoes', 'indicadores', 
   'operacoes', 'relatorio-financeiro', 'usuarios', 'vouchers', 
-  'tarifas', 'carteiras', 'notificacoes', 'email', 'branding', 
-  'sustentabilidade', 'alarmes', 'agendamentos', 'metas'
+  'tarifas', 'carteiras', 'notificacoes', 'email', 'branding',
+  'sustentabilidade', 'alarmes', 'agendamentos', 'metas',
+  // páginas legais públicas (sem tenant na URL → redireciona para /neopower/...)
+  'privacidade', 'termos', 'excluir-conta'
 ];
 
 export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
