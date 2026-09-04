@@ -41,6 +41,8 @@ interface LocationData {
   telefoneResponsavel: string;
   chargePoints?: any[];
   imageUrl?: string;
+  idleFeePerMin?: number;
+  idleGraceMin?: number;
 }
 
 interface Props {
@@ -82,6 +84,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     emailResponsavel: location.emailResponsavel || '',
     telefoneResponsavel: location.telefoneResponsavel || '',
     imageUrl: location.imageUrl || '',
+    idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
+    idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
   });
 
   const startEditing = () => {
@@ -103,6 +107,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       emailResponsavel: location.emailResponsavel || '',
       telefoneResponsavel: location.telefoneResponsavel || '',
       imageUrl: location.imageUrl || '',
+      idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
+      idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
     });
     setIsEditing(true);
   };
@@ -196,6 +202,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.emailResponsavel) payload.email_responsavel = form.emailResponsavel;
       if (form.telefoneResponsavel) payload.telefone_responsavel = form.telefoneResponsavel;
       if (form.imageUrl !== undefined) payload.imagem_local_url = form.imageUrl || null;
+      payload.idle_fee_per_min = form.idleFeePerMin ? parseFloat(form.idleFeePerMin) : 0;
+      payload.idle_grace_min = form.idleGraceMin ? parseInt(form.idleGraceMin, 10) : 0;
 
 
       const response = await api.put(`/locations/${location.id}`, payload);
@@ -442,6 +450,22 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                 <div className="space-y-1.5">
                   <Label className="text-foreground/70">Telefone</Label>
                   <Input value={form.telefoneResponsavel} onChange={e => update('telefoneResponsavel', e.target.value)} placeholder="(00) 00000-0000" className="bg-surface-container-high border-border text-foreground" />
+                </div>
+              </div>
+            </div>
+
+            {/* Taxa de ociosidade */}
+            <div>
+              <h4 className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Taxa de ociosidade</h4>
+              <p className="text-xs text-muted-foreground/70 mb-3">Cobrada por minuto quando o carro termina de carregar e continua ocupando o carregador. Deixe a taxa em 0 para não cobrar.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-foreground/70">Taxa por minuto (R$)</Label>
+                  <Input type="number" min="0" step="0.10" value={form.idleFeePerMin} onChange={e => update('idleFeePerMin', e.target.value)} placeholder="0,00" className="bg-surface-container-high border-border text-foreground" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-foreground/70">Carência (min. grátis)</Label>
+                  <Input type="number" min="0" step="1" value={form.idleGraceMin} onChange={e => update('idleGraceMin', e.target.value)} placeholder="10" className="bg-surface-container-high border-border text-foreground" />
                 </div>
               </div>
             </div>

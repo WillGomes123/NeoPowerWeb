@@ -50,6 +50,8 @@ interface LocationFormData {
   tipo_negocio: string;
   tipo_local: string;
   tipo_estacionamento: string;
+  idle_fee_per_min: string;
+  idle_grace_min: string;
   horario_funcionamento: {
     [key: string]: {
       tipo: string;
@@ -162,6 +164,8 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     tipo_negocio: 'comercial',
     tipo_local: 'publico',
     tipo_estacionamento: 'gratis',
+    idle_fee_per_min: '0',
+    idle_grace_min: '10',
     horario_funcionamento: {},
     observacoes: '',
     logo_url: '',
@@ -368,6 +372,9 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         cod_servico_lc116: formData.cod_servico_lc116 || null,
         simples_nacional: formData.simples_nacional,
         nfse_provider: formData.nfse_provider || null,
+        // Taxa de ociosidade (R$/min) + carência (min). Sem teto.
+        idle_fee_per_min: formData.idle_fee_per_min ? parseFloat(formData.idle_fee_per_min) : 0,
+        idle_grace_min: formData.idle_grace_min ? parseInt(formData.idle_grace_min, 10) : 0,
       };
       const response = await api.post('/locations', normalizedData);
 
@@ -764,6 +771,21 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                         <SelectItem value="pago" className="text-on-surface focus:bg-surface-container-highest">Pago</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+                {/* Taxa de ociosidade */}
+                <div className="mt-4 rounded-lg border border-outline-variant/10 bg-surface-container-low/40 p-4">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-1 block">Taxa de ociosidade (opcional)</Label>
+                  <p className="text-xs text-on-surface-variant/70 mb-3">Cobrada por minuto quando o carro termina de carregar e continua ocupando o carregador. Deixe a taxa em 0 para não cobrar.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Taxa por minuto (R$)</Label>
+                      <Input type="number" min="0" step="0.10" placeholder="0,00" value={formData.idle_fee_per_min} onChange={e => setFormData({ ...formData, idle_fee_per_min: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Carência (min. grátis)</Label>
+                      <Input type="number" min="0" step="1" placeholder="10" value={formData.idle_grace_min} onChange={e => setFormData({ ...formData, idle_grace_min: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
                   </div>
                 </div>
               </div>
