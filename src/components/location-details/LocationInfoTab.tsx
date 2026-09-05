@@ -44,6 +44,8 @@ interface LocationData {
   imageUrl?: string;
   idleFeePerMin?: number;
   idleGraceMin?: number;
+  idleFreeStart?: string | null;
+  idleFreeEnd?: string | null;
 }
 
 interface Props {
@@ -104,6 +106,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     imageUrl: location.imageUrl || '',
     idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
     idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
+    idleFreeStart: location.idleFreeStart || '',
+    idleFreeEnd: location.idleFreeEnd || '',
     horario_funcionamento: buildHorarios(location.horarioFuncionamento),
   });
 
@@ -128,6 +132,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       imageUrl: location.imageUrl || '',
       idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
       idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
+      idleFreeStart: location.idleFreeStart || '',
+      idleFreeEnd: location.idleFreeEnd || '',
       horario_funcionamento: buildHorarios(location.horarioFuncionamento),
     });
     setIsEditing(true);
@@ -224,6 +230,8 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.imageUrl !== undefined) payload.imagem_local_url = form.imageUrl || null;
       payload.idle_fee_per_min = form.idleFeePerMin ? parseFloat(form.idleFeePerMin) : 0;
       payload.idle_grace_min = form.idleGraceMin ? parseInt(form.idleGraceMin, 10) : 0;
+      payload.idle_free_start = form.idleFreeStart || null;
+      payload.idle_free_end = form.idleFreeEnd || null;
       payload.horario_funcionamento = form.horario_funcionamento;
 
 
@@ -496,6 +504,17 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                 <div className="space-y-1.5">
                   <Label className="text-foreground/70">Carência (min. grátis)</Label>
                   <Input type="number" min="0" step="1" value={form.idleGraceMin} onChange={e => update('idleGraceMin', e.target.value)} placeholder="10" className="bg-surface-container-high border-border text-foreground" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground/70 mt-3 mb-2">Não cobrar ociosidade neste horário (ex.: condomínio das 21:00 às 08:00). Deixe em branco para cobrar a qualquer hora.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-foreground/70">Não cobrar a partir de</Label>
+                  <Input type="time" value={form.idleFreeStart} onChange={e => update('idleFreeStart', e.target.value)} className="bg-surface-container-high border-border text-foreground" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-foreground/70">Até</Label>
+                  <Input type="time" value={form.idleFreeEnd} onChange={e => update('idleFreeEnd', e.target.value)} className="bg-surface-container-high border-border text-foreground" />
                 </div>
               </div>
             </div>

@@ -52,6 +52,8 @@ interface LocationFormData {
   tipo_estacionamento: string;
   idle_fee_per_min: string;
   idle_grace_min: string;
+  idle_free_start: string;
+  idle_free_end: string;
   horario_funcionamento: {
     [key: string]: {
       tipo: string;
@@ -166,6 +168,8 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     tipo_estacionamento: 'gratis',
     idle_fee_per_min: '0',
     idle_grace_min: '10',
+    idle_free_start: '',
+    idle_free_end: '',
     horario_funcionamento: {},
     observacoes: '',
     logo_url: '',
@@ -375,6 +379,8 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         // Taxa de ociosidade (R$/min) + carência (min). Sem teto.
         idle_fee_per_min: formData.idle_fee_per_min ? parseFloat(formData.idle_fee_per_min) : 0,
         idle_grace_min: formData.idle_grace_min ? parseInt(formData.idle_grace_min, 10) : 0,
+        idle_free_start: formData.idle_free_start || null,
+        idle_free_end: formData.idle_free_end || null,
       };
       const response = await api.post('/locations', normalizedData);
 
@@ -785,6 +791,14 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     <div>
                       <Label className="text-on-surface-variant text-[11px] mb-1 block">Carência (min. grátis)</Label>
                       <Input type="number" min="0" step="1" placeholder="10" value={formData.idle_grace_min} onChange={e => setFormData({ ...formData, idle_grace_min: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Não cobrar a partir de (opcional)</Label>
+                      <Input type="time" value={formData.idle_free_start} onChange={e => setFormData({ ...formData, idle_free_start: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Até</Label>
+                      <Input type="time" value={formData.idle_free_end} onChange={e => setFormData({ ...formData, idle_free_end: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
                     </div>
                   </div>
                 </div>
