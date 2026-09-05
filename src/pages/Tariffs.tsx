@@ -235,6 +235,7 @@ export const Tariffs = () => {
   const [selectedCharger, setSelectedCharger] = useState<string>('all');
   const [chargers, setChargers] = useState<{ charge_point_id: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [pageTab, setPageTab] = useState<'tarifas' | 'perfis'>('tarifas');
   const [filter, setFilter] = useState<FilterType>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -536,23 +537,59 @@ export const Tariffs = () => {
                   Configure o preço por kWh por local, por perfil de cliente, ou os dois combinados.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                      Preço por kWh (R$)
-                    </Label>
-                    <Input
-                      id="price"
+              <div className="grid gap-5 py-4">
+                {/* Preço — o principal, em destaque */}
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Preço por kWh
+                  </Label>
+                  <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 focus-within:border-primary transition-colors">
+                    <span className="text-2xl font-headline font-bold text-on-surface">R$</span>
+                    <input
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="0.00"
+                      placeholder="0,00"
                       value={newPrice}
                       onChange={e => setNewPrice(e.target.value)}
-                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                      autoFocus
+                      className="flex-1 min-w-0 bg-transparent text-3xl font-headline font-bold text-on-surface focus:outline-none"
                     />
+                    <span className="text-sm text-on-surface-variant whitespace-nowrap">/kWh</span>
                   </div>
+                </div>
+
+                {/* Onde aplicar (Local) — visível e simples */}
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Onde aplicar</Label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation} disabled={selectedCharger !== 'all'}>
+                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container border-outline-variant/20">
+                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Toda a rede (preço padrão)</SelectItem>
+                      {locations.map(location => (
+                        <SelectItem key={`l-${location.id}`} value={location.id.toString()} className="text-on-surface focus:bg-surface-container-highest">
+                          {location.nomeDoLocal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-on-surface-variant">Deixe em "Toda a rede" para o preço geral, ou escolha um local específico.</p>
+                </div>
+
+                {/* Toggle de opções avançadas */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline w-fit"
+                >
+                  <span className="material-symbols-outlined text-base">{showAdvanced ? 'expand_less' : 'tune'}</span>
+                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, teto, carregador, perfil)'}
+                </button>
+
+                <div className={showAdvanced ? 'space-y-4 rounded-xl border border-outline-variant/10 bg-surface-container-low/40 p-4' : 'hidden'}>
+                  <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
                       Mínimo por sessão (R$)
@@ -641,30 +678,6 @@ export const Tariffs = () => {
 
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                    Local
-                  </Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation} disabled={selectedCharger !== 'all'}>
-                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-surface-container border-outline-variant/20">
-                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">
-                        Toda a rede
-                      </SelectItem>
-                      {locations.map(location => (
-                        <SelectItem
-                          key={`l-${location.id}`}
-                          value={location.id.toString()}
-                          className="text-on-surface focus:bg-surface-container-highest"
-                        >
-                          {location.nomeDoLocal}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
                     Perfil de cliente
                   </Label>
                   <Select value={selectedProfile} onValueChange={setSelectedProfile}>
@@ -687,9 +700,10 @@ export const Tariffs = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                  Combine os dois para uma tarifa específica — ex.: um local com preço exclusivo para o perfil "Uber". Deixe ambos no padrão para a tarifa global.
-                </p>
+                  <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                    Combine Local/Carregador + Perfil para um preço específico — ex.: um local exclusivo para o perfil "Uber". Deixe no padrão para valer a todos.
+                  </p>
+                </div>
               </div>
               <DialogFooter className="flex justify-end gap-3 pt-2">
                 <button
