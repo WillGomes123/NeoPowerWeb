@@ -797,18 +797,25 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Horário de Funcionamento</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto">
-                  {diasSemana.map(dia => (
-                    <div key={dia} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low">
+                  {diasSemana.map(dia => {
+                    const h = formData.horario_funcionamento[dia];
+                    return (
+                    <div key={dia} className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-surface-container-low">
                       <span className="text-on-surface w-24 font-medium text-sm">{diasSemanaLabels[dia]}</span>
                       <Select
-                        value={formData.horario_funcionamento[dia]?.tipo || '24horas'}
+                        value={h?.tipo || '24horas'}
                         onValueChange={value => {
                           const newHorarios = { ...formData.horario_funcionamento };
-                          newHorarios[dia] = { ...newHorarios[dia], tipo: value, abre_as: '00:00', fecha_as: '23:59' };
+                          newHorarios[dia] = {
+                            ...newHorarios[dia],
+                            tipo: value,
+                            abre_as: newHorarios[dia]?.abre_as || '08:00',
+                            fecha_as: newHorarios[dia]?.fecha_as || '18:00',
+                          };
                           setFormData({ ...formData, horario_funcionamento: newHorarios });
                         }}
                       >
-                        <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1">
+                        <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1 min-w-[140px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-surface-container border-outline-variant/20">
@@ -817,8 +824,34 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                           <SelectItem value="fechado" className="text-on-surface focus:bg-surface-container-highest">Fechado</SelectItem>
                         </SelectContent>
                       </Select>
+                      {h?.tipo === 'customizado' && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={h.abre_as || '08:00'}
+                            onChange={e => {
+                              const newHorarios = { ...formData.horario_funcionamento };
+                              newHorarios[dia] = { ...newHorarios[dia], abre_as: e.target.value };
+                              setFormData({ ...formData, horario_funcionamento: newHorarios });
+                            }}
+                            className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm w-28"
+                          />
+                          <span className="text-on-surface-variant text-sm">até</span>
+                          <Input
+                            type="time"
+                            value={h.fecha_as || '18:00'}
+                            onChange={e => {
+                              const newHorarios = { ...formData.horario_funcionamento };
+                              newHorarios[dia] = { ...newHorarios[dia], fecha_as: e.target.value };
+                              setFormData({ ...formData, horario_funcionamento: newHorarios });
+                            }}
+                            className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm w-28"
+                          />
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

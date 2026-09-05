@@ -17,6 +17,7 @@ import {
   Search,
   ImagePlus
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -61,6 +62,23 @@ const diasLabel: Record<string, string> = {
   domingo: 'Domingo'
 };
 
+type HorarioDia = { tipo: string; abre_as: string; fecha_as: string };
+
+/** Monta o estado editável de horários a partir do que veio do backend,
+ * preenchendo dias faltantes com "24 horas" (padrão). */
+const buildHorarios = (h: any): Record<string, HorarioDia> => {
+  const base: Record<string, HorarioDia> = {};
+  diasSemana.forEach(dia => {
+    const d = (h && h[dia]) || {};
+    base[dia] = {
+      tipo: d.tipo || '24horas',
+      abre_as: d.abre_as || '08:00',
+      fecha_as: d.fecha_as || '18:00',
+    };
+  });
+  return base;
+};
+
 export function LocationInfoTab({ location, onUpdate }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -86,6 +104,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     imageUrl: location.imageUrl || '',
     idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
     idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
+    horario_funcionamento: buildHorarios(location.horarioFuncionamento),
   });
 
   const startEditing = () => {
@@ -109,6 +128,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       imageUrl: location.imageUrl || '',
       idleFeePerMin: location.idleFeePerMin != null ? String(location.idleFeePerMin) : '0',
       idleGraceMin: location.idleGraceMin != null ? String(location.idleGraceMin) : '0',
+      horario_funcionamento: buildHorarios(location.horarioFuncionamento),
     });
     setIsEditing(true);
   };
@@ -204,6 +224,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.imageUrl !== undefined) payload.imagem_local_url = form.imageUrl || null;
       payload.idle_fee_per_min = form.idleFeePerMin ? parseFloat(form.idleFeePerMin) : 0;
       payload.idle_grace_min = form.idleGraceMin ? parseInt(form.idleGraceMin, 10) : 0;
+      payload.horario_funcionamento = form.horario_funcionamento;
 
 
       const response = await api.put(`/locations/${location.id}`, payload);
@@ -223,6 +244,15 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
   };
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const updateHorario = (dia: string, patch: Partial<HorarioDia>) =>
+    setForm(prev => ({
+      ...prev,
+      horario_funcionamento: {
+        ...prev.horario_funcionamento,
+        [dia]: { ...prev.horario_funcionamento[dia], ...patch },
+      },
+    }));
 
   const formatCNPJ = (cnpj: string) => {
     if (!cnpj) return '-';
@@ -467,6 +497,51 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                   <Label className="text-foreground/70">Carência (min. grátis)</Label>
                   <Input type="number" min="0" step="1" value={form.idleGraceMin} onChange={e => update('idleGraceMin', e.target.value)} placeholder="10" className="bg-surface-container-high border-border text-foreground" />
                 </div>
+              </div>
+            </div>
+
+            {/* Horário de Funcionamento */}
+            <div>
+              <h4 className="text-sm font-semibold text-muted-foreground mb-1 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-lime-600 dark:text-lime-400" /> Horário de Funcionamento
+              </h4>
+              <p className="text-xs text-muted-foreground/70 mb-3">Defina quando este local fica disponível para recarga. Use "Customizado" para informar o horário de abertura e fechamento.</p>
+              <div className="space-y-2">
+                {diasSemana.map(dia => {
+                  const h = form.horario_funcionamento[dia];
+                  return (
+                    <div key={dia} className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-surface-container-high border border-border">
+                      <span className="text-foreground w-32 font-medium text-sm">{diasLabel[dia]}</span>
+                      <Select value={h?.tipo || '24horas'} onValueChange={value => updateHorario(dia, { tipo: value })}>
+                        <SelectTrigger className="bg-surface-container-high border-border text-foreground h-9 text-sm flex-1 min-w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="24horas">24 horas</SelectItem>
+                          <SelectItem value="customizado">Customizado</SelectItem>
+                          <SelectItem value="fechado">Fechado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {h?.tipo === 'customizado' && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={h.abre_as || '08:00'}
+                            onChange={e => updateHorario(dia, { abre_as: e.target.value })}
+                            className="bg-surface-container-high border-border text-foreground h-9 text-sm w-28"
+                          />
+                          <span className="text-muted-foreground text-sm">até</span>
+                          <Input
+                            type="time"
+                            value={h.fecha_as || '18:00'}
+                            onChange={e => updateHorario(dia, { fecha_as: e.target.value })}
+                            className="bg-surface-container-high border-border text-foreground h-9 text-sm w-28"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
