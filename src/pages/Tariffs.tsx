@@ -20,6 +20,7 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Profiles } from './Profiles';
+import { useAuth } from '../lib/auth';
 
 interface Tariff {
   id: number;
@@ -219,6 +220,10 @@ const TariffCard = ({
 };
 
 export const Tariffs = () => {
+  // Operador white-label (comum) só precifica os PRÓPRIOS locais — não a rede
+  // global. Pra ele, a box já vem com o local selecionado e sem "Toda a rede".
+  const { user } = useAuth();
+  const isOperator = user?.role === 'comum';
   const [allTariffs, setAllTariffs] = useState<Tariff[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
@@ -366,6 +371,14 @@ export const Tariffs = () => {
   useEffect(() => {
     void fetchData();
   }, []);
+
+  // Operador: quando os locais carregam, já seleciona o primeiro — ele não
+  // define a tarifa "global da rede", então o padrão dele é um local.
+  useEffect(() => {
+    if (isOperator && locations.length > 0 && selectedLocation === 'all') {
+      setSelectedLocation(String(locations[0].id));
+    }
+  }, [isOperator, locations, selectedLocation]);
 
   const handleSubmit = async () => {
     if (!newPrice || parseFloat(newPrice) <= 0) {
@@ -567,7 +580,9 @@ export const Tariffs = () => {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent className="bg-surface-container border-outline-variant/20">
-                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Toda a rede (preço padrão)</SelectItem>
+                      {!isOperator && (
+                        <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Toda a rede (preço padrão)</SelectItem>
+                      )}
                       {locations.map(location => (
                         <SelectItem key={`l-${location.id}`} value={location.id.toString()} className="text-on-surface focus:bg-surface-container-highest">
                           {location.nomeDoLocal}
@@ -575,7 +590,11 @@ export const Tariffs = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-on-surface-variant">Deixe em "Toda a rede" para o preço geral, ou escolha um local específico.</p>
+                  <p className="text-[11px] text-on-surface-variant">
+                    {isOperator
+                      ? 'Escolha o local que vai receber esse preço.'
+                      : 'Deixe em "Toda a rede" para o preço geral, ou escolha um local específico.'}
+                  </p>
                 </div>
 
                 {/* Toggle de opções avançadas */}
