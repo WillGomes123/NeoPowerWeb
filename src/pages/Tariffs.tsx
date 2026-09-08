@@ -388,36 +388,49 @@ export const Tariffs = () => {
 
     setSubmitting(true);
     try {
-      const payload: {
+      type TariffPayload = {
         newPrice: number;
         minPrice?: number;
-        locationAddress?: string;
-        profileId?: number;
-        chargePointId?: string;
         floorPerKwh?: number;
         maxPrice?: number;
-      } = {
-        newPrice: parseFloat(newPrice),
+        locationAddress?: string;
+        chargePointId?: string;
+        profileId?: number;
       };
-      if (newMinPrice && parseFloat(newMinPrice) > 0) payload.minPrice = parseFloat(newMinPrice);
-      if (newFloorKwh && parseFloat(newFloorKwh) > 0) payload.floorPerKwh = parseFloat(newFloorKwh);
-      if (newMaxPrice && parseFloat(newMaxPrice) > 0) payload.maxPrice = parseFloat(newMaxPrice);
+      const base: TariffPayload = { newPrice: parseFloat(newPrice) };
+      if (newMinPrice && parseFloat(newMinPrice) > 0) base.minPrice = parseFloat(newMinPrice);
+      if (newFloorKwh && parseFloat(newFloorKwh) > 0) base.floorPerKwh = parseFloat(newFloorKwh);
+      if (newMaxPrice && parseFloat(newMaxPrice) > 0) base.maxPrice = parseFloat(newMaxPrice);
+      const prof = selectedProfile !== 'all' ? parseInt(selectedProfile) : undefined;
+      const withProf = (p: TariffPayload): TariffPayload => (prof ? { ...p, profileId: prof } : p);
 
-      // Carregador vence o local: quando selecionado, ignora o Local.
+      // Uma requisição por escopo. "__all_mine__" aplica o MESMO preço a TODOS
+      // os locais visíveis de uma vez — operador com vários locais no mesmo valor.
+      const payloads: TariffPayload[] = [];
       if (selectedCharger !== 'all') {
-        payload.chargePointId = selectedCharger;
+        payloads.push(withProf({ ...base, chargePointId: selectedCharger }));
+      } else if (selectedLocation === '__all_mine__') {
+        for (const loc of locations) payloads.push(withProf({ ...base, locationAddress: loc.endereco }));
       } else if (selectedLocation !== 'all') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
-        if (location) payload.locationAddress = location.endereco;
-      }
-      if (selectedProfile !== 'all') {
-        payload.profileId = parseInt(selectedProfile);
+        payloads.push(withProf(location ? { ...base, locationAddress: location.endereco } : base));
+      } else {
+        payloads.push(withProf(base));
       }
 
-      const response = await api.post('/tariffs', payload);
+      if (payloads.length === 0) {
+        toast.error('Selecione onde aplicar a tarifa.');
+        setSubmitting(false);
+        return;
+      }
 
-      if (response.ok) {
-        toast.success('Tarifa atualizada com sucesso!');
+      const results = await Promise.all(payloads.map(p => api.post('/tariffs', p)));
+      const okCount = results.filter(r => r.ok).length;
+
+      if (okCount === payloads.length) {
+        toast.success(
+          payloads.length > 1 ? `Tarifa aplicada em ${okCount} locais!` : 'Tarifa atualizada com sucesso!'
+        );
         setIsDialogOpen(false);
         setNewPrice('');
         setNewMinPrice('');
@@ -428,8 +441,14 @@ export const Tariffs = () => {
         setSelectedCharger('all');
         void fetchData();
       } else {
-        const errData = await response.json();
-        toast.error(errData.error || 'Erro ao atualizar tarifa');
+        const failed = results.find(r => !r.ok);
+        const errData = failed ? await failed.json().catch(() => null) : null;
+        toast.error(
+          okCount > 0
+            ? `Aplicada em ${okCount} de ${payloads.length} locais. ${errData?.error || ''}`.trim()
+            : errData?.error || 'Erro ao atualizar tarifa'
+        );
+        if (okCount > 0) void fetchData();
       }
     } catch {
       toast.error('Erro ao atualizar tarifa');
@@ -583,6 +602,11 @@ export const Tariffs = () => {
                       {!isOperator && (
                         <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Toda a rede (preço padrão)</SelectItem>
                       )}
+                      {locations.length > 1 && (
+                        <SelectItem value="__all_mine__" className="text-on-surface focus:bg-surface-container-highest">
+                          {isOperator ? '⭐ Todos os meus locais (mesmo preço)' : '⭐ Todos os locais (mesmo preço)'}
+                        </SelectItem>
+                      )}
                       {locations.map(location => (
                         <SelectItem key={`l-${location.id}`} value={location.id.toString()} className="text-on-surface focus:bg-surface-container-highest">
                           {location.nomeDoLocal}
@@ -592,8 +616,8 @@ export const Tariffs = () => {
                   </Select>
                   <p className="text-[11px] text-on-surface-variant">
                     {isOperator
-                      ? 'Escolha o local que vai receber esse preço.'
-                      : 'Deixe em "Toda a rede" para o preço geral, ou escolha um local específico.'}
+                      ? 'Escolha um local — ou "Todos os meus locais" para aplicar o mesmo preço em todos de uma vez.'
+                      : 'Deixe em "Toda a rede" para o preço geral, ou escolha um local (ou "Todos os locais").'}
                   </p>
                 </div>
 
