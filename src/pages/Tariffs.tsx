@@ -233,6 +233,8 @@ export const Tariffs = () => {
   const [newMinPrice, setNewMinPrice] = useState('');
   const [newFloorKwh, setNewFloorKwh] = useState('');
   const [newMaxPrice, setNewMaxPrice] = useState('');
+  // Copiar o preço de uma tarifa já existente (reaproveitar em vez de redigitar).
+  const [copyFromId, setCopyFromId] = useState<string>('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
   // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -436,6 +438,7 @@ export const Tariffs = () => {
         setNewMinPrice('');
         setNewFloorKwh('');
         setNewMaxPrice('');
+        setCopyFromId('');
         setSelectedLocation('all');
         setSelectedProfile('all');
         setSelectedCharger('all');
@@ -505,6 +508,14 @@ export const Tariffs = () => {
 
   /* ── Dados derivados ── */
   const currentTariffs = useMemo(() => allTariffs.filter(t => t.is_current), [allTariffs]);
+
+  // Rótulo do escopo de uma tarifa, para o seletor "copiar de existente".
+  const tariffScopeLabel = (t: Tariff) =>
+    t.location_address
+      ? t.location_address
+      : t.profileId
+        ? t.profileName || `Perfil #${t.profileId}`
+        : 'Global (rede)';
   const globalTariff = currentTariffs.find(t => !t.location_address && !t.profileId);
   const profileTariffs = useMemo(() => currentTariffs.filter(t => !!t.profileId), [currentTariffs]);
 
@@ -570,6 +581,39 @@ export const Tariffs = () => {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-5 py-4">
+                {/* Copiar de uma tarifa existente — reaproveita o preço */}
+                {currentTariffs.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Copiar de uma tarifa existente
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
+                    </Label>
+                    <Select
+                      value={copyFromId}
+                      onValueChange={v => {
+                        setCopyFromId(v);
+                        const t = currentTariffs.find(x => String(x.id) === v);
+                        if (t) {
+                          setNewPrice(String(t.price_per_kwh));
+                          setNewMinPrice(t.min_price != null && Number(t.min_price) > 0 ? String(t.min_price) : '');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                        <SelectValue placeholder="Escolha uma tarifa para reaproveitar o preço" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        {currentTariffs.map(t => (
+                          <SelectItem key={`copy-${t.id}`} value={String(t.id)} className="text-on-surface focus:bg-surface-container-highest">
+                            {tariffScopeLabel(t)} — {formatCurrency(t.price_per_kwh)}/kWh
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-on-surface-variant">Preenche o preço abaixo. Depois é só escolher onde aplicar.</p>
+                  </div>
+                )}
+
                 {/* Preço — o principal, em destaque */}
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
