@@ -570,7 +570,7 @@ export const Tariffs = () => {
                 Nova Tarifa
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
+            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px] max-h-[88vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">sell</span>
@@ -629,7 +629,7 @@ export const Tariffs = () => {
                       value={newPrice}
                       onChange={e => setNewPrice(e.target.value)}
                       autoFocus
-                      className="flex-1 min-w-0 bg-transparent text-3xl font-headline font-bold text-on-surface focus:outline-none"
+                      className="flex-1 min-w-0 bg-transparent text-3xl font-headline font-bold text-on-surface focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
                     />
                     <span className="text-sm text-on-surface-variant whitespace-nowrap">/kWh</span>
                   </div>
