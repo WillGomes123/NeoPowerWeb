@@ -37,6 +37,7 @@ interface Location {
   id: number;
   nomeDoLocal: string;
   endereco: string;
+  numero?: string | null;
 }
 
 interface ProfileOption {
@@ -50,6 +51,7 @@ type FilterType = 'all' | 'global' | 'profile' | 'local';
 interface TariffCardProps {
   type: 'global' | 'profile' | 'local';
   title: string;
+  subtitle?: string | null;
   price: number;
   minPrice?: number | null;
   updatedAt: string;
@@ -68,6 +70,7 @@ interface TariffCardProps {
 const TariffCard = ({
   type,
   title,
+  subtitle,
   price,
   minPrice,
   updatedAt,
@@ -122,6 +125,15 @@ const TariffCard = ({
             {type === 'global' ? 'TARIFA GLOBAL' : title}
           </span>
         </div>
+
+        {subtitle && (
+          <p
+            className="text-[10px] text-on-surface-variant -mt-2 mb-2 truncate max-w-[220px]"
+            title={subtitle}
+          >
+            {subtitle}
+          </p>
+        )}
 
         {isEditing ? (
           <div className="space-y-2 mt-4">
@@ -252,6 +264,10 @@ export const Tariffs = () => {
     type: 'global' | 'profile' | 'local';
     id?: number | null;
     address?: string | null;
+    // Identidade do card de local por ID (não por endereço): dois locais na
+    // mesma rua compartilham `endereco`, então chavear a edição por endereço
+    // colocaria os dois em modo de edição ao mesmo tempo.
+    locId?: number | null;
   } | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
@@ -529,16 +545,26 @@ export const Tariffs = () => {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const current = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Agrupar locais únicos com tarifa atual
-  const uniqueLocations = useMemo(() => {
-    const map = new Map<string, Tariff>();
-    for (const t of allTariffs) {
-      if (t.location_address && t.is_current) {
-        map.set(t.location_address, t);
-      }
-    }
-    return Array.from(map.values());
-  }, [allTariffs]);
+  // Uma linha por LOCAL do operador (não deduplica por endereço). Cada local
+  // resolve sua tarifa atual pelo próprio `endereco`.
+  //
+  // Antes, a lista era montada a partir das tarifas deduplicadas por
+  // `location_address`: dois locais na mesma rua (mesmo `endereco`, ex.: dois
+  // condomínios na Avenida Alphaville) colapsavam num card só — um deles
+  // "sumia". Agora chaveamos por local (id), então cada um aparece pelo NOME.
+  //
+  // Locais que partilham o mesmo `endereco` também partilham a MESMA tarifa
+  // (é assim que o faturamento resolve o preço hoje): ambos exibem o mesmo
+  // valor, e editar reflete nos dois. Para preços distintos entre eles, usa-se
+  // tarifa por carregador (o faturamento resolve o carregador primeiro).
+  const locationRows = useMemo(() => {
+    return locations
+      .map(loc => {
+        const tariff = currentTariffs.find(t => t.location_address === loc.endereco) ?? null;
+        return { loc, tariff };
+      })
+      .filter((r): r is { loc: Location; tariff: Tariff } => !!r.tariff);
+  }, [locations, currentTariffs]);
 
   if (loading) {
     return (
@@ -900,13 +926,15 @@ export const Tariffs = () => {
         })}
 
         {/* Per-Location Tariff Cards */}
-        {uniqueLocations.map(tariff => {
-          const isCurrentEditing = editingCard?.type === 'local' && editingCard.address === tariff.location_address;
+        {locationRows.map(({ loc, tariff }) => {
+          const isCurrentEditing = editingCard?.type === 'local' && editingCard.locId === loc.id;
+          const enderecoLegivel = [loc.endereco, loc.numero].filter(Boolean).join(', ');
           return (
             <TariffCard
-              key={tariff.id}
+              key={loc.id}
               type="local"
-              title={tariff.location_address || ''}
+              title={loc.nomeDoLocal || loc.endereco}
+              subtitle={enderecoLegivel}
               price={tariff.price_per_kwh}
               minPrice={tariff.min_price}
               updatedAt={tariff.created_at}
@@ -917,7 +945,7 @@ export const Tariffs = () => {
               editMinPrice={editMinPrice}
               setEditMinPrice={setEditMinPrice}
               onStartEdit={() => {
-                setEditingCard({ type: 'local', address: tariff.location_address });
+                setEditingCard({ type: 'local', locId: loc.id, address: loc.endereco });
                 setEditPrice(tariff.price_per_kwh.toString());
                 setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
               }}
@@ -926,14 +954,14 @@ export const Tariffs = () => {
                 setEditPrice('');
                 setEditMinPrice('');
               }}
-              onSave={() => handleSaveInline('local', null, tariff.location_address)}
+              onSave={() => handleSaveInline('local', null, loc.endereco)}
               submitting={inlineSubmitting}
             />
           );
         })}
 
         {/* Empty state for local tariffs */}
-        {uniqueLocations.length === 0 && (
+        {locationRows.length === 0 && (
           <div className="glass-card rounded-xl border border-dashed border-outline-variant/20 p-6 flex flex-col items-center justify-center text-center">
             <span className="material-symbols-outlined text-3xl text-outline mb-2">add_location</span>
             <p className="text-xs text-on-surface-variant">Nenhuma tarifa por local</p>
