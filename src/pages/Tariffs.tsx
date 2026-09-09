@@ -27,6 +27,7 @@ interface Tariff {
   price_per_kwh: number;
   min_price?: number;
   location_address: string | null;
+  location_id?: number | null;
   profileId?: number | null;
   profileName?: string | null;
   created_at: string;
@@ -412,6 +413,7 @@ export const Tariffs = () => {
         floorPerKwh?: number;
         maxPrice?: number;
         locationAddress?: string;
+        locationId?: number;
         chargePointId?: string;
         profileId?: number;
       };
@@ -428,10 +430,10 @@ export const Tariffs = () => {
       if (selectedCharger !== 'all') {
         payloads.push(withProf({ ...base, chargePointId: selectedCharger }));
       } else if (selectedLocation === '__all_mine__') {
-        for (const loc of locations) payloads.push(withProf({ ...base, locationAddress: loc.endereco }));
+        for (const loc of locations) payloads.push(withProf({ ...base, locationId: loc.id }));
       } else if (selectedLocation !== 'all') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
-        payloads.push(withProf(location ? { ...base, locationAddress: location.endereco } : base));
+        payloads.push(withProf(location ? { ...base, locationId: location.id } : base));
       } else {
         payloads.push(withProf(base));
       }
@@ -476,7 +478,12 @@ export const Tariffs = () => {
     }
   };
 
-  const handleSaveInline = async (type: 'global' | 'profile' | 'local', id?: number | null, address?: string | null) => {
+  const handleSaveInline = async (
+    type: 'global' | 'profile' | 'local',
+    id?: number | null,
+    address?: string | null,
+    locId?: number | null
+  ) => {
     if (!editPrice || parseFloat(editPrice) <= 0) {
       toast.error('Informe um preço válido');
       return;
@@ -484,13 +491,22 @@ export const Tariffs = () => {
 
     setInlineSubmitting(true);
     try {
-      const payload: { newPrice: number; minPrice?: number; locationAddress?: string; profileId?: number } = {
+      const payload: {
+        newPrice: number;
+        minPrice?: number;
+        locationAddress?: string;
+        locationId?: number;
+        profileId?: number;
+      } = {
         newPrice: parseFloat(editPrice),
       };
       if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
-      if (type === 'local' && address) {
-        payload.locationAddress = address;
+      if (type === 'local') {
+        // Preferimos o id do local (distingue locais de mesma rua); caímos no
+        // endereço só como legado.
+        if (locId != null) payload.locationId = locId;
+        else if (address) payload.locationAddress = address;
       } else if (type === 'profile' && id) {
         payload.profileId = id;
       }
@@ -526,12 +542,19 @@ export const Tariffs = () => {
   const currentTariffs = useMemo(() => allTariffs.filter(t => t.is_current), [allTariffs]);
 
   // Rótulo do escopo de uma tarifa, para o seletor "copiar de existente".
-  const tariffScopeLabel = (t: Tariff) =>
-    t.location_address
+  // Com location_id, mostra o NOME do local — senão dois locais de mesmo
+  // endereço ficariam com rótulo idêntico.
+  const tariffScopeLabel = (t: Tariff) => {
+    if (t.location_id != null) {
+      const loc = locations.find(l => l.id === t.location_id);
+      return loc?.nomeDoLocal || t.location_address || `Local #${t.location_id}`;
+    }
+    return t.location_address
       ? t.location_address
       : t.profileId
         ? t.profileName || `Perfil #${t.profileId}`
         : 'Global (rede)';
+  };
   const globalTariff = currentTariffs.find(t => !t.location_address && !t.profileId);
   const profileTariffs = useMemo(() => currentTariffs.filter(t => !!t.profileId), [currentTariffs]);
 
@@ -546,21 +569,22 @@ export const Tariffs = () => {
   const current = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   // Uma linha por LOCAL do operador (não deduplica por endereço). Cada local
-  // resolve sua tarifa atual pelo próprio `endereco`.
+  // resolve sua tarifa atual primeiro por `location_id` (chave nova, distingue
+  // dois locais na mesma rua) e, se não houver, pelo `endereco` (tarifas
+  // antigas, ainda não migradas).
   //
   // Antes, a lista era montada a partir das tarifas deduplicadas por
   // `location_address`: dois locais na mesma rua (mesmo `endereco`, ex.: dois
   // condomínios na Avenida Alphaville) colapsavam num card só — um deles
-  // "sumia". Agora chaveamos por local (id), então cada um aparece pelo NOME.
-  //
-  // Locais que partilham o mesmo `endereco` também partilham a MESMA tarifa
-  // (é assim que o faturamento resolve o preço hoje): ambos exibem o mesmo
-  // valor, e editar reflete nos dois. Para preços distintos entre eles, usa-se
-  // tarifa por carregador (o faturamento resolve o carregador primeiro).
+  // "sumia". Agora cada local aparece pelo NOME e, ao salvar, a tarifa vai por
+  // `location_id` — preços independentes mesmo com o mesmo endereço.
   const locationRows = useMemo(() => {
     return locations
       .map(loc => {
-        const tariff = currentTariffs.find(t => t.location_address === loc.endereco) ?? null;
+        const tariff =
+          currentTariffs.find(t => t.location_id === loc.id) ??
+          currentTariffs.find(t => t.location_id == null && t.location_address === loc.endereco) ??
+          null;
         return { loc, tariff };
       })
       .filter((r): r is { loc: Location; tariff: Tariff } => !!r.tariff);
@@ -860,8 +884,9 @@ export const Tariffs = () => {
       <>
       {/* Current Tariffs — Global + Per-Location Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Global Tariff Card */}
-        {globalTariff ? (
+        {/* Global Tariff Card — oculto para operador (tenant): a tarifa global é
+            da REDE (não é dele), ele não pode editá-la e só confundia. */}
+        {isOperator ? null : globalTariff ? (
           <TariffCard
             type="global"
             title="TARIFA GLOBAL"
@@ -954,7 +979,7 @@ export const Tariffs = () => {
                 setEditPrice('');
                 setEditMinPrice('');
               }}
-              onSave={() => handleSaveInline('local', null, loc.endereco)}
+              onSave={() => handleSaveInline('local', null, loc.endereco, loc.id)}
               submitting={inlineSubmitting}
             />
           );
