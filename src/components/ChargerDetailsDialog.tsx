@@ -52,7 +52,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setLoading(true);
     try {
-      const r = await api.get(`/chargers/${chargePointId}/details`);
+      const r = await api.get(`/chargers/${encodeURIComponent(chargePointId)}/details`);
       if (r.ok) {
         const d = await r.json();
         setCharger(d); setEditName(d.description || ''); setEditConnectorType(d.connector_type || ''); setEditPowerKw(d.power_kw ? String(d.power_kw) : ''); setEditing(false);
@@ -65,7 +65,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setSaving(true);
     try {
-      const r = await api.put(`/chargers/${chargePointId}/info`, { description: editName || null, connector_type: editConnectorType || null, power_kw: editPowerKw ? Number(editPowerKw) : null });
+      const r = await api.put(`/chargers/${encodeURIComponent(chargePointId)}/info`, { description: editName || null, connector_type: editConnectorType || null, power_kw: editPowerKw ? Number(editPowerKw) : null });
       if (r.ok) { toast.success('Atualizado!'); setEditing(false); void fetchChargerDetails(); onUpdate?.(); }
       else toast.error('Erro ao salvar');
     } catch { toast.error('Erro ao salvar'); }
@@ -76,7 +76,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setResetting(true);
     try {
-      const r = await api.post(`/chargers/${chargePointId}/reset`, { type: resetType });
+      const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/reset`, { type: resetType });
       if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? toast.success(`Reset ${resetType} aceito`) : toast.warning(`Reset ${resetType} rejeitado`); onUpdate?.(); }
       else { const e = await r.json(); toast.error(e.error || 'Erro no reset'); }
     } catch { toast.error('Erro no reset'); }
@@ -87,7 +87,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setChangingAvailability(true);
     try {
-      const r = await api.post(`/chargers/${chargePointId}/availability`, { type: available ? 'Operative' : 'Inoperative', connectorId: 0 });
+      const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/availability`, { type: available ? 'Operative' : 'Inoperative', connectorId: 0 });
       if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? (toast.success(`${available ? 'Ativado' : 'Desativado'}!`), void fetchChargerDetails(), onUpdate?.()) : toast.warning('Comando rejeitado'); }
       else { const e = await r.json(); toast.error(e.error || 'Erro'); }
     } catch { toast.error('Erro ao alterar disponibilidade'); }

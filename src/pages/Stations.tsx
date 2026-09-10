@@ -168,7 +168,7 @@ export const Stations = () => {
     const locationId = selectedLocations[c.charge_point_id];
     setSavingPending(c.charge_point_id);
     try {
-      const info = await api.put(`/chargers/${c.charge_point_id}/info`, {
+      const info = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/info`, {
         description: ed.description.trim() || null,
         model: ed.model.trim() || null,
         vendor: ed.vendor.trim() || null,
@@ -185,7 +185,7 @@ export const Stations = () => {
       const donoEscolhido = selectedOwners[c.charge_point_id];
       const donoAtual = c.clientId || SEM_OPERADOR;
       if (ehAdminPlataforma && donoEscolhido && donoEscolhido !== donoAtual) {
-        const owner = await api.put(`/chargers/${c.charge_point_id}/owner`, {
+        const owner = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/owner`, {
           clientId: donoEscolhido === SEM_OPERADOR ? null : donoEscolhido,
         });
         if (!owner.ok) {
@@ -195,7 +195,7 @@ export const Stations = () => {
       }
 
       if (locationId) {
-        const assign = await api.put(`/chargers/${c.charge_point_id}/assign-location`, { locationId: parseInt(locationId) });
+        const assign = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/assign-location`, { locationId: parseInt(locationId) });
         if (!assign.ok) {
           const b = await assign.json().catch(() => null);
           throw new Error(b?.error || 'Erro ao atribuir local');
@@ -252,7 +252,7 @@ export const Stations = () => {
   const handleDeleteCharger = async (chargerId: string) => {
     if (!confirm(`Excluir o carregador "${chargerId}"? Esta ação não pode ser desfeita.`)) return;
     try {
-      const r = await api.delete(`/chargers/${chargerId}`);
+      const r = await api.delete(`/chargers/${encodeURIComponent(chargerId)}`);
       const d = await r.json().catch(() => null);
       if (!r.ok) throw new Error(d?.error || 'Erro ao excluir carregador');
       toast.success('Carregador excluído');
