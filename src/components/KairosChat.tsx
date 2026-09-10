@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { useTenant } from '../contexts/TenantContext';
 import { 
   Sparkles, 
   MessageSquare, 
@@ -84,6 +85,13 @@ const TypewriterText = ({ text, speed = 8, onComplete, onType, formatFn }: Typew
 };
 
 export const KairosChat = () => {
+  // Marca do operador (white-label): a IA nunca deve se apresentar como "NeoPower".
+  const { tenantBranding } = useTenant();
+  const brandName: string | undefined = tenantBranding?.companyName || undefined;
+  const saudacaoInicial = brandName
+    ? `Olá! Sou o **KAIROS**, o assistente inteligente da ${brandName}. Como posso ajudar você hoje?`
+    : 'Olá! Sou o **KAIROS**, o seu assistente inteligente. Como posso ajudar você hoje?';
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'history' | 'subroutines'>('chat');
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -151,7 +159,7 @@ export const KairosChat = () => {
       history: [
         {
           role: 'model',
-          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower. Como posso ajudar você hoje?' }],
+          parts: [{ text: saudacaoInicial }],
           animate: true
         }
       ],

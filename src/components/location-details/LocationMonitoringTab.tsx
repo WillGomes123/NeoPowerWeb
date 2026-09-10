@@ -80,7 +80,7 @@ export function LocationMonitoringTab({ locationId }: Props) {
     }
 
     try {
-      const response = await api.put(`/chargers/${chargePointId}/assign-location`, {
+      const response = await api.put(`/chargers/${encodeURIComponent(chargePointId)}/assign-location`, {
         locationId: null
       });
 

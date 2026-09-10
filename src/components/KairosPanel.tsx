@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { useTenant } from '../contexts/TenantContext';
 import { 
   Plus, 
   Trash2, 
@@ -115,6 +116,16 @@ interface KairosPanelProps {
 }
 
 export const KairosPanel = ({ onClose }: KairosPanelProps) => {
+  // Marca do operador (white-label): a IA nunca deve se apresentar como "NeoPower".
+  const { tenantBranding } = useTenant();
+  const brandName: string | undefined = tenantBranding?.companyName || undefined;
+  const saudacaoInicial = brandName
+    ? `Olá! Sou o **KAIROS**, o assistente inteligente da ${brandName}. Como posso te ajudar hoje?`
+    : 'Olá! Sou o **KAIROS**, o seu assistente inteligente. Como posso te ajudar hoje?';
+  const saudacaoNova = brandName
+    ? `Olá! Como posso te ajudar com a gestão da ${brandName} hoje? Você pode me perguntar sobre postos, tarifas ou configurar novos alertas!`
+    : 'Olá! Como posso te ajudar hoje? Você pode me perguntar sobre postos, tarifas ou configurar novos alertas!';
+
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>('');
   const [inputMessage, setInputMessage] = useState('');
@@ -188,7 +199,7 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
       history: [
         {
           role: 'model',
-          parts: [{ text: 'Olá! Sou o **KAIROS**, o assistente inteligente da NeoPower. Como posso te ajudar hoje?' }],
+          parts: [{ text: saudacaoInicial }],
           animate: true
         }
       ],
@@ -230,7 +241,7 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
       history: [
         {
           role: 'model',
-          parts: [{ text: 'Olá! Como posso te ajudar com a gestão da NeoPower hoje? Você pode me perguntar sobre postos, tarifas ou configurar novos alertas!' }],
+          parts: [{ text: saudacaoNova }],
           animate: true
         }
       ],
@@ -466,7 +477,7 @@ export const KairosPanel = ({ onClose }: KairosPanelProps) => {
               KAIROS IA
             </h2>
             <span className="text-[10px] text-on-surface-variant/80 mt-1 block">
-              Painel Avançado e Assistente Virtual da Plataforma NeoPower
+              {brandName ? `Painel Avançado e Assistente Virtual da ${brandName}` : 'Painel Avançado e Assistente Virtual'}
             </span>
           </div>
         </div>

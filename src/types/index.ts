@@ -8,6 +8,12 @@ export interface User {
   email: string;
   role: UserRole;
   locationIds?: string[];
+  /**
+   * Operador (white label) a que a conta pertence; null/ausente = plataforma.
+   * O login já devolve este campo — é o que distingue o admin da plataforma,
+   * que enxerga a rede toda, do admin de um operador.
+   */
+  clientId?: string | null;
   branding?: BrandingConfig | null;
 }
 

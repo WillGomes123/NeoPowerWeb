@@ -20,12 +20,14 @@ import {
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Profiles } from './Profiles';
+import { useAuth } from '../lib/auth';
 
 interface Tariff {
   id: number;
   price_per_kwh: number;
   min_price?: number;
   location_address: string | null;
+  location_id?: number | null;
   profileId?: number | null;
   profileName?: string | null;
   created_at: string;
@@ -36,6 +38,7 @@ interface Location {
   id: number;
   nomeDoLocal: string;
   endereco: string;
+  numero?: string | null;
 }
 
 interface ProfileOption {
@@ -49,6 +52,7 @@ type FilterType = 'all' | 'global' | 'profile' | 'local';
 interface TariffCardProps {
   type: 'global' | 'profile' | 'local';
   title: string;
+  subtitle?: string | null;
   price: number;
   minPrice?: number | null;
   updatedAt: string;
@@ -67,6 +71,7 @@ interface TariffCardProps {
 const TariffCard = ({
   type,
   title,
+  subtitle,
   price,
   minPrice,
   updatedAt,
@@ -121,6 +126,15 @@ const TariffCard = ({
             {type === 'global' ? 'TARIFA GLOBAL' : title}
           </span>
         </div>
+
+        {subtitle && (
+          <p
+            className="text-[10px] text-on-surface-variant -mt-2 mb-2 truncate max-w-[220px]"
+            title={subtitle}
+          >
+            {subtitle}
+          </p>
+        )}
 
         {isEditing ? (
           <div className="space-y-2 mt-4">
@@ -219,6 +233,10 @@ const TariffCard = ({
 };
 
 export const Tariffs = () => {
+  // Operador white-label (comum) só precifica os PRÓPRIOS locais — não a rede
+  // global. Pra ele, a box já vem com o local selecionado e sem "Toda a rede".
+  const { user } = useAuth();
+  const isOperator = user?.role === 'comum';
   const [allTariffs, setAllTariffs] = useState<Tariff[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
@@ -228,6 +246,8 @@ export const Tariffs = () => {
   const [newMinPrice, setNewMinPrice] = useState('');
   const [newFloorKwh, setNewFloorKwh] = useState('');
   const [newMaxPrice, setNewMaxPrice] = useState('');
+  // Copiar o preço de uma tarifa já existente (reaproveitar em vez de redigitar).
+  const [copyFromId, setCopyFromId] = useState<string>('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
   // (toda a rede / todos os perfis). Os dois juntos = tarifa de (local × perfil).
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -235,6 +255,7 @@ export const Tariffs = () => {
   const [selectedCharger, setSelectedCharger] = useState<string>('all');
   const [chargers, setChargers] = useState<{ charge_point_id: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [pageTab, setPageTab] = useState<'tarifas' | 'perfis'>('tarifas');
   const [filter, setFilter] = useState<FilterType>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -244,6 +265,10 @@ export const Tariffs = () => {
     type: 'global' | 'profile' | 'local';
     id?: number | null;
     address?: string | null;
+    // Identidade do card de local por ID (não por endereço): dois locais na
+    // mesma rua compartilham `endereco`, então chavear a edição por endereço
+    // colocaria os dois em modo de edição ao mesmo tempo.
+    locId?: number | null;
   } | null>(null);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
@@ -366,6 +391,14 @@ export const Tariffs = () => {
     void fetchData();
   }, []);
 
+  // Operador: quando os locais carregam, já seleciona o primeiro — ele não
+  // define a tarifa "global da rede", então o padrão dele é um local.
+  useEffect(() => {
+    if (isOperator && locations.length > 0 && selectedLocation === 'all') {
+      setSelectedLocation(String(locations[0].id));
+    }
+  }, [isOperator, locations, selectedLocation]);
+
   const handleSubmit = async () => {
     if (!newPrice || parseFloat(newPrice) <= 0) {
       toast.error('Informe um preço válido');
@@ -374,48 +407,69 @@ export const Tariffs = () => {
 
     setSubmitting(true);
     try {
-      const payload: {
+      type TariffPayload = {
         newPrice: number;
         minPrice?: number;
-        locationAddress?: string;
-        profileId?: number;
-        chargePointId?: string;
         floorPerKwh?: number;
         maxPrice?: number;
-      } = {
-        newPrice: parseFloat(newPrice),
+        locationAddress?: string;
+        locationId?: number;
+        chargePointId?: string;
+        profileId?: number;
       };
-      if (newMinPrice && parseFloat(newMinPrice) > 0) payload.minPrice = parseFloat(newMinPrice);
-      if (newFloorKwh && parseFloat(newFloorKwh) > 0) payload.floorPerKwh = parseFloat(newFloorKwh);
-      if (newMaxPrice && parseFloat(newMaxPrice) > 0) payload.maxPrice = parseFloat(newMaxPrice);
+      const base: TariffPayload = { newPrice: parseFloat(newPrice) };
+      if (newMinPrice && parseFloat(newMinPrice) > 0) base.minPrice = parseFloat(newMinPrice);
+      if (newFloorKwh && parseFloat(newFloorKwh) > 0) base.floorPerKwh = parseFloat(newFloorKwh);
+      if (newMaxPrice && parseFloat(newMaxPrice) > 0) base.maxPrice = parseFloat(newMaxPrice);
+      const prof = selectedProfile !== 'all' ? parseInt(selectedProfile) : undefined;
+      const withProf = (p: TariffPayload): TariffPayload => (prof ? { ...p, profileId: prof } : p);
 
-      // Carregador vence o local: quando selecionado, ignora o Local.
+      // Uma requisição por escopo. "__all_mine__" aplica o MESMO preço a TODOS
+      // os locais visíveis de uma vez — operador com vários locais no mesmo valor.
+      const payloads: TariffPayload[] = [];
       if (selectedCharger !== 'all') {
-        payload.chargePointId = selectedCharger;
+        payloads.push(withProf({ ...base, chargePointId: selectedCharger }));
+      } else if (selectedLocation === '__all_mine__') {
+        for (const loc of locations) payloads.push(withProf({ ...base, locationId: loc.id }));
       } else if (selectedLocation !== 'all') {
         const location = locations.find(l => l.id.toString() === selectedLocation);
-        if (location) payload.locationAddress = location.endereco;
-      }
-      if (selectedProfile !== 'all') {
-        payload.profileId = parseInt(selectedProfile);
+        payloads.push(withProf(location ? { ...base, locationId: location.id } : base));
+      } else {
+        payloads.push(withProf(base));
       }
 
-      const response = await api.post('/tariffs', payload);
+      if (payloads.length === 0) {
+        toast.error('Selecione onde aplicar a tarifa.');
+        setSubmitting(false);
+        return;
+      }
 
-      if (response.ok) {
-        toast.success('Tarifa atualizada com sucesso!');
+      const results = await Promise.all(payloads.map(p => api.post('/tariffs', p)));
+      const okCount = results.filter(r => r.ok).length;
+
+      if (okCount === payloads.length) {
+        toast.success(
+          payloads.length > 1 ? `Tarifa aplicada em ${okCount} locais!` : 'Tarifa atualizada com sucesso!'
+        );
         setIsDialogOpen(false);
         setNewPrice('');
         setNewMinPrice('');
         setNewFloorKwh('');
         setNewMaxPrice('');
+        setCopyFromId('');
         setSelectedLocation('all');
         setSelectedProfile('all');
         setSelectedCharger('all');
         void fetchData();
       } else {
-        const errData = await response.json();
-        toast.error(errData.error || 'Erro ao atualizar tarifa');
+        const failed = results.find(r => !r.ok);
+        const errData = failed ? await failed.json().catch(() => null) : null;
+        toast.error(
+          okCount > 0
+            ? `Aplicada em ${okCount} de ${payloads.length} locais. ${errData?.error || ''}`.trim()
+            : errData?.error || 'Erro ao atualizar tarifa'
+        );
+        if (okCount > 0) void fetchData();
       }
     } catch {
       toast.error('Erro ao atualizar tarifa');
@@ -424,7 +478,12 @@ export const Tariffs = () => {
     }
   };
 
-  const handleSaveInline = async (type: 'global' | 'profile' | 'local', id?: number | null, address?: string | null) => {
+  const handleSaveInline = async (
+    type: 'global' | 'profile' | 'local',
+    id?: number | null,
+    address?: string | null,
+    locId?: number | null
+  ) => {
     if (!editPrice || parseFloat(editPrice) <= 0) {
       toast.error('Informe um preço válido');
       return;
@@ -432,13 +491,22 @@ export const Tariffs = () => {
 
     setInlineSubmitting(true);
     try {
-      const payload: { newPrice: number; minPrice?: number; locationAddress?: string; profileId?: number } = {
+      const payload: {
+        newPrice: number;
+        minPrice?: number;
+        locationAddress?: string;
+        locationId?: number;
+        profileId?: number;
+      } = {
         newPrice: parseFloat(editPrice),
       };
       if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
-      if (type === 'local' && address) {
-        payload.locationAddress = address;
+      if (type === 'local') {
+        // Preferimos o id do local (distingue locais de mesma rua); caímos no
+        // endereço só como legado.
+        if (locId != null) payload.locationId = locId;
+        else if (address) payload.locationAddress = address;
       } else if (type === 'profile' && id) {
         payload.profileId = id;
       }
@@ -472,6 +540,21 @@ export const Tariffs = () => {
 
   /* ── Dados derivados ── */
   const currentTariffs = useMemo(() => allTariffs.filter(t => t.is_current), [allTariffs]);
+
+  // Rótulo do escopo de uma tarifa, para o seletor "copiar de existente".
+  // Com location_id, mostra o NOME do local — senão dois locais de mesmo
+  // endereço ficariam com rótulo idêntico.
+  const tariffScopeLabel = (t: Tariff) => {
+    if (t.location_id != null) {
+      const loc = locations.find(l => l.id === t.location_id);
+      return loc?.nomeDoLocal || t.location_address || `Local #${t.location_id}`;
+    }
+    return t.location_address
+      ? t.location_address
+      : t.profileId
+        ? t.profileName || `Perfil #${t.profileId}`
+        : 'Global (rede)';
+  };
   const globalTariff = currentTariffs.find(t => !t.location_address && !t.profileId);
   const profileTariffs = useMemo(() => currentTariffs.filter(t => !!t.profileId), [currentTariffs]);
 
@@ -485,16 +568,27 @@ export const Tariffs = () => {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const current = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Agrupar locais únicos com tarifa atual
-  const uniqueLocations = useMemo(() => {
-    const map = new Map<string, Tariff>();
-    for (const t of allTariffs) {
-      if (t.location_address && t.is_current) {
-        map.set(t.location_address, t);
-      }
-    }
-    return Array.from(map.values());
-  }, [allTariffs]);
+  // Uma linha por LOCAL do operador (não deduplica por endereço). Cada local
+  // resolve sua tarifa atual primeiro por `location_id` (chave nova, distingue
+  // dois locais na mesma rua) e, se não houver, pelo `endereco` (tarifas
+  // antigas, ainda não migradas).
+  //
+  // Antes, a lista era montada a partir das tarifas deduplicadas por
+  // `location_address`: dois locais na mesma rua (mesmo `endereco`, ex.: dois
+  // condomínios na Avenida Alphaville) colapsavam num card só — um deles
+  // "sumia". Agora cada local aparece pelo NOME e, ao salvar, a tarifa vai por
+  // `location_id` — preços independentes mesmo com o mesmo endereço.
+  const locationRows = useMemo(() => {
+    return locations
+      .map(loc => {
+        const tariff =
+          currentTariffs.find(t => t.location_id === loc.id) ??
+          currentTariffs.find(t => t.location_id == null && t.location_address === loc.endereco) ??
+          null;
+        return { loc, tariff };
+      })
+      .filter((r): r is { loc: Location; tariff: Tariff } => !!r.tariff);
+  }, [locations, currentTariffs]);
 
   if (loading) {
     return (
@@ -526,7 +620,7 @@ export const Tariffs = () => {
                 Nova Tarifa
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
+            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px] max-h-[88vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
                   <span className="material-symbols-outlined text-primary">sell</span>
@@ -536,23 +630,103 @@ export const Tariffs = () => {
                   Configure o preço por kWh por local, por perfil de cliente, ou os dois combinados.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-5 py-4">
+                {/* Copiar de uma tarifa existente — reaproveita o preço */}
+                {currentTariffs.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                      Preço por kWh (R$)
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Copiar de uma tarifa existente
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
                     </Label>
-                    <Input
-                      id="price"
+                    <Select
+                      value={copyFromId}
+                      onValueChange={v => {
+                        setCopyFromId(v);
+                        const t = currentTariffs.find(x => String(x.id) === v);
+                        if (t) {
+                          setNewPrice(String(t.price_per_kwh));
+                          setNewMinPrice(t.min_price != null && Number(t.min_price) > 0 ? String(t.min_price) : '');
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                        <SelectValue placeholder="Escolha uma tarifa para reaproveitar o preço" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        {currentTariffs.map(t => (
+                          <SelectItem key={`copy-${t.id}`} value={String(t.id)} className="text-on-surface focus:bg-surface-container-highest">
+                            {tariffScopeLabel(t)} — {formatCurrency(t.price_per_kwh)}/kWh
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-on-surface-variant">Preenche o preço abaixo. Depois é só escolher onde aplicar.</p>
+                  </div>
+                )}
+
+                {/* Preço — o principal, em destaque */}
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Preço por kWh
+                  </Label>
+                  <div className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 focus-within:border-primary transition-colors">
+                    <span className="text-2xl font-headline font-bold text-on-surface">R$</span>
+                    <input
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="0.00"
+                      placeholder="0,00"
                       value={newPrice}
                       onChange={e => setNewPrice(e.target.value)}
-                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                      autoFocus
+                      className="flex-1 min-w-0 bg-transparent text-3xl font-headline font-bold text-on-surface focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
                     />
+                    <span className="text-sm text-on-surface-variant whitespace-nowrap">/kWh</span>
                   </div>
+                </div>
+
+                {/* Onde aplicar (Local) — visível e simples */}
+                <div className="space-y-2">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Onde aplicar</Label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation} disabled={selectedCharger !== 'all'}>
+                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container border-outline-variant/20">
+                      {!isOperator && (
+                        <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">Toda a rede (preço padrão)</SelectItem>
+                      )}
+                      {locations.length > 1 && (
+                        <SelectItem value="__all_mine__" className="text-on-surface focus:bg-surface-container-highest">
+                          {isOperator ? '⭐ Todos os meus locais (mesmo preço)' : '⭐ Todos os locais (mesmo preço)'}
+                        </SelectItem>
+                      )}
+                      {locations.map(location => (
+                        <SelectItem key={`l-${location.id}`} value={location.id.toString()} className="text-on-surface focus:bg-surface-container-highest">
+                          {location.nomeDoLocal}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-on-surface-variant">
+                    {isOperator
+                      ? 'Escolha um local — ou "Todos os meus locais" para aplicar o mesmo preço em todos de uma vez.'
+                      : 'Deixe em "Toda a rede" para o preço geral, ou escolha um local (ou "Todos os locais").'}
+                  </p>
+                </div>
+
+                {/* Toggle de opções avançadas */}
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline w-fit"
+                >
+                  <span className="material-symbols-outlined text-base">{showAdvanced ? 'expand_less' : 'tune'}</span>
+                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, teto, carregador, perfil)'}
+                </button>
+
+                <div className={showAdvanced ? 'space-y-4 rounded-xl border border-outline-variant/10 bg-surface-container-low/40 p-4' : 'hidden'}>
+                  <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
                       Mínimo por sessão (R$)
@@ -641,30 +815,6 @@ export const Tariffs = () => {
 
                 <div className="space-y-2">
                   <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
-                    Local
-                  </Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation} disabled={selectedCharger !== 'all'}>
-                    <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-surface-container border-outline-variant/20">
-                      <SelectItem value="all" className="text-on-surface focus:bg-surface-container-highest">
-                        Toda a rede
-                      </SelectItem>
-                      {locations.map(location => (
-                        <SelectItem
-                          key={`l-${location.id}`}
-                          value={location.id.toString()}
-                          className="text-on-surface focus:bg-surface-container-highest"
-                        >
-                          {location.nomeDoLocal}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
                     Perfil de cliente
                   </Label>
                   <Select value={selectedProfile} onValueChange={setSelectedProfile}>
@@ -687,9 +837,10 @@ export const Tariffs = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                  Combine os dois para uma tarifa específica — ex.: um local com preço exclusivo para o perfil "Uber". Deixe ambos no padrão para a tarifa global.
-                </p>
+                  <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                    Combine Local/Carregador + Perfil para um preço específico — ex.: um local exclusivo para o perfil "Uber". Deixe no padrão para valer a todos.
+                  </p>
+                </div>
               </div>
               <DialogFooter className="flex justify-end gap-3 pt-2">
                 <button
@@ -733,8 +884,9 @@ export const Tariffs = () => {
       <>
       {/* Current Tariffs — Global + Per-Location Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Global Tariff Card */}
-        {globalTariff ? (
+        {/* Global Tariff Card — oculto para operador (tenant): a tarifa global é
+            da REDE (não é dele), ele não pode editá-la e só confundia. */}
+        {isOperator ? null : globalTariff ? (
           <TariffCard
             type="global"
             title="TARIFA GLOBAL"
@@ -799,13 +951,15 @@ export const Tariffs = () => {
         })}
 
         {/* Per-Location Tariff Cards */}
-        {uniqueLocations.map(tariff => {
-          const isCurrentEditing = editingCard?.type === 'local' && editingCard.address === tariff.location_address;
+        {locationRows.map(({ loc, tariff }) => {
+          const isCurrentEditing = editingCard?.type === 'local' && editingCard.locId === loc.id;
+          const enderecoLegivel = [loc.endereco, loc.numero].filter(Boolean).join(', ');
           return (
             <TariffCard
-              key={tariff.id}
+              key={loc.id}
               type="local"
-              title={tariff.location_address || ''}
+              title={loc.nomeDoLocal || loc.endereco}
+              subtitle={enderecoLegivel}
               price={tariff.price_per_kwh}
               minPrice={tariff.min_price}
               updatedAt={tariff.created_at}
@@ -816,7 +970,7 @@ export const Tariffs = () => {
               editMinPrice={editMinPrice}
               setEditMinPrice={setEditMinPrice}
               onStartEdit={() => {
-                setEditingCard({ type: 'local', address: tariff.location_address });
+                setEditingCard({ type: 'local', locId: loc.id, address: loc.endereco });
                 setEditPrice(tariff.price_per_kwh.toString());
                 setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
               }}
@@ -825,14 +979,14 @@ export const Tariffs = () => {
                 setEditPrice('');
                 setEditMinPrice('');
               }}
-              onSave={() => handleSaveInline('local', null, tariff.location_address)}
+              onSave={() => handleSaveInline('local', null, loc.endereco, loc.id)}
               submitting={inlineSubmitting}
             />
           );
         })}
 
         {/* Empty state for local tariffs */}
-        {uniqueLocations.length === 0 && (
+        {locationRows.length === 0 && (
           <div className="glass-card rounded-xl border border-dashed border-outline-variant/20 p-6 flex flex-col items-center justify-center text-center">
             <span className="material-symbols-outlined text-3xl text-outline mb-2">add_location</span>
             <p className="text-xs text-on-surface-variant">Nenhuma tarifa por local</p>

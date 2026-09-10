@@ -50,6 +50,10 @@ interface LocationFormData {
   tipo_negocio: string;
   tipo_local: string;
   tipo_estacionamento: string;
+  idle_fee_per_min: string;
+  idle_grace_min: string;
+  idle_free_start: string;
+  idle_free_end: string;
   horario_funcionamento: {
     [key: string]: {
       tipo: string;
@@ -162,6 +166,10 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     tipo_negocio: 'comercial',
     tipo_local: 'publico',
     tipo_estacionamento: 'gratis',
+    idle_fee_per_min: '0',
+    idle_grace_min: '10',
+    idle_free_start: '',
+    idle_free_end: '',
     horario_funcionamento: {},
     observacoes: '',
     logo_url: '',
@@ -368,6 +376,11 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         cod_servico_lc116: formData.cod_servico_lc116 || null,
         simples_nacional: formData.simples_nacional,
         nfse_provider: formData.nfse_provider || null,
+        // Taxa de ociosidade (R$/min) + carência (min). Sem teto.
+        idle_fee_per_min: formData.idle_fee_per_min ? parseFloat(formData.idle_fee_per_min) : 0,
+        idle_grace_min: formData.idle_grace_min ? parseInt(formData.idle_grace_min, 10) : 0,
+        idle_free_start: formData.idle_free_start || null,
+        idle_free_end: formData.idle_free_end || null,
       };
       const response = await api.post('/locations', normalizedData);
 
@@ -766,6 +779,29 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                     </Select>
                   </div>
                 </div>
+                {/* Taxa de ociosidade */}
+                <div className="mt-4 rounded-lg border border-outline-variant/10 bg-surface-container-low/40 p-4">
+                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest mb-1 block">Taxa de ociosidade (opcional)</Label>
+                  <p className="text-xs text-on-surface-variant/70 mb-3">Cobrada por minuto quando o carro termina de carregar e continua ocupando o carregador. Deixe a taxa em 0 para não cobrar.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Taxa por minuto (R$)</Label>
+                      <Input type="number" min="0" step="0.10" placeholder="0,00" value={formData.idle_fee_per_min} onChange={e => setFormData({ ...formData, idle_fee_per_min: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Carência (min. grátis)</Label>
+                      <Input type="number" min="0" step="1" placeholder="10" value={formData.idle_grace_min} onChange={e => setFormData({ ...formData, idle_grace_min: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Não cobrar a partir de (opcional)</Label>
+                      <Input type="time" value={formData.idle_free_start} onChange={e => setFormData({ ...formData, idle_free_start: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-on-surface-variant text-[11px] mb-1 block">Até</Label>
+                      <Input type="time" value={formData.idle_free_end} onChange={e => setFormData({ ...formData, idle_free_end: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm" />
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Horários */}
@@ -775,18 +811,25 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                   <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Horário de Funcionamento</span>
                 </div>
                 <div className="grid grid-cols-1 gap-2 max-h-[280px] overflow-y-auto">
-                  {diasSemana.map(dia => (
-                    <div key={dia} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low">
+                  {diasSemana.map(dia => {
+                    const h = formData.horario_funcionamento[dia];
+                    return (
+                    <div key={dia} className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-surface-container-low">
                       <span className="text-on-surface w-24 font-medium text-sm">{diasSemanaLabels[dia]}</span>
                       <Select
-                        value={formData.horario_funcionamento[dia]?.tipo || '24horas'}
+                        value={h?.tipo || '24horas'}
                         onValueChange={value => {
                           const newHorarios = { ...formData.horario_funcionamento };
-                          newHorarios[dia] = { ...newHorarios[dia], tipo: value, abre_as: '00:00', fecha_as: '23:59' };
+                          newHorarios[dia] = {
+                            ...newHorarios[dia],
+                            tipo: value,
+                            abre_as: newHorarios[dia]?.abre_as || '08:00',
+                            fecha_as: newHorarios[dia]?.fecha_as || '18:00',
+                          };
                           setFormData({ ...formData, horario_funcionamento: newHorarios });
                         }}
                       >
-                        <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1">
+                        <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm flex-1 min-w-[140px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-surface-container border-outline-variant/20">
@@ -795,8 +838,34 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                           <SelectItem value="fechado" className="text-on-surface focus:bg-surface-container-highest">Fechado</SelectItem>
                         </SelectContent>
                       </Select>
+                      {h?.tipo === 'customizado' && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={h.abre_as || '08:00'}
+                            onChange={e => {
+                              const newHorarios = { ...formData.horario_funcionamento };
+                              newHorarios[dia] = { ...newHorarios[dia], abre_as: e.target.value };
+                              setFormData({ ...formData, horario_funcionamento: newHorarios });
+                            }}
+                            className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm w-28"
+                          />
+                          <span className="text-on-surface-variant text-sm">até</span>
+                          <Input
+                            type="time"
+                            value={h.fecha_as || '18:00'}
+                            onChange={e => {
+                              const newHorarios = { ...formData.horario_funcionamento };
+                              newHorarios[dia] = { ...newHorarios[dia], fecha_as: e.target.value };
+                              setFormData({ ...formData, horario_funcionamento: newHorarios });
+                            }}
+                            className="bg-surface-container-low border-outline-variant/20 text-on-surface h-9 text-sm w-28"
+                          />
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -34,7 +34,7 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, open, onClose }:
     setLoading(true);
     setError(null);
     try {
-      const res = await api.get(`/chargers/${chargerId}/transactions/${transactionId}/meter-values`);
+      const res = await api.get(`/chargers/${encodeURIComponent(chargerId)}/transactions/${transactionId}/meter-values`);
       if (res.ok) {
         const raw = await res.json();
         const arr = Array.isArray(raw) ? raw : [];
