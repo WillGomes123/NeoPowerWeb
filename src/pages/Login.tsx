@@ -46,9 +46,9 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col selection:bg-primary selection:text-on-primary">
+    <div className="min-h-screen flex flex-col overflow-x-hidden selection:bg-primary selection:text-on-primary">
       {/* Top Header Bar */}
-      <header className="fixed top-0 w-full z-50 px-8 py-6">
+      <header className="fixed top-0 w-full z-50 px-4 sm:px-8 py-4 sm:py-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-2xl shadow-white/10">
             <img 
@@ -87,7 +87,7 @@ export const Login = () => {
         />
 
         {/* Login Container */}
-        <div className="relative z-10 w-full max-w-md px-6">
+        <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
           <div
             className="rounded-xl p-8 md:p-10 flex flex-col gap-8"
             style={{
@@ -210,11 +210,11 @@ export const Login = () => {
 
       {/* Footer */}
       <footer className="bg-background w-full py-8 border-t border-border/10 mt-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center px-8 max-w-7xl mx-auto gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-center px-4 sm:px-8 max-w-7xl mx-auto gap-4 text-center md:text-left">
           <div className="text-sm tracking-wide text-on-surface-variant">
             © {new Date().getFullYear()} {tenantBranding?.companyName || 'NeoPower Systems'}. Todos os Direitos Reservados.
           </div>
-          <nav className="flex gap-8">
+          <nav className="flex flex-wrap justify-center gap-4 sm:gap-8">
             <span className="text-sm tracking-wide text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Segurança</span>
             <span className="text-sm tracking-wide text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Privacidade</span>
             <span className="text-sm tracking-wide text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Suporte</span>

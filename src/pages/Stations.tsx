@@ -980,7 +980,7 @@ export const Stations = () => {
               <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Descrição</Label>
               <Input placeholder="Ex: Carregador Estacionamento A" value={regForm.description} onChange={e => setRegForm(f => ({ ...f, description: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Modelo</Label>
                 <Input placeholder="Ex: Wallbox Plus" value={regForm.model} onChange={e => setRegForm(f => ({ ...f, model: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
@@ -990,7 +990,7 @@ export const Stations = () => {
                 <Input placeholder="Ex: ABB" value={regForm.vendor} onChange={e => setRegForm(f => ({ ...f, vendor: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Potência (kW)</Label>
                 <Input type="number" placeholder="22" value={regForm.power_kw} onChange={e => setRegForm(f => ({ ...f, power_kw: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />

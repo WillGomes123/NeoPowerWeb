@@ -494,7 +494,7 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-4 mb-6 bg-surface-container-highest">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6 bg-surface-container-highest">
                   <TabsTrigger value="identity" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Identidade</TabsTrigger>
                   <TabsTrigger value="logos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Logos</TabsTrigger>
                   <TabsTrigger value="colors" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cores do App</TabsTrigger>
@@ -725,7 +725,7 @@ export const Branding = () => {
                         </div>
 
                         {/* Previews */}
-                        <div className="grid grid-cols-3 gap-4 pt-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                           {formData.logoUri && (
                             <div className="flex flex-col items-center gap-2 p-3 bg-surface-container rounded-lg border border-outline-variant/10">
                               <Label className="text-[10px] text-on-surface-variant uppercase font-bold">Padrão</Label>
