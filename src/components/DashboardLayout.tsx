@@ -2,7 +2,7 @@ import { ReactNode, useState, useMemo, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { UserRole } from '../types';
-import { LogOut, Sun, Moon, Search } from 'lucide-react';
+import { LogOut, Sun, Moon, Search, Menu, X } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
@@ -31,10 +31,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isKairosOpen, setIsKairosOpen] = useState(false);
+  // No celular a lateral vira gaveta: fica fora da tela até ser aberta.
+  // A partir de lg ela é fixa e este estado não tem efeito.
+  const [menuAberto, setMenuAberto] = useState(false);
 
   // Close KAIROS when route changes
   useEffect(() => {
     setIsKairosOpen(false);
+    // Navegou: fecha a gaveta, senão o menu cobriria a página recém-aberta.
+    setMenuAberto(false);
   }, [location.pathname]);
 
 
@@ -149,8 +154,29 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Fundo escurecido da gaveta (só no celular) — tocar fora fecha o menu */}
+      {menuAberto && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={() => setMenuAberto(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full flex flex-col pt-3 pb-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50">
+      <aside
+        className={`fixed left-0 top-0 h-full flex flex-col pt-3 pb-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50
+          transition-transform duration-300 lg:translate-x-0 ${menuAberto ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        {/* Fechar (só no celular) */}
+        <button
+          onClick={() => setMenuAberto(false)}
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+          aria-label="Fechar menu"
+        >
+          <X className="w-[18px] h-[18px]" />
+        </button>
+
         {/* Logo */}
         <div className="px-2 mb-3">
           {activeBranding?.logoType === 'image' ? (
@@ -321,9 +347,18 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </aside>
 
       {/* Top Navbar */}
-      <header className="fixed top-0 right-0 left-64 flex justify-between items-center px-8 h-16 bg-background/80 backdrop-blur-xl border-b border-border/15 z-40">
-        <div className="flex items-center gap-4 flex-1">
-          <div className="relative w-72 group">
+      <header className="fixed top-0 right-0 left-0 lg:left-64 flex justify-between items-center px-4 lg:px-8 h-16 bg-background/80 backdrop-blur-xl border-b border-border/15 z-40">
+        <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
+          {/* Abre a gaveta — some a partir de lg, onde a lateral já é fixa */}
+          <button
+            onClick={() => setMenuAberto(true)}
+            className="lg:hidden w-9 h-9 shrink-0 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Abrir menu"
+          >
+            <Menu className="w-[18px] h-[18px]" />
+          </button>
+          {/* A busca ocupa a largura toda no celular e competiria com o menu */}
+          <div className="relative w-72 group hidden md:block">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
             <input
               className={`w-full bg-surface-container-low border border-neutral-200 rounded-lg pl-10 pr-4 py-2 text-sm text-foreground 
@@ -367,7 +402,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4 shrink-0">
           <button
             onClick={toggleTheme}
             className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
@@ -380,8 +415,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="pl-64 pt-16 flex-1 min-h-screen overflow-auto">
-        <div className="p-8 max-w-[1600px] mx-auto">{children}</div>
+      {/* min-w-0 impede que uma tabela larga estique o main e crie rolagem
+          horizontal na página inteira — a rolagem fica dentro da tabela. */}
+      <main className="pl-0 lg:pl-64 pt-16 flex-1 min-w-0 min-h-screen overflow-auto">
+        <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">{children}</div>
       </main>
       {isKairosOpen && <KairosPanel onClose={() => setIsKairosOpen(false)} />}
     </div>

@@ -152,6 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           name: userData.name || 'User',
           email: userData.email,
           role: storedRole,
+          clientId: userData.clientId ?? null,
           branding: userData.branding || null,
         });
         // Atualizar timestamp de atividade ao restaurar sessão
@@ -233,6 +234,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: payload.user.id,
           name: userName,
           email: userEmail,
+          clientId: payload.user.clientId ?? null,
           branding: payload.user.branding || null,
         })
       );
@@ -242,6 +244,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: userName,
         email: userEmail,
         role: normalizedRole,
+        clientId: payload.user.clientId ?? null,
         branding: payload.user.branding || null,
       });
 
@@ -322,6 +325,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: payload.user.id,
           name: payload.user.name,
           email: payload.user.email,
+          clientId: payload.user.clientId ?? null,
           branding: payload.user.branding || null,
         })
       );
@@ -331,6 +335,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name: payload.user.name,
         email: payload.user.email,
         role: normalizedRole,
+        clientId: payload.user.clientId ?? null,
         branding: payload.user.branding || null,
       });
 

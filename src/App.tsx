@@ -36,6 +36,12 @@ const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarm
 const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default: m.Scheduling })));
 const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
 
+// Páginas legais públicas (sem login) — URLs exigidas pelas lojas por white label:
+// /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
+const TermsOfUse = lazy(() => import('./pages/legal/TermsOfUse').then(m => ({ default: m.TermsOfUse })));
+const AccountDeletion = lazy(() => import('./pages/legal/AccountDeletion').then(m => ({ default: m.AccountDeletion })));
+
 // Loading Component
 const PageLoader = () => (
   <div className="flex items-center justify-center h-screen">
@@ -83,6 +89,10 @@ const AppRoutes = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+      {/* Legais: renderizam com ou sem usuário logado (as lojas acessam sem sessão) */}
+      <Route path="/privacidade" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
+      <Route path="/termos" element={<Suspense fallback={<PageLoader />}><TermsOfUse /></Suspense>} />
+      <Route path="/excluir-conta" element={<Suspense fallback={<PageLoader />}><AccountDeletion /></Suspense>} />
 
       {/* Protected Routes */}
       <Route path="/" element={createProtectedRoute(Overview)} />

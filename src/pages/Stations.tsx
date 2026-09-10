@@ -24,6 +24,7 @@ import {
 } from '../components/ui/accordion';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
 import { QrCodeTemplate } from '../components/QrCodeTemplate';
 import html2canvas from 'html2canvas';
@@ -50,8 +51,18 @@ interface Location {
   endereco: string;
 }
 
+/** Valor do select para "carregador da plataforma" — o Radix não aceita "". */
+const SEM_OPERADOR = '__plataforma__';
+
 export const Stations = () => {
+  const { user } = useAuth();
+  // Só a plataforma (admin sem operador) escolhe o dono de um carregador —
+  // é o backend que manda, aqui a checagem só evita mostrar um campo que
+  // resultaria em 403.
+  const ehAdminPlataforma = user?.role === 'admin' && !user?.clientId;
   const [chargers, setChargers] = useState<Charger[]>([]);
+  const [operadores, setOperadores] = useState<{ clientId: string; companyName?: string }[]>([]);
+  const [selectedOwners, setSelectedOwners] = useState<{ [key: string]: string }>({});
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
@@ -109,11 +120,30 @@ export const Stations = () => {
       const init: Record<string, string> = {};
       cl.forEach((c: Charger) => { if (!c.locationId && ll.length > 0) init[c.charge_point_id] = ll[0].id.toString(); });
       setSelectedLocations(init);
+
+      // Dono atual de cada pendente, para o select já abrir no valor certo.
+      const donos: Record<string, string> = {};
+      cl.forEach((c: Charger) => { donos[c.charge_point_id] = c.clientId || SEM_OPERADOR; });
+      setSelectedOwners(donos);
     } catch { toast.error('Erro ao buscar dados'); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { void fetchData(); }, []);
+
+  // Lista de white labels, para vincular um carregador ao operador dono.
+  // Só a plataforma enxerga (e só ela pode gravar).
+  useEffect(() => {
+    if (!ehAdminPlataforma) return;
+    void (async () => {
+      try {
+        const r = await api.get('/admin/branding');
+        if (!r.ok) return;
+        const d = await r.json();
+        setOperadores(Array.isArray(d.data) ? d.data : []);
+      } catch { /* sem a lista, o select fica vazio e o resto da tela segue */ }
+    })();
+  }, [ehAdminPlataforma]);
 
   // Valores de edição de um pendente: o que o usuário digitou, ou os dados atuais.
   const pendingDefaults = (c: Charger) => ({
@@ -138,7 +168,7 @@ export const Stations = () => {
     const locationId = selectedLocations[c.charge_point_id];
     setSavingPending(c.charge_point_id);
     try {
-      const info = await api.put(`/chargers/${c.charge_point_id}/info`, {
+      const info = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/info`, {
         description: ed.description.trim() || null,
         model: ed.model.trim() || null,
         vendor: ed.vendor.trim() || null,
@@ -149,8 +179,23 @@ export const Stations = () => {
         const b = await info.json().catch(() => null);
         throw new Error(b?.error || 'Erro ao salvar informações');
       }
+
+      // Dono ANTES do local: trocar de operador desfaz um local que pertença a
+      // outro tenant, então associar primeiro perderia a associação.
+      const donoEscolhido = selectedOwners[c.charge_point_id];
+      const donoAtual = c.clientId || SEM_OPERADOR;
+      if (ehAdminPlataforma && donoEscolhido && donoEscolhido !== donoAtual) {
+        const owner = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/owner`, {
+          clientId: donoEscolhido === SEM_OPERADOR ? null : donoEscolhido,
+        });
+        if (!owner.ok) {
+          const b = await owner.json().catch(() => null);
+          throw new Error(b?.error || 'Erro ao vincular o operador');
+        }
+      }
+
       if (locationId) {
-        const assign = await api.put(`/chargers/${c.charge_point_id}/assign-location`, { locationId: parseInt(locationId) });
+        const assign = await api.put(`/chargers/${encodeURIComponent(c.charge_point_id)}/assign-location`, { locationId: parseInt(locationId) });
         if (!assign.ok) {
           const b = await assign.json().catch(() => null);
           throw new Error(b?.error || 'Erro ao atribuir local');
@@ -207,7 +252,7 @@ export const Stations = () => {
   const handleDeleteCharger = async (chargerId: string) => {
     if (!confirm(`Excluir o carregador "${chargerId}"? Esta ação não pode ser desfeita.`)) return;
     try {
-      const r = await api.delete(`/chargers/${chargerId}`);
+      const r = await api.delete(`/chargers/${encodeURIComponent(chargerId)}`);
       const d = await r.json().catch(() => null);
       if (!r.ok) throw new Error(d?.error || 'Erro ao excluir carregador');
       toast.success('Carregador excluído');
@@ -515,6 +560,7 @@ export const Stations = () => {
                         <th className="px-6 py-3">Fabricante</th>
                         <th className="px-6 py-3">Potência</th>
                         <th className="px-6 py-3">Tipo</th>
+                        {ehAdminPlataforma && <th className="px-6 py-3">Operador</th>}
                         <th className="px-6 py-3">Atribuir Local</th>
                         <th className="px-6 py-3">Ação</th>
                       </tr>
@@ -548,6 +594,32 @@ export const Stations = () => {
                               </SelectContent>
                             </Select>
                           </td>
+                          {ehAdminPlataforma && (
+                            <td className="px-6 py-3">
+                              <Select
+                                value={selectedOwners[c.charge_point_id] || SEM_OPERADOR}
+                                onValueChange={v => setSelectedOwners(p => ({ ...p, [c.charge_point_id]: v }))}
+                              >
+                                <SelectTrigger className={`w-[160px] ${inputCls}`}>
+                                  <SelectValue placeholder="Plataforma" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-surface-container border-outline-variant/20">
+                                  <SelectItem value={SEM_OPERADOR} className="text-on-surface focus:bg-surface-container-highest">Plataforma</SelectItem>
+                                  {operadores.map(o => (
+                                    <SelectItem key={o.clientId} value={o.clientId} className="text-on-surface focus:bg-surface-container-highest">
+                                      {o.companyName || o.clientId}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {/* O equipamento precisa apontar para a URL do dono. */}
+                              <p className="text-[10px] text-on-surface-variant mt-1 font-mono truncate w-[160px]">
+                                {selectedOwners[c.charge_point_id] && selectedOwners[c.charge_point_id] !== SEM_OPERADOR
+                                  ? `/ocpp/${selectedOwners[c.charge_point_id]}/${c.charge_point_id}`
+                                  : `/ocpp/${c.charge_point_id}`}
+                              </p>
+                            </td>
+                          )}
                           <td className="px-6 py-3">
                             {locations.length === 0 ? (
                               <span className="inline-flex items-center gap-1.5 text-xs text-amber-400">
@@ -908,7 +980,7 @@ export const Stations = () => {
               <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Descrição</Label>
               <Input placeholder="Ex: Carregador Estacionamento A" value={regForm.description} onChange={e => setRegForm(f => ({ ...f, description: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Modelo</Label>
                 <Input placeholder="Ex: Wallbox Plus" value={regForm.model} onChange={e => setRegForm(f => ({ ...f, model: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
@@ -918,7 +990,7 @@ export const Stations = () => {
                 <Input placeholder="Ex: ABB" value={regForm.vendor} onChange={e => setRegForm(f => ({ ...f, vendor: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Potência (kW)</Label>
                 <Input type="number" placeholder="22" value={regForm.power_kw} onChange={e => setRegForm(f => ({ ...f, power_kw: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />

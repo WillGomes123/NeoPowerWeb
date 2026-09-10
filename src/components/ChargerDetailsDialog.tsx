@@ -27,6 +27,104 @@ interface Connector {
   error_code?: string;
 }
 
+interface Tentativa {
+  eventType: 'connected' | 'disconnected' | 'refused';
+  ipAddress?: string | null;
+  protocol?: string | null;
+  reason?: string | null;
+  timestamp: string;
+}
+
+interface Diagnostico {
+  codigo: string;
+  chegouAoServidor: boolean;
+  ultimaTentativa: string | null;
+  tentativasRecusadas24h: number;
+}
+
+interface Conectividade {
+  isConnected: boolean;
+  lastSeen: string | null;
+  attempts: Tentativa[];
+  diagnostico: Diagnostico;
+}
+
+/**
+ * Tradução de cada diagnóstico: o que está acontecendo e o que fazer.
+ *
+ * O texto vive aqui, e não no backend, para poder mudar sem migrar dado — o
+ * servidor guarda só o código. `acao` é a parte que interessa a quem está com
+ * o equipamento na mão.
+ */
+const DIAGNOSTICOS: Record<
+  string,
+  { tom: 'ok' | 'alerta' | 'erro'; titulo: string; explica: string; acao: string }
+> = {
+  conectado: {
+    tom: 'ok',
+    titulo: 'Conectado',
+    explica: 'O carregador está falando com o servidor normalmente.',
+    acao: 'Nada a fazer.',
+  },
+  sem_contato: {
+    tom: 'erro',
+    titulo: 'Nenhum contato com o servidor',
+    explica:
+      'Nenhuma tentativa deste carregador chegou até aqui — nem recusada. O problema está antes do servidor: no equipamento ou na rede dele.',
+    acao:
+      'Confira no equipamento: a URL de conexão (compare com a de um carregador que funciona, no mesmo local), se o cliente OCPP está habilitado e se ele tem internet.',
+  },
+  recusado_nao_cadastrado: {
+    tom: 'alerta',
+    titulo: 'Recusado — ID não cadastrado',
+    explica:
+      'O equipamento chegou ao servidor, mas se apresentou com um ID que não existe no sistema.',
+    acao:
+      'Compare o ID que ele anuncia (na lista de tentativas abaixo) com o cadastrado. Se forem diferentes, corrija num dos dois lados.',
+  },
+  recusado_dono_plataforma: {
+    tom: 'alerta',
+    titulo: 'Recusado — sem operador vinculado',
+    explica:
+      'O carregador existe, mas ainda não pertence a nenhum operador, e está tentando entrar pela URL de um.',
+    acao: 'Vincule o carregador ao operador em Estações › Carregadores Pendentes.',
+  },
+  recusado_outro_operador: {
+    tom: 'erro',
+    titulo: 'Recusado — pertence a outro operador',
+    explica: 'Este ID já está cadastrado para outro operador da plataforma.',
+    acao: 'Confirme se o ID está correto. Se estiver, a plataforma precisa reatribuir o carregador.',
+  },
+  recusado_nao_autorizado: {
+    tom: 'erro',
+    titulo: 'Recusado — carregador desautorizado',
+    explica: 'O carregador está cadastrado, mas marcado como não autorizado.',
+    acao: 'Reative o carregador no cadastro para permitir a conexão.',
+  },
+  recusado_rate_limit: {
+    tom: 'alerta',
+    titulo: 'Bloqueado temporariamente',
+    explica:
+      'O IP foi bloqueado depois de várias tentativas recusadas seguidas. O bloqueio expira sozinho.',
+    acao:
+      'Resolva a causa das recusas (veja as tentativas abaixo) e aguarde o bloqueio expirar — ele não se renova enquanto o carregador estiver barrado.',
+  },
+  offline_apos_conectar: {
+    tom: 'alerta',
+    titulo: 'Offline',
+    explica: 'O carregador já esteve conectado, mas caiu e não voltou.',
+    acao: 'Verifique energia e internet no local. Se voltar sozinho, foi queda momentânea de rede.',
+  },
+};
+
+const MOTIVO_CURTO: Record<string, string> = {
+  nao_cadastrado: 'ID não cadastrado',
+  dono_plataforma: 'sem operador vinculado',
+  dono_outro_operador: 'pertence a outro operador',
+  nao_autorizado: 'desautorizado',
+  rate_limited: 'bloqueado por excesso de tentativas',
+};
+
 interface ChargerDetailsDialogProps {
   chargePointId: string | null;
   open: boolean;
@@ -46,13 +144,44 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
   const [editConnectorType, setEditConnectorType] = useState('');
   const [editPowerKw, setEditPowerKw] = useState('');
 
-  useEffect(() => { if (open && chargePointId) void fetchChargerDetails(); }, [open, chargePointId]);
+  const [conectividade, setConectividade] = useState<Conectividade | null>(null);
+
+  useEffect(() => {
+    if (open && chargePointId) {
+      void fetchChargerDetails();
+      void buscarConectividade();
+    } else {
+      setConectividade(null);
+    }
+  }, [open, chargePointId]);
+
+  // Enquanto o diálogo estiver aberto, revalida a cada 15s: é comum ficar com
+  // ele aberto esperando o equipamento entrar depois de um ajuste em campo.
+  useEffect(() => {
+    if (!open || !chargePointId) return;
+    const t = setInterval(() => void buscarConectividade(), 15000);
+    return () => clearInterval(t);
+  }, [open, chargePointId]);
+
+  const buscarConectividade = async () => {
+    if (!chargePointId) return;
+    try {
+      const r = await api.get(
+        `/chargers/${encodeURIComponent(chargePointId)}/connection-attempts?limit=20`
+      );
+      if (!r.ok) return; // sem diagnóstico o resto do diálogo segue útil
+      const d = await r.json();
+      setConectividade(d.data ?? d);
+    } catch {
+      /* silencioso: é informação complementar */
+    }
+  };
 
   const fetchChargerDetails = async () => {
     if (!chargePointId) return;
     setLoading(true);
     try {
-      const r = await api.get(`/chargers/${chargePointId}/details`);
+      const r = await api.get(`/chargers/${encodeURIComponent(chargePointId)}/details`);
       if (r.ok) {
         const d = await r.json();
         setCharger(d); setEditName(d.description || ''); setEditConnectorType(d.connector_type || ''); setEditPowerKw(d.power_kw ? String(d.power_kw) : ''); setEditing(false);
@@ -65,7 +194,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setSaving(true);
     try {
-      const r = await api.put(`/chargers/${chargePointId}/info`, { description: editName || null, connector_type: editConnectorType || null, power_kw: editPowerKw ? Number(editPowerKw) : null });
+      const r = await api.put(`/chargers/${encodeURIComponent(chargePointId)}/info`, { description: editName || null, connector_type: editConnectorType || null, power_kw: editPowerKw ? Number(editPowerKw) : null });
       if (r.ok) { toast.success('Atualizado!'); setEditing(false); void fetchChargerDetails(); onUpdate?.(); }
       else toast.error('Erro ao salvar');
     } catch { toast.error('Erro ao salvar'); }
@@ -76,7 +205,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setResetting(true);
     try {
-      const r = await api.post(`/chargers/${chargePointId}/reset`, { type: resetType });
+      const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/reset`, { type: resetType });
       if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? toast.success(`Reset ${resetType} aceito`) : toast.warning(`Reset ${resetType} rejeitado`); onUpdate?.(); }
       else { const e = await r.json(); toast.error(e.error || 'Erro no reset'); }
     } catch { toast.error('Erro no reset'); }
@@ -87,7 +216,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     if (!chargePointId) return;
     setChangingAvailability(true);
     try {
-      const r = await api.post(`/chargers/${chargePointId}/availability`, { type: available ? 'Operative' : 'Inoperative', connectorId: 0 });
+      const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/availability`, { type: available ? 'Operative' : 'Inoperative', connectorId: 0 });
       if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? (toast.success(`${available ? 'Ativado' : 'Desativado'}!`), void fetchChargerDetails(), onUpdate?.()) : toast.warning('Comando rejeitado'); }
       else { const e = await r.json(); toast.error(e.error || 'Erro'); }
     } catch { toast.error('Erro ao alterar disponibilidade'); }
@@ -210,6 +339,14 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
               </div>
             </Section>
 
+            {/* Conectividade: diagnóstico + tentativas */}
+            {conectividade && (
+              <Section icon="cable" title="Conectividade">
+                <DiagnosticoBox diag={conectividade.diagnostico} />
+                <ListaDeTentativas tentativas={conectividade.attempts} />
+              </Section>
+            )}
+
             {/* Connectors */}
             {charger.connectors && charger.connectors.length > 0 && (
               <Section icon="power" title="Conectores">
@@ -301,6 +438,73 @@ function Section({ icon, title, action, children }: { icon: string; title: strin
         {action}
       </div>
       <div className="px-5 py-4">{children}</div>
+    </div>
+  );
+}
+
+function DiagnosticoBox({ diag }: { diag: Diagnostico }) {
+  const d = DIAGNOSTICOS[diag.codigo] ?? DIAGNOSTICOS.offline_apos_conectar;
+  const tons = {
+    ok: { borda: 'border-primary/30', fundo: 'bg-primary/5', txt: 'text-primary', icone: 'check_circle' },
+    alerta: { borda: 'border-amber-400/30', fundo: 'bg-amber-400/5', txt: 'text-amber-400', icone: 'warning' },
+    erro: { borda: 'border-error/30', fundo: 'bg-error/5', txt: 'text-error', icone: 'error' },
+  }[d.tom];
+
+  return (
+    <div className={`rounded-lg border ${tons.borda} ${tons.fundo} p-4 mb-4`}>
+      <div className="flex items-start gap-3">
+        <span className={`material-symbols-outlined text-lg ${tons.txt} shrink-0`}>{tons.icone}</span>
+        <div className="min-w-0">
+          <p className={`font-headline font-bold text-sm ${tons.txt}`}>{d.titulo}</p>
+          <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">{d.explica}</p>
+          <p className="text-xs text-on-surface mt-2 leading-relaxed">
+            <span className="font-bold">O que fazer: </span>
+            {d.acao}
+          </p>
+          {diag.tentativasRecusadas24h > 0 && (
+            <p className="text-[11px] text-on-surface-variant mt-2">
+              {diag.tentativasRecusadas24h} tentativa
+              {diag.tentativasRecusadas24h > 1 ? 's' : ''} recusada
+              {diag.tentativasRecusadas24h > 1 ? 's' : ''} nas últimas 24h.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListaDeTentativas({ tentativas }: { tentativas: Tentativa[] }) {
+  if (!tentativas.length) {
+    return (
+      <p className="text-xs text-on-surface-variant italic">
+        Nenhuma tentativa registrada para este carregador.
+      </p>
+    );
+  }
+  const rotulo = (t: Tentativa) =>
+    t.eventType === 'connected'
+      ? { txt: 'Conectou', cor: 'text-primary', icone: 'link' }
+      : t.eventType === 'refused'
+        ? { txt: `Recusado — ${MOTIVO_CURTO[t.reason ?? ''] ?? t.reason ?? 'motivo não informado'}`, cor: 'text-amber-400', icone: 'block' }
+        : { txt: `Desconectou${t.reason ? ` (${t.reason})` : ''}`, cor: 'text-on-surface-variant', icone: 'link_off' };
+
+  return (
+    <div className="space-y-1.5 max-h-56 overflow-y-auto">
+      {tentativas.map((t, i) => {
+        const r = rotulo(t);
+        return (
+          <div key={i} className="flex items-start gap-2.5 text-xs py-1">
+            <span className={`material-symbols-outlined text-sm ${r.cor} shrink-0`}>{r.icone}</span>
+            <span className="font-mono text-on-surface-variant shrink-0">
+              {new Date(t.timestamp).toLocaleString('pt-BR', {
+                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+              })}
+            </span>
+            <span className={`${r.cor} min-w-0 break-words`}>{r.txt}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
