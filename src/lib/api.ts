@@ -44,9 +44,13 @@ const tryRefreshToken = async (): Promise<boolean> => {
       const responseData = await response.json();
       const payload = responseData.data || responseData;
 
-      if (payload.token) {
-        localStorage.setItem('token', payload.token);
+      // Sem token novo na resposta (ex.: envelope parcial), o refresh não serviu
+      // para nada. Tratar como falha é o que impede o loop de reenviar a mesma
+      // requisição 401 → refresh(200 sem token) → 401 → … indefinidamente.
+      if (!payload.token) {
+        return false;
       }
+      localStorage.setItem('token', payload.token);
       if (payload.refreshToken) {
         localStorage.setItem('refreshToken', payload.refreshToken);
       }
@@ -67,6 +71,17 @@ const tryRefreshToken = async (): Promise<boolean> => {
 // Get token from localStorage
 const getAuthToken = (): string | null => {
   return localStorage.getItem('token');
+};
+
+// Redireciona para o login preservando o tenant (white-label) da URL atual —
+// como faz o logout por inatividade em auth.tsx. Sem isso, um operador de outra
+// marca cai no login da neopower ao expirar a sessão.
+const redirectToLogin = (): void => {
+  if (typeof window === 'undefined') return;
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const tenant =
+    pathParts[0] && !['login', 'dashboard'].includes(pathParts[0]) ? pathParts[0] : 'neopower';
+  window.location.href = `/${tenant}/login?expired=true`;
 };
 
 // Create headers with authentication
@@ -130,7 +145,8 @@ const wrapResponseJson = (response: Response): Response => {
 export const fetchWithAuth = async (
   endpoint: string,
   options: RequestInit = {},
-  retryCount: number = 0
+  retryCount: number = 0,
+  didRefresh: boolean = false
 ): Promise<Response> => {
   // Evitar barra dupla que o navegador interpreta como URL de domínio (ex: //users/login virando https://users/login)
   const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
@@ -153,21 +169,22 @@ export const fetchWithAuth = async (
       },
     });
 
-    // Se 401, tenta renovar o token antes de desistir
+    // Se 401, tenta renovar o token UMA vez antes de desistir. O flag didRefresh
+    // garante no máximo um refresh por requisição — se o token renovado ainda
+    // voltar 401 (usuário revogado, clock skew), vai para logout em vez de
+    // martelar /auth/refresh + endpoint em loop infinito.
     if (response.status === 401) {
-      const refreshed = await tryRefreshToken();
-      if (refreshed) {
-        // Token renovado — refaz a requisição original com o novo token
-        return fetchWithAuth(endpoint, options, retryCount);
+      if (!didRefresh && (await tryRefreshToken())) {
+        return fetchWithAuth(endpoint, options, retryCount, true);
       }
-      // Refresh falhou — agora sim, logout
+      // Refresh já tentado ou falhou — agora sim, logout
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userId');
-      window.location.href = '/login?expired=true';
+      redirectToLogin();
       throw new Error('Unauthorized');
     }
 
@@ -192,7 +209,7 @@ export const fetchWithAuth = async (
     if (!response.ok && isRetryableError(response.status) && retryCount < RETRY_CONFIG.maxRetries) {
       // Retry silencioso - logs apenas em desenvolvimento via DevTools
       await delay(RETRY_CONFIG.retryDelay, retryCount + 1);
-      return fetchWithAuth(endpoint, options, retryCount + 1);
+      return fetchWithAuth(endpoint, options, retryCount + 1, didRefresh);
     }
 
     return wrapResponseJson(response);
@@ -201,7 +218,7 @@ export const fetchWithAuth = async (
     if (error instanceof TypeError && retryCount < RETRY_CONFIG.maxRetries) {
       // Retry silencioso - logs apenas em desenvolvimento via DevTools
       await delay(RETRY_CONFIG.retryDelay, retryCount + 1);
-      return fetchWithAuth(endpoint, options, retryCount + 1);
+      return fetchWithAuth(endpoint, options, retryCount + 1, didRefresh);
     }
 
     throw error;

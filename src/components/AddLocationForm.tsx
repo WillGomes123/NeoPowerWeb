@@ -674,8 +674,8 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
               <div className="h-[300px] lg:h-full min-h-[300px] rounded-xl border border-outline-variant/10 overflow-hidden">
                 <DynamicMap center={mapCenter} zoom={4} className="z-0 h-full w-full">
                   <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; OpenStreetMap'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                    attribution='&copy; <a href="https://www.esri.com">Esri</a>'
                   />
                   <ChangeMapView center={mapCenter} />
                   {pinPosition && getNeonIcon() && (

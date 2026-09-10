@@ -328,7 +328,7 @@ export const Branding = () => {
       }
       if (allUsersRes.ok) {
         const data = await allUsersRes.json();
-        setAllUsers(data);
+        setAllUsers(Array.isArray(data) ? data : []);
       }
     } catch {
       toast.error('Erro ao carregar usuários');
