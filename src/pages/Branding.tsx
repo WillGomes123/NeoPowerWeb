@@ -35,6 +35,7 @@ interface BrandingConfig {
   theme?: 'dark' | 'light';
   cashbackEnabled?: boolean;
   cashbackPercentage?: number;
+  appStoreAppId?: string | null;
   updatedAt?: string;
 }
 
@@ -52,6 +53,12 @@ interface AllUser {
   role: string | null;
   clientId: string | null;
 }
+
+/** Pacote Android / bundle iOS da marca — mesma regra do app.config.js do app. */
+const pacoteDaMarca = (clientId: string) =>
+  clientId === 'neopower-default'
+    ? 'com.neopower.app'
+    : `com.neopower.app.${clientId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
 
 export const Branding = () => {
   const { user } = useAuth();
@@ -274,6 +281,12 @@ export const Branding = () => {
 
   const executeTriggerBuild = async () => {
     if (!selectedBuildClient) return;
+    // Publicar no iOS exige o Apple ID do app da marca; barrar aqui evita
+    // disparar um build que o CI recusaria logo no começo.
+    if (buildTarget === 'production' && buildPlatform !== 'android' && !selectedBuildClient.appStoreAppId) {
+      toast.error('Cadastre o Apple ID do app (aba Lojas) antes de publicar no iOS.');
+      return;
+    }
 
     setIsBuildDialogOpen(false);
     setBuildingClientId(selectedBuildClient.clientId);
@@ -494,11 +507,12 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 mb-6 bg-surface-container-highest">
+                <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 mb-6 bg-surface-container-highest">
                   <TabsTrigger value="identity" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Identidade</TabsTrigger>
                   <TabsTrigger value="logos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Logos</TabsTrigger>
                   <TabsTrigger value="colors" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cores do App</TabsTrigger>
                   <TabsTrigger value="cashback" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cashback</TabsTrigger>
+                  <TabsTrigger value="lojas" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Lojas</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="identity" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
@@ -932,6 +946,47 @@ export const Branding = () => {
                       <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">info</span>
                       <p className="text-muted-foreground text-xs leading-relaxed">
                         O cashback é creditado automaticamente como saldo na carteira do cliente ao final de cada recarga. Vale apenas para recargas feitas após a ativação.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="lojas" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                  <div className="space-y-4">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Publicação nas lojas</p>
+
+                    <div className="p-3 rounded-lg bg-surface-container-high border border-outline-variant/20 max-w-[420px]">
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Pacote Android / Bundle iOS</p>
+                      <p className="font-mono text-sm text-on-surface break-all">
+                        {formData.clientId ? pacoteDaMarca(formData.clientId) : '—'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5 max-w-[320px]">
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Apple ID do app (App Store Connect)</Label>
+                      <Input
+                        inputMode="numeric"
+                        placeholder="ex.: 6740000000"
+                        value={formData.appStoreAppId ?? ''}
+                        onChange={e => setFormData({ ...formData, appStoreAppId: e.target.value.replace(/\D/g, '') })}
+                        className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm font-mono"
+                      />
+                      <p className="text-on-surface-variant text-xs leading-relaxed">
+                        Na App Store Connect: app da marca › Informações do app › <b>Apple ID</b>. Necessário para publicar no iOS.
+                      </p>
+                    </div>
+
+                    <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 space-y-2">
+                      <p className="text-on-surface text-xs font-bold flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm text-primary">checklist</span>
+                        Antes do primeiro envio automático (uma vez por marca)
+                      </p>
+                      <ul className="text-muted-foreground text-xs leading-relaxed list-disc pl-5 space-y-1">
+                        <li><b>Google Play:</b> criar o app no Play Console com o pacote acima e preencher ficha da loja, classificação de conteúdo, segurança dos dados e acesso ao app.</li>
+                        <li><b>Apple:</b> fazer o primeiro build iOS da marca à mão (cria as credenciais), criar o app na App Store Connect com o bundle acima, preencher metadados, capturas e privacidade, e informar o Apple ID aqui.</li>
+                      </ul>
+                      <p className="text-muted-foreground text-xs leading-relaxed">
+                        Depois disso, <b>Gerar build › Produção</b> publica sozinho: no Android direto na produção do Google Play; no iOS o app vai para a revisão da Apple e entra na loja automaticamente após a aprovação.
                       </p>
                     </div>
                   </div>
