@@ -340,13 +340,17 @@ export const Operations = () => {
     setSelectedChargePoints([]);
   };
 
-  // Add result to log
-  const addResult = (result: Omit<OperationResult, 'id' | 'timestamp'>) => {
-    setResults(prev => [{
-      ...result,
-      id: Date.now().toString(),
-      timestamp: new Date(),
-    }, ...prev].slice(0, 50));
+  // Add result to log. Devolve o id para o executeCommand atualizar a MESMA
+  // linha (pendente → sucesso/erro): antes cada comando virava duas linhas e a
+  // "pendente" ficava girando para sempre.
+  const addResult = (result: Omit<OperationResult, 'id' | 'timestamp'>): string => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setResults(prev => [{ ...result, id, timestamp: new Date() }, ...prev].slice(0, 50));
+    return id;
+  };
+
+  const updateResult = (id: string, patch: Partial<Omit<OperationResult, 'id'>>) => {
+    setResults(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
 
   // Execute command (supports GET and POST)
@@ -358,7 +362,7 @@ export const Operations = () => {
     commandName: string,
     method: 'GET' | 'POST' | 'DELETE' = 'POST'
   ) => {
-    addResult({ chargePointId: cpId, command: commandName, status: 'pending' });
+    const resultId = addResult({ chargePointId: cpId, command: commandName, status: 'pending' });
 
     try {
       let response: Response;
@@ -389,11 +393,21 @@ export const Operations = () => {
         throw new Error(friendly);
       }
       const result = await response.json();
-      addResult({ chargePointId: cpId, command: commandName, status: 'success', response: result, message: 'Executado com sucesso' });
+      // HTTP 200 só diz que o comando chegou; a resposta OCPP pode ser recusa.
+      const statusOcpp = (result?.data ?? result)?.status;
+      const recusado =
+        typeof statusOcpp === 'string' &&
+        ['Rejected', 'NotSupported', 'NotImplemented', 'UnlockFailed', 'Failed'].includes(statusOcpp);
+      updateResult(
+        resultId,
+        recusado
+          ? { status: 'error', response: result, message: `O carregador respondeu ${statusOcpp}.` }
+          : { status: 'success', response: result, message: 'Executado com sucesso' }
+      );
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      addResult({ chargePointId: cpId, command: commandName, status: 'error', message: errorMessage });
+      updateResult(resultId, { status: 'error', message: errorMessage });
       throw err;
     }
   };
