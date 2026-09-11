@@ -456,6 +456,7 @@ export const Operations = () => {
 
     let successCount = 0;
     let errorCount = 0;
+    let ultimoErro = '';
 
     for (const cpId of selectedChargePoints) {
       // Pula chargers offline — comandos OCPP exigem WebSocket ativo
@@ -552,9 +553,12 @@ export const Operations = () => {
                 chargingProfileId: 1,
                 stackLevel: 0,
                 chargingProfilePurpose: 'TxDefaultProfile',
-                chargingProfileKind: 'Recurring',
-                recurrencyKind: 'Daily',
+                // Absolute com startSchedule: o MOBY CVBE (Vip Energy) responde ProtocolError
+                // ao perfil Recurring sem startSchedule — o schema OCPP 1.6 não exige, o
+                // firmware sim. Horário sem milissegundos, que alguns firmwares recusam.
+                chargingProfileKind: 'Absolute',
                 chargingSchedule: {
+                  startSchedule: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
                   chargingRateUnit: 'W',
                   chargingSchedulePeriod: [{ startPeriod: 0, limit: limitW }],
                 },
@@ -668,8 +672,9 @@ export const Operations = () => {
             throw new Error('Comando não implementado');
         }
         successCount++;
-      } catch {
+      } catch (err) {
         errorCount++;
+        ultimoErro = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -683,7 +688,7 @@ export const Operations = () => {
     } else if (errorCount > 0 && successCount > 0) {
       toast.warning(`${successCount} sucesso(s), ${errorCount} erro(s). Veja a aba de Resultados.`);
     } else if (errorCount > 0) {
-      toast.error(`Falha em ${errorCount} carregador(es). Verifique a aba de Resultados para detalhes do erro (ex: ID Tag obrigatório).`);
+      toast.error(`Falha em ${errorCount} carregador(es): ${ultimoErro || 'veja o motivo na aba de Resultados.'}`);
     }
   };
 
