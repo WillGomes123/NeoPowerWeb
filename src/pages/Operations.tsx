@@ -71,7 +71,26 @@ interface ChargePoint {
   protocol?: string;
   locationId?: number | null;
   description?: string;
+  power_kw?: number | string | null;
 }
+
+// Limite de potência: o operador digita kW e o carregador recebe corrente por
+// fase (A). Em W o MOBY CVBE (Vip Energy, 12/09) aplicou 2 A: o conector foi para
+// SuspendedEVSE e a recarga encerrava sozinha. Em A o mesmo firmware aplica certo.
+const TENSAO_FASE_V = 220;
+const CORRENTE_MINIMA_A = 6; // abaixo disso nenhum carro carrega
+
+/** Carregador de até 7,4 kW é monofásico; acima, ou sem potência cadastrada, trifásico. */
+function kwParaAmperes(kw: number, potenciaCarregadorKw?: number | string | null) {
+  const potencia = Number(potenciaCarregadorKw);
+  const fases = Number.isFinite(potencia) && potencia > 0 && potencia <= 7.4 ? 1 : 3;
+  // Para baixo: o limite nunca passa da potência pedida.
+  const amperes = Math.floor((kw * 1000) / (TENSAO_FASE_V * fases));
+  return { amperes, fases };
+}
+
+const formatarKw = (kw: number) => kw.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const minimoKw = (fases: number) => formatarKw(Math.ceil((CORRENTE_MINIMA_A * TENSAO_FASE_V * fases) / 100) / 10);
 
 interface Location {
   id: number;
@@ -542,15 +561,17 @@ export const Operations = () => {
             break;
           case 'setChargingProfile': {
             let csChargingProfiles: Record<string, unknown>;
-            if (params.powerLimitA) {
-              const limitA = parseFloat(params.powerLimitA);
-              // Mínimo 6 A: abaixo disso o carro não carrega e o conector fica em
-              // SuspendedEVSE — foi o que travou o 240500190 (Vip Energy, 12/09).
-              if (isNaN(limitA) || limitA < 6) {
-                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Limite inválido. Use no mínimo 6 A — abaixo disso nenhum carro carrega.' });
+            let nomeDoComando = commandName;
+            if (params.powerLimitKw) {
+              const kw = parseFloat(String(params.powerLimitKw).replace(',', '.'));
+              const carregador = chargePoints.find(c => c.charge_point_id === cpId);
+              const { amperes, fases } = kwParaAmperes(kw, carregador?.power_kw);
+              if (isNaN(kw) || amperes < CORRENTE_MINIMA_A) {
+                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: `Potência muito baixa. O mínimo para carregar é ${minimoKw(fases)} kW neste carregador (${fases === 3 ? 'trifásico' : 'monofásico'}).` });
                 errorCount++;
                 continue;
               }
+              nomeDoComando = `${commandName} (${formatarKw(kw)} kW → ${amperes} A/fase)`;
               csChargingProfiles = {
                 chargingProfileId: 1,
                 stackLevel: 0,
@@ -561,11 +582,8 @@ export const Operations = () => {
                 chargingProfileKind: 'Absolute',
                 chargingSchedule: {
                   startSchedule: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-                  // Corrente (A), não Watts: o MOBY CVBE aplicou 2 A ao receber
-                  // 11000 W, o conector foi para SuspendedEVSE e a recarga
-                  // encerrou sozinha. Em A o mesmo firmware aplica certo.
                   chargingRateUnit: 'A',
-                  chargingSchedulePeriod: [{ startPeriod: 0, limit: limitA }],
+                  chargingSchedulePeriod: [{ startPeriod: 0, limit: amperes }],
                 },
               };
             } else {
@@ -580,7 +598,7 @@ export const Operations = () => {
             await executeCommand(cpId, 'charging-profile', {
               connectorId: parseInt(params.connectorId) || 0,
               csChargingProfiles,
-            }, commandName);
+            }, nomeDoComando);
             break;
           }
           case 'clearChargingProfile':
@@ -894,17 +912,29 @@ export const Operations = () => {
               <p className="text-xs text-muted-foreground">0 = carregador inteiro; 1, 2... = conector específico</p>
             </div>
             <div className="space-y-2">
-              <Label>Limite de Corrente (A) — modo simples</Label>
+              <Label>Limite de Potência (kW)</Label>
               <Input
                 className={inputClass}
                 type="number"
-                placeholder="Ex: 16 (~11 kW) | 32 (~22 kW) | 10 (~7 kW)"
-                value={commandParams.powerLimitA || ''}
-                onChange={e => setCommandParams({ ...commandParams, powerLimitA: e.target.value, chargingProfile: '' })}
+                step="0.1"
+                min="0"
+                placeholder="Ex: 7 | 11 | 22"
+                value={commandParams.powerLimitKw || ''}
+                onChange={e => setCommandParams({ ...commandParams, powerLimitKw: e.target.value, chargingProfile: '' })}
               />
-              <p className="text-xs text-muted-foreground">Corrente por fase, mínimo 6 A. Em 3 fases, 16 A ficam perto de 11 kW e 32 A perto de 22 kW. Deixe em branco para usar o JSON avançado abaixo.</p>
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const kw = parseFloat(String(commandParams.powerLimitKw || '').replace(',', '.'));
+                  if (!kw) return 'Digite a potência máxima em kW. O sistema converte para a corrente que o carregador entende.';
+                  const carregador = chargePoints.find(c => c.charge_point_id === selectedChargePoints[0]);
+                  const { amperes, fases } = kwParaAmperes(kw, carregador?.power_kw);
+                  if (amperes < CORRENTE_MINIMA_A) return `Muito baixo: o mínimo para carregar é ${minimoKw(fases)} kW.`;
+                  return `Será enviado ${amperes} A por fase (${fases === 3 ? 'trifásico' : 'monofásico'}, ≈ ${formatarKw((amperes * TENSAO_FASE_V * fases) / 1000)} kW).`;
+                })()}{' '}
+                Deixe em branco para usar o JSON avançado abaixo.
+              </p>
             </div>
-            {!commandParams.powerLimitA && (
+            {!commandParams.powerLimitKw && (
               <div className="space-y-2">
                 <Label>Perfil Avançado (JSON)</Label>
                 <textarea
