@@ -92,6 +92,8 @@ export function LocationDetails() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  // NFS-e e certificado digital: admin ou operador da marca (a API aplica a mesma regra).
+  const podeGerirLocal = user?.role === 'admin' || user?.role === 'operador';
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -165,7 +167,11 @@ export function LocationDetails() {
 
   // Filtrar abas baseado nas permissões
   const visibleTabs = permissions
-    ? tabs.filter(tab => permissions[tab.permissionKey])
+    ? tabs.filter(
+        tab =>
+          permissions[tab.permissionKey] &&
+          (podeGerirLocal || (tab.id !== 'nfse' && tab.id !== 'certificado'))
+      )
     : [];
 
   if (isLoading) {
@@ -313,10 +319,10 @@ export function LocationDetails() {
         {activeTab === 'permissions' && permissions?.permissions && (
           <LocationPermissionsTab locationId={parseInt(id!)} />
         )}
-        {activeTab === 'nfse' && isAdmin && (
+        {activeTab === 'nfse' && podeGerirLocal && (
           <LocationNfseTab locationId={parseInt(id!)} />
         )}
-        {activeTab === 'certificado' && isAdmin && (
+        {activeTab === 'certificado' && podeGerirLocal && (
           <LocationCertificadoTab locationId={parseInt(id!)} />
         )}
       </div>

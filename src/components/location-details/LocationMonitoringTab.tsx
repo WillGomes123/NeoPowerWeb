@@ -43,7 +43,8 @@ export function LocationMonitoringTab({ locationId }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // Desvincular carregador do local: admin ou operador da marca.
+  const podeGerir = user?.role === 'admin' || user?.role === 'operador';
 
   const fetchChargers = useCallback(async () => {
     try {
@@ -328,7 +329,7 @@ export function LocationMonitoringTab({ locationId }: Props) {
                         </span>
                       </div>
 
-                      {isAdmin && (
+                      {podeGerir && (
                         <div className="flex items-center gap-2 mb-4">
                           <Button
                             variant="outline"

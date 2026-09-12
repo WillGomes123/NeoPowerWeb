@@ -69,6 +69,9 @@ export const FinancialReport = () => {
   const userClientId = user?.branding?.clientId || null;
   // Super admin = admin sem whitelabel específico → vê todos os tenants
   const isSuperAdmin = isAdmin && !userClientId;
+  // A API já limita o relatório à marca. O filtro extra pelos locais atribuídos
+  // é só do comum; o operador vê a marca inteira, como o admin da marca.
+  const filtraPorLocaisDoUsuario = user?.role === 'comum';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const drillDownClientId = searchParams.get('clientId');
@@ -86,13 +89,13 @@ export const FinancialReport = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [userLocationNames, setUserLocationNames] = useState<string[]>([]);
-  const [locationsLoaded, setLocationsLoaded] = useState(isAdmin);
+  const [locationsLoaded, setLocationsLoaded] = useState(!filtraPorLocaisDoUsuario);
   // NFS-e
   const [nfseFilter, setNfseFilter] = useState<'all' | 'Issued' | 'Pending' | 'Error'>('all');
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
-    if (isAdmin) {
+    if (!filtraPorLocaisDoUsuario) {
       setLocationsLoaded(true);
       return;
     }
@@ -107,7 +110,7 @@ export const FinancialReport = () => {
     }).catch(() => {}).finally(() => {
       setLocationsLoaded(true);
     });
-  }, [isAdmin, user?.id]);
+  }, [filtraPorLocaisDoUsuario, user?.id]);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -131,13 +134,13 @@ export const FinancialReport = () => {
       const data = await response.json();
       const items = Array.isArray(data) ? data : [];
 
-      if (!isAdmin && userLocationNames.length > 0) {
+      if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
           const stationName = item['Estação'] || '';
           return userLocationNames.some(loc => loc && stationName.toLowerCase().includes(loc.toLowerCase()));
         });
         setReportData(filtered);
-      } else if (!isAdmin && userLocationNames.length === 0) {
+      } else if (filtraPorLocaisDoUsuario && userLocationNames.length === 0) {
         setReportData([]);
       } else {
         setReportData(items);
@@ -149,7 +152,7 @@ export const FinancialReport = () => {
     } finally {
       setLoading(false);
     }
-  }, [submittedFilter, startDate, endDate, isAdmin, userLocationNames, drillDownClientId]);
+  }, [submittedFilter, startDate, endDate, filtraPorLocaisDoUsuario, userLocationNames, drillDownClientId]);
 
   const fetchTenantOverview = useCallback(async () => {
     if (!isSuperAdmin) {

@@ -60,6 +60,8 @@ export const Stations = () => {
   // é o backend que manda, aqui a checagem só evita mostrar um campo que
   // resultaria em 403.
   const ehAdminPlataforma = user?.role === 'admin' && !user?.clientId;
+  // Excluir carregador ou local é só admin na API; operador nem vê o botão.
+  const isAdmin = user?.role === 'admin';
   const [chargers, setChargers] = useState<Charger[]>([]);
   const [operadores, setOperadores] = useState<{ clientId: string; companyName?: string }[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<{ [key: string]: string }>({});
@@ -648,13 +650,13 @@ export const Stations = () => {
                               >
                                 {savingPending === c.charge_point_id ? 'Salvando…' : 'Salvar'}
                               </button>
-                              <button
+                              {isAdmin && (<button
                                 onClick={() => handleDeleteCharger(c.charge_point_id)}
                                 className="p-1.5 rounded-lg border border-outline-variant/10 text-error/80 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all"
                                 title="Excluir carregador"
                               >
                                 <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                              </button>)}
                             </div>
                           </td>
                         </tr>
@@ -780,19 +782,19 @@ export const Stations = () => {
                                     <span className="material-symbols-outlined text-base">link</span>
                                   </button>
                                 )}
-                                <button
+                                {isAdmin && (<button
                                   onClick={() => handleDeleteCharger(c.charge_point_id)}
                                   className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
                                   title="Excluir carregador"
                                 >
                                   <span className="material-symbols-outlined text-base">delete</span>
-                                </button>
+                                </button>)}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                      <div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
+                      {isAdmin && (<div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
                         <button
                           onClick={() => handleDeleteLocation(loc.id, loc.nomeDoLocal)}
                           className="flex items-center gap-1.5 text-xs font-bold text-error/80 hover:text-error px-3 py-1.5 rounded-lg hover:bg-error/10 transition-all"
@@ -801,7 +803,7 @@ export const Stations = () => {
                           <span className="material-symbols-outlined text-sm">delete</span>
                           Excluir local
                         </button>
-                      </div>
+                      </div>)}
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -893,13 +895,13 @@ export const Stations = () => {
                                   <span className="material-symbols-outlined text-base">link</span>
                                 </button>
                               )}
-                              <button
+                              {isAdmin && (<button
                                 onClick={() => handleDeleteCharger(c.charge_point_id)}
                                 className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
                                 title="Excluir carregador"
                               >
                                 <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                              </button>)}
                             </div>
                           </div>
                         );

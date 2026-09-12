@@ -30,7 +30,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_BASE_URL = import.meta.env?.VITE_API_URL ?? '/api';
 
 const normalizeRole = (role?: string | null): UserRole => {
-  if (role === 'admin' || role === 'comum') return role;
+  if (role === 'admin' || role === 'operador' || role === 'comum') return role;
   if (role === 'user') return 'comum';
   // Map base_ocpp roles to NeoRBAC roles
   if (role === 'ADMIN') return 'admin';

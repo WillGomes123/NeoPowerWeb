@@ -424,6 +424,8 @@ export const Branding = () => {
     switch (role) {
       case 'admin':
         return 'Admin';
+      case 'operador':
+        return 'Operador';
       case 'comum':
         return 'Comum';
       case 'blocked':
@@ -437,6 +439,8 @@ export const Branding = () => {
     switch (role) {
       case 'admin':
         return 'border-primary/30 text-primary bg-primary/10';
+      case 'operador':
+        return 'border-sky-500/30 text-sky-300 bg-sky-500/10';
       case 'blocked':
         return 'border-red-500/30 text-red-400 bg-red-500/10';
       default:

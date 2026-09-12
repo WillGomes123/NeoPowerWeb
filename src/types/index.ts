@@ -1,6 +1,7 @@
 // Types for the NeoPower Dashboard
 
-export type UserRole = 'admin' | 'comum';
+// operador = operador do white label: gerencia a operação só da própria marca.
+export type UserRole = 'admin' | 'operador' | 'comum';
 
 export interface User {
   id: string;
