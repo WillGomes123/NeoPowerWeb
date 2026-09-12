@@ -542,10 +542,12 @@ export const Operations = () => {
             break;
           case 'setChargingProfile': {
             let csChargingProfiles: Record<string, unknown>;
-            if (params.powerLimitW) {
-              const limitW = parseFloat(params.powerLimitW);
-              if (isNaN(limitW) || limitW <= 0) {
-                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Limite de potência inválido.' });
+            if (params.powerLimitA) {
+              const limitA = parseFloat(params.powerLimitA);
+              // Mínimo 6 A: abaixo disso o carro não carrega e o conector fica em
+              // SuspendedEVSE — foi o que travou o 240500190 (Vip Energy, 12/09).
+              if (isNaN(limitA) || limitA < 6) {
+                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Limite inválido. Use no mínimo 6 A — abaixo disso nenhum carro carrega.' });
                 errorCount++;
                 continue;
               }
@@ -559,8 +561,11 @@ export const Operations = () => {
                 chargingProfileKind: 'Absolute',
                 chargingSchedule: {
                   startSchedule: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-                  chargingRateUnit: 'W',
-                  chargingSchedulePeriod: [{ startPeriod: 0, limit: limitW }],
+                  // Corrente (A), não Watts: o MOBY CVBE aplicou 2 A ao receber
+                  // 11000 W, o conector foi para SuspendedEVSE e a recarga
+                  // encerrou sozinha. Em A o mesmo firmware aplica certo.
+                  chargingRateUnit: 'A',
+                  chargingSchedulePeriod: [{ startPeriod: 0, limit: limitA }],
                 },
               };
             } else {
@@ -889,17 +894,17 @@ export const Operations = () => {
               <p className="text-xs text-muted-foreground">0 = carregador inteiro; 1, 2... = conector específico</p>
             </div>
             <div className="space-y-2">
-              <Label>Limite de Potência (W) — modo simples</Label>
+              <Label>Limite de Corrente (A) — modo simples</Label>
               <Input
                 className={inputClass}
                 type="number"
-                placeholder="Ex: 7400 (7,4 kW) | 11000 (11 kW) | 22000 (22 kW)"
-                value={commandParams.powerLimitW || ''}
-                onChange={e => setCommandParams({ ...commandParams, powerLimitW: e.target.value, chargingProfile: '' })}
+                placeholder="Ex: 16 (~11 kW) | 32 (~22 kW) | 10 (~7 kW)"
+                value={commandParams.powerLimitA || ''}
+                onChange={e => setCommandParams({ ...commandParams, powerLimitA: e.target.value, chargingProfile: '' })}
               />
-              <p className="text-xs text-muted-foreground">Preencha aqui para limitar a potência automaticamente. Deixe em branco para usar o JSON avançado abaixo.</p>
+              <p className="text-xs text-muted-foreground">Corrente por fase, mínimo 6 A. Em 3 fases, 16 A ficam perto de 11 kW e 32 A perto de 22 kW. Deixe em branco para usar o JSON avançado abaixo.</p>
             </div>
-            {!commandParams.powerLimitW && (
+            {!commandParams.powerLimitA && (
               <div className="space-y-2">
                 <Label>Perfil Avançado (JSON)</Label>
                 <textarea
