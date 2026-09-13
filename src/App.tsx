@@ -37,10 +37,11 @@ const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default:
 const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
 
 // Páginas legais públicas (sem login) — URLs exigidas pelas lojas por white label:
-// /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta
+// /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta, /<tenant>/suporte
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const TermsOfUse = lazy(() => import('./pages/legal/TermsOfUse').then(m => ({ default: m.TermsOfUse })));
 const AccountDeletion = lazy(() => import('./pages/legal/AccountDeletion').then(m => ({ default: m.AccountDeletion })));
+const Support = lazy(() => import('./pages/legal/Support').then(m => ({ default: m.Support })));
 
 // Loading Component
 const PageLoader = () => (
@@ -93,6 +94,7 @@ const AppRoutes = () => {
       <Route path="/privacidade" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
       <Route path="/termos" element={<Suspense fallback={<PageLoader />}><TermsOfUse /></Suspense>} />
       <Route path="/excluir-conta" element={<Suspense fallback={<PageLoader />}><AccountDeletion /></Suspense>} />
+      <Route path="/suporte" element={<Suspense fallback={<PageLoader />}><Support /></Suspense>} />
 
       {/* Protected Routes */}
       <Route path="/" element={createProtectedRoute(Overview)} />
