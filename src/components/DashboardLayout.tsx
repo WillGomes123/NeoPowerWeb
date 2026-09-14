@@ -1,6 +1,7 @@
 import { ReactNode, useState, useMemo, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { ehAdminDaPlataforma } from '../lib/plataforma';
 import { UserRole } from '../types';
 import { LogOut, Sun, Moon, Search, Menu, X } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
@@ -66,12 +67,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
     { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
     { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
-    { path: '/sustentabilidade', label: 'Sustentabilidade', icon: 'eco', roles: ['admin', 'operador', 'comum'] },
     { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
-    { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
-    { path: '/metas', label: 'Metas de Recarga', icon: 'flag', roles: ['admin'] },
-    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
-    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
+    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
+    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
   ];
 
   const navigationGroups = [
@@ -98,8 +96,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         { path: '/relatorio-financeiro', label: 'Relatório Financeiro', icon: 'payments', roles: ['admin', 'operador', 'comum'] },
         { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'operador', 'comum'] },
         { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
-        { path: '/metas', label: 'Metas de Recarga', icon: 'flag', roles: ['admin'] },
-        { path: '/sustentabilidade', label: 'Sustentabilidade', icon: 'eco', roles: ['admin', 'operador', 'comum'] },
       ],
     },
     {
@@ -109,9 +105,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
         { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-        { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
-        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
-        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
+        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
+        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
       ],
     },
   ];
@@ -120,8 +115,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const path = location.pathname;
     return {
       gestao: ['/estacoes', '/locais', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
-      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas', '/metas', '/sustentabilidade'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
   });
 
@@ -132,7 +127,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }));
   };
 
-  const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
+  // Email e White Label são só da plataforma NeoPower (admin sem marca); admins
+  // de marca, operadores e contas comuns não veem.
+  const ehPlataforma = ehAdminDaPlataforma(user);
+  const podeVerItem = (item: { roles: string[]; somentePlataforma?: boolean }) =>
+    item.roles.includes(user?.role || 'comum') && (!item.somentePlataforma || ehPlataforma);
+
+  const visibleNavItems = navItems.filter(podeVerItem);
 
   const filteredResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -243,7 +244,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Grouped Items */}
           {navigationGroups.map(group => {
-            const groupVisibleItems = group.items.filter(item => item.roles.includes(user?.role || 'comum'));
+            const groupVisibleItems = group.items.filter(podeVerItem);
             if (groupVisibleItems.length === 0) return null;
 
             const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;

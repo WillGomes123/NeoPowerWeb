@@ -8,6 +8,7 @@ import { TenantProvider, useTenant } from './contexts/TenantContext';
 
 // Eager load login (usada imediatamente)
 import { Login } from './pages/Login';
+import { ehAdminDaPlataforma } from './lib/plataforma';
 
 // Lazy load outras páginas (carregadas sob demanda)
 const Overview = lazy(() => import('./pages/Overview').then(m => ({ default: m.Overview })));
@@ -31,10 +32,7 @@ const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wal
 const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m => ({ default: m.PushNotifications })));
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
 const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
-const Sustainability = lazy(() => import('./pages/Sustainability').then(m => ({ default: m.Sustainability })));
 const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
-const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default: m.Scheduling })));
-const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
 
 // Páginas legais públicas (sem login) — URLs exigidas pelas lojas por white label:
 // /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta, /<tenant>/suporte
@@ -54,9 +52,12 @@ const PageLoader = () => (
 const ProtectedRoute = ({
   children,
   requireAdmin = false,
+  requirePlatform = false,
 }: {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  /** Só a plataforma NeoPower (admin sem marca vinculada). */
+  requirePlatform?: boolean;
 }) => {
   const { user } = useAuth();
 
@@ -68,12 +69,20 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
+  if (requirePlatform && !ehAdminDaPlataforma(user)) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 
 // Helper para criar rota protegida com Suspense e Layout
-const createProtectedRoute = (Component: React.LazyExoticComponent<any>, requireAdmin = false) => (
-  <ProtectedRoute requireAdmin={requireAdmin}>
+const createProtectedRoute = (
+  Component: React.LazyExoticComponent<any>,
+  requireAdmin = false,
+  requirePlatform = false
+) => (
+  <ProtectedRoute requireAdmin={requireAdmin} requirePlatform={requirePlatform}>
     <DashboardLayout>
       <Suspense fallback={<PageLoader />}>
         <Component />
@@ -114,12 +123,9 @@ const AppRoutes = () => {
       <Route path="/tarifas" element={createProtectedRoute(Tariffs)} />
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
-      <Route path="/email" element={createProtectedRoute(Email, true)} />
-      <Route path="/branding" element={createProtectedRoute(Branding, true)} />
-      <Route path="/sustentabilidade" element={createProtectedRoute(Sustainability)} />
+      <Route path="/email" element={createProtectedRoute(Email, true, true)} />
+      <Route path="/branding" element={createProtectedRoute(Branding, true, true)} />
       <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
-      <Route path="/agendamentos" element={createProtectedRoute(Scheduling, true)} />
-      <Route path="/metas" element={createProtectedRoute(ChargingGoals, true)} />
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
