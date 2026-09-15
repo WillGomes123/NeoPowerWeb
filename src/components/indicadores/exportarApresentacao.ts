@@ -171,7 +171,7 @@ export async function exportarApresentacao(
       bold: true,
       color: 'FFFFFF',
     });
-    T(s, 'Faturamento, energia, disponibilidade e aquisição de usuários por carregador', {
+    T(s, 'Faturamento, recargas, uso dos carregadores e novos motoristas', {
       x: 0.8,
       y: 3.55,
       w: 11.5,
@@ -206,14 +206,14 @@ export async function exportarApresentacao(
     const w = 2.95;
     kpi(s, 0.6, 1.55, w, fmtBRL(a.faturamento), 'Faturamento total', v.faturamento);
     kpi(s, 0.6 + (w + 0.2), 1.55, w, fmtKwh(a.energiaKwh), 'Energia fornecida', v.energiaKwh);
-    kpi(s, 0.6 + 2 * (w + 0.2), 1.55, w, fmtInt(a.operacoes), 'Operações realizadas', v.operacoes);
+    kpi(s, 0.6 + 2 * (w + 0.2), 1.55, w, fmtInt(a.operacoes), 'Recargas', v.operacoes);
     kpi(
       s,
       0.6 + 3 * (w + 0.2),
       1.55,
       w,
       fmtInt(a.usuariosAtivos),
-      'Usuários atendidos',
+      'Motoristas atendidos',
       v.usuariosAtivos
     );
 
@@ -241,23 +241,28 @@ export async function exportarApresentacao(
         ],
         linha('Faturamento', fmtBRL(b.faturamento), fmtBRL(a.faturamento), v.faturamento),
         linha('Energia fornecida', fmtKwh(b.energiaKwh), fmtKwh(a.energiaKwh), v.energiaKwh),
-        linha('Operações', fmtInt(b.operacoes), fmtInt(a.operacoes), v.operacoes),
+        linha('Recargas', fmtInt(b.operacoes), fmtInt(a.operacoes), v.operacoes),
         linha(
-          'Usuários no mês',
+          'Motoristas atendidos',
           fmtInt(b.usuariosAtivos),
           fmtInt(a.usuariosAtivos),
           v.usuariosAtivos
         ),
-        linha('Novos usuários', fmtInt(b.novosUsuarios), fmtInt(a.novosUsuarios), v.novosUsuarios),
         linha(
-          'Base ativa',
+          'Novos motoristas',
+          fmtInt(b.novosUsuarios),
+          fmtInt(a.novosUsuarios),
+          v.novosUsuarios
+        ),
+        linha(
+          'Motoristas ativos',
           b.baseAtivaPct === null ? '—' : fmtPct(b.baseAtivaPct),
           a.baseAtivaPct === null ? '—' : fmtPct(a.baseAtivaPct),
           v.baseAtivaPp,
           ' p.p.'
         ),
         linha(
-          'Ocupação média',
+          'Uso dos carregadores',
           fmtPct(b.ocupacaoPct),
           fmtPct(a.ocupacaoPct),
           v.ocupacaoPp,
@@ -270,7 +275,7 @@ export async function exportarApresentacao(
           v.precoMedioKwh
         ),
         linha(
-          'Ticket médio',
+          'Valor médio por recarga',
           b.ticketMedio === null ? '—' : fmtBRL(b.ticketMedio, 2),
           a.ticketMedio === null ? '—' : fmtBRL(a.ticketMedio, 2),
           v.ticketMedio
@@ -308,7 +313,7 @@ export async function exportarApresentacao(
       color: 'FFFFFF',
       align: 'center',
     });
-    T(s, `novos usuários\nconquistados em ${nomeDoMes(r.mes)}`, {
+    T(s, `novos motoristas\nconquistados em ${nomeDoMes(r.mes)}`, {
       x: 9.5,
       y: 4.3,
       w: 3.05,
@@ -319,7 +324,7 @@ export async function exportarApresentacao(
     });
     T(
       s,
-      `Base cresceu de\n${fmtInt(a.baseAcumulada - a.novosUsuarios)} → ${fmtInt(a.baseAcumulada)} usuários`,
+      `Base cresceu de\n${fmtInt(a.baseAcumulada - a.novosUsuarios)} → ${fmtInt(a.baseAcumulada)} motoristas`,
       {
         x: 9.5,
         y: 5.3,
@@ -339,14 +344,14 @@ export async function exportarApresentacao(
     const primeiro = serie.find(p => p.operacoes > 0) ?? serie[0];
     const s = novoSlide(
       `A trajetória da ${opcoes.empresa}`,
-      `Usuários, transações e energia — ${mesCurto(primeiro.mes)} a ${mesCurto(r.mes)}`,
+      `Motoristas, recargas e energia — ${mesCurto(primeiro.mes)} a ${mesCurto(r.mes)}`,
       `Fonte: transações ${opcoes.empresa}, ${mesCurto(serie[0].mes)}–${mesCurto(r.mes)}`
     );
     const totOps = serie.reduce((t, p) => t + p.operacoes, 0);
     const totKwh = serie.reduce((t, p) => t + p.energiaKwh, 0);
     const w = 3.95;
-    kpi(s, 0.6, 1.5, w, fmtInt(a.baseAcumulada), `usuários na base da ${opcoes.empresa}`);
-    kpi(s, 0.6 + w + 0.2, 1.5, w, fmtInt(totOps), `transações nos últimos ${serie.length} meses`);
+    kpi(s, 0.6, 1.5, w, fmtInt(a.baseAcumulada), `motoristas na base da ${opcoes.empresa}`);
+    kpi(s, 0.6 + w + 0.2, 1.5, w, fmtInt(totOps), `recargas nos últimos ${serie.length} meses`);
     kpi(
       s,
       0.6 + 2 * (w + 0.2),
@@ -361,8 +366,8 @@ export async function exportarApresentacao(
       chave: 'usuariosAtivos' | 'operacoes' | 'energiaKwh';
       vari: number | null;
     }> = [
-      { titulo: 'Usuários no mês', chave: 'usuariosAtivos', vari: v.usuariosAtivos },
-      { titulo: 'Transações no mês', chave: 'operacoes', vari: v.operacoes },
+      { titulo: 'Motoristas no mês', chave: 'usuariosAtivos', vari: v.usuariosAtivos },
+      { titulo: 'Recargas no mês', chave: 'operacoes', vari: v.operacoes },
       { titulo: 'Energia fornecida (kWh)', chave: 'energiaKwh', vari: v.energiaKwh },
     ];
     graficos.forEach((g, i) => {
@@ -493,7 +498,7 @@ export async function exportarApresentacao(
     '#,##0'
   );
   ranking(
-    'Operações (transações) por carregador',
+    'Recargas por carregador',
     `${rotuloMes} — recargas concluídas, com variação vs ${refAnterior}`,
     c => c.operacoes,
     c => c.anterior.operacoes,
@@ -507,14 +512,14 @@ export async function exportarApresentacao(
       .sort((x, y) => y.ocupacaoPct - x.ocupacaoPct)
       .slice(0, MAX_CARREGADORES);
     const s = novoSlide(
-      'Taxa de ocupação por carregador',
+      'Uso dos carregadores',
       `${rotuloMes} — horas ocupadas ÷ horas disponíveis`
     );
     s.addChart(
       pptx.ChartType.bar,
       [
         {
-          name: 'Ocupação (%)',
+          name: 'Uso (%)',
           labels: [...lista].reverse().map(c => `${c.nome} (${c.conectores} con.)`),
           values: [...lista].reverse().map(c => c.ocupacaoPct),
         },
@@ -562,12 +567,12 @@ export async function exportarApresentacao(
       s,
       saturados.length
         ? `${saturados.map(c => `${c.nome}: ${fmtInt(c.horasOcupadas)}h de ${fmtInt(c.horasDisponiveis)}h (${fmtPct(c.ocupacaoPct)})`).join('\n')}\n\nAcima de 60% já tende a formar fila no pico. Avalie mais conectores ou um ponto próximo.`
-        : `Nenhum carregador passou de 60% de ocupação. Ocupação média da rede: ${fmtPct(a.ocupacaoPct)}.`,
+        : `Nenhum carregador passou de 60% de uso. Uso médio da rede: ${fmtPct(a.ocupacaoPct)}.`,
       { x: 9.05, y: 2.3, w: 3.5, h: 3.0, fontSize: 12, color: TEXTO, valign: 'top' }
     );
     T(
       s,
-      'Base de 24h/dia por conector. Pontos com horário restrito (shopping, loja) têm ocupação real maior nas horas em que abrem.',
+      'Base de 24h/dia por conector. Pontos com horário restrito (shopping, loja) têm uso real maior nas horas em que abrem.',
       {
         x: 8.8,
         y: 5.7,
@@ -586,19 +591,19 @@ export async function exportarApresentacao(
       .sort((x, y) => y.usuarios - x.usuarios)
       .slice(0, MAX_CARREGADORES);
     const s = novoSlide(
-      'Usuários por carregador: total x novos',
-      `${rotuloMes} — novos usuários são quem carregou pela 1ª vez na rede`
+      'Motoristas por carregador: total x novos',
+      `${rotuloMes} — novos motoristas são quem carregou pela 1ª vez na rede`
     );
     s.addChart(
       pptx.ChartType.bar,
       [
         {
-          name: 'Usuários no mês',
+          name: 'Motoristas atendidos',
           labels: [...lista].reverse().map(c => c.nome),
           values: [...lista].reverse().map(c => c.usuarios),
         },
         {
-          name: 'Novos usuários',
+          name: 'Novos motoristas',
           labels: [...lista].reverse().map(c => c.nome),
           values: [...lista].reverse().map(c => c.novosUsuarios),
         },
@@ -625,7 +630,7 @@ export async function exportarApresentacao(
   {
     const s = novoSlide(
       'Onde a rede está crescendo',
-      `Novos usuários por bairro e horários de maior uso — ${rotuloMes}`
+      `Novos motoristas por bairro e horários de maior uso — ${rotuloMes}`
     );
     const bairros = r.bairros.slice(0, 10);
     if (bairros.length) {
@@ -633,7 +638,7 @@ export async function exportarApresentacao(
         pptx.ChartType.bar,
         [
           {
-            name: 'Novos usuários',
+            name: 'Novos motoristas',
             labels: [...bairros].reverse().map(b => b.bairro),
             values: [...bairros].reverse().map(b => b.novosUsuarios),
           },
@@ -652,7 +657,7 @@ export async function exportarApresentacao(
       );
     }
 
-    T(s, 'Operações por dia e hora de início', {
+    T(s, 'Recargas por dia e hora de início', {
       x: 6.4,
       y: 1.45,
       w: 6.4,
@@ -700,7 +705,7 @@ export async function exportarApresentacao(
     if (pico) {
       T(
         s,
-        `Pico: ${DIAS_SEMANA[pico.dia - 1]} às ${pico.hora}h (${fmtInt(pico.operacoes)} operações iniciadas)`,
+        `Pico: ${DIAS_SEMANA[pico.dia - 1]} às ${pico.hora}h (${fmtInt(pico.operacoes)} recargas iniciadas)`,
         {
           x: 6.4,
           y: 5.4,
@@ -834,7 +839,7 @@ export async function exportarApresentacao(
     const ultimo = p.meses[p.meses.length - 1];
     const s = novoSlide(
       `Projeção operacional até ${mesCurto(ultimo.mes)}`,
-      'Usuários, transações e energia — mantendo o ritmo de crescimento composto observado',
+      'Motoristas, recargas e energia — mantendo o ritmo de crescimento observado',
       `Projeção pelo crescimento composto dos últimos meses · ${mesCurto(baseMes)} fechado como base`
     );
     const blocos: Array<{
@@ -845,14 +850,14 @@ export async function exportarApresentacao(
     }> = [
       {
         chave: 'usuariosAtivos',
-        titulo: 'Usuários no mês',
-        rotulo: `usuários no mês em ${mesCurto(ultimo.mes).toLowerCase()}`,
+        titulo: 'Motoristas atendidos',
+        rotulo: `motoristas no mês em ${mesCurto(ultimo.mes).toLowerCase()}`,
         fmt: fmtInt,
       },
       {
         chave: 'operacoes',
-        titulo: 'Transações no mês',
-        rotulo: `transações em ${mesCurto(ultimo.mes).toLowerCase()}`,
+        titulo: 'Recargas no mês',
+        rotulo: `recargas em ${mesCurto(ultimo.mes).toLowerCase()}`,
         fmt: fmtInt,
       },
       {

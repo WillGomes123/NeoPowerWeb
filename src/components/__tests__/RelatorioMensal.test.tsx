@@ -194,11 +194,20 @@ describe('RelatorioMensal', () => {
     expect(vi.mocked(api.get).mock.calls[0][0]).toMatch(
       /^\/indicators\/monthly\?mes=\d{4}-\d{2}&meses=12$/
     );
-    expect(screen.getByText('Mês fechado')).toBeInTheDocument();
-    expect(screen.getAllByText('AP Brasil Compensa').length).toBeGreaterThan(0);
-    expect(screen.getByText('2 batidas · 1 não batidas · 0 quase lá')).toBeInTheDocument();
+    expect(screen.getByText('Resumo de agosto')).toBeInTheDocument();
+    const texto = document.body.textContent ?? '';
+    expect(texto).toContain('sua rede fez 2.782 recargas para 598 motoristas e faturou R$ 81.819');
+    expect(texto).toContain('35,1% a mais que em julho');
     expect(screen.getByText('Carregador saturando')).toBeInTheDocument();
-    expect(screen.getByText(/Locais sem bairro/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Carregadores/ }));
+    expect(screen.getAllByText('AP Brasil Compensa').length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /Motoristas/ }));
+    expect(screen.getByText(/Alguns locais estão sem bairro/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Metas e projeção/ }));
+    expect(document.body.textContent).toContain('2 batidas · 1 não batidas · 0 quase lá');
   });
 
   it('reordena a tabela de carregadores pela coluna clicada', async () => {
@@ -208,7 +217,8 @@ describe('RelatorioMensal', () => {
     vi.mocked(api.get).mockReturnValue(responder(relatorio));
 
     render(<RelatorioMensal />);
-    await screen.findByText('Mês fechado');
+    await screen.findByText('Resumo de agosto');
+    fireEvent.click(screen.getByRole('button', { name: /Carregadores/ }));
 
     const nomesNaTabela = () =>
       Array.from(document.querySelectorAll('tbody tr td:first-child p:first-child')).map(

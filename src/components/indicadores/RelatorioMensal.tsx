@@ -14,6 +14,12 @@ import {
 } from 'recharts';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 import { MetasDialog } from './MetasDialog';
 import {
   DIAS_SEMANA,
@@ -33,9 +39,16 @@ import {
   somarMeses,
   variacaoPct,
   type Carregador,
+  type MetaNumerica,
   type PontoSerie,
   type RelatorioMensal as Relatorio,
 } from './tipos';
+
+/*
+ * Relatório mensal pensado para o cliente (operador da marca): linguagem do dia
+ * a dia (recargas, motoristas, uso dos carregadores), um resumo em frase no topo
+ * e o detalhe separado em abas. Os números vêm de GET /indicators/monthly.
+ */
 
 // Azul mais claro que o da apresentação: precisa contrastar no tema escuro e no claro.
 const AZUL = '#4F7CA8';
@@ -58,26 +71,36 @@ const tooltipStyle = {
 // Peças pequenas
 // ---------------------------------------------------------------------------
 
-function Variacao({
-  valor,
-  sufixo = '%',
-  inverter = false,
-}: {
-  valor: number | null;
-  sufixo?: string;
-  inverter?: boolean;
-}) {
-  if (valor === null)
-    return <span className="text-[11px] text-on-surface-variant">sem base de comparação</span>;
-  const bom = inverter ? valor <= 0 : valor >= 0;
+function Variacao({ valor, sufixo = '%' }: { valor: number | null; sufixo?: string }) {
+  if (valor === null) return null;
+  if (valor === 0)
+    return (
+      <span className="inline-flex items-center rounded-full bg-surface-container-highest px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+        igual
+      </span>
+    );
+  const subiu = valor > 0;
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[11px] font-semibold ${bom ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${subiu ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}
     >
       <span className="material-symbols-outlined text-[14px] leading-none">
-        {valor >= 0 ? 'trending_up' : 'trending_down'}
+        {subiu ? 'arrow_upward' : 'arrow_downward'}
       </span>
-      {fmtVar(valor, sufixo)}
+      {fmtVar(valor, sufixo).replace('+', '').replace('-', '')}
+    </span>
+  );
+}
+
+/** Ícone de ajuda com a explicação no hover (e no toque, pelo title). */
+function Ajuda({ texto }: { texto: string }) {
+  return (
+    <span
+      title={texto}
+      aria-label={texto}
+      className="material-symbols-outlined text-[15px] leading-none text-on-surface-variant/70 cursor-help align-middle no-print"
+    >
+      help
     </span>
   );
 }
@@ -88,26 +111,22 @@ function Secao({
   icone,
   acoes,
   children,
-  className = '',
 }: {
   titulo: string;
   subtitulo?: string;
   icone: string;
   acoes?: ReactNode;
   children: ReactNode;
-  className?: string;
 }) {
   return (
-    <section
-      className={`glass-panel rounded-lg border border-outline-variant/10 p-5 lg:p-6 print-avoid ${className}`}
-    >
+    <section className="glass-panel rounded-xl border border-outline-variant/10 p-5 lg:p-6 print-avoid">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
         <div>
           <h3 className="font-headline text-base font-bold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-xl">{icone}</span>
             {titulo}
           </h3>
-          {subtitulo && <p className="text-xs text-on-surface-variant mt-1">{subtitulo}</p>}
+          {subtitulo && <p className="text-sm text-on-surface-variant mt-1">{subtitulo}</p>}
         </div>
         {acoes && <div className="no-print">{acoes}</div>}
       </div>
@@ -132,7 +151,7 @@ function Chips<T extends string>({
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
             valor === o.id
               ? 'bg-primary/15 text-primary'
               : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
@@ -153,18 +172,40 @@ const Vazio = ({ texto }: { texto: string }) => (
 );
 
 // ---------------------------------------------------------------------------
-// Métricas selecionáveis
+// Vocabulário
 // ---------------------------------------------------------------------------
 
 type ChaveSerie = keyof Omit<PontoSerie, 'mes'>;
 const METRICAS_SERIE: Array<{ id: ChaveSerie; rotulo: string; fmt: (n: number) => string }> = [
   { id: 'faturamento', rotulo: 'Faturamento', fmt: n => fmtBRL(n) },
+  { id: 'operacoes', rotulo: 'Recargas', fmt: fmtInt },
+  { id: 'usuariosAtivos', rotulo: 'Motoristas', fmt: fmtInt },
   { id: 'energiaKwh', rotulo: 'Energia', fmt: n => fmtKwh(n) },
-  { id: 'operacoes', rotulo: 'Transações', fmt: fmtInt },
-  { id: 'usuariosAtivos', rotulo: 'Usuários no mês', fmt: fmtInt },
-  { id: 'novosUsuarios', rotulo: 'Novos usuários', fmt: fmtInt },
-  { id: 'baseAcumulada', rotulo: 'Base acumulada', fmt: fmtInt },
+  { id: 'novosUsuarios', rotulo: 'Novos motoristas', fmt: fmtInt },
+  { id: 'baseAcumulada', rotulo: 'Motoristas na base', fmt: fmtInt },
 ];
+
+const ROTULO_META: Record<MetaNumerica['chave'], string> = {
+  faturamento: 'Faturamento',
+  energiaKwh: 'Energia entregue',
+  operacoes: 'Recargas',
+  novosUsuarios: 'Novos motoristas',
+  baseUsuarios: 'Motoristas na base',
+  baseAtivaPct: 'Motoristas ativos',
+};
+
+const EXPLICA = {
+  recargas:
+    'Recargas concluídas com energia entregue. Recargas em andamento ou sem energia não contam.',
+  motoristas: 'Quantas pessoas diferentes carregaram na sua rede no período.',
+  novos: 'Pessoas que carregaram na sua rede pela primeira vez neste período.',
+  base: 'Todas as pessoas que já carregaram na sua rede pelo menos uma vez.',
+  ativos:
+    'De todos os motoristas que já carregaram com você, quantos voltaram a carregar neste mês.',
+  uso: 'Quanto tempo os carregadores ficaram com um carro conectado, considerando 24 horas por dia em cada conector.',
+  preco: 'Faturamento dividido pela energia entregue.',
+  ticket: 'Quanto cada recarga rendeu, em média.',
+};
 
 type ColunaTabela =
   | 'nome'
@@ -176,6 +217,15 @@ type ColunaTabela =
   | 'novosUsuarios'
   | 'precoMedioKwh'
   | 'ticketMedio';
+
+type Aba = 'resumo' | 'carregadores' | 'motoristas' | 'metas';
+
+const ABAS: Array<{ id: Aba; rotulo: string; icone: string }> = [
+  { id: 'resumo', rotulo: 'Resumo', icone: 'dashboard' },
+  { id: 'carregadores', rotulo: 'Carregadores', icone: 'ev_station' },
+  { id: 'motoristas', rotulo: 'Motoristas', icone: 'group' },
+  { id: 'metas', rotulo: 'Metas e projeção', icone: 'flag' },
+];
 
 // ---------------------------------------------------------------------------
 // Tela
@@ -190,6 +240,7 @@ export function RelatorioMensal() {
   const [dados, setDados] = useState<Relatorio | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [aba, setAba] = useState<Aba>('resumo');
   const [metricaSerie, setMetricaSerie] = useState<ChaveSerie>('faturamento');
   const [metricaProjecao, setMetricaProjecao] = useState<
     'faturamento' | 'energiaKwh' | 'operacoes' | 'usuariosAtivos'
@@ -200,6 +251,24 @@ export function RelatorioMensal() {
   });
   const [metasAbertas, setMetasAbertas] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  useEffect(() => {
+    const antes = () => setImprimindo(true);
+    const depois = () => setImprimindo(false);
+    window.addEventListener('beforeprint', antes);
+    window.addEventListener('afterprint', depois);
+    return () => {
+      window.removeEventListener('beforeprint', antes);
+      window.removeEventListener('afterprint', depois);
+    };
+  }, []);
+
+  const imprimir = () => {
+    // Monta todas as abas antes de abrir a impressão, para os gráficos entrarem.
+    setImprimindo(true);
+    setTimeout(() => window.print(), 400);
+  };
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -275,18 +344,18 @@ export function RelatorioMensal() {
       'Bairro',
       'Conectores',
       'Faturamento (R$)',
-      'Faturamento anterior (R$)',
+      'Faturamento mês anterior (R$)',
       'Energia (kWh)',
-      'Energia anterior (kWh)',
-      'Operações',
-      'Operações anteriores',
-      'Usuários',
-      'Novos usuários',
-      'Horas ocupadas',
+      'Energia mês anterior (kWh)',
+      'Recargas',
+      'Recargas mês anterior',
+      'Motoristas',
+      'Novos motoristas',
+      'Horas em uso',
       'Horas disponíveis',
-      'Ocupação (%)',
+      'Uso (%)',
       'Preço médio (R$/kWh)',
-      'Ticket médio (R$)',
+      'Valor médio por recarga (R$)',
       'Duração média (min)',
     ];
     const num = (v: number | null) => (v === null ? '' : String(v).replace('.', ','));
@@ -313,7 +382,9 @@ export function RelatorioMensal() {
     const csv = [cab, ...linhas]
       .map(l => l.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
       .join('\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([String.fromCharCode(0xfeff) + csv], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -324,104 +395,105 @@ export function RelatorioMensal() {
 
   const mesMaximo = mesAtualLocal();
   const r = dados;
-  const refAnterior = r
-    ? r.comparacaoParcial
-      ? `mesmo período de ${nomeDoMes(r.periodoAnterior.ini.slice(0, 7))}`
-      : nomeDoMes(r.periodoAnterior.ini.slice(0, 7))
-    : '';
+  const mesAnteriorNome = r ? nomeDoMes(r.periodoAnterior.ini.slice(0, 7)) : '';
+  // Só a aba ativa é montada (gráfico montado escondido fica com largura zero);
+  // para imprimir, todas.
+  const mostrar = (a: Aba) => imprimindo || aba === a;
 
   return (
     <div className="space-y-6">
-      {/* Barra de controle */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 no-print">
+      {/* Mês e ações */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            aria-label="Mês anterior"
-            onClick={() => setMes(m => somarMeses(m, -1))}
-            className="h-10 w-10 inline-flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface hover:text-primary"
-          >
-            <span className="material-symbols-outlined">chevron_left</span>
-          </button>
-          <input
-            type="month"
-            value={mes}
-            max={mesMaximo}
-            onChange={e => e.target.value && setMes(e.target.value)}
-            className="h-10 rounded-lg bg-surface-container-high border border-outline-variant/20 px-3 text-sm text-on-surface"
-          />
-          <button
-            type="button"
-            aria-label="Próximo mês"
-            disabled={mes >= mesMaximo}
-            onClick={() => setMes(m => somarMeses(m, 1))}
-            className="h-10 w-10 inline-flex items-center justify-center rounded-lg bg-surface-container-high text-on-surface hover:text-primary disabled:opacity-40"
-          >
-            <span className="material-symbols-outlined">chevron_right</span>
-          </button>
-          {r && (
-            <span
-              className={`ml-1 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${r.fechado ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-sky-500/15 text-sky-600 dark:text-sky-400'}`}
+          <div className="inline-flex items-center rounded-full bg-surface-container-high p-1">
+            <button
+              type="button"
+              aria-label="Mês anterior"
+              onClick={() => setMes(m => somarMeses(m, -1))}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-highest"
             >
-              <span className="material-symbols-outlined text-sm">
-                {r.fechado ? 'task_alt' : 'schedule'}
-              </span>
-              {r.fechado
-                ? 'Mês fechado'
-                : `Parcial até ${fmtDataHora(r.periodo.fim)} · comparado ao ${refAnterior}`}
+              <span className="material-symbols-outlined text-xl">chevron_left</span>
+            </button>
+            <label className="relative px-3 text-sm font-semibold text-on-surface cursor-pointer">
+              {mesPorExtenso(mes)}
+              <input
+                type="month"
+                aria-label="Escolher mês"
+                value={mes}
+                max={mesMaximo}
+                onChange={e => e.target.value && setMes(e.target.value)}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </label>
+            <button
+              type="button"
+              aria-label="Próximo mês"
+              disabled={mes >= mesMaximo}
+              onClick={() => setMes(m => somarMeses(m, 1))}
+              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-highest disabled:opacity-30"
+            >
+              <span className="material-symbols-outlined text-xl">chevron_right</span>
+            </button>
+          </div>
+          {r && !r.fechado && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
+              <span className="material-symbols-outlined text-sm">schedule</span>
+              Mês em andamento · dados até {fmtDataHora(r.periodo.fim)}
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => void carregar()}
             disabled={carregando}
-            className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-on-surface-variant bg-surface-container-high hover:text-primary"
+            title="Atualizar dados"
+            aria-label="Atualizar dados"
+            className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary"
           >
             <span
-              className={`material-symbols-outlined text-lg ${carregando ? 'animate-spin' : ''}`}
+              className={`material-symbols-outlined text-xl ${carregando ? 'animate-spin' : ''}`}
             >
               refresh
             </span>
-            Atualizar
           </button>
-          <button
-            type="button"
-            onClick={() => setMetasAbertas(true)}
-            disabled={!r}
-            className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-on-surface bg-surface-container-high hover:text-primary disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-lg">flag</span>
-            Metas
-          </button>
-          <button
-            type="button"
-            onClick={exportarCsv}
-            disabled={!r}
-            className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-on-surface bg-surface-container-high hover:text-primary disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-lg">table_view</span>
-            CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            disabled={!r}
-            className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-on-surface bg-surface-container-high hover:text-primary disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-lg">print</span>
-            Imprimir / PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportarPptx()}
-            disabled={!r || exportando}
-            className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold bg-primary text-on-primary disabled:opacity-60"
-          >
-            <span className="material-symbols-outlined text-lg">slideshow</span>
-            {exportando ? 'Gerando…' : 'Baixar apresentação'}
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={!r || exportando}
+                className="h-10 px-4 inline-flex items-center gap-1.5 rounded-full text-sm font-semibold bg-primary text-on-primary disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-lg">download</span>
+                {exportando ? 'Gerando…' : 'Exportar'}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
+              <DropdownMenuItem onSelect={() => void exportarPptx()} className="gap-2 py-2">
+                <span className="material-symbols-outlined text-lg text-primary">slideshow</span>
+                <span>
+                  <span className="block text-sm font-medium">Apresentação</span>
+                  <span className="block text-xs text-muted-foreground">
+                    PowerPoint pronto para a reunião
+                  </span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportarCsv} className="gap-2 py-2">
+                <span className="material-symbols-outlined text-lg text-primary">table_view</span>
+                <span>
+                  <span className="block text-sm font-medium">Planilha por carregador</span>
+                  <span className="block text-xs text-muted-foreground">Arquivo CSV (Excel)</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={imprimir} className="gap-2 py-2">
+                <span className="material-symbols-outlined text-lg text-primary">print</span>
+                <span>
+                  <span className="block text-sm font-medium">Imprimir ou salvar PDF</span>
+                  <span className="block text-xs text-muted-foreground">Relatório completo</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -435,7 +507,7 @@ export function RelatorioMensal() {
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           <p className="text-on-surface-variant text-sm">
-            Calculando o relatório de {mesPorExtenso(mes)}…
+            Preparando o relatório de {mesPorExtenso(mes)}…
           </p>
         </div>
       )}
@@ -443,184 +515,201 @@ export function RelatorioMensal() {
       {r && (
         <div className={`space-y-6 transition-opacity ${carregando ? 'opacity-60' : ''}`}>
           <div className="hidden print:block">
-            <h1 className="text-2xl font-bold">Performance da Rede — {mesPorExtenso(r.mes)}</h1>
+            <h1 className="text-2xl font-bold">Relatório de {mesPorExtenso(r.mes)}</h1>
             <p className="text-sm">
-              {empresa} · {r.fechado ? 'mês fechado' : `parcial até ${fmtDataHora(r.periodo.fim)}`}
+              {empresa} · {r.fechado ? 'mês fechado' : `dados até ${fmtDataHora(r.periodo.fim)}`}
             </p>
           </div>
 
-          <Kpis r={r} refAnterior={refAnterior} />
+          <ResumoDoMes r={r} mesAnteriorNome={mesAnteriorNome} />
 
-          <Secao
-            titulo="Trajetória"
-            subtitulo={`Últimos ${r.serie.length} meses — ${mesCurto(r.serie[0].mes)} a ${mesCurto(r.mes)}${r.fechado ? '' : ' (mês atual parcial)'}`}
-            icone="stacked_bar_chart"
-            acoes={
-              <Chips
-                opcoes={METRICAS_SERIE.map(m => ({ id: m.id, rotulo: m.rotulo }))}
-                valor={metricaSerie}
-                onChange={setMetricaSerie}
-              />
-            }
-          >
-            <Trajetoria serie={r.serie} metrica={metricaSerie} mesSelecionado={r.mes} />
-          </Secao>
-
-          <Secao
-            titulo="Desempenho por carregador"
-            subtitulo={`${mesPorExtenso(r.mes)} · variação vs ${refAnterior} · clique no título da coluna para ordenar`}
-            icone="ev_station"
-          >
-            <TabelaCarregadores
-              lista={carregadoresOrdenados}
-              ordem={ordem}
-              onOrdenar={coluna =>
-                setOrdem(o => ({ coluna, desc: o.coluna === coluna ? !o.desc : true }))
-              }
-              totalFaturamento={r.resumo.faturamento}
-            />
-          </Secao>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Secao
-              titulo="Taxa de ocupação"
-              subtitulo="Horas com veículo conectado ÷ horas disponíveis (24h por conector)"
-              icone="timelapse"
-            >
-              <Ocupacao lista={r.carregadores} />
-            </Secao>
-            <Secao
-              titulo="Usuários por carregador"
-              subtitulo="Total no período x novos (1ª recarga na rede)"
-              icone="group_add"
-            >
-              <Usuarios lista={r.carregadores} />
-            </Secao>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Secao
-              titulo="Onde a rede está crescendo"
-              subtitulo="Novos usuários e faturamento por bairro do local"
-              icone="location_city"
-            >
-              <Bairros r={r} />
-            </Secao>
-            <Secao
-              titulo="Horários de pico"
-              subtitulo="Recargas iniciadas por dia da semana e hora"
-              icone="calendar_view_week"
-            >
-              <MapaDeCalor r={r} />
-            </Secao>
-          </div>
-
-          <Secao
-            titulo={`Metas de ${nomeDoMes(r.mes)}`}
-            subtitulo={
-              r.metas.definidas
-                ? 'Resultado do período frente às metas definidas'
-                : 'Nenhuma meta definida para este mês'
-            }
-            icone="flag"
-            acoes={
+          {/* Abas */}
+          <div className="no-print flex gap-1 overflow-x-auto rounded-full bg-surface-container-high p-1 w-full sm:w-fit">
+            {ABAS.map(a => (
               <button
+                key={a.id}
                 type="button"
-                onClick={() => setMetasAbertas(true)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                onClick={() => setAba(a.id)}
+                className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  aba === a.id
+                    ? 'bg-surface-container-lowest text-on-surface shadow'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
               >
-                <span className="material-symbols-outlined text-base">edit</span>
-                {r.metas.definidas ? 'Editar metas' : 'Definir metas'}
+                <span
+                  className={`material-symbols-outlined text-lg ${aba === a.id ? 'text-primary' : ''}`}
+                >
+                  {a.icone}
+                </span>
+                {a.rotulo}
               </button>
-            }
-          >
-            <Metas r={r} />
-          </Secao>
+            ))}
+          </div>
 
-          <Secao
-            titulo="Projeção"
-            subtitulo={
-              r.projecao.base
-                ? `Mantendo o crescimento composto observado até ${mesCurto(r.projecao.base)} (último mês fechado)`
-                : 'Histórico insuficiente para projetar'
-            }
-            icone="query_stats"
-            acoes={
-              <Chips
-                opcoes={[
-                  { id: 'faturamento', rotulo: 'Faturamento' },
-                  { id: 'energiaKwh', rotulo: 'Energia' },
-                  { id: 'operacoes', rotulo: 'Transações' },
-                  { id: 'usuariosAtivos', rotulo: 'Usuários' },
-                ]}
-                valor={metricaProjecao}
-                onChange={setMetricaProjecao}
-              />
-            }
-          >
-            <ProjecaoView r={r} metrica={metricaProjecao} />
-          </Secao>
+          {/* Resumo */}
+          {mostrar('resumo') && (
+            <div className="space-y-6">
+              <Destaques r={r} />
+              <Secao
+                titulo="Evolução nos últimos 12 meses"
+                subtitulo={`De ${mesCurto(r.serie[0].mes)} a ${mesCurto(r.mes)}. A barra mais forte é o mês escolhido.`}
+                icone="bar_chart"
+                acoes={
+                  <Chips
+                    opcoes={METRICAS_SERIE.map(m => ({ id: m.id, rotulo: m.rotulo }))}
+                    valor={metricaSerie}
+                    onChange={setMetricaSerie}
+                  />
+                }
+              >
+                <Trajetoria serie={r.serie} metrica={metricaSerie} mesSelecionado={r.mes} />
+              </Secao>
+              <MaisNumeros r={r} />
+            </div>
+          )}
 
-          <Secao
-            titulo="Leituras e próximos passos"
-            subtitulo="Pontos de atenção gerados a partir dos números — revise antes de levar para a reunião"
-            icone="lightbulb"
-          >
-            {r.leituras.length === 0 ? (
-              <p className="text-sm text-on-surface-variant">Nada fora do normal neste período.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {r.leituras.map((l, i) => (
-                  <div
-                    key={i}
-                    className={`rounded-lg border-l-4 bg-surface-container-high/50 p-4 ${l.tipo === 'positivo' ? 'border-emerald-500' : l.tipo === 'alerta' ? 'border-red-500' : 'border-sky-500'}`}
-                  >
-                    <p className="font-semibold text-on-surface text-sm">{l.titulo}</p>
-                    <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                      {l.texto}
-                    </p>
-                  </div>
-                ))}
+          {/* Carregadores */}
+          {mostrar('carregadores') && (
+            <div className="space-y-6">
+              <Secao
+                titulo="Como cada carregador foi"
+                subtitulo={`Comparado com ${r.comparacaoParcial ? `o mesmo período de ${mesAnteriorNome}` : mesAnteriorNome}. Toque no nome da coluna para ordenar.`}
+                icone="ev_station"
+              >
+                <TabelaCarregadores
+                  lista={carregadoresOrdenados}
+                  ordem={ordem}
+                  onOrdenar={coluna =>
+                    setOrdem(o => ({ coluna, desc: o.coluna === coluna ? !o.desc : true }))
+                  }
+                  totalFaturamento={r.resumo.faturamento}
+                />
+              </Secao>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <Secao
+                  titulo="Uso dos carregadores"
+                  subtitulo="Quanto tempo cada um ficou com carro conectado"
+                  icone="timelapse"
+                >
+                  <Ocupacao lista={r.carregadores} />
+                </Secao>
+                <Secao
+                  titulo="Motoristas por carregador"
+                  subtitulo="Total atendido e quantos eram novos"
+                  icone="group_add"
+                >
+                  <Usuarios lista={r.carregadores} />
+                </Secao>
               </div>
-            )}
-          </Secao>
+            </div>
+          )}
 
-          <details className="glass-panel rounded-lg border border-outline-variant/10 p-5 text-sm text-on-surface-variant no-print">
+          {/* Motoristas */}
+          {mostrar('motoristas') && (
+            <div className="space-y-6">
+              <Motoristas r={r} />
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <Secao
+                  titulo="De onde vêm os novos motoristas"
+                  subtitulo="Pelo bairro do local onde fizeram a primeira recarga"
+                  icone="location_city"
+                >
+                  <Bairros r={r} />
+                </Secao>
+                <Secao
+                  titulo="Quando os motoristas carregam"
+                  subtitulo="Início das recargas por dia da semana e horário"
+                  icone="calendar_view_week"
+                >
+                  <MapaDeCalor r={r} />
+                </Secao>
+              </div>
+            </div>
+          )}
+
+          {/* Metas e projeção */}
+          {mostrar('metas') && (
+            <div className="space-y-6">
+              <Secao
+                titulo={`Metas de ${nomeDoMes(r.mes)}`}
+                subtitulo={
+                  r.metas.definidas
+                    ? 'Resultado do mês comparado com o que foi planejado'
+                    : 'Defina metas para acompanhar o mês'
+                }
+                icone="flag"
+                acoes={
+                  <button
+                    type="button"
+                    onClick={() => setMetasAbertas(true)}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
+                  >
+                    <span className="material-symbols-outlined text-base">
+                      {r.metas.definidas ? 'edit' : 'add'}
+                    </span>
+                    {r.metas.definidas ? 'Editar metas' : 'Definir metas'}
+                  </button>
+                }
+              >
+                <Metas r={r} onDefinir={() => setMetasAbertas(true)} />
+              </Secao>
+
+              <Secao
+                titulo="Para onde a rede está indo"
+                subtitulo={
+                  r.projecao.base
+                    ? `Estimativa se o ritmo de crescimento até ${mesCurto(r.projecao.base)} continuar`
+                    : 'Ainda não há histórico suficiente para estimar'
+                }
+                icone="trending_up"
+                acoes={
+                  <Chips
+                    opcoes={[
+                      { id: 'faturamento', rotulo: 'Faturamento' },
+                      { id: 'operacoes', rotulo: 'Recargas' },
+                      { id: 'usuariosAtivos', rotulo: 'Motoristas' },
+                      { id: 'energiaKwh', rotulo: 'Energia' },
+                    ]}
+                    valor={metricaProjecao}
+                    onChange={setMetricaProjecao}
+                  />
+                }
+              >
+                <ProjecaoView r={r} metrica={metricaProjecao} />
+              </Secao>
+            </div>
+          )}
+
+          <details className="glass-panel rounded-xl border border-outline-variant/10 p-5 text-sm text-on-surface-variant no-print">
             <summary className="cursor-pointer font-semibold text-on-surface">
               Como os números são calculados
             </summary>
             <ul className="mt-3 space-y-1.5 list-disc pl-5 text-xs leading-relaxed">
               <li>
-                <b>Operação</b>: recarga finalizada com energia entregue. Recargas em andamento ou
-                sem energia não entram.
+                <b>Recargas</b>: {EXPLICA.recargas}
               </li>
               <li>
-                <b>Usuários no mês</b>: pessoas diferentes que carregaram no período.
+                <b>Motoristas</b>: {EXPLICA.motoristas}
               </li>
               <li>
-                <b>Novo usuário</b>: a 1ª recarga da pessoa na rede caiu no período. Ele conta só no
-                carregador dessa 1ª recarga, então a soma por carregador e por bairro bate com o
-                total.
+                <b>Novos motoristas</b>: {EXPLICA.novos} Cada um conta só no carregador da primeira
+                recarga, então a soma por carregador e por bairro bate com o total.
               </li>
               <li>
-                <b>Base acumulada</b>: quem já carregou ao menos uma vez até o fim do período.{' '}
-                <b>Base ativa</b> = usuários no mês ÷ base acumulada.
+                <b>Motoristas na base</b>: {EXPLICA.base} <b>Motoristas ativos</b>: {EXPLICA.ativos}
               </li>
               <li>
-                <b>Ocupação</b>: horas com veículo conectado ÷ (24h × dias × conectores). Sessões
-                acima de 24h são limitadas a 24h.
+                <b>Uso dos carregadores</b>: {EXPLICA.uso} Recargas acima de 24 horas contam como 24
+                horas.
               </li>
               <li>
-                <b>Mês em andamento</b>: compara com o mesmo número de dias e horas do mês anterior.
+                <b>Mês em andamento</b>: a comparação é com o mesmo número de dias do mês anterior.
               </li>
               <li>
-                <b>Projeção</b>: crescimento composto mensal dos últimos meses fechados (até 7
-                intervalos), limitado a +100% ao mês.
+                <b>Projeção</b>: mantém o ritmo de crescimento dos últimos meses fechados. Não
+                considera novos pontos, lotação dos carregadores nem sazonalidade.
               </li>
-              <li>
-                Datas no fuso {r.fuso.replace('_', ' ')}. Bairro vem do cadastro do local
-                (preenchido pelo CEP quando vazio).
-              </li>
+              <li>Datas no fuso {r.fuso.replace('_', ' ')}. O bairro vem do cadastro do local.</li>
             </ul>
           </details>
 
@@ -639,141 +728,280 @@ export function RelatorioMensal() {
 }
 
 // ---------------------------------------------------------------------------
-// Blocos
+// Resumo
 // ---------------------------------------------------------------------------
 
-function Kpis({ r, refAnterior }: { r: Relatorio; refAnterior: string }) {
+function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: string }) {
   const { resumo: a, resumoAnterior: b, variacoes: v } = r;
-  const cards: Array<{
-    rotulo: string;
-    valor: string;
-    icone: string;
-    variacao: ReactNode;
-    detalhe: string;
-  }> = [
+  const nomeMes = nomeDoMes(r.mes);
+  const comparado = r.comparacaoParcial
+    ? `no mesmo período de ${mesAnteriorNome}`
+    : `em ${mesAnteriorNome}`;
+
+  const frase =
+    a.operacoes === 0 ? (
+      <>Nenhuma recarga concluída {r.fechado ? `em ${nomeMes}` : 'até agora neste mês'}.</>
+    ) : (
+      <>
+        {r.fechado ? `Em ${nomeMes}` : `Até agora em ${nomeMes}`}, sua rede fez{' '}
+        <b className="text-on-surface">{fmtInt(a.operacoes)} recargas</b> para{' '}
+        <b className="text-on-surface">{fmtInt(a.usuariosAtivos)} motoristas</b> e faturou{' '}
+        <b className="text-on-surface">{fmtBRL(a.faturamento)}</b>
+        {v.faturamento !== null && (
+          <>
+            {' '}
+            <span
+              className={
+                v.faturamento >= 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-red-600 dark:text-red-400'
+              }
+            >
+              ({fmtNum(Math.abs(v.faturamento), 1)}% {v.faturamento >= 0 ? 'a mais' : 'a menos'} que{' '}
+              {comparado})
+            </span>
+          </>
+        )}
+        .
+        {a.novosUsuarios > 0 && (
+          <>
+            {' '}
+            <b className="text-on-surface">{fmtInt(a.novosUsuarios)}</b>{' '}
+            {a.novosUsuarios === 1 ? 'pessoa carregou' : 'pessoas carregaram'} com você pela
+            primeira vez.
+          </>
+        )}
+      </>
+    );
+
+  const cards = [
     {
       rotulo: 'Faturamento',
-      valor: fmtBRL(a.faturamento),
       icone: 'payments',
-      variacao: <Variacao valor={v.faturamento} />,
-      detalhe: `${fmtBRL(b.faturamento)} no ${refAnterior}`,
+      valor: fmtBRL(a.faturamento),
+      vari: v.faturamento,
+      antes: fmtBRL(b.faturamento),
     },
     {
-      rotulo: 'Energia fornecida',
-      valor: fmtKwh(a.energiaKwh),
-      icone: 'electric_bolt',
-      variacao: <Variacao valor={v.energiaKwh} />,
-      detalhe: `${fmtKwh(b.energiaKwh)} no ${refAnterior}`,
-    },
-    {
-      rotulo: 'Operações',
-      valor: fmtInt(a.operacoes),
+      rotulo: 'Recargas',
       icone: 'bolt',
-      variacao: <Variacao valor={v.operacoes} />,
-      detalhe: `${fmtInt(b.operacoes)} no ${refAnterior}`,
+      valor: fmtInt(a.operacoes),
+      vari: v.operacoes,
+      antes: fmtInt(b.operacoes),
+      ajuda: EXPLICA.recargas,
     },
     {
-      rotulo: 'Usuários no mês',
-      valor: fmtInt(a.usuariosAtivos),
+      rotulo: 'Motoristas',
       icone: 'group',
-      variacao: <Variacao valor={v.usuariosAtivos} />,
-      detalhe: `${fmtInt(b.usuariosAtivos)} no ${refAnterior}`,
+      valor: fmtInt(a.usuariosAtivos),
+      vari: v.usuariosAtivos,
+      antes: fmtInt(b.usuariosAtivos),
+      ajuda: EXPLICA.motoristas,
     },
     {
-      rotulo: 'Novos usuários',
-      valor: fmtInt(a.novosUsuarios),
-      icone: 'person_add',
-      variacao: <Variacao valor={v.novosUsuarios} />,
-      detalhe: `Base: ${fmtInt(a.baseAcumulada - a.novosUsuarios)} → ${fmtInt(a.baseAcumulada)}`,
-    },
-    {
-      rotulo: 'Base acumulada',
-      valor: fmtInt(a.baseAcumulada),
-      icone: 'groups',
-      variacao: <Variacao valor={v.baseAcumulada} />,
-      detalhe: 'Já carregaram ao menos uma vez',
-    },
-    {
-      rotulo: 'Base ativa',
-      valor: a.baseAtivaPct === null ? '—' : fmtPct(a.baseAtivaPct),
-      icone: 'how_to_reg',
-      variacao: <Variacao valor={v.baseAtivaPp} sufixo=" p.p." />,
-      detalhe: `${fmtInt(a.usuariosAtivos)} de ${fmtInt(a.baseAcumulada)} usuários`,
-    },
-    {
-      rotulo: 'Ocupação média',
-      valor: fmtPct(a.ocupacaoPct),
-      icone: 'timelapse',
-      variacao: <Variacao valor={v.ocupacaoPp} sufixo=" p.p." />,
-      detalhe: `${a.carregadoresAtivos} carregadores com recarga`,
-    },
-  ];
-  const secundarios = [
-    {
-      rotulo: 'Preço médio',
-      valor: a.precoMedioKwh === null ? '—' : `${fmtBRL(a.precoMedioKwh, 2)}/kWh`,
-      variacao: v.precoMedioKwh,
-    },
-    {
-      rotulo: 'Ticket médio',
-      valor: a.ticketMedio === null ? '—' : fmtBRL(a.ticketMedio, 2),
-      variacao: v.ticketMedio,
-    },
-    {
-      rotulo: 'Duração média',
-      valor: a.duracaoMediaMin === null ? '—' : `${fmtInt(a.duracaoMediaMin)} min`,
-      variacao: null as number | null,
-    },
-    {
-      rotulo: 'Energia por operação',
-      valor: a.operacoes ? `${fmtNum(a.energiaKwh / a.operacoes, 1)} kWh` : '—',
-      variacao: null as number | null,
+      rotulo: 'Energia entregue',
+      icone: 'electric_bolt',
+      valor: fmtKwh(a.energiaKwh),
+      vari: v.energiaKwh,
+      antes: fmtKwh(b.energiaKwh),
     },
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-transparent to-transparent p-5 lg:p-6 print-avoid">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-2">
+          {r.fechado
+            ? `Resumo de ${nomeMes}`
+            : `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)} até agora`}
+        </p>
+        <p className="text-lg lg:text-xl leading-relaxed text-on-surface-variant max-w-4xl">
+          {frase}
+        </p>
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         {cards.map(c => (
           <div
             key={c.rotulo}
-            className="glass-panel rounded-lg border border-outline-variant/10 p-4 lg:p-5 flex flex-col gap-1 print-avoid"
+            className="glass-panel rounded-xl border border-outline-variant/10 p-4 lg:p-5 flex flex-col gap-2 print-avoid"
           >
-            <div className="flex justify-between items-start">
-              <span className="text-on-surface-variant text-[11px] uppercase tracking-widest">
-                {c.rotulo}
-              </span>
-              <span className="material-symbols-outlined text-base text-primary">{c.icone}</span>
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <span className="material-symbols-outlined text-lg text-primary">{c.icone}</span>
+              <span className="text-sm font-medium">{c.rotulo}</span>
+              {c.ajuda && <Ajuda texto={c.ajuda} />}
             </div>
-            <span className="text-xl lg:text-2xl font-headline font-bold text-on-surface">
+            <span className="text-2xl lg:text-3xl font-headline font-bold text-on-surface">
               {c.valor}
             </span>
-            {c.variacao}
-            <span className="text-[11px] text-on-surface-variant truncate" title={c.detalhe}>
-              {c.detalhe}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        {secundarios.map(s => (
-          <div
-            key={s.rotulo}
-            className="rounded-lg bg-surface-container-high/50 px-4 py-2.5 flex items-center justify-between gap-2"
-          >
-            <span className="text-[11px] uppercase tracking-widest text-on-surface-variant">
-              {s.rotulo}
-            </span>
-            <span className="text-right">
-              <span className="block text-sm font-semibold text-on-surface">{s.valor}</span>
-              {s.variacao !== null && <Variacao valor={s.variacao} />}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Variacao valor={c.vari} />
+              <span className="text-xs text-on-surface-variant">
+                {mesAnteriorNome}: {c.antes}
+              </span>
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
+function Destaques({ r }: { r: Relatorio }) {
+  const estilo = {
+    positivo: {
+      icone: 'thumb_up',
+      cor: 'text-emerald-600 dark:text-emerald-400',
+      fundo: 'bg-emerald-500/10',
+    },
+    alerta: {
+      icone: 'priority_high',
+      cor: 'text-amber-600 dark:text-amber-400',
+      fundo: 'bg-amber-500/10',
+    },
+    info: { icone: 'info', cor: 'text-sky-600 dark:text-sky-400', fundo: 'bg-sky-500/10' },
+  } as const;
+  return (
+    <Secao
+      titulo="Destaques do mês"
+      subtitulo="O que merece atenção nos números"
+      icone="auto_awesome"
+    >
+      {r.leituras.length === 0 ? (
+        <p className="text-sm text-on-surface-variant">Nada fora do normal neste período.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {r.leituras.map((l, i) => {
+            const e = estilo[l.tipo];
+            return (
+              <div key={i} className="flex gap-3 rounded-xl bg-surface-container-high/40 p-4">
+                <span
+                  className={`material-symbols-outlined h-9 w-9 shrink-0 rounded-full ${e.fundo} ${e.cor} inline-flex items-center justify-center text-xl`}
+                >
+                  {e.icone}
+                </span>
+                <div>
+                  <p className="font-semibold text-on-surface text-sm">{l.titulo}</p>
+                  <p className="text-sm text-on-surface-variant mt-0.5 leading-relaxed">
+                    {l.texto}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Secao>
+  );
+}
+
+function MaisNumeros({ r }: { r: Relatorio }) {
+  const { resumo: a, variacoes: v } = r;
+  const itens: Array<{
+    rotulo: string;
+    valor: string;
+    ajuda: string;
+    vari?: number | null;
+    sufixo?: string;
+  }> = [
+    {
+      rotulo: 'Preço médio do kWh',
+      valor: a.precoMedioKwh === null ? '—' : fmtBRL(a.precoMedioKwh, 2),
+      ajuda: EXPLICA.preco,
+      vari: v.precoMedioKwh,
+    },
+    {
+      rotulo: 'Valor médio por recarga',
+      valor: a.ticketMedio === null ? '—' : fmtBRL(a.ticketMedio, 2),
+      ajuda: EXPLICA.ticket,
+      vari: v.ticketMedio,
+    },
+    {
+      rotulo: 'Duração média da recarga',
+      valor: a.duracaoMediaMin === null ? '—' : `${fmtInt(a.duracaoMediaMin)} min`,
+      ajuda: 'Tempo médio entre o início e o fim de cada recarga.',
+    },
+    {
+      rotulo: 'Uso dos carregadores',
+      valor: fmtPct(a.ocupacaoPct, 0),
+      ajuda: EXPLICA.uso,
+      vari: v.ocupacaoPp,
+      sufixo: ' pontos',
+    },
+  ];
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {itens.map(i => (
+        <div key={i.rotulo} className="rounded-xl bg-surface-container-high/40 px-4 py-3">
+          <p className="text-xs text-on-surface-variant flex items-center gap-1">
+            {i.rotulo} <Ajuda texto={i.ajuda} />
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="text-lg font-semibold text-on-surface">{i.valor}</span>
+            {i.vari !== undefined && <Variacao valor={i.vari} sufixo={i.sufixo} />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Motoristas({ r }: { r: Relatorio }) {
+  const { resumo: a, variacoes: v } = r;
+  const cards = [
+    {
+      rotulo: 'Novos motoristas',
+      icone: 'person_add',
+      valor: fmtInt(a.novosUsuarios),
+      detalhe: 'carregaram pela primeira vez',
+      ajuda: EXPLICA.novos,
+      vari: v.novosUsuarios,
+      sufixo: '%',
+    },
+    {
+      rotulo: 'Motoristas na base',
+      icone: 'groups',
+      valor: fmtInt(a.baseAcumulada),
+      detalhe: `eram ${fmtInt(a.baseAcumulada - a.novosUsuarios)} no início do mês`,
+      ajuda: EXPLICA.base,
+      vari: v.baseAcumulada,
+      sufixo: '%',
+    },
+    {
+      rotulo: 'Motoristas ativos',
+      icone: 'how_to_reg',
+      valor: a.baseAtivaPct === null ? '—' : fmtPct(a.baseAtivaPct, 0),
+      detalhe: `${fmtInt(a.usuariosAtivos)} de ${fmtInt(a.baseAcumulada)} voltaram a carregar`,
+      ajuda: EXPLICA.ativos,
+      vari: v.baseAtivaPp,
+      sufixo: ' pontos',
+    },
+  ];
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
+      {cards.map(c => (
+        <div
+          key={c.rotulo}
+          className="glass-panel rounded-xl border border-outline-variant/10 p-5 print-avoid"
+        >
+          <div className="flex items-center gap-2 text-on-surface-variant">
+            <span className="material-symbols-outlined text-lg text-primary">{c.icone}</span>
+            <span className="text-sm font-medium">{c.rotulo}</span>
+            <Ajuda texto={c.ajuda} />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-3xl font-headline font-bold text-on-surface">{c.valor}</span>
+            <Variacao valor={c.vari} sufixo={c.sufixo} />
+          </div>
+          <p className="text-sm text-on-surface-variant mt-1">{c.detalhe}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gráficos e tabelas
+// ---------------------------------------------------------------------------
 
 function Trajetoria({
   serie,
@@ -814,9 +1042,10 @@ function Trajetoria({
           cursor={{ fill: 'rgba(255,255,255,0.04)' }}
           formatter={(v: number) => [cfg.fmt(v), cfg.rotulo]}
         />
-        <Bar isAnimationActive={false}
+        <Bar
+          isAnimationActive={false}
           dataKey="valor"
-          radius={[4, 4, 0, 0]}
+          radius={[6, 6, 0, 0]}
           maxBarSize={48}
           label={{
             position: 'top',
@@ -829,7 +1058,7 @@ function Trajetoria({
             <Cell
               key={d.chave}
               fill="var(--primary)"
-              fillOpacity={d.chave === mesSelecionado ? 1 : 0.45}
+              fillOpacity={d.chave === mesSelecionado ? 1 : 0.4}
             />
           ))}
         </Bar>
@@ -853,7 +1082,7 @@ function ThOrdenavel({
 }) {
   return (
     <th
-      className={`px-3 py-2 font-semibold whitespace-nowrap ${alinhar === 'left' ? 'text-left' : 'text-right'}`}
+      className={`px-3 py-2 font-medium whitespace-nowrap ${alinhar === 'left' ? 'text-left' : 'text-right'}`}
     >
       <button
         type="button"
@@ -874,15 +1103,17 @@ function ThOrdenavel({
 function Delta({ atual, anterior }: { atual: number; anterior: number }) {
   const v = variacaoPct(atual, anterior);
   if (v === null)
-    return atual > 0 ? <span className="block text-[10px] text-sky-500">novo</span> : null;
+    return atual > 0 ? <span className="block text-[11px] text-sky-500">novo</span> : null;
   return (
     <span
-      className={`block text-[10px] font-semibold ${v >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+      className={`block text-[11px] font-medium ${v >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
     >
       {fmtVar(v)}
     </span>
   );
 }
+
+const corDoUso = (pct: number) => (pct >= 60 ? VERMELHO : pct >= 40 ? AMBAR : VERDE);
 
 function TabelaCarregadores({
   lista,
@@ -895,106 +1126,123 @@ function TabelaCarregadores({
   onOrdenar: (c: ColunaTabela) => void;
   totalFaturamento: number;
 }) {
-  if (!lista.length) return <Vazio texto="Nenhum carregador no escopo" />;
+  const [maisColunas, setMaisColunas] = useState(false);
+  if (!lista.length) return <Vazio texto="Nenhum carregador encontrado" />;
+  const th = { ordem, onOrdenar };
   return (
-    <div className="overflow-x-auto -mx-2">
-      <table className="w-full text-sm min-w-[980px]">
-        <thead className="text-[11px] uppercase tracking-wider text-on-surface-variant border-b border-outline-variant/20">
-          <tr>
-            <ThOrdenavel coluna="nome" alinhar="left" ordem={ordem} onOrdenar={onOrdenar}>
-              Carregador
-            </ThOrdenavel>
-            <ThOrdenavel coluna="faturamento" ordem={ordem} onOrdenar={onOrdenar}>
-              Faturamento
-            </ThOrdenavel>
-            <ThOrdenavel coluna="energiaKwh" ordem={ordem} onOrdenar={onOrdenar}>
-              Energia
-            </ThOrdenavel>
-            <ThOrdenavel coluna="operacoes" ordem={ordem} onOrdenar={onOrdenar}>
-              Operações
-            </ThOrdenavel>
-            <ThOrdenavel coluna="ocupacaoPct" ordem={ordem} onOrdenar={onOrdenar}>
-              Ocupação
-            </ThOrdenavel>
-            <ThOrdenavel coluna="usuarios" ordem={ordem} onOrdenar={onOrdenar}>
-              Usuários
-            </ThOrdenavel>
-            <ThOrdenavel coluna="novosUsuarios" ordem={ordem} onOrdenar={onOrdenar}>
-              Novos
-            </ThOrdenavel>
-            <ThOrdenavel coluna="precoMedioKwh" ordem={ordem} onOrdenar={onOrdenar}>
-              R$/kWh
-            </ThOrdenavel>
-            <ThOrdenavel coluna="ticketMedio" ordem={ordem} onOrdenar={onOrdenar}>
-              Ticket
-            </ThOrdenavel>
-          </tr>
-        </thead>
-        <tbody>
-          {lista.map(c => {
-            const participacao =
-              totalFaturamento > 0 ? (c.faturamento / totalFaturamento) * 100 : 0;
-            const corOcup = c.ocupacaoPct >= 60 ? VERMELHO : c.ocupacaoPct >= 40 ? AMBAR : VERDE;
-            return (
-              <tr
-                key={c.chargePointId}
-                className="border-b border-outline-variant/10 hover:bg-surface-container-high/40"
-              >
-                <td className="px-3 py-2.5">
-                  <p className="font-medium text-on-surface">{c.nome}</p>
-                  <p className="text-[11px] text-on-surface-variant">
-                    {c.chargePointId} · {c.conectores} con.
-                    {c.potenciaKw ? ` · ${fmtNum(c.potenciaKw, 0)} kW` : ''}
-                    {c.bairro ? ` · ${c.bairro}` : ''}
-                  </p>
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <span className="font-semibold text-on-surface">{fmtBRL(c.faturamento)}</span>
-                  <span className="block text-[10px] text-on-surface-variant">
-                    {fmtPct(participacao)} da rede
-                  </span>
-                  <Delta atual={c.faturamento} anterior={c.anterior.faturamento} />
-                </td>
-                <td className="px-3 py-2.5 text-right text-on-surface">
-                  {fmtKwh(c.energiaKwh)}
-                  <Delta atual={c.energiaKwh} anterior={c.anterior.energiaKwh} />
-                </td>
-                <td className="px-3 py-2.5 text-right text-on-surface">
-                  {fmtInt(c.operacoes)}
-                  <Delta atual={c.operacoes} anterior={c.anterior.operacoes} />
-                </td>
-                <td className="px-3 py-2.5 text-right w-40">
-                  <span className="font-semibold" style={{ color: corOcup }}>
-                    {fmtPct(c.ocupacaoPct)}
-                  </span>
-                  <div className="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, c.ocupacaoPct)}%`,
-                        backgroundColor: corOcup,
-                      }}
-                    />
-                  </div>
-                  <span className="block text-[10px] text-on-surface-variant mt-0.5">
-                    {fmtInt(c.horasOcupadas)}h de {fmtInt(c.horasDisponiveis)}h
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 text-right text-on-surface">{fmtInt(c.usuarios)}</td>
-                <td className="px-3 py-2.5 text-right text-on-surface">
-                  {fmtInt(c.novosUsuarios)}
-                </td>
-                <td className="px-3 py-2.5 text-right text-on-surface">
-                  {c.precoMedioKwh === null ? '—' : fmtBRL(c.precoMedioKwh, 2)}
-                </td>
-                <td className="px-3 py-2.5 text-right text-on-surface">
-                  {c.ticketMedio === null ? '—' : fmtBRL(c.ticketMedio, 2)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <div className="overflow-x-auto -mx-2">
+        <table className={`w-full text-sm ${maisColunas ? 'min-w-[980px]' : 'min-w-[720px]'}`}>
+          <thead className="text-xs text-on-surface-variant border-b border-outline-variant/20">
+            <tr>
+              <ThOrdenavel coluna="nome" alinhar="left" {...th}>
+                Carregador
+              </ThOrdenavel>
+              <ThOrdenavel coluna="faturamento" {...th}>
+                Faturamento
+              </ThOrdenavel>
+              <ThOrdenavel coluna="operacoes" {...th}>
+                Recargas
+              </ThOrdenavel>
+              <ThOrdenavel coluna="energiaKwh" {...th}>
+                Energia
+              </ThOrdenavel>
+              <ThOrdenavel coluna="ocupacaoPct" {...th}>
+                Uso
+              </ThOrdenavel>
+              {maisColunas && (
+                <>
+                  <ThOrdenavel coluna="usuarios" {...th}>
+                    Motoristas
+                  </ThOrdenavel>
+                  <ThOrdenavel coluna="novosUsuarios" {...th}>
+                    Novos
+                  </ThOrdenavel>
+                  <ThOrdenavel coluna="precoMedioKwh" {...th}>
+                    R$/kWh
+                  </ThOrdenavel>
+                  <ThOrdenavel coluna="ticketMedio" {...th}>
+                    Por recarga
+                  </ThOrdenavel>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map(c => {
+              const participacao =
+                totalFaturamento > 0 ? (c.faturamento / totalFaturamento) * 100 : 0;
+              const cor = corDoUso(c.ocupacaoPct);
+              return (
+                <tr
+                  key={c.chargePointId}
+                  className="border-b border-outline-variant/10 hover:bg-surface-container-high/40"
+                >
+                  <td className="px-3 py-3">
+                    <p className="font-medium text-on-surface">{c.nome}</p>
+                    <p className="text-xs text-on-surface-variant">
+                      {c.bairro || c.chargePointId}
+                      {c.potenciaKw ? ` · ${fmtNum(c.potenciaKw, 0)} kW` : ''}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <span className="font-semibold text-on-surface">{fmtBRL(c.faturamento)}</span>
+                    <span className="block text-[11px] text-on-surface-variant">
+                      {fmtPct(participacao, 0)} do total
+                    </span>
+                    <Delta atual={c.faturamento} anterior={c.anterior.faturamento} />
+                  </td>
+                  <td className="px-3 py-3 text-right text-on-surface">
+                    {fmtInt(c.operacoes)}
+                    <Delta atual={c.operacoes} anterior={c.anterior.operacoes} />
+                  </td>
+                  <td className="px-3 py-3 text-right text-on-surface">
+                    {fmtKwh(c.energiaKwh)}
+                    <Delta atual={c.energiaKwh} anterior={c.anterior.energiaKwh} />
+                  </td>
+                  <td className="px-3 py-3 text-right w-36">
+                    <span className="font-semibold" style={{ color: cor }}>
+                      {fmtPct(c.ocupacaoPct, 0)}
+                    </span>
+                    <div className="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.min(100, c.ocupacaoPct)}%`, backgroundColor: cor }}
+                      />
+                    </div>
+                  </td>
+                  {maisColunas && (
+                    <>
+                      <td className="px-3 py-3 text-right text-on-surface">{fmtInt(c.usuarios)}</td>
+                      <td className="px-3 py-3 text-right text-on-surface">
+                        {fmtInt(c.novosUsuarios)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-on-surface">
+                        {c.precoMedioKwh === null ? '—' : fmtBRL(c.precoMedioKwh, 2)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-on-surface">
+                        {c.ticketMedio === null ? '—' : fmtBRL(c.ticketMedio, 2)}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button
+        type="button"
+        onClick={() => setMaisColunas(m => !m)}
+        className="no-print inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+      >
+        <span className="material-symbols-outlined text-base">
+          {maisColunas ? 'unfold_less' : 'unfold_more'}
+        </span>
+        {maisColunas
+          ? 'Mostrar menos colunas'
+          : 'Mostrar mais colunas (motoristas, preço, valor por recarga)'}
+      </button>
     </div>
   );
 }
@@ -1011,8 +1259,8 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
       valor: c.ocupacaoPct,
       horas: c.horasOcupadas,
     }));
-  if (!dados.length) return <Vazio texto="Nenhum carregador no escopo" />;
-  const saturados = lista.filter(c => c.ocupacaoPct >= 60);
+  if (!dados.length) return <Vazio texto="Nenhum carregador encontrado" />;
+  const lotados = lista.filter(c => c.ocupacaoPct >= 60);
   return (
     <>
       <ResponsiveContainer width="100%" height={alturaBarras(dados.length)}>
@@ -1034,37 +1282,48 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
             {...tooltipStyle}
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
             formatter={(v: number, _n, p) => [
-              `${fmtPct(v)} · ${fmtInt((p.payload as { horas: number }).horas)}h · ${(p.payload as { conectores: number }).conectores} con.`,
-              'Ocupação',
+              `${fmtPct(v, 0)} do tempo · ${fmtInt((p.payload as { horas: number }).horas)} horas`,
+              'Uso',
             ]}
           />
-          <ReferenceLine
-            x={60}
-            stroke={VERMELHO}
-            strokeDasharray="4 4"
-            label={{ value: '60%', fill: VERMELHO, fontSize: 10, position: 'top' }}
-          />
-          <Bar isAnimationActive={false}
+          <ReferenceLine x={60} stroke={VERMELHO} strokeDasharray="4 4" />
+          <Bar
+            isAnimationActive={false}
             dataKey="valor"
-            radius={[0, 4, 4, 0]}
+            radius={[0, 6, 6, 0]}
             maxBarSize={20}
             label={{
               position: 'right',
               fill: '#adaaaa',
               fontSize: 10,
-              formatter: (v: number) => fmtPct(v),
+              formatter: (v: number) => fmtPct(v, 0),
             }}
           >
             {dados.map((d, i) => (
-              <Cell key={i} fill={d.valor >= 60 ? VERMELHO : d.valor >= 40 ? AMBAR : AZUL} />
+              <Cell key={i} fill={d.valor >= 60 ? VERMELHO : d.valor >= 40 ? AMBAR : VERDE} />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      {saturados.length > 0 && (
-        <p className="mt-3 text-xs text-red-600 dark:text-red-400">
-          <b>{saturados.map(c => c.nome).join(', ')}</b> acima de 60%: tende a formar fila no pico.
-          Avalie mais conectores ou um ponto próximo.
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: VERDE }} />
+          até 40%: tranquilo
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: AMBAR }} />
+          40–60%: movimentado
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: VERMELHO }} />
+          acima de 60%: pode ter fila
+        </span>
+      </div>
+      {lotados.length > 0 && (
+        <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+          <b>{lotados.map(c => c.nome).join(', ')}</b> {lotados.length === 1 ? 'está' : 'estão'} com
+          muito uso e pode haver fila nos horários de pico. Vale considerar mais conectores ou um
+          ponto próximo.
         </p>
       )}
     </>
@@ -1076,7 +1335,7 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
     .filter(c => c.usuarios > 0)
     .sort((a, b) => b.usuarios - a.usuarios)
     .map(c => ({ nome: nomeCurto(c.nome), usuarios: c.usuarios, novos: c.novosUsuarios }));
-  if (!dados.length) return <Vazio texto="Nenhum usuário no período" />;
+  if (!dados.length) return <Vazio texto="Nenhum motorista no período" />;
   return (
     <ResponsiveContainer width="100%" height={alturaBarras(dados.length) + 30}>
       <BarChart data={dados} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
@@ -1090,20 +1349,22 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
           tickLine={false}
         />
         <Tooltip {...tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={28} />
-        <Bar isAnimationActive={false}
+        <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" height={28} />
+        <Bar
+          isAnimationActive={false}
           dataKey="usuarios"
-          name="Usuários no período"
+          name="Motoristas atendidos"
           fill={AZUL}
-          radius={[0, 4, 4, 0]}
+          radius={[0, 6, 6, 0]}
           maxBarSize={14}
           label={{ position: 'right', fill: '#adaaaa', fontSize: 10 }}
         />
-        <Bar isAnimationActive={false}
+        <Bar
+          isAnimationActive={false}
           dataKey="novos"
-          name="Novos usuários"
+          name="Novos motoristas"
           fill="var(--primary)"
-          radius={[0, 4, 4, 0]}
+          radius={[0, 6, 6, 0]}
           maxBarSize={14}
           label={{ position: 'right', fill: '#adaaaa', fontSize: 10 }}
         />
@@ -1114,21 +1375,21 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
 
 function Bairros({ r }: { r: Relatorio }) {
   const lista = r.bairros;
-  if (!lista.length) return <Vazio texto="Nenhum local no escopo" />;
+  if (!lista.length) return <Vazio texto="Nenhum local encontrado" />;
   const maxNovos = Math.max(1, ...lista.map(b => b.novosUsuarios));
   const semBairro = lista.find(b => b.bairro === 'Sem bairro');
-  const lider = r.carregadores
+  const lideres = r.carregadores
     .filter(c => c.novosUsuarios > 0)
     .sort((a, b) => b.novosUsuarios - a.novosUsuarios)
     .slice(0, 3);
   return (
     <div className="space-y-5">
-      {lider.length > 0 && (
+      {lideres.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {lider.map((c, i) => (
-            <div key={c.chargePointId} className="rounded-lg bg-surface-container-high/50 p-3">
-              <p className="text-[10px] uppercase tracking-widest text-primary font-bold">
-                {i + 1}º em novos usuários
+          {lideres.map((c, i) => (
+            <div key={c.chargePointId} className="rounded-xl bg-surface-container-high/50 p-3">
+              <p className="text-xs text-primary font-semibold">
+                {['🥇', '🥈', '🥉'][i]} {i + 1}º lugar
               </p>
               <p className="text-2xl font-headline font-bold text-on-surface">
                 {fmtInt(c.novosUsuarios)}
@@ -1137,27 +1398,24 @@ function Bairros({ r }: { r: Relatorio }) {
                 {c.nome}
               </p>
               <p className="text-[11px] text-on-surface-variant">
-                {c.bairro ? `Bairro: ${c.bairro}` : 'Sem bairro cadastrado'}
+                {c.bairro || 'Bairro não informado'}
               </p>
             </div>
           ))}
         </div>
       )}
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         {lista.map(b => (
           <div key={b.bairro}>
-            <div className="flex justify-between text-xs mb-1">
+            <div className="flex justify-between text-sm mb-1">
               <span
                 className={`font-medium ${b.bairro === 'Sem bairro' ? 'text-on-surface-variant italic' : 'text-on-surface'}`}
               >
-                {b.bairro}{' '}
-                <span className="text-on-surface-variant font-normal">
-                  · {b.carregadores} carreg.
-                </span>
+                {b.bairro === 'Sem bairro' ? 'Bairro não informado' : b.bairro}
               </span>
               <span className="text-on-surface-variant">
-                <b className="text-on-surface">{fmtInt(b.novosUsuarios)}</b> novos ·{' '}
-                {fmtBRL(b.faturamento)}
+                <b className="text-on-surface">{fmtInt(b.novosUsuarios)}</b>{' '}
+                {b.novosUsuarios === 1 ? 'novo' : 'novos'} · {fmtBRL(b.faturamento)}
               </span>
             </div>
             <div className="h-2 rounded-full bg-surface-container-highest overflow-hidden">
@@ -1170,8 +1428,8 @@ function Bairros({ r }: { r: Relatorio }) {
         ))}
       </div>
       {semBairro && (
-        <p className="text-[11px] text-on-surface-variant">
-          Locais sem bairro: preencha em Locais › detalhes do local (o CEP preenche sozinho).
+        <p className="text-xs text-on-surface-variant">
+          Alguns locais estão sem bairro. Preencha em Locais › detalhes do local.
         </p>
       )}
     </div>
@@ -1192,7 +1450,7 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
     <div className="space-y-3">
       <Chips
         opcoes={[
-          { id: 'operacoes', rotulo: 'Operações' },
+          { id: 'operacoes', rotulo: 'Recargas' },
           { id: 'energiaKwh', rotulo: 'Energia' },
         ]}
         valor={medida}
@@ -1207,7 +1465,7 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
             <span />
             {Array.from({ length: 24 }, (_, h) => (
               <span key={h} className="text-[9px] text-center text-on-surface-variant">
-                {h % 3 === 0 ? h : ''}
+                {h % 3 === 0 ? `${h}h` : ''}
               </span>
             ))}
             {DIAS_SEMANA.map((dia, i) => (
@@ -1218,8 +1476,8 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
                   return (
                     <div
                       key={h}
-                      title={`${dia} ${h}h: ${fmtInt(cel?.operacoes ?? 0)} operações · ${fmtKwh(cel?.energiaKwh ?? 0)}`}
-                      className="aspect-square rounded-[3px] bg-surface-container-highest"
+                      title={`${dia}, ${h}h: ${fmtInt(cel?.operacoes ?? 0)} recargas · ${fmtKwh(cel?.energiaKwh ?? 0)}`}
+                      className="aspect-square rounded-[4px] bg-surface-container-highest"
                       style={
                         valor
                           ? {
@@ -1236,15 +1494,16 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
           </div>
         </div>
       </div>
-      <p className="text-xs text-on-surface-variant">
-        Pico:{' '}
+      <p className="text-sm text-on-surface-variant">
+        Horário mais procurado:{' '}
         <b className="text-on-surface">
-          {DIAS_SEMANA[pico.dia - 1]} às {pico.hora}h
-        </b>{' '}
-        · horário mais movimentado no geral:{' '}
-        <b className="text-on-surface">
-          {horaPico}h–{horaPico + 1}h
+          {horaPico}h às {horaPico + 1}h
         </b>
+        . Dia e hora de maior movimento:{' '}
+        <b className="text-on-surface">
+          {DIAS_SEMANA[pico.dia - 1]}, {pico.hora}h
+        </b>
+        .
       </p>
     </div>
   );
@@ -1257,22 +1516,32 @@ const FragmentoDia = ({ dia, children }: { dia: string; children: ReactNode }) =
   </>
 );
 
-function Metas({ r }: { r: Relatorio }) {
+function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
   const definidas = r.metas.numericas.filter(n => n.meta !== null);
   const itens = r.metas.itens;
   if (!definidas.length && !itens.length) {
     return (
-      <p className="text-sm text-on-surface-variant">
-        Defina metas numéricas (faturamento, transações, usuários, base ativa) e metas por área. O
-        resultado é comparado automaticamente e entra na apresentação.
-      </p>
+      <div className="flex flex-col items-center text-center gap-3 py-6">
+        <span className="material-symbols-outlined text-4xl text-outline">flag</span>
+        <p className="text-sm text-on-surface-variant max-w-md">
+          Defina quanto quer faturar, quantas recargas espera e outras metas do mês. O resultado é
+          comparado automaticamente e aparece também na apresentação.
+        </p>
+        <button
+          type="button"
+          onClick={onDefinir}
+          className="no-print rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+        >
+          Definir metas de {nomeDoMes(r.mes)}
+        </button>
+      </div>
     );
   }
   const fmtMeta = (unidade: string, n: number) =>
     unidade === 'R$'
       ? fmtBRL(n)
       : unidade === '%'
-        ? fmtPct(n)
+        ? fmtPct(n, 0)
         : unidade === 'kWh'
           ? fmtKwh(n)
           : fmtInt(n);
@@ -1289,27 +1558,29 @@ function Metas({ r }: { r: Relatorio }) {
             const st = n.avaliacao ? STATUS_META[n.avaliacao.status] : null;
             const pct = Math.min(100, n.avaliacao?.atingidoPct ?? 0);
             return (
-              <div key={n.chave} className="rounded-lg bg-surface-container-high/50 p-4">
+              <div key={n.chave} className="rounded-xl bg-surface-container-high/50 p-4">
                 <div className="flex justify-between items-start gap-2">
-                  <p className="text-xs uppercase tracking-widest text-on-surface-variant">
-                    {n.rotulo}
+                  <p className="text-sm font-medium text-on-surface-variant">
+                    {ROTULO_META[n.chave] ?? n.rotulo}
                   </p>
                   {st && (
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${st.classe}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.classe}`}
                     >
                       {st.rotulo}
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-xl font-headline font-bold text-on-surface">
+                <p className="mt-2 text-2xl font-headline font-bold text-on-surface">
                   {fmtMeta(n.unidade, n.resultado)}
                 </p>
                 <p className="text-xs text-on-surface-variant">
-                  Meta {fmtMeta(n.unidade, n.meta!)} ·{' '}
-                  {fmtVar(n.avaliacao?.diferenca ?? null, n.unidade === '%' ? ' p.p.' : '%')}
+                  de {fmtMeta(n.unidade, n.meta!)}
+                  {n.avaliacao?.atingidoPct != null && n.unidade !== '%'
+                    ? ` · ${fmtPct(n.avaliacao.atingidoPct, 0)} da meta`
+                    : ''}
                 </p>
-                <div className="mt-2 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                <div className="mt-2 h-2 rounded-full bg-surface-container-highest overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{ width: `${pct}%`, backgroundColor: `#${st?.cor ?? '64748B'}` }}
@@ -1324,8 +1595,8 @@ function Metas({ r }: { r: Relatorio }) {
       {itens.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {areas.map(area => (
-            <div key={area} className="rounded-lg border border-outline-variant/15 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">
+            <div key={area} className="rounded-xl border border-outline-variant/15 p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
                 {area}
               </p>
               <ul className="space-y-2.5">
@@ -1342,7 +1613,7 @@ function Metas({ r }: { r: Relatorio }) {
                         )}
                       </div>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_META[it.status].classe}`}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_META[it.status].classe}`}
                       >
                         {STATUS_META[it.status].rotulo}
                       </span>
@@ -1354,9 +1625,9 @@ function Metas({ r }: { r: Relatorio }) {
         </div>
       )}
 
-      <p className="text-xs font-semibold text-on-surface">
-        {contagem('bateu')} batidas · {contagem('nao_bateu')} não batidas · {contagem('quase')}{' '}
-        quase lá
+      <p className="text-sm text-on-surface">
+        <b>{contagem('bateu')}</b> batidas · <b>{contagem('nao_bateu')}</b> não batidas ·{' '}
+        <b>{contagem('quase')}</b> quase lá
         {contagem('em_andamento') ? ` · ${contagem('em_andamento')} em andamento` : ''}
         {contagem('dispensada') ? ` · ${contagem('dispensada')} dispensadas` : ''}
         {contagem('pendente') ? ` · ${contagem('pendente')} pendentes` : ''}
@@ -1374,7 +1645,7 @@ function ProjecaoView({
 }) {
   const p = r.projecao;
   if (!p.base || !p.meses.length)
-    return <Vazio texto="São necessários ao menos 3 meses com operação para projetar" />;
+    return <Vazio texto="São necessários pelo menos 3 meses com recargas para estimar" />;
   const fmt = METRICAS_SERIE.find(m => m.id === metrica)!.fmt;
   const reais = r.serie.filter(s => s.mes <= p.base!).slice(-6);
   const dados = [
@@ -1395,9 +1666,9 @@ function ProjecaoView({
     rotulo: string;
   }> = [
     { chave: 'faturamento', rotulo: 'Faturamento' },
+    { chave: 'operacoes', rotulo: 'Recargas' },
+    { chave: 'usuariosAtivos', rotulo: 'Motoristas' },
     { chave: 'energiaKwh', rotulo: 'Energia' },
-    { chave: 'operacoes', rotulo: 'Transações' },
-    { chave: 'usuariosAtivos', rotulo: 'Usuários no mês' },
   ];
   return (
     <div className="space-y-4">
@@ -1408,16 +1679,16 @@ function ProjecaoView({
           return (
             <div
               key={x.chave}
-              className={`rounded-lg p-3 ${x.chave === metrica ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-surface-container-high/50'}`}
+              className={`rounded-xl p-3 ${x.chave === metrica ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-surface-container-high/50'}`}
             >
-              <p className="text-[11px] uppercase tracking-widest text-on-surface-variant">
+              <p className="text-xs text-on-surface-variant">
                 {x.rotulo} em {mesCurto(ultimo.mes)}
               </p>
               <p className="text-lg font-headline font-bold text-on-surface">
                 {ultimo[x.chave] === null ? '—' : cfgFmt(ultimo[x.chave]!)}
               </p>
-              <p className="text-[11px] text-on-surface-variant">
-                {taxa === null ? 'histórico insuficiente' : `${fmtVar(taxa)} ao mês`}
+              <p className="text-xs text-on-surface-variant">
+                {taxa === null ? 'histórico insuficiente' : `crescendo ${fmtNum(taxa, 0)}% ao mês`}
               </p>
             </div>
           );
@@ -1449,13 +1720,14 @@ function ProjecaoView({
             cursor={{ fill: 'rgba(255,255,255,0.04)' }}
             formatter={(v: number, nome: string) => [fmt(v), nome]}
           />
-          <Legend wrapperStyle={{ fontSize: 11 }} verticalAlign="top" height={28} />
-          <Bar isAnimationActive={false}
+          <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" height={28} />
+          <Bar
+            isAnimationActive={false}
             dataKey="real"
             name="Realizado"
             stackId="p"
             fill="var(--primary)"
-            radius={[4, 4, 0, 0]}
+            radius={[6, 6, 0, 0]}
             maxBarSize={44}
             label={{
               position: 'top',
@@ -1464,15 +1736,16 @@ function ProjecaoView({
               formatter: (v: number | null) => (v ? fmtCompacto(v) : ''),
             }}
           />
-          <Bar isAnimationActive={false}
+          <Bar
+            isAnimationActive={false}
             dataKey="projetado"
-            name="Projetado"
+            name="Estimativa"
             stackId="p"
             fill="var(--primary)"
-            fillOpacity={0.35}
+            fillOpacity={0.3}
             stroke="var(--primary)"
             strokeDasharray="4 3"
-            radius={[4, 4, 0, 0]}
+            radius={[6, 6, 0, 0]}
             maxBarSize={44}
             label={{
               position: 'top',
@@ -1483,9 +1756,9 @@ function ProjecaoView({
           />
         </BarChart>
       </ResponsiveContainer>
-      <p className="text-[11px] text-on-surface-variant">
-        Projeção mecânica: não considera capacidade dos carregadores (pontos saturados não conseguem
-        crescer no mesmo ritmo), novos pontos nem sazonalidade.
+      <p className="text-xs text-on-surface-variant">
+        É uma estimativa simples: não leva em conta novos pontos, carregadores lotados ou meses mais
+        fracos do ano.
       </p>
     </div>
   );

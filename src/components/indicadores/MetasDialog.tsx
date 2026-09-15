@@ -23,20 +23,25 @@ const CAMPOS: Array<{ chave: MetaNumerica['chave']; rotulo: string; dica: string
   [
     {
       chave: 'faturamento',
-      rotulo: 'Faturamento em recarga (R$)',
+      rotulo: 'Faturamento (R$)',
       dica: 'Ex.: 75000',
       passo: '100',
     },
-    { chave: 'operacoes', rotulo: 'Transações no mês', dica: 'Ex.: 3000', passo: '1' },
-    { chave: 'energiaKwh', rotulo: 'Energia fornecida (kWh)', dica: 'Ex.: 60000', passo: '100' },
-    { chave: 'novosUsuarios', rotulo: 'Novos usuários', dica: 'Ex.: 250', passo: '1' },
+    { chave: 'operacoes', rotulo: 'Recargas no mês', dica: 'Ex.: 3000', passo: '1' },
+    { chave: 'energiaKwh', rotulo: 'Energia entregue (kWh)', dica: 'Ex.: 60000', passo: '100' },
+    { chave: 'novosUsuarios', rotulo: 'Novos motoristas', dica: 'Ex.: 250', passo: '1' },
     {
       chave: 'baseUsuarios',
-      rotulo: 'Usuários na plataforma (acum.)',
+      rotulo: 'Motoristas na base (total)',
       dica: 'Ex.: 1100',
       passo: '1',
     },
-    { chave: 'baseAtivaPct', rotulo: 'Base ativa no mês (%)', dica: 'Ex.: 40', passo: '0.5' },
+    {
+      chave: 'baseAtivaPct',
+      rotulo: 'Motoristas ativos no mês (%)',
+      dica: 'Ex.: 40',
+      passo: '0.5',
+    },
   ];
 
 const AREAS_SUGERIDAS = [
