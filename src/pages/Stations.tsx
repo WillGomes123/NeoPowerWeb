@@ -399,6 +399,10 @@ export const Stations = () => {
       if (!groups[locId]) groups[locId] = [];
       groups[locId].push(c);
     });
+    // Dentro do local, carregadores online primeiro.
+    Object.values(groups).forEach(lista =>
+      lista.sort((a, b) => Number(b.isConnected) - Number(a.isConnected))
+    );
     return groups;
   }, [assignedChargers]);
 
@@ -682,7 +686,14 @@ export const Stations = () => {
           <Accordion type="multiple" defaultValue={locations.map(l => `location-${l.id}`)} className="space-y-4">
             {locations
               .filter(loc => chargersByLocation[loc.id] && chargersByLocation[loc.id].length > 0)
-              .map(loc => {
+              // Locais com carregador online no topo (mais online primeiro); o resto mantém a ordem.
+              .map((loc, ordem) => ({
+                loc,
+                ordem,
+                online: chargersByLocation[loc.id].filter(c => c.isConnected).length,
+              }))
+              .sort((a, b) => b.online - a.online || a.ordem - b.ordem)
+              .map(({ loc }) => {
                 const locChargers = chargersByLocation[loc.id] || [];
                 const locOnlineCount = locChargers.filter(c => c.isConnected).length;
                 const locOfflineCount = locChargers.length - locOnlineCount;
