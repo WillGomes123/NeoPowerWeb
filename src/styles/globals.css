@@ -252,3 +252,23 @@ html {
     radial-gradient(circle at 2px 2px, rgba(73, 72, 71, 0.05) 1px, transparent 0);
   background-size: 32px 32px;
 }
+
+/* Indicadores › Relatório mensal: "Imprimir / PDF" sai só com o relatório. */
+@media print {
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding-top: 0 !important;
+    overflow: visible !important;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-avoid {
+    break-inside: avoid;
+  }
+}

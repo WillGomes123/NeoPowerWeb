@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { RelatorioMensal } from '../components/indicadores/RelatorioMensal';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
@@ -42,7 +44,7 @@ const getTodayString = () => {
   return `${year}-${month}-${day}`;
 };
 
-export const Indicators = () => {
+const EvolucaoDiaria = () => {
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('revenue');
   const [startDate, setStartDate] = useState<string>(getThirtyDaysAgoString());
@@ -180,12 +182,6 @@ export const Indicators = () => {
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">PERFORMANCE ANALYTICS</span>
-        <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Indicadores</h2>
-      </div>
-
       {error && (
         <div className="bg-error/10 border border-error/30 rounded-lg p-4 text-error text-sm">{error}</div>
       )}
@@ -286,6 +282,49 @@ export const Indicators = () => {
           </ResponsiveContainer>
         </div>
       </div>
+    </div>
+  );
+};
+
+type Aba = 'mensal' | 'diario';
+
+export const Indicators = () => {
+  const { user } = useAuth();
+  const podeVerMensal = user?.role === 'admin' || (user?.role === 'operador' && !!user?.clientId);
+  const [aba, setAba] = useState<Aba>(podeVerMensal ? 'mensal' : 'diario');
+
+  const abas: Array<{ id: Aba; rotulo: string; icone: string }> = [
+    ...(podeVerMensal ? [{ id: 'mensal' as Aba, rotulo: 'Relatório mensal', icone: 'calendar_month' }] : []),
+    { id: 'diario', rotulo: 'Evolução diária', icone: 'show_chart' },
+  ];
+
+  return (
+    <div className="space-y-6 pb-12">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 no-print">
+        <div className="flex flex-col gap-1">
+          <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">PERFORMANCE ANALYTICS</span>
+          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Indicadores</h2>
+        </div>
+        {abas.length > 1 && (
+          <div className="inline-flex rounded-lg bg-surface-container-high p-1 self-start md:self-auto">
+            {abas.map(a => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setAba(a.id)}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  aba === a.id ? 'bg-primary text-on-primary shadow' : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                <span className="material-symbols-outlined text-lg">{a.icone}</span>
+                {a.rotulo}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {aba === 'mensal' ? <RelatorioMensal /> : <EvolucaoDiaria />}
     </div>
   );
 };
