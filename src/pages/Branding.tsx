@@ -15,6 +15,7 @@ import {
 } from '../components/ui/dialog';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { PagamentosDaMarca } from '../components/branding/PagamentosDaMarca';
 import { PromotionsDialog } from '../components/PromotionsDialog';
 
 interface BrandingConfig {
@@ -113,7 +114,7 @@ export const Branding = () => {
       const response = await api.get('/admin/branding');
       if (response.ok) {
         const data = await response.json();
-        setConfigs(Array.isArray(data) ? data : (data.payload || []));
+        setConfigs(Array.isArray(data) ? data : data.payload || []);
       }
     } catch {
       toast.error('Erro ao carregar configurações de marca');
@@ -139,15 +140,26 @@ export const Branding = () => {
       const { updatedAt, ...baseDataToSave } = formData;
       const dataToSave = {
         ...baseDataToSave,
-        primaryColorLight: useSameColors ? null : (baseDataToSave.primaryColorLight || baseDataToSave.primaryColor),
-        primaryColorDark: useSameColors ? null : (baseDataToSave.primaryColorDark || baseDataToSave.primaryColor),
-        splashBgColorLight: useSameColors ? null : (baseDataToSave.splashBgColorLight || baseDataToSave.splashBgColor),
-        splashBgColorDark: useSameColors ? null : (baseDataToSave.splashBgColorDark || baseDataToSave.splashBgColor),
+        primaryColorLight: useSameColors
+          ? null
+          : baseDataToSave.primaryColorLight || baseDataToSave.primaryColor,
+        primaryColorDark: useSameColors
+          ? null
+          : baseDataToSave.primaryColorDark || baseDataToSave.primaryColor,
+        splashBgColorLight: useSameColors
+          ? null
+          : baseDataToSave.splashBgColorLight || baseDataToSave.splashBgColor,
+        splashBgColorDark: useSameColors
+          ? null
+          : baseDataToSave.splashBgColorDark || baseDataToSave.splashBgColor,
       };
 
       if (updatedAt) {
         // Enviar atualização (PUT)
-        response = await api.put(`/admin/branding/${encodeURIComponent(formData.clientId!)}`, dataToSave);
+        response = await api.put(
+          `/admin/branding/${encodeURIComponent(formData.clientId)}`,
+          dataToSave
+        );
       } else {
         // Enviar criação (POST)
         response = await api.post('/admin/branding', dataToSave);
@@ -229,7 +241,10 @@ export const Branding = () => {
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'logoUri' | 'logoUriLight' | 'logoUriDark' = 'logoUri') => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: 'logoUri' | 'logoUriLight' | 'logoUriDark' = 'logoUri'
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -252,7 +267,7 @@ export const Branding = () => {
       if (response.ok) {
         const data = await response.json();
         const urlValue = data.url || (data.payload && data.payload.url) || data.secure_url;
-        
+
         if (urlValue) {
           setFormData(prev => ({ ...prev, [target]: urlValue }));
           toast.success('Logo enviado com sucesso!');
@@ -283,7 +298,11 @@ export const Branding = () => {
     if (!selectedBuildClient) return;
     // Publicar no iOS exige o Apple ID do app da marca; barrar aqui evita
     // disparar um build que o CI recusaria logo no começo.
-    if (buildTarget === 'production' && buildPlatform !== 'android' && !selectedBuildClient.appStoreAppId) {
+    if (
+      buildTarget === 'production' &&
+      buildPlatform !== 'android' &&
+      !selectedBuildClient.appStoreAppId
+    ) {
       toast.error('Cadastre o Apple ID do app (aba Lojas) antes de publicar no iOS.');
       return;
     }
@@ -320,7 +339,12 @@ export const Branding = () => {
 
   const handleEdit = (config: BrandingConfig) => {
     setFormData(config);
-    const hasSpecificColors = !!(config.primaryColorLight || config.primaryColorDark || config.splashBgColorLight || config.splashBgColorDark);
+    const hasSpecificColors = !!(
+      config.primaryColorLight ||
+      config.primaryColorDark ||
+      config.splashBgColorLight ||
+      config.splashBgColorDark
+    );
     setUseSameColors(!hasSpecificColors);
     setIsDialogOpen(true);
   };
@@ -337,7 +361,7 @@ export const Branding = () => {
       ]);
       if (usersRes.ok) {
         const data = await usersRes.json();
-        setBrandingUsers(Array.isArray(data) ? data : (data.payload || []));
+        setBrandingUsers(Array.isArray(data) ? data : data.payload || []);
       }
       if (allUsersRes.ok) {
         const data = await allUsersRes.json();
@@ -461,9 +485,15 @@ export const Branding = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">WHITE LABEL ENGINE</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Branding</h1>
-          <p className="text-on-surface-variant mt-1">Gerencie a identidade visual de cada cliente</p>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">
+            WHITE LABEL ENGINE
+          </span>
+          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">
+            Branding
+          </h1>
+          <p className="text-on-surface-variant mt-1">
+            Gerencie a identidade visual de cada cliente
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -492,13 +522,27 @@ export const Branding = () => {
                 setUseSameColors(true);
               }}
             >
-              <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
+              <span
+                className="material-symbols-outlined text-lg"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                add
+              </span>
               Nova Marca
             </button>
           </DialogTrigger>
 
           {/* Create/Edit Dialog */}
-          <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '800px', width: '95vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+          <DialogContent
+            className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden"
+            style={{
+              maxWidth: '800px',
+              width: '95vw',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <div className="p-5 border-b border-outline-variant/10 shrink-0">
               <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">palette</span>
@@ -511,21 +555,59 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 mb-6 bg-surface-container-highest">
-                  <TabsTrigger value="identity" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Identidade</TabsTrigger>
-                  <TabsTrigger value="logos" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Logos</TabsTrigger>
-                  <TabsTrigger value="colors" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cores do App</TabsTrigger>
-                  <TabsTrigger value="cashback" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Cashback</TabsTrigger>
-                  <TabsTrigger value="lojas" className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold">Lojas</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-6 bg-surface-container-highest">
+                  <TabsTrigger
+                    value="identity"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Identidade
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="logos"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Logos
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="colors"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Cores do App
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="cashback"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Cashback
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="lojas"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Lojas
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="pagamentos"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Pagamentos
+                  </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="identity" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                <TabsContent
+                  value="identity"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
                   {/* Identidade */}
                   <div className="space-y-3">
-                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Informações Básicas</p>
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Informações Básicas
+                    </p>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">ID (Slug)</Label>
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                          ID (Slug)
+                        </Label>
                         <Input
                           placeholder="cliente-xyz"
                           value={formData.clientId}
@@ -534,7 +616,9 @@ export const Branding = () => {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Empresa (Opcional)</Label>
+                        <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                          Empresa (Opcional)
+                        </Label>
                         <Input
                           placeholder="Nome Exibido"
                           value={formData.companyName || ''}
@@ -544,7 +628,9 @@ export const Branding = () => {
                       </div>
                     </div>
                     <div className="space-y-1.5 mt-3">
-                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Slogan (Opcional)</Label>
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                        Slogan (Opcional)
+                      </Label>
                       <Input
                         value={formData.slogan}
                         onChange={e => setFormData({ ...formData, slogan: e.target.value })}
@@ -582,9 +668,11 @@ export const Branding = () => {
                           </Button>
                         </div>
                         <p className="text-on-surface-variant text-xs leading-relaxed">
-                          Configure esta URL no carregador trocando <span className="font-mono">ID-DO-CARREGADOR</span> pelo
-                          identificador do equipamento. Todo carregador que conectar por ela já entra vinculado a este
-                          operador. A URL genérica (<span className="font-mono">wss://neocms.up.railway.app/ocpp/…</span>)
+                          Configure esta URL no carregador trocando{' '}
+                          <span className="font-mono">ID-DO-CARREGADOR</span> pelo identificador do
+                          equipamento. Todo carregador que conectar por ela já entra vinculado a
+                          este operador. A URL genérica (
+                          <span className="font-mono">wss://neocms.up.railway.app/ocpp/…</span>)
                           continua caindo na plataforma NeoPower.
                         </p>
                       </div>
@@ -593,7 +681,9 @@ export const Branding = () => {
 
                   {/* Tema da Web */}
                   <div className="space-y-3 pt-2">
-                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Tema Base da Plataforma Web</p>
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Tema Base da Plataforma Web
+                    </p>
                     <div className="flex gap-4">
                       <button
                         type="button"
@@ -609,7 +699,9 @@ export const Branding = () => {
                         </div>
                         <div className="text-left">
                           <p className="text-sm font-bold">Escuro</p>
-                          <p className="text-xs text-on-surface-variant">Fundo escuro, texto claro</p>
+                          <p className="text-xs text-on-surface-variant">
+                            Fundo escuro, texto claro
+                          </p>
                         </div>
                       </button>
                       <button
@@ -626,18 +718,25 @@ export const Branding = () => {
                         </div>
                         <div className="text-left">
                           <p className="text-sm font-bold">Claro</p>
-                          <p className="text-xs text-on-surface-variant">Fundo claro, texto escuro</p>
+                          <p className="text-xs text-on-surface-variant">
+                            Fundo claro, texto escuro
+                          </p>
                         </div>
                       </button>
                     </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="logos" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                <TabsContent
+                  value="logos"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
                   {/* Logo */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Logo do App</p>
+                      <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                        Logo do App
+                      </p>
                       <div className="flex gap-2 bg-surface-container-highest p-1 rounded-lg">
                         <button
                           onClick={() => setFormData({ ...formData, logoType: 'programmatic' })}
@@ -658,7 +757,9 @@ export const Branding = () => {
                       <div className="space-y-5 bg-surface-container-low p-4 rounded-xl border border-outline-variant/10">
                         {/* Logo Padrão */}
                         <div className="space-y-2">
-                          <Label className="text-on-surface-variant text-xs font-bold">Logo Padrão (Obrigatório)</Label>
+                          <Label className="text-on-surface-variant text-xs font-bold">
+                            Logo Padrão (Obrigatório)
+                          </Label>
                           <div className="flex gap-2">
                             <Input
                               placeholder="URL da logo ou faça upload"
@@ -667,7 +768,14 @@ export const Branding = () => {
                               className="bg-surface-container border-outline-variant/20 text-on-surface h-10 text-sm flex-1"
                             />
                             <div className="relative">
-                              <input type="file" id="logo-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUri')} disabled={uploadingLogo} />
+                              <input
+                                type="file"
+                                id="logo-upload"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={e => handleFileUpload(e, 'logoUri')}
+                                disabled={uploadingLogo}
+                              />
                               <button
                                 type="button"
                                 className="h-10 px-4 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center"
@@ -687,26 +795,41 @@ export const Branding = () => {
                         <div className="grid grid-cols-2 gap-4">
                           {/* Logo Tema Claro */}
                           <div className="space-y-2">
-                            <Label className="text-on-surface-variant text-xs font-bold">Logo Claro (Opcional)</Label>
+                            <Label className="text-on-surface-variant text-xs font-bold">
+                              Logo Claro (Opcional)
+                            </Label>
                             <div className="flex gap-2">
                               <Input
                                 placeholder="URL da logo para tema claro"
                                 value={formData.logoUriLight}
-                                onChange={e => setFormData({ ...formData, logoUriLight: e.target.value })}
+                                onChange={e =>
+                                  setFormData({ ...formData, logoUriLight: e.target.value })
+                                }
                                 className="bg-surface-container border-outline-variant/20 text-on-surface h-10 text-sm flex-1"
                               />
                               <div className="relative">
-                                <input type="file" id="logo-light-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUriLight')} disabled={uploadingLogo} />
+                                <input
+                                  type="file"
+                                  id="logo-light-upload"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={e => handleFileUpload(e, 'logoUriLight')}
+                                  disabled={uploadingLogo}
+                                />
                                 <button
                                   type="button"
                                   className="h-10 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center"
-                                  onClick={() => document.getElementById('logo-light-upload')?.click()}
+                                  onClick={() =>
+                                    document.getElementById('logo-light-upload')?.click()
+                                  }
                                   disabled={uploadingLogo}
                                 >
                                   {uploadingLogo ? (
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
                                   ) : (
-                                    <span className="material-symbols-outlined text-lg">upload</span>
+                                    <span className="material-symbols-outlined text-lg">
+                                      upload
+                                    </span>
                                   )}
                                 </button>
                               </div>
@@ -715,26 +838,41 @@ export const Branding = () => {
 
                           {/* Logo Tema Escuro */}
                           <div className="space-y-2">
-                            <Label className="text-on-surface-variant text-xs font-bold">Logo Escuro (Opcional)</Label>
+                            <Label className="text-on-surface-variant text-xs font-bold">
+                              Logo Escuro (Opcional)
+                            </Label>
                             <div className="flex gap-2">
                               <Input
                                 placeholder="URL da logo para tema escuro"
                                 value={formData.logoUriDark}
-                                onChange={e => setFormData({ ...formData, logoUriDark: e.target.value })}
+                                onChange={e =>
+                                  setFormData({ ...formData, logoUriDark: e.target.value })
+                                }
                                 className="bg-surface-container border-outline-variant/20 text-on-surface h-10 text-sm flex-1"
                               />
                               <div className="relative">
-                                <input type="file" id="logo-dark-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'logoUriDark')} disabled={uploadingLogo} />
+                                <input
+                                  type="file"
+                                  id="logo-dark-upload"
+                                  className="hidden"
+                                  accept="image/*"
+                                  onChange={e => handleFileUpload(e, 'logoUriDark')}
+                                  disabled={uploadingLogo}
+                                />
                                 <button
                                   type="button"
                                   className="h-10 px-3 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center"
-                                  onClick={() => document.getElementById('logo-dark-upload')?.click()}
+                                  onClick={() =>
+                                    document.getElementById('logo-dark-upload')?.click()
+                                  }
                                   disabled={uploadingLogo}
                                 >
                                   {uploadingLogo ? (
                                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
                                   ) : (
-                                    <span className="material-symbols-outlined text-lg">upload</span>
+                                    <span className="material-symbols-outlined text-lg">
+                                      upload
+                                    </span>
                                   )}
                                 </button>
                               </div>
@@ -746,20 +884,38 @@ export const Branding = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                           {formData.logoUri && (
                             <div className="flex flex-col items-center gap-2 p-3 bg-surface-container rounded-lg border border-outline-variant/10">
-                              <Label className="text-[10px] text-on-surface-variant uppercase font-bold">Padrão</Label>
-                              <img src={formData.logoUri} alt="Logo" className="w-12 h-12 rounded object-contain bg-white" />
+                              <Label className="text-[10px] text-on-surface-variant uppercase font-bold">
+                                Padrão
+                              </Label>
+                              <img
+                                src={formData.logoUri}
+                                alt="Logo"
+                                className="w-12 h-12 rounded object-contain bg-white"
+                              />
                             </div>
                           )}
                           {formData.logoUriLight && (
                             <div className="flex flex-col items-center gap-2 p-3 bg-slate-200 rounded-lg border border-outline-variant/10">
-                              <Label className="text-[10px] text-black uppercase font-bold">Claro (Fundo Cinza)</Label>
-                              <img src={formData.logoUriLight} alt="Logo Claro" className="w-12 h-12 rounded object-contain" />
+                              <Label className="text-[10px] text-black uppercase font-bold">
+                                Claro (Fundo Cinza)
+                              </Label>
+                              <img
+                                src={formData.logoUriLight}
+                                alt="Logo Claro"
+                                className="w-12 h-12 rounded object-contain"
+                              />
                             </div>
                           )}
                           {formData.logoUriDark && (
                             <div className="flex flex-col items-center gap-2 p-3 bg-slate-800 rounded-lg border border-outline-variant/10">
-                              <Label className="text-[10px] text-white uppercase font-bold">Escuro (Fundo Preto)</Label>
-                              <img src={formData.logoUriDark} alt="Logo Escuro" className="w-12 h-12 rounded object-contain" />
+                              <Label className="text-[10px] text-white uppercase font-bold">
+                                Escuro (Fundo Preto)
+                              </Label>
+                              <img
+                                src={formData.logoUriDark}
+                                alt="Logo Escuro"
+                                className="w-12 h-12 rounded object-contain"
+                              />
                             </div>
                           )}
                         </div>
@@ -769,7 +925,9 @@ export const Branding = () => {
 
                   {/* Splash Screen */}
                   <div className="space-y-3 pt-2 border-t border-outline-variant/10">
-                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold mt-4">Splash Screen do App</p>
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold mt-4">
+                      Splash Screen do App
+                    </p>
                     <div className="space-y-3">
                       <div className="flex gap-2">
                         <Input
@@ -780,12 +938,21 @@ export const Branding = () => {
                         />
                         <div className="relative">
                           <input
-                            type="file" id="splash-upload" className="hidden" accept="image/*"
-                            onChange={async (e) => {
+                            type="file"
+                            id="splash-upload"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={async e => {
                               const file = e.target.files?.[0];
                               if (!file) return;
-                              if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
-                              if (file.size > 5 * 1024 * 1024) { toast.error('Máximo 5MB'); return; }
+                              if (!file.type.startsWith('image/')) {
+                                toast.error('Selecione uma imagem');
+                                return;
+                              }
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast.error('Máximo 5MB');
+                                return;
+                              }
                               setUploadingLogo(true);
                               const fd = new FormData();
                               fd.append('files', file);
@@ -793,11 +960,19 @@ export const Branding = () => {
                                 const res = await api.post('/admin/branding/upload', fd);
                                 if (res.ok) {
                                   const data = await res.json();
-                                  setFormData(prev => ({ ...prev, splashUri: data.url || data.payload?.url }));
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    splashUri: data.url || data.payload?.url,
+                                  }));
                                   toast.success('Splash enviada!');
-                                } else { toast.error('Erro no upload'); }
-                              } catch { toast.error('Erro no upload'); }
-                              finally { setUploadingLogo(false); }
+                                } else {
+                                  toast.error('Erro no upload');
+                                }
+                              } catch {
+                                toast.error('Erro no upload');
+                              } finally {
+                                setUploadingLogo(false);
+                              }
                             }}
                           />
                           <button
@@ -816,9 +991,18 @@ export const Branding = () => {
                       </div>
                       {formData.splashUri && (
                         <div className="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl border border-outline-variant/10">
-                          <img src={formData.splashUri} alt="Splash" className="w-10 h-16 rounded-md object-contain bg-surface-container" />
-                          <span className="text-sm text-on-surface-variant truncate flex-1">{formData.splashUri}</span>
-                          <button onClick={() => setFormData({ ...formData, splashUri: '' })} className="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors">
+                          <img
+                            src={formData.splashUri}
+                            alt="Splash"
+                            className="w-10 h-16 rounded-md object-contain bg-surface-container"
+                          />
+                          <span className="text-sm text-on-surface-variant truncate flex-1">
+                            {formData.splashUri}
+                          </span>
+                          <button
+                            onClick={() => setFormData({ ...formData, splashUri: '' })}
+                            className="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors"
+                          >
                             <span className="material-symbols-outlined text-lg">close</span>
                           </button>
                         </div>
@@ -827,15 +1011,21 @@ export const Branding = () => {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="colors" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                <TabsContent
+                  value="colors"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
                   <div className="flex items-center space-x-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
                     <Checkbox
                       id="useSameColors"
                       checked={useSameColors}
-                      onCheckedChange={(checked) => setUseSameColors(!!checked)}
+                      onCheckedChange={checked => setUseSameColors(!!checked)}
                       className="data-[state=checked]:bg-primary data-[state=checked]:text-on-primary"
                     />
-                    <label htmlFor="useSameColors" className="text-sm font-bold leading-none text-on-surface cursor-pointer">
+                    <label
+                      htmlFor="useSameColors"
+                      className="text-sm font-bold leading-none text-on-surface cursor-pointer"
+                    >
                       Usar as mesmas cores para os temas Claro e Escuro
                     </label>
                   </div>
@@ -843,17 +1033,49 @@ export const Branding = () => {
                   {useSameColors ? (
                     <div className="grid grid-cols-2 gap-6 bg-surface-container-low p-5 rounded-xl border border-outline-variant/10">
                       <div className="space-y-2">
-                        <Label className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Cor Primária</Label>
+                        <Label className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">
+                          Cor Primária
+                        </Label>
                         <div className="flex gap-3">
-                          <input type="color" value={formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="w-12 h-10 rounded-lg border border-outline-variant/20 bg-surface-container cursor-pointer" style={{ padding: '2px' }} />
-                          <Input value={formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColor: e.target.value })} className="bg-surface-container border-outline-variant/20 text-on-surface font-mono h-10 text-sm uppercase" />
+                          <input
+                            type="color"
+                            value={formData.primaryColor || '#00FF88'}
+                            onChange={e =>
+                              setFormData({ ...formData, primaryColor: e.target.value })
+                            }
+                            className="w-12 h-10 rounded-lg border border-outline-variant/20 bg-surface-container cursor-pointer"
+                            style={{ padding: '2px' }}
+                          />
+                          <Input
+                            value={formData.primaryColor || '#00FF88'}
+                            onChange={e =>
+                              setFormData({ ...formData, primaryColor: e.target.value })
+                            }
+                            className="bg-surface-container border-outline-variant/20 text-on-surface font-mono h-10 text-sm uppercase"
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">Fundo Splash</Label>
+                        <Label className="text-on-surface-variant text-xs font-bold uppercase tracking-widest">
+                          Fundo Splash
+                        </Label>
                         <div className="flex gap-3">
-                          <input type="color" value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="w-12 h-10 rounded-lg border border-outline-variant/20 bg-surface-container cursor-pointer" style={{ padding: '2px' }} />
-                          <Input value={formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColor: e.target.value })} className="bg-surface-container border-outline-variant/20 text-on-surface font-mono h-10 text-sm uppercase" />
+                          <input
+                            type="color"
+                            value={formData.splashBgColor || '#000000'}
+                            onChange={e =>
+                              setFormData({ ...formData, splashBgColor: e.target.value })
+                            }
+                            className="w-12 h-10 rounded-lg border border-outline-variant/20 bg-surface-container cursor-pointer"
+                            style={{ padding: '2px' }}
+                          />
+                          <Input
+                            value={formData.splashBgColor || '#000000'}
+                            onChange={e =>
+                              setFormData({ ...formData, splashBgColor: e.target.value })
+                            }
+                            className="bg-surface-container border-outline-variant/20 text-on-surface font-mono h-10 text-sm uppercase"
+                          />
                         </div>
                       </div>
                     </div>
@@ -867,17 +1089,57 @@ export const Branding = () => {
                         </h4>
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Cor Primária (Light)</Label>
+                            <Label className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+                              Cor Primária (Light)
+                            </Label>
                             <div className="flex gap-2">
-                              <input type="color" value={formData.primaryColorLight || formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColorLight: e.target.value })} className="w-10 h-9 rounded border border-slate-300 bg-white cursor-pointer" style={{ padding: '2px' }} />
-                              <Input value={formData.primaryColorLight || formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColorLight: e.target.value })} className="bg-white border-slate-300 text-slate-800 font-mono h-9 text-xs uppercase" />
+                              <input
+                                type="color"
+                                value={
+                                  formData.primaryColorLight || formData.primaryColor || '#00FF88'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, primaryColorLight: e.target.value })
+                                }
+                                className="w-10 h-9 rounded border border-slate-300 bg-white cursor-pointer"
+                                style={{ padding: '2px' }}
+                              />
+                              <Input
+                                value={
+                                  formData.primaryColorLight || formData.primaryColor || '#00FF88'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, primaryColorLight: e.target.value })
+                                }
+                                className="bg-white border-slate-300 text-slate-800 font-mono h-9 text-xs uppercase"
+                              />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">Fundo Splash (Light)</Label>
+                            <Label className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">
+                              Fundo Splash (Light)
+                            </Label>
                             <div className="flex gap-2">
-                              <input type="color" value={formData.splashBgColorLight || formData.splashBgColor || '#ffffff'} onChange={e => setFormData({ ...formData, splashBgColorLight: e.target.value })} className="w-10 h-9 rounded border border-slate-300 bg-white cursor-pointer" style={{ padding: '2px' }} />
-                              <Input value={formData.splashBgColorLight || formData.splashBgColor || '#ffffff'} onChange={e => setFormData({ ...formData, splashBgColorLight: e.target.value })} className="bg-white border-slate-300 text-slate-800 font-mono h-9 text-xs uppercase" />
+                              <input
+                                type="color"
+                                value={
+                                  formData.splashBgColorLight || formData.splashBgColor || '#ffffff'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, splashBgColorLight: e.target.value })
+                                }
+                                className="w-10 h-9 rounded border border-slate-300 bg-white cursor-pointer"
+                                style={{ padding: '2px' }}
+                              />
+                              <Input
+                                value={
+                                  formData.splashBgColorLight || formData.splashBgColor || '#ffffff'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, splashBgColorLight: e.target.value })
+                                }
+                                className="bg-white border-slate-300 text-slate-800 font-mono h-9 text-xs uppercase"
+                              />
                             </div>
                           </div>
                         </div>
@@ -891,17 +1153,57 @@ export const Branding = () => {
                         </h4>
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Cor Primária (Dark)</Label>
+                            <Label className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                              Cor Primária (Dark)
+                            </Label>
                             <div className="flex gap-2">
-                              <input type="color" value={formData.primaryColorDark || formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColorDark: e.target.value })} className="w-10 h-9 rounded border border-slate-700 bg-black cursor-pointer" style={{ padding: '2px' }} />
-                              <Input value={formData.primaryColorDark || formData.primaryColor || '#00FF88'} onChange={e => setFormData({ ...formData, primaryColorDark: e.target.value })} className="bg-slate-950 border-slate-700 text-slate-200 font-mono h-9 text-xs uppercase" />
+                              <input
+                                type="color"
+                                value={
+                                  formData.primaryColorDark || formData.primaryColor || '#00FF88'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, primaryColorDark: e.target.value })
+                                }
+                                className="w-10 h-9 rounded border border-slate-700 bg-black cursor-pointer"
+                                style={{ padding: '2px' }}
+                              />
+                              <Input
+                                value={
+                                  formData.primaryColorDark || formData.primaryColor || '#00FF88'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, primaryColorDark: e.target.value })
+                                }
+                                className="bg-slate-950 border-slate-700 text-slate-200 font-mono h-9 text-xs uppercase"
+                              />
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Fundo Splash (Dark)</Label>
+                            <Label className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                              Fundo Splash (Dark)
+                            </Label>
                             <div className="flex gap-2">
-                              <input type="color" value={formData.splashBgColorDark || formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColorDark: e.target.value })} className="w-10 h-9 rounded border border-slate-700 bg-black cursor-pointer" style={{ padding: '2px' }} />
-                              <Input value={formData.splashBgColorDark || formData.splashBgColor || '#000000'} onChange={e => setFormData({ ...formData, splashBgColorDark: e.target.value })} className="bg-slate-950 border-slate-700 text-slate-200 font-mono h-9 text-xs uppercase" />
+                              <input
+                                type="color"
+                                value={
+                                  formData.splashBgColorDark || formData.splashBgColor || '#000000'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, splashBgColorDark: e.target.value })
+                                }
+                                className="w-10 h-9 rounded border border-slate-700 bg-black cursor-pointer"
+                                style={{ padding: '2px' }}
+                              />
+                              <Input
+                                value={
+                                  formData.splashBgColorDark || formData.splashBgColor || '#000000'
+                                }
+                                onChange={e =>
+                                  setFormData({ ...formData, splashBgColorDark: e.target.value })
+                                }
+                                className="bg-slate-950 border-slate-700 text-slate-200 font-mono h-9 text-xs uppercase"
+                              />
                             </div>
                           </div>
                         </div>
@@ -910,24 +1212,36 @@ export const Branding = () => {
                   )}
                 </TabsContent>
 
-                <TabsContent value="cashback" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                <TabsContent
+                  value="cashback"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
                   <div className="space-y-4">
-                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Programa de Cashback</p>
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Programa de Cashback
+                    </p>
 
                     <div className="flex items-center space-x-3 p-4 bg-primary/5 rounded-xl border border-primary/20">
                       <Checkbox
                         id="cashbackEnabled"
                         checked={!!formData.cashbackEnabled}
-                        onCheckedChange={(checked) => setFormData({ ...formData, cashbackEnabled: !!checked })}
+                        onCheckedChange={checked =>
+                          setFormData({ ...formData, cashbackEnabled: !!checked })
+                        }
                         className="data-[state=checked]:bg-primary data-[state=checked]:text-on-primary"
                       />
-                      <label htmlFor="cashbackEnabled" className="text-sm font-bold leading-none text-on-surface cursor-pointer">
+                      <label
+                        htmlFor="cashbackEnabled"
+                        className="text-sm font-bold leading-none text-on-surface cursor-pointer"
+                      >
                         Ativar cashback para este operador
                       </label>
                     </div>
 
                     <div className="space-y-1.5 max-w-[260px]">
-                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Percentual de cashback</Label>
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                        Percentual de cashback
+                      </Label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -935,94 +1249,156 @@ export const Branding = () => {
                           max={100}
                           step={0.5}
                           value={formData.cashbackPercentage ?? 3}
-                          onChange={e => setFormData({ ...formData, cashbackPercentage: e.target.value === '' ? undefined : Number(e.target.value) })}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              cashbackPercentage:
+                                e.target.value === '' ? undefined : Number(e.target.value),
+                            })
+                          }
                           disabled={!formData.cashbackEnabled}
                           className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm disabled:opacity-50"
                         />
                         <span className="text-on-surface-variant text-lg font-bold">%</span>
                       </div>
                       <p className="text-on-surface-variant text-xs leading-relaxed">
-                        Percentual do valor de cada recarga creditado de volta na carteira do cliente. Padrão: 3%.
+                        Percentual do valor de cada recarga creditado de volta na carteira do
+                        cliente. Padrão: 3%.
                       </p>
                     </div>
 
                     <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 flex items-start gap-2">
-                      <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">info</span>
+                      <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">
+                        info
+                      </span>
                       <p className="text-muted-foreground text-xs leading-relaxed">
-                        O cashback é creditado automaticamente como saldo na carteira do cliente ao final de cada recarga. Vale apenas para recargas feitas após a ativação.
+                        O cashback é creditado automaticamente como saldo na carteira do cliente ao
+                        final de cada recarga. Vale apenas para recargas feitas após a ativação.
                       </p>
                     </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="lojas" className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1">
+                <TabsContent
+                  value="lojas"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
                   <div className="space-y-4">
-                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Publicação nas lojas</p>
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Publicação nas lojas
+                    </p>
 
                     <div className="p-3 rounded-lg bg-surface-container-high border border-outline-variant/20 max-w-[420px]">
-                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">Pacote Android / Bundle iOS</p>
+                      <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-1">
+                        Pacote Android / Bundle iOS
+                      </p>
                       <p className="font-mono text-sm text-on-surface break-all">
                         {formData.clientId ? pacoteDaMarca(formData.clientId) : '—'}
                       </p>
                     </div>
 
                     <div className="space-y-1.5 max-w-[320px]">
-                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Apple ID do app (App Store Connect)</Label>
+                      <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                        Apple ID do app (App Store Connect)
+                      </Label>
                       <Input
                         inputMode="numeric"
                         placeholder="ex.: 6740000000"
                         value={formData.appStoreAppId ?? ''}
-                        onChange={e => setFormData({ ...formData, appStoreAppId: e.target.value.replace(/\D/g, '') })}
+                        onChange={e =>
+                          setFormData({
+                            ...formData,
+                            appStoreAppId: e.target.value.replace(/\D/g, ''),
+                          })
+                        }
                         className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm font-mono"
                       />
                       <p className="text-on-surface-variant text-xs leading-relaxed">
-                        Na App Store Connect: app da marca › Informações do app › <b>Apple ID</b>. Necessário para publicar no iOS.
+                        Na App Store Connect: app da marca › Informações do app › <b>Apple ID</b>.
+                        Necessário para publicar no iOS.
                       </p>
                     </div>
 
                     <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 space-y-2">
                       <p className="text-on-surface text-xs font-bold flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-primary">checklist</span>
+                        <span className="material-symbols-outlined text-sm text-primary">
+                          checklist
+                        </span>
                         Antes do primeiro envio automático (uma vez por marca)
                       </p>
                       <ul className="text-muted-foreground text-xs leading-relaxed list-disc pl-5 space-y-1">
-                        <li><b>Google Play:</b> criar o app no Play Console com o pacote acima e preencher ficha da loja, classificação de conteúdo, segurança dos dados e acesso ao app.</li>
-                        <li><b>Apple:</b> fazer o primeiro build iOS da marca à mão (cria as credenciais), criar o app na App Store Connect com o bundle acima, preencher metadados, capturas e privacidade, e informar o Apple ID aqui.</li>
+                        <li>
+                          <b>Google Play:</b> criar o app no Play Console com o pacote acima e
+                          preencher ficha da loja, classificação de conteúdo, segurança dos dados e
+                          acesso ao app.
+                        </li>
+                        <li>
+                          <b>Apple:</b> fazer o primeiro build iOS da marca à mão (cria as
+                          credenciais), criar o app na App Store Connect com o bundle acima,
+                          preencher metadados, capturas e privacidade, e informar o Apple ID aqui.
+                        </li>
                       </ul>
                       <p className="text-muted-foreground text-xs leading-relaxed">
-                        Depois disso, <b>Gerar build › Produção</b> publica sozinho: no Android direto na produção do Google Play; no iOS o app vai para a revisão da Apple e entra na loja automaticamente após a aprovação.
+                        Depois disso, <b>Gerar build › Produção</b> publica sozinho: no Android
+                        direto na produção do Google Play; no iOS o app vai para a revisão da Apple
+                        e entra na loja automaticamente após a aprovação.
                       </p>
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent
+                  value="pagamentos"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
+                  <PagamentosDaMarca clientId={formData.clientId || ''} />
                 </TabsContent>
               </Tabs>
             </div>
 
             <div className="flex justify-end gap-3 p-4 border-t border-outline-variant/10 shrink-0 bg-surface-container">
-              <button onClick={() => setIsDialogOpen(false)} className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-bold text-sm">
+              <button
+                onClick={() => setIsDialogOpen(false)}
+                className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-bold text-sm"
+              >
                 Cancelar
               </button>
-              <button onClick={handleSubmit} disabled={submitting} className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50 min-w-[120px]">
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50 min-w-[120px]"
+              >
                 {submitting ? 'Salvando...' : 'Salvar Configuração'}
               </button>
             </div>
           </DialogContent>
-
         </Dialog>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <SummaryCard icon="palette" label="TOTAL MARCAS" value={String(configs.length)} />
-        <SummaryCard icon="public" label="PROGRAMATICAS" value={String(configs.filter(c => c.logoType === 'programmatic').length)} color="text-primary" />
-        <SummaryCard icon="image" label="COM LOGO CUSTOM" value={String(configs.filter(c => c.logoType === 'image').length)} color="text-tertiary" />
+        <SummaryCard
+          icon="public"
+          label="PROGRAMATICAS"
+          value={String(configs.filter(c => c.logoType === 'programmatic').length)}
+          color="text-primary"
+        />
+        <SummaryCard
+          icon="image"
+          label="COM LOGO CUSTOM"
+          value={String(configs.filter(c => c.logoType === 'image').length)}
+          color="text-tertiary"
+        />
       </div>
 
       {/* Configs Table */}
       <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
           <h3 className="text-lg font-headline font-bold text-on-surface">Marcas Ativas</h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{configs.length} registros</span>
+          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+            {configs.length} registros
+          </span>
         </div>
         {configs.length > 0 ? (
           <div className="overflow-x-auto">
@@ -1040,31 +1416,59 @@ export const Branding = () => {
               </thead>
               <tbody className="divide-y divide-outline-variant/5">
                 {configs.map(config => (
-                  <tr key={config.clientId} className="hover:bg-surface-container-highest/30 transition-colors group">
+                  <tr
+                    key={config.clientId}
+                    className="hover:bg-surface-container-highest/30 transition-colors group"
+                  >
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm text-on-surface">{config.clientId}</span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-medium text-on-surface">{config.companyName}</span>
+                      <span className="text-sm font-medium text-on-surface">
+                        {config.companyName}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1.5">
-                        {(!config.primaryColorLight && !config.primaryColorDark) ? (
+                        {!config.primaryColorLight && !config.primaryColorDark ? (
                           <div className="flex items-center gap-2" title="Cor Unificada">
-                            <div className="w-4 h-4 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColor }} />
-                            <span className="text-on-surface-variant text-xs font-mono">{config.primaryColor}</span>
+                            <div
+                              className="w-4 h-4 rounded-full border border-outline-variant/20"
+                              style={{ backgroundColor: config.primaryColor }}
+                            />
+                            <span className="text-on-surface-variant text-xs font-mono">
+                              {config.primaryColor}
+                            </span>
                           </div>
                         ) : (
                           <>
                             <div className="flex items-center gap-2" title="Tema Claro">
-                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">light_mode</span>
-                              <div className="w-3.5 h-3.5 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColorLight || config.primaryColor }} />
-                              <span className="text-on-surface-variant text-[10px] font-mono">{config.primaryColorLight || config.primaryColor}</span>
+                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">
+                                light_mode
+                              </span>
+                              <div
+                                className="w-3.5 h-3.5 rounded-full border border-outline-variant/20"
+                                style={{
+                                  backgroundColor: config.primaryColorLight || config.primaryColor,
+                                }}
+                              />
+                              <span className="text-on-surface-variant text-[10px] font-mono">
+                                {config.primaryColorLight || config.primaryColor}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2" title="Tema Escuro">
-                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">dark_mode</span>
-                              <div className="w-3.5 h-3.5 rounded-full border border-outline-variant/20" style={{ backgroundColor: config.primaryColorDark || config.primaryColor }} />
-                              <span className="text-on-surface-variant text-[10px] font-mono">{config.primaryColorDark || config.primaryColor}</span>
+                              <span className="material-symbols-outlined text-[12px] text-on-surface-variant">
+                                dark_mode
+                              </span>
+                              <div
+                                className="w-3.5 h-3.5 rounded-full border border-outline-variant/20"
+                                style={{
+                                  backgroundColor: config.primaryColorDark || config.primaryColor,
+                                }}
+                              />
+                              <span className="text-on-surface-variant text-[10px] font-mono">
+                                {config.primaryColorDark || config.primaryColor}
+                              </span>
                             </div>
                           </>
                         )}
@@ -1084,11 +1488,13 @@ export const Branding = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        config.theme === 'light' 
-                          ? 'bg-surface-container-highest text-foreground border border-border'
-                          : 'bg-surface-container-highest text-foreground border border-border'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          config.theme === 'light'
+                            ? 'bg-surface-container-highest text-foreground border border-border'
+                            : 'bg-surface-container-highest text-foreground border border-border'
+                        }`}
+                      >
                         <span className="material-symbols-outlined text-xs">
                           {config.theme === 'light' ? 'light_mode' : 'dark_mode'}
                         </span>
@@ -1195,7 +1601,9 @@ export const Branding = () => {
             <div className="flex flex-col gap-4 min-h-0 flex-1">
               {/* Search bar */}
               <div className="relative shrink-0">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant">search</span>
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant">
+                  search
+                </span>
                 <Input
                   placeholder="Buscar por nome ou email..."
                   value={userSearchFilter}
@@ -1393,7 +1801,10 @@ export const Branding = () => {
                   Fechar
                 </button>
                 {selectedUserIds.length > 0 && (
-                  <button onClick={handleAssignUsers} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all">
+                  <button
+                    onClick={handleAssignUsers}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+                  >
                     <span className="material-symbols-outlined text-sm">person_add</span>
                     Associar {selectedUserIds.length} usuario(s)
                   </button>
@@ -1406,7 +1817,10 @@ export const Branding = () => {
 
       {/* Build Options Dialog */}
       <Dialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden" style={{ maxWidth: '340px', width: '90vw' }}>
+        <DialogContent
+          className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden"
+          style={{ maxWidth: '340px', width: '90vw' }}
+        >
           <div className="p-5 border-b border-outline-variant/10">
             <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">build</span>
@@ -1414,15 +1828,15 @@ export const Branding = () => {
             </DialogTitle>
             <DialogDescription className="text-on-surface-variant text-sm mt-1">
               Compilar app de{' '}
-              <strong className="text-primary">
-                {selectedBuildClient?.companyName}
-              </strong>
+              <strong className="text-primary">{selectedBuildClient?.companyName}</strong>
             </DialogDescription>
           </div>
 
           <div className="p-5 space-y-4">
             <div className="space-y-2.5">
-              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Plataforma</p>
+              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                Plataforma
+              </p>
               <div className="space-y-2">
                 <div
                   className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildPlatform === 'android' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
@@ -1451,9 +1865,7 @@ export const Branding = () => {
                   <div
                     className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'ios' ? 'border-primary' : 'border-outline-variant/40'}`}
                   >
-                    {buildPlatform === 'ios' && (
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                    )}
+                    {buildPlatform === 'ios' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <div className="flex-1">
                     <p
@@ -1471,9 +1883,7 @@ export const Branding = () => {
                   <div
                     className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildPlatform === 'all' ? 'border-primary' : 'border-outline-variant/40'}`}
                   >
-                    {buildPlatform === 'all' && (
-                      <div className="w-2 h-2 rounded-full bg-primary" />
-                    )}
+                    {buildPlatform === 'all' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <div className="flex-1">
                     <p
@@ -1487,35 +1897,55 @@ export const Branding = () => {
             </div>
 
             <div className="space-y-2.5">
-              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">Tipo de build</p>
+              <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                Tipo de build
+              </p>
               <div className="space-y-2">
                 <div
                   className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildTarget === 'preview' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
                   onClick={() => setBuildTarget('preview')}
                 >
-                  <div className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'preview' ? 'border-primary' : 'border-outline-variant/40'}`}>
-                    {buildTarget === 'preview' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  <div
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'preview' ? 'border-primary' : 'border-outline-variant/40'}`}
+                  >
+                    {buildTarget === 'preview' && (
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                    )}
                   </div>
                   <div className="flex-1">
-                    <p className={`font-medium text-sm ${buildTarget === 'preview' ? 'text-primary' : 'text-on-surface-variant'}`}>Preview (teste / instalação direta)</p>
+                    <p
+                      className={`font-medium text-sm ${buildTarget === 'preview' ? 'text-primary' : 'text-on-surface-variant'}`}
+                    >
+                      Preview (teste / instalação direta)
+                    </p>
                   </div>
                 </div>
                 <div
                   className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${buildTarget === 'production' ? 'bg-primary/10 border-primary/30' : 'bg-surface-container-low border-outline-variant/10 hover:border-outline-variant/30'}`}
                   onClick={() => setBuildTarget('production')}
                 >
-                  <div className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'production' ? 'border-primary' : 'border-outline-variant/40'}`}>
-                    {buildTarget === 'production' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  <div
+                    className={`w-4 h-4 rounded-full border flex justify-center items-center ${buildTarget === 'production' ? 'border-primary' : 'border-outline-variant/40'}`}
+                  >
+                    {buildTarget === 'production' && (
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                    )}
                   </div>
                   <div className="flex-1">
-                    <p className={`font-medium text-sm ${buildTarget === 'production' ? 'text-primary' : 'text-on-surface-variant'}`}>Produção (enviar para a loja)</p>
+                    <p
+                      className={`font-medium text-sm ${buildTarget === 'production' ? 'text-primary' : 'text-on-surface-variant'}`}
+                    >
+                      Produção (enviar para a loja)
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
             <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg p-3 flex items-start gap-2">
-              <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">{buildTarget === 'production' ? 'store' : 'schedule'}</span>
+              <span className="material-symbols-outlined text-sm text-muted-foreground mt-0.5">
+                {buildTarget === 'production' ? 'store' : 'schedule'}
+              </span>
               <p className="text-muted-foreground text-xs leading-relaxed">
                 {buildTarget === 'production'
                   ? 'O build de produção compila e envia para a(s) loja(s) (App Store / Play Store) automaticamente. Pode levar 30+ min. Requer o app já cadastrado nas lojas e as credenciais configuradas na EAS.'
@@ -1525,10 +1955,16 @@ export const Branding = () => {
           </div>
 
           <div className="flex justify-end gap-3 p-4 border-t border-outline-variant/10">
-            <button onClick={() => setIsBuildDialogOpen(false)} className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-medium text-sm">
+            <button
+              onClick={() => setIsBuildDialogOpen(false)}
+              className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-high transition-colors font-medium text-sm"
+            >
               Cancelar
             </button>
-            <button onClick={executeTriggerBuild} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all">
+            <button
+              onClick={executeTriggerBuild}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all"
+            >
               <span className="material-symbols-outlined text-sm">check</span>
               Confirmar
             </button>
@@ -1539,7 +1975,7 @@ export const Branding = () => {
       {promoDialogClient && (
         <PromotionsDialog
           open={!!promoDialogClient}
-          onOpenChange={(o) => !o && setPromoDialogClient(null)}
+          onOpenChange={o => !o && setPromoDialogClient(null)}
           clientId={promoDialogClient.clientId}
           clientName={promoDialogClient.companyName}
         />
@@ -1548,12 +1984,24 @@ export const Branding = () => {
   );
 };
 
-function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
+function SummaryCard({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  color?: string;
+}) {
   return (
     <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
       <div className="flex justify-between items-start">
         <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
-        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
+        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>
+          {icon}
+        </span>
       </div>
       <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
     </div>
