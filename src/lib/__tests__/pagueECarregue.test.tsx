@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { linkDePagamento, origemDaPaginaDePagamento } from '../pagueECarregue';
 
 vi.mock('../auth', () => ({
-  useAuth: () => ({ user: { branding: { companyName: 'Vip Energy', primaryColor: '#F5C400' } } }),
+  useAuth: () => ({ user: { branding: null } }),
 }));
 
 import { QrCodeTemplate } from '../../components/QrCodeTemplate';
@@ -35,32 +35,46 @@ describe('link do pague e carregue', () => {
 });
 
 describe('adesivo de QR', () => {
-  it('traz o QR do app e o QR do Pix', () => {
-    const html = renderToStaticMarkup(
-      <QrCodeTemplate
-        pages={[
-          {
-            chargePointId: '240500190',
-            connectorIndex: 1,
-            totalConnectors: 2,
-            description: 'Morada dos Príncipes 02',
-            model: 'CVBE-TR-220V/380V-22KW',
-            vendor: 'MOBY',
-            powerKw: 22,
-            connectorType: 'Tipo 2',
-          },
-        ]}
-      />
-    );
+  const pagina = {
+    chargePointId: '240500147',
+    connectorIndex: 1,
+    totalConnectors: 1,
+    description: 'ArtVille 01',
+    model: 'CVBE-TR-220V/380V-22KW',
+    vendor: 'MOBY',
+    powerKw: 22,
+    connectorType: 'Tipo 2',
+  };
+  const vip = {
+    companyName: 'Vip Energy',
+    primaryColor: '#2b00ff',
+    logoUri:
+      process.env.ADESIVO_LOGO ??
+      'https://res.cloudinary.com/dn7b45jnn/image/upload/branding_logos/vip.png',
+  };
+
+  it('usa a marca do operador do carregador e traz os dois QRs', () => {
+    const html = renderToStaticMarkup(<QrCodeTemplate pages={[{ ...pagina, marca: vip }]} />);
     expect(html).toContain('Pelo app Vip Energy');
     expect(html).toContain('Sem app, com Pix');
-    expect(html).toContain('CÓDIGO: 240500190:1');
+    expect(html).toContain('Código 240500147:1');
     expect((html.match(/<svg/g) ?? []).length).toBe(2);
-    if (process.env.ADESIVO_HTML) {
-      writeFileSync(
-        process.env.ADESIVO_HTML,
-        `<!doctype html><meta charset="utf-8"><body style="margin:0;background:#000">${html}</body>`
-      );
-    }
+    // Azul escuro da marca é clareado para ler sobre o fundo preto.
+    expect(html).not.toContain('#2b00ff');
+  });
+
+  it('sem marca, usa NeoPower com o ícone (o logotipo tem texto escuro)', () => {
+    const html = renderToStaticMarkup(<QrCodeTemplate pages={[pagina]} />);
+    expect(html).toContain('Pelo app NeoPower');
+    expect(html).toContain('neoicon');
+    expect(html).not.toContain('NeoPower.png');
+  });
+
+  it('exporta o HTML para conferência visual', () => {
+    if (!process.env.ADESIVO_HTML) return;
+    const html = renderToStaticMarkup(
+      <QrCodeTemplate pages={[pagina, { ...pagina, marca: vip }]} />
+    );
+    writeFileSync(process.env.ADESIVO_HTML, html);
   });
 });
