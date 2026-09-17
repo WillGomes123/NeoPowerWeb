@@ -1,8 +1,15 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import NeoPowerLogo from '../assets/NeoPower.png';
+import NeoPowerIcone from '../assets/neoicon.png';
 import { useAuth } from '../lib/auth';
 import { linkDePagamento } from '../lib/pagueECarregue';
+
+/** Marca impressa no adesivo: a do operador dono do carregador. */
+export interface MarcaDoAdesivo {
+  companyName?: string | null;
+  logoUri?: string | null;
+  primaryColor?: string | null;
+}
 
 interface QrCodePageProps {
   chargePointId: string;
@@ -13,33 +20,97 @@ interface QrCodePageProps {
   vendor?: string;
   powerKw?: number;
   connectorType?: string;
+  /** Sem marca, usa a do usuário logado (e, na falta, a NeoPower). */
+  marca?: MarcaDoAdesivo | null;
 }
 
 interface QrCodeTemplateProps {
   pages: QrCodePageProps[];
 }
 
+const VERDE_NEOPOWER = '#00FF66';
+
+/** Luminância relativa (0 a 1) de uma cor #rrggbb. */
+function luminancia(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 1;
+  const n = parseInt(m[1], 16);
+  const canal = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+}
+
+/** Clareia a cor da marca até ficar legível sobre o fundo escuro do adesivo. */
+function corLegivel(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return VERDE_NEOPOWER;
+  let cor = parseInt(m[1], 16);
+  for (let i = 0; i < 6 && luminancia(`#${cor.toString(16).padStart(6, '0')}`) < 0.25; i++) {
+    const r = (cor >> 16) & 255;
+    const g = (cor >> 8) & 255;
+    const b = cor & 255;
+    const clarear = (c: number) => Math.round(c + (255 - c) * 0.3);
+    cor = (clarear(r) << 16) | (clarear(g) << 8) | clarear(b);
+  }
+  return `#${cor.toString(16).padStart(6, '0')}`;
+}
+
+// O PDF é gerado pelo html2canvas, que ignora parte do CSS (object-fit, altura
+// de linha "normal") e herda o box-sizing do Tailwind. Por isso tudo aqui tem
+// medida explícita: largura com borda, altura de linha em px e caixas fixas.
+const base: React.CSSProperties = { boxSizing: 'border-box', margin: 0 };
+const texto = (
+  tamanho: number,
+  altura: number,
+  extra: React.CSSProperties = {}
+): React.CSSProperties => ({
+  ...base,
+  fontSize: `${tamanho}px`,
+  lineHeight: `${altura}px`,
+  ...extra,
+});
+
 function QrCodePage({ page }: { page: QrCodePageProps }) {
   const { user } = useAuth();
-  const branding = user?.branding;
-  const primaryColor = branding?.primaryColor || '#00FF66';
-  const logo = branding?.logoUri || NeoPowerLogo;
-  const brandName = branding?.companyName || 'NeoPower';
+  const marca = page.marca ?? user?.branding ?? null;
+  const logo = marca?.logoUri || null;
+  const nome = marca?.companyName || 'NeoPower';
+  const destaque = corLegivel(marca?.primaryColor || VERDE_NEOPOWER);
+  const tintaDoSelo = luminancia(destaque) > 0.45 ? '#000000' : '#FFFFFF';
 
   // Dois QRs: o do app (texto ID:conector, lido pelo leitor do app) e o do
   // Pix (link da página pague e carregue, aberto pela câmera do celular).
-  const qrContent = `${page.chargePointId}:${page.connectorIndex}`;
+  const qrApp = `${page.chargePointId}:${page.connectorIndex}`;
   const qrPix = linkDePagamento(page.chargePointId, page.connectorIndex);
 
-  const techParts: string[] = [];
-  if (page.model) techParts.push(page.model);
-  if (page.vendor) techParts.push(page.vendor);
-  if (page.powerKw) techParts.push(`${page.powerKw} kW`);
-  if (page.connectorType) techParts.push(page.connectorType);
+  const tecnico = [
+    page.model,
+    page.vendor,
+    page.powerKw ? `${page.powerKw} kW` : null,
+    page.connectorType,
+  ].filter(Boolean);
+
+  const codigos = [
+    {
+      titulo: `Pelo app ${nome}`,
+      dica: 'Abra o app e toque em Escanear',
+      valor: qrApp,
+      rodape: `Código ${qrApp}`,
+    },
+    {
+      titulo: 'Sem app, com Pix',
+      dica: 'Aponte a câmera do celular',
+      valor: qrPix,
+      rodape: 'Pague e carregue, sem cadastro',
+    },
+  ];
 
   return (
     <div
       style={{
+        ...base,
         width: '794px',
         height: '1123px',
         backgroundColor: '#111114',
@@ -47,126 +118,118 @@ function QrCodePage({ page }: { page: QrCodePageProps }) {
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        fontFamily: "'Inter', 'Space Grotesk', sans-serif",
+        fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+        color: '#FFFFFF',
       }}
     >
-      {/* Top accent line */}
-      <div
-        style={{
-          height: '3px',
-          background: `linear-gradient(90deg, ${primaryColor}, ${primaryColor}88, transparent)`,
-        }}
-      />
+      <div style={{ ...base, height: '4px', backgroundColor: destaque }} />
 
-      {/* Header */}
+      {/* Cabeçalho: marca e conector */}
       <div
         style={{
-          padding: '40px 48px 0',
+          ...base,
+          height: '56px',
+          margin: '40px 48px 0',
           display: 'flex',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <img src={logo} alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
-          <span
-            style={{ color: '#ffffff', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px' }}
-          >
-            {brandName}
-          </span>
+        <div
+          style={{ ...base, display: 'flex', alignItems: 'center', gap: '14px', height: '56px' }}
+        >
+          <img
+            src={logo || NeoPowerIcone}
+            alt=""
+            crossOrigin="anonymous"
+            style={{ ...base, display: 'block', height: logo ? '56px' : '44px', width: 'auto' }}
+          />
+          <span style={texto(26, 32, { fontWeight: 800, whiteSpace: 'nowrap' })}>{nome}</span>
         </div>
         <div
-          style={{
-            backgroundColor: primaryColor,
-            color: '#000000',
-            padding: '6px 16px',
-            borderRadius: '20px',
-            fontSize: '12px',
+          style={texto(13, 32, {
+            height: '32px',
+            padding: '0 18px',
+            borderRadius: '16px',
+            backgroundColor: destaque,
+            color: tintaDoSelo,
             fontWeight: 800,
             letterSpacing: '1px',
-          }}
+            whiteSpace: 'nowrap',
+          })}
         >
           CONECTOR {page.connectorIndex}
         </div>
       </div>
 
-      {/* Subtitle */}
-      <div style={{ padding: '12px 48px 0' }}>
-        <span style={{ color: '#666', fontSize: '14px', fontWeight: 500 }}>
-          Estação de Recarga para Veículos Elétricos
-        </span>
+      <p style={texto(14, 20, { margin: '14px 48px 0', color: '#8A8A93' })}>
+        Estação de recarga para veículos elétricos
+      </p>
+
+      <div style={{ ...base, margin: '22px 48px 0', height: '1px', backgroundColor: '#26262C' }} />
+
+      {/* Carregador */}
+      <div style={{ ...base, textAlign: 'center', marginTop: '30px' }}>
+        {page.description && <p style={texto(26, 32, { fontWeight: 800 })}>{page.description}</p>}
+        <p style={texto(13, 18, { marginTop: '6px', color: '#6E6E78' })}>ID {page.chargePointId}</p>
       </div>
 
-      {/* Divider */}
-      <div style={{ margin: '24px 48px 0', height: '1px', backgroundColor: '#222' }} />
-
-      {/* Charger Info */}
-      <div style={{ textAlign: 'center', padding: '32px 48px 0' }}>
-        {page.description && (
-          <div style={{ color: '#ffffff', fontSize: '22px', fontWeight: 700, marginBottom: '8px' }}>
-            {page.description}
-          </div>
-        )}
-        <div style={{ color: '#555', fontSize: '13px', fontWeight: 500 }}>
-          ID: {page.chargePointId}
-        </div>
-      </div>
-
-      {/* CTA */}
-      <div style={{ textAlign: 'center', padding: '28px 0 0' }}>
-        <span style={{ color: primaryColor, fontSize: '22px', fontWeight: 800 }}>
-          ⚡ Escaneie para carregar
-        </span>
-      </div>
-
-      {/* QR Codes: app e Pix */}
-      <div
-        style={{ display: 'flex', justifyContent: 'center', gap: '28px', padding: '24px 48px 0' }}
+      <p
+        style={texto(24, 30, {
+          marginTop: '28px',
+          textAlign: 'center',
+          color: destaque,
+          fontWeight: 800,
+        })}
       >
-        {[
-          {
-            titulo: `Pelo app ${brandName}`,
-            dica: 'Abra o app e toque em “Escanear”',
-            valor: qrContent,
-            rodape: `CÓDIGO: ${qrContent}`,
-          },
-          {
-            titulo: 'Sem app, com Pix',
-            dica: 'Aponte a câmera do celular',
-            valor: qrPix,
-            rodape: 'PAGUE E CARREGUE, SEM CADASTRO',
-          },
-        ].map(q => (
-          <div key={q.titulo} style={{ width: '300px', textAlign: 'center' }}>
-            <div style={{ color: '#ffffff', fontSize: '18px', fontWeight: 800 }}>{q.titulo}</div>
-            <div style={{ color: '#777', fontSize: '12px', fontWeight: 500, marginTop: '4px' }}>
-              {q.dica}
-            </div>
+        Escaneie para carregar
+      </p>
+
+      {/* QR codes */}
+      <div
+        style={{
+          ...base,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '28px',
+          marginTop: '22px',
+        }}
+      >
+        {codigos.map(q => (
+          <div key={q.titulo} style={{ ...base, width: '335px', textAlign: 'center' }}>
+            <p style={texto(19, 24, { fontWeight: 800 })}>{q.titulo}</p>
+            <p style={texto(13, 18, { marginTop: '4px', color: '#8A8A93' })}>{q.dica}</p>
             <div
               style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '16px',
+                ...base,
+                width: '320px',
+                height: '320px',
+                margin: '14px auto 0',
                 padding: '20px',
-                margin: '16px auto 0',
-                width: '240px',
-                lineHeight: 0,
-                boxShadow: `0 0 60px ${primaryColor}15, 0 20px 40px rgba(0,0,0,0.4)`,
+                backgroundColor: '#FFFFFF',
+                borderRadius: '18px',
               }}
             >
-              <QRCodeSVG value={q.valor} size={240} level="H" fgColor="#111114" bgColor="#ffffff" />
+              <QRCodeSVG
+                value={q.valor}
+                size={280}
+                level="H"
+                fgColor="#111114"
+                bgColor="#FFFFFF"
+                style={{ display: 'block', width: '280px', height: '280px' }}
+              />
             </div>
-            <div
-              style={{
-                color: '#555',
-                fontSize: '11px',
+            <p
+              style={texto(11, 16, {
+                marginTop: '12px',
+                color: '#8A8A93',
                 fontWeight: 700,
                 letterSpacing: '1.5px',
                 textTransform: 'uppercase',
-                marginTop: '14px',
-              }}
+              })}
             >
               {q.rodape}
-            </div>
+            </p>
           </div>
         ))}
       </div>
@@ -174,64 +237,51 @@ function QrCodePage({ page }: { page: QrCodePageProps }) {
       {/* Como funciona o Pix */}
       <div
         style={{
-          margin: '28px 48px 0',
-          padding: '16px 20px',
-          border: '1px solid #222',
-          borderRadius: '12px',
-          color: '#888',
-          fontSize: '12px',
-          lineHeight: 1.6,
+          ...base,
+          margin: '30px 48px 0',
+          padding: '16px 24px',
+          border: '1px solid #26262C',
+          borderRadius: '14px',
           textAlign: 'center',
         }}
       >
-        Com Pix: encaixe o cabo, escolha o valor e pague. A recarga começa sozinha e para quando o
-        valor acaba. O que sobrar volta por Pix.
+        <p style={texto(13, 20, { color: '#A6A6B0' })}>
+          <span style={{ color: '#FFFFFF', fontWeight: 700 }}>Com Pix:</span> encaixe o cabo,
+          escolha o valor e pague. A recarga começa sozinha e para quando o valor acaba. O que
+          sobrar volta por Pix.
+        </p>
       </div>
 
-      {/* Tech details */}
-      {techParts.length > 0 && (
-        <div style={{ textAlign: 'center', padding: '8px 0 0' }}>
-          <span style={{ color: '#333', fontSize: '11px', fontWeight: 500 }}>
-            {techParts.join('  •  ')}
-          </span>
-        </div>
+      {tecnico.length > 0 && (
+        <p style={texto(11, 16, { marginTop: '16px', textAlign: 'center', color: '#55555E' })}>
+          {tecnico.join('  •  ')}
+        </p>
       )}
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+      <div style={{ ...base, flex: 1 }} />
 
-      {/* Footer divider */}
-      <div style={{ margin: '0 48px', height: '1px', backgroundColor: '#222' }} />
-
-      {/* Footer */}
+      <div style={{ ...base, margin: '0 48px', height: '1px', backgroundColor: '#26262C' }} />
       <div
         style={{
-          padding: '20px 48px 24px',
+          ...base,
+          height: '64px',
+          padding: '0 48px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
         <div>
-          <div style={{ color: '#444', fontSize: '10px', fontWeight: 600 }}>
-            {brandName} — Gestão Inteligente de Recarga
-          </div>
-          <div style={{ color: '#333', fontSize: '10px', marginTop: '4px' }}>
+          <p style={texto(10, 14, { color: '#6E6E78', fontWeight: 600 })}>{nome}</p>
+          <p style={texto(10, 14, { marginTop: '2px', color: '#4A4A52' })}>
             Gerado em {new Date().toLocaleString('pt-BR')}
-          </div>
+          </p>
         </div>
-        <div style={{ color: '#555', fontSize: '11px', fontWeight: 700 }}>
+        <p style={texto(11, 14, { color: '#6E6E78', fontWeight: 700 })}>
           {page.connectorIndex} / {page.totalConnectors}
-        </div>
+        </p>
       </div>
-
-      {/* Bottom accent line */}
-      <div
-        style={{
-          height: '3px',
-          background: `linear-gradient(90deg, transparent, ${primaryColor}88, ${primaryColor})`,
-        }}
-      />
+      <div style={{ ...base, height: '4px', backgroundColor: destaque }} />
     </div>
   );
 }
