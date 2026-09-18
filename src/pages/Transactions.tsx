@@ -36,6 +36,21 @@ interface WalletTx {
 
 type TxTab = 'recargas' | 'saldo';
 
+/** Recarga em andamento, com consumo lido do medidor a cada ciclo. */
+interface SessaoAtiva {
+  transactionId: number;
+  energyKwh: number;
+  powerKw: number | null;
+  estimatedCost: number;
+  userName: string | null;
+  visitante: boolean;
+  paidAmount: number | null;
+  remaining: number | null;
+}
+
+/** De quanto em quanto tempo a tela busca as recargas em andamento. */
+const INTERVALO_AO_VIVO_MS = 10_000;
+
 const exportColumns: ExportColumn[] = [
   { key: 'transaction_id', header: 'ID', format: 'number' },
   { key: 'charge_point_id', header: 'Carregador', format: 'text' },
@@ -53,6 +68,7 @@ export const Transactions = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [ativas, setAtivas] = useState<Record<number, SessaoAtiva>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,7 +110,35 @@ export const Transactions = () => {
     status: tx.status,
   }));
 
-  useEffect(() => { void fetchTransactions(); }, []);
+  const fetchAtivas = async () => {
+    try {
+      const response = await api.get('/transactions/active');
+      if (!response.ok) return;
+      const data = await response.json();
+      const lista: SessaoAtiva[] = Array.isArray(data) ? data : (data?.data ?? []);
+      setAtivas(Object.fromEntries(lista.map(s => [s.transactionId, s])));
+    } catch {
+      /* uma falha de rede não pode derrubar a tela; tenta no próximo ciclo */
+    }
+  };
+
+  useEffect(() => {
+    void fetchTransactions();
+    void fetchAtivas();
+  }, []);
+
+  // A recarga em andamento é acompanhada sozinha: sem isso, só recarregando a
+  // página dava para ver o consumo crescer.
+  useEffect(() => {
+    if (txTab !== 'recargas') return;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void fetchAtivas();
+      void fetchTransactions({ silencioso: true });
+    }, INTERVALO_AO_VIVO_MS);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txTab]);
   useEffect(() => {
     if (txTab === 'saldo' && walletTxs.length === 0 && isAdmin) {
       void fetchWalletTransactions();
@@ -102,8 +146,8 @@ export const Transactions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txTab]);
 
-  const fetchTransactions = async () => {
-    setLoading(true);
+  const fetchTransactions = async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+    if (!silencioso) setLoading(true);
     setError(null);
     try {
       const response = await api.get('/transactions');
@@ -112,10 +156,12 @@ export const Transactions = () => {
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(msg);
-      toast.error(msg);
+      if (!silencioso) {
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   };
 
@@ -198,8 +244,23 @@ export const Transactions = () => {
   const current = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   // Summary metrics
-  const totalRevenue = useMemo(() => filtered.reduce((s, tx) => s + (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0), 0), [filtered]);
-  const totalKwh = useMemo(() => filtered.reduce((s, tx) => s + (tx.consumed_wh ? tx.consumed_wh / 1000 : 0), 0), [filtered]);
+  /** Recarga aberta: o valor vem do medidor, não da coluna (só preenchida no fim). */
+  const aoVivo = (tx: Transaction) => (tx.stop_timestamp ? null : (ativas[tx.transaction_id] ?? null));
+  const custoDe = (tx: Transaction) =>
+    aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
+  const kwhDe = (tx: Transaction) =>
+    aoVivo(tx)?.energyKwh ?? (tx.consumed_wh ? tx.consumed_wh / 1000 : 0);
+
+  const totalRevenue = useMemo(
+    () => filtered.reduce((s, tx) => s + custoDe(tx), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, ativas]
+  );
+  const totalKwh = useMemo(
+    () => filtered.reduce((s, tx) => s + kwhDe(tx), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, ativas]
+  );
   const avgTicket = filtered.length > 0 ? totalRevenue / filtered.length : 0;
   const completedCount = filtered.filter(tx => (tx.status || '').toLowerCase() === 'completed' || tx.status === 'finalizado').length;
 
@@ -416,6 +477,7 @@ export const Transactions = () => {
               <Legend dot="bg-primary" label="Concluído" />
               <Legend dot="bg-error" label="Falhou" />
               <Legend dot="bg-tertiary animate-pulse" label="Em andamento" />
+              <span className="text-[10px] text-on-surface-variant">Atualiza sozinha a cada 10s</span>
             </div>
           </div>
         </div>
@@ -427,6 +489,7 @@ export const Transactions = () => {
                 <th className="px-6 py-4">Carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
+                <th className="px-6 py-4">Energia</th>
                 <th className="px-6 py-4">Custo</th>
                 <th className="px-6 py-4">Endereço</th>
                 <th className="px-6 py-4">Status</th>
@@ -436,13 +499,14 @@ export const Transactions = () => {
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={9} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
                 </tr>
               ) : current.map(tx => {
                 const st = statusStyle(tx.status);
+                const vivo = aoVivo(tx);
                 return (
                   <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
                     <td className="px-6 py-4">
@@ -454,7 +518,16 @@ export const Transactions = () => {
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">
-                      <span className="text-on-surface-variant text-xs">R$</span> {tx.total_cost != null ? fmt(parseFloat(tx.total_cost.toString())) : '0,00'}
+                      {fmt(kwhDe(tx), 2)} <span className="text-on-surface-variant text-xs">kWh</span>
+                      {vivo?.powerKw ? (
+                        <span className="block text-[10px] font-normal text-tertiary">{fmt(vivo.powerKw, 1)} kW agora</span>
+                      ) : null}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold font-headline">
+                      <span className="text-on-surface-variant text-xs">R$</span> {fmt(custoDe(tx))}
+                      {vivo ? (
+                        <span className="block text-[10px] font-normal text-on-surface-variant">parcial</span>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant max-w-[200px] truncate">{tx.address || 'N/A'}</td>
                     <td className="px-6 py-4">
@@ -462,6 +535,12 @@ export const Transactions = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                         {st.label}
                       </span>
+                      {vivo ? (
+                        <span className="block mt-1 text-[10px] text-on-surface-variant">
+                          {vivo.visitante ? 'Visitante' : (vivo.userName ?? 'Motorista')}
+                          {vivo.remaining != null ? ` · resta R$ ${fmt(vivo.remaining)}` : ''}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4">
                       <span className="material-symbols-outlined text-base text-on-surface-variant group-hover:text-primary transition-colors">show_chart</span>
