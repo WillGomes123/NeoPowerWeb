@@ -385,11 +385,13 @@ export const FinancialReport = () => {
   const liquidoDepositos = netDeposits;
   const liquidoTotal = liquidoRecargas + liquidoDepositos;
 
-  const valorPagoCliente = liquidoTotal * 0.70;
-  const lucroNeoPower = liquidoTotal * 0.20;
-  const manutencaoSite = liquidoTotal * 0.10;
+  // Divisão do líquido (depois das taxas do Mercado Pago): 95% do dono da
+  // estação, 5% da NeoPower — e a manutenção do site sai desses 5%.
+  const PERCENTUAL_NEOPOWER = 0.05;
+  const valorPagoCliente = liquidoTotal * (1 - PERCENTUAL_NEOPOWER);
+  const lucroNeoPower = liquidoTotal * PERCENTUAL_NEOPOWER;
 
-  const platformProfit = manutencaoSite + lucroNeoPower;
+  const platformProfit = lucroNeoPower;
   // profitMargin calculated for future use: (platformProfit / entradaBrutaTotal) * 100
 
   const visibleReportData = React.useMemo(() => {
@@ -909,13 +911,13 @@ export const FinancialReport = () => {
 
       {/* Admin Only: Revenue Distribution Cards */}
       {isAdmin && liquidoTotal > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-foreground font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
                 <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">70% do líquido</p>
+                <p className="text-xs text-on-surface-variant mt-1">95% do líquido, após a taxa do Mercado Pago</p>
               </div>
               <div className="p-3 bg-surface-container-highest rounded-xl">
                 <span className="material-symbols-outlined text-foreground text-2xl">group</span>
@@ -928,7 +930,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-2xl font-bold text-primary mt-1">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-outline mt-1">20% do líquido</p>
+                <p className="text-xs text-outline mt-1">5% do líquido, já com a manutenção</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-xl">
                 <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
@@ -936,18 +938,6 @@ export const FinancialReport = () => {
             </div>
           </div>
 
-          <div className="glass-card rounded-xl p-5 border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Manutenção do Site</p>
-                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(manutencaoSite)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">10% do líquido</p>
-              </div>
-              <div className="p-3 bg-surface-container-highest rounded-xl">
-                <span className="material-symbols-outlined text-foreground text-2xl">bolt</span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -1122,16 +1112,14 @@ export const FinancialReport = () => {
                 const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
                 const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
                 const percNeoPower = entradaBrutaTotal > 0 ? (lucroNeoPower / entradaBrutaTotal) * 100 : 0;
-                const percManutencao = entradaBrutaTotal > 0 ? (manutencaoSite / entradaBrutaTotal) * 100 : 0;
                 return (
                   <>
                     <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
                       <div className="bg-red-500/40 transition-all" style={{ width: `${percTaxas}%` }} title={`Taxas: R$ ${fmt(taxasTotais)}`} />
                       <div className="bg-blue-500/50 transition-all" style={{ width: `${percCliente}%` }} title={`Cliente: R$ ${fmt(valorPagoCliente)}`} />
                       <div className="bg-primary/70 transition-all" style={{ width: `${percNeoPower}%` }} title={`NeoPower: R$ ${fmt(lucroNeoPower)}`} />
-                      <div className="bg-cyan-500/50 transition-all" style={{ width: `${percManutencao}%` }} title={`Manutenção: R$ ${fmt(manutencaoSite)}`} />
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 text-xs">
                       <div className="flex items-center gap-1.5 text-on-surface-variant">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
                         <span>Taxas ({percTaxas.toFixed(1)}%)</span>
@@ -1143,10 +1131,6 @@ export const FinancialReport = () => {
                       <div className="flex items-center gap-1.5 text-on-surface-variant">
                         <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                         <span>NeoPower ({percNeoPower.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-on-surface-variant">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/50" />
-                        <span>Manutenção ({percManutencao.toFixed(1)}%)</span>
                       </div>
                     </div>
                   </>
