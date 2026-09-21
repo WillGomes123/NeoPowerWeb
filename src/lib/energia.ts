@@ -128,11 +128,6 @@ export const ABAS: { id: AbaEnergia; label: string; icon: string }[] = [
   { id: 'modalidades', label: 'Modalidades', icon: 'rule' },
 ];
 
-/** Contas da própria NeoPower. Espelha ehNeoPower da API (utils/permissoes.ts). */
-const CLIENT_IDS_NEOPOWER = ['neopower-default', 'neo'];
-export const ehNeoPower = (user?: { clientId?: string | null } | null) =>
-  !!user && (!user.clientId || CLIENT_IDS_NEOPOWER.includes(user.clientId));
-
 export const brl = (v: number) =>
   `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 /** Tarifa em R$/kWh tem 4 casas na fatura (0,5201): arredondar para centavos esconde a diferença. */

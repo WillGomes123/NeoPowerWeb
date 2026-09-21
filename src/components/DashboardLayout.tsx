@@ -289,7 +289,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         >
                           <span className="material-symbols-outlined text-lg">{item.icon}</span>
                           <span>{item.label}</span>
-                          {'novo' in item && item.novo && (
+                          {'novo' in item && item.novo === true && (
                             <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-primary">NOVO</span>
                           )}
                         </Link>
