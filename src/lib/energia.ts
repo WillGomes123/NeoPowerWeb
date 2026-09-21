@@ -135,6 +135,9 @@ export const ehNeoPower = (user?: { clientId?: string | null } | null) =>
 
 export const brl = (v: number) =>
   `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+/** Tarifa em R$/kWh tem 4 casas na fatura (0,5201): arredondar para centavos esconde a diferença. */
+export const tarifa = (v: number) =>
+  `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}/kWh`;
 export const kwh = (v: number) => `${Math.round(v || 0).toLocaleString('pt-BR')} kWh`;
 export const pct = (v: number) =>
   `${((v || 0) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api';
 import type { Apuracao, Cobranca, Conexao, Modalidade, RegraPreco } from '../../lib/energia';
-import { brl, kwh, pct } from '../../lib/energia';
+import { brl, kwh, pct, tarifa } from '../../lib/energia';
 import type { AbaProps } from './tipos';
 import { Campo, Escolha, Numero } from './campos';
 import { TabelaConexoes } from './TabelaConexoes';
@@ -9,7 +9,7 @@ import { Aviso, Botao, Formula, Painel } from './ui';
 
 type Previa = { erros: string[]; avisos: string[]; previa: Apuracao | null };
 
-export function Conexoes({ painel, podeEditar, mudar }: AbaProps) {
+export function Conexoes({ painel, podeEditar, mudar, irPara }: AbaProps) {
   // Abre na usina com mais capacidade livre: é onde uma conexão nova tem chance de caber.
   const [usinaId, setUsinaId] = useState(() => {
     const candidatas = painel.usinas.filter(u => u.status !== 'desativada');
@@ -92,6 +92,29 @@ export function Conexoes({ painel, podeEditar, mudar }: AbaProps) {
       rateio ? 'Conexão encerrada. Rateio marcado para reenvio.' : 'Conexão encerrada.'
     );
   };
+
+  if (!painel.usinas.length || !painel.pontos.length) {
+    const falta = [
+      !painel.usinas.length && { t: 'uma usina', aba: 'usinas' as const },
+      !painel.pontos.length && { t: 'um ponto consumidor', aba: 'pontos' as const },
+    ].filter(Boolean) as { t: string; aba: 'usinas' | 'pontos' }[];
+    return (
+      <Painel titulo="Nova conexão" detalhe="Liga uma usina a um ponto.">
+        <div className="p-5 space-y-3">
+          <Aviso tom="aviso">
+            Para criar uma conexão, cadastre antes {falta.map(f => f.t).join(' e ')}.
+          </Aviso>
+          <div className="flex gap-2">
+            {falta.map(f => (
+              <Botao key={f.aba} pequeno onClick={() => irPara(f.aba)}>
+                {f.aba === 'usinas' ? 'Ir para Usinas' : 'Ir para Pontos'}
+              </Botao>
+            ))}
+          </div>
+        </div>
+      </Painel>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -195,7 +218,8 @@ export function Conexoes({ painel, podeEditar, mudar }: AbaProps) {
               Prévia do mês · {p.nome} ← {u.nome}
               <br />
               compensado {previa.previa.compensadoKwh.toLocaleString('pt-BR')} kWh ×{' '}
-              {brl(previa.previa.tarifa)} = {brl(previa.previa.bruto)} (bruto)
+              {tarifa(previa.previa.tarifa).replace('/kWh', '')} = {brl(previa.previa.bruto)}{' '}
+              (bruto)
               <br />− Fio B {pct(painel.parametros.fioBEscalonamento)} ×{' '}
               {pct(painel.parametros.fioBParticipacao)} = {brl(previa.previa.fioB)}
               {'   '}− custo fixo da usina (cota) {brl(previa.previa.custoFixo)}

@@ -1,8 +1,10 @@
-import { brl, pct } from '../../lib/energia';
+import { brl, pct, tarifa } from '../../lib/energia';
 import type { AbaProps } from './tipos';
+import { Parametros } from './Parametros';
 import { Aviso, Formula, Painel, Sub, Tabela, Td } from './ui';
 
-export function Apuracao({ painel }: AbaProps) {
+export function Apuracao(props: AbaProps) {
+  const { painel } = props;
   const ativas = painel.conexoes.filter(c => c.status !== 'cancelado');
   const T = painel.totaisApuracao;
   const P = painel.parametros;
@@ -90,7 +92,7 @@ export function Apuracao({ painel }: AbaProps) {
             <br />
             split: cobrado → {pct(1 - P.taxaNeopower)} usina · {pct(P.taxaNeopower)} NeoPower
             <br />
-            tarifas: grupo B {brl(P.tarifaB)}/kWh · grupo A {brl(P.tarifaA)}/kWh
+            tarifas: grupo B {tarifa(P.tarifaB)} · grupo A {tarifa(P.tarifaA)}
           </Formula>
           {autoconsumo.map(c => {
             const u = painel.usinas.find(x => x.id === c.usinaId);
@@ -105,6 +107,8 @@ export function Apuracao({ painel }: AbaProps) {
           })}
         </div>
       </Painel>
+
+      <Parametros {...props} />
     </div>
   );
 }

@@ -47,6 +47,12 @@ export function Pontos({ painel, podeEditar, mudar, irPara }: AbaProps) {
         }
       >
         <Tabela
+          vazio={
+            painel.pontos.length
+              ? undefined
+              : 'Nenhum ponto cadastrado ainda.' +
+                (podeEditar ? ' Use “Cadastrar ponto” para começar.' : '')
+          }
           cabecalho={[
             'Ponto',
             'Carregadores',

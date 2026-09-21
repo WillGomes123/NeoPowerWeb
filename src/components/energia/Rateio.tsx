@@ -35,6 +35,14 @@ export function Rateio({ painel, podeEditar, mudar }: AbaProps) {
 
   return (
     <div className="space-y-6">
+      {comRateio.length === 0 && (
+        <Painel titulo="Rateio" detalhe="Consórcio e cooperativa">
+          <p className="p-5 text-sm text-on-surface-variant">
+            Nenhuma usina em consórcio ou cooperativa ainda. O rateio de cada uma aparece aqui assim
+            que ela for cadastrada aceitando essas modalidades.
+          </p>
+        </Painel>
+      )}
       {comRateio.map(u => {
         const cs = painel.conexoes.filter(
           c =>

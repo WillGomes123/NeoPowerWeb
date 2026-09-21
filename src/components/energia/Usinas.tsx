@@ -61,6 +61,12 @@ export function Usinas({ painel, podeEditar, mudar }: AbaProps) {
         }
       >
         <Tabela
+          vazio={
+            painel.usinas.length
+              ? undefined
+              : 'Nenhuma usina cadastrada ainda.' +
+                (podeEditar ? ' Use “Cadastrar usina” para começar.' : '')
+          }
           cabecalho={[
             'Usina',
             'Dono',
