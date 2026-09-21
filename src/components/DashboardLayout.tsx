@@ -48,6 +48,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'operador', 'comum'] },
     { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
     { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
+    { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true },
     { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'operador', 'comum'] },
     {
       path: '/indicadores',
@@ -80,6 +81,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
         { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
+        // Usinas, rateio e split com a Ecofin são da operação própria: só a NeoPower vê.
+        { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true, novo: true },
         { path: '/cameras', label: 'Câmeras', icon: 'videocam', roles: ['admin', 'operador', 'comum'] },
         { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'operador', 'comum'] },
         { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'operador', 'comum'] },
@@ -114,7 +117,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const path = location.pathname;
     return {
-      gestao: ['/estacoes', '/locais', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
+      gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
       financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
       configuracoes: ['/usuarios', '/carteiras', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
@@ -286,6 +289,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         >
                           <span className="material-symbols-outlined text-lg">{item.icon}</span>
                           <span>{item.label}</span>
+                          {'novo' in item && item.novo === true && (
+                            <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-primary">NOVO</span>
+                          )}
                         </Link>
                       );
                     })}

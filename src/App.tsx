@@ -33,6 +33,7 @@ const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m 
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
 const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
 const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
+const Energia = lazy(() => import('./pages/Energia').then(m => ({ default: m.Energia })));
 
 // Páginas legais públicas (sem login) — URLs exigidas pelas lojas por white label:
 // /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta, /<tenant>/suporte
@@ -126,6 +127,8 @@ const AppRoutes = () => {
       <Route path="/email" element={createProtectedRoute(Email, true, true)} />
       <Route path="/branding" element={createProtectedRoute(Branding, true, true)} />
       <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
+      {/* Energia (usinas): só a NeoPower, como Email e White Label. A API também barra. */}
+      <Route path="/energia" element={createProtectedRoute(Energia, true, true)} />
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
