@@ -31,7 +31,39 @@ interface WalletTx {
   balanceAfter: number;
   description: string | null;
   referenceId: string | null;
+  paymentMethod: string | null;
   createdAt: string;
+}
+
+/** Badge do método de pagamento do depósito (Pix / Crédito / Débito / ...). */
+function metodoDeposito(dep: { paymentMethod?: string | null; description?: string | null }): {
+  label: string;
+  cls: string;
+  icon: string;
+} {
+  let m = (dep.paymentMethod || '').toLowerCase();
+  if (!m) {
+    // Fallback para registros antigos sem payment_method: lê da descrição.
+    const d = (dep.description || '').toLowerCase();
+    if (d.includes('crédito') || d.includes('credito')) m = 'credito';
+    else if (d.includes('débito') || d.includes('debito')) m = 'debito';
+    else if (d.includes('boleto')) m = 'boleto';
+    else if (d.includes('pix')) m = 'pix';
+  }
+  switch (m) {
+    case 'pix':
+      return { label: 'Pix', cls: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', icon: 'bolt' };
+    case 'credito':
+      return { label: 'Crédito', cls: 'bg-amber-500/10 text-amber-500 border border-amber-500/20', icon: 'credit_card' };
+    case 'debito':
+      return { label: 'Débito', cls: 'bg-blue-500/10 text-blue-500 border border-blue-500/20', icon: 'credit_card' };
+    case 'boleto':
+      return { label: 'Boleto', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'receipt_long' };
+    case 'saldo':
+      return { label: 'Saldo MP', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'account_balance_wallet' };
+    default:
+      return { label: 'Mercado Pago', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'payments' };
+  }
 }
 
 type TxTab = 'recargas' | 'saldo';
@@ -620,6 +652,7 @@ export const Transactions = () => {
                       <th className="px-6 py-4">Data</th>
                       <th className="px-6 py-4">Valor</th>
                       <th className="px-6 py-4">Saldo após</th>
+                      <th className="px-6 py-4">Método</th>
                       <th className="px-6 py-4">MP Payment</th>
                       <th className="px-6 py-4">Ações</th>
                     </tr>
@@ -627,13 +660,14 @@ export const Transactions = () => {
                   <tbody className="divide-y divide-outline-variant/5">
                     {currentDeposits.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-16 text-center">
+                        <td colSpan={8} className="px-6 py-16 text-center">
                           <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
                           <p className="text-sm text-on-surface-variant">Nenhum depósito encontrado</p>
                         </td>
                       </tr>
                     ) : currentDeposits.map(dep => {
                       const isMpPayment = dep.referenceId && /^[0-9]+$/.test(dep.referenceId);
+                      const metodo = metodoDeposito(dep);
                       return (
                         <tr key={dep.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                           <td className="px-6 py-4">
@@ -651,6 +685,12 @@ export const Transactions = () => {
                           </td>
                           <td className="px-6 py-4 text-sm text-on-surface-variant font-mono">
                             R$ {fmt(dep.balanceAfter)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${metodo.cls}`}>
+                              <span className="material-symbols-outlined text-sm">{metodo.icon}</span>
+                              {metodo.label}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             {isMpPayment ? (
