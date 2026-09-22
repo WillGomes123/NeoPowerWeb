@@ -60,7 +60,25 @@ interface WalletTransactionItem {
   balanceAfter: number;
   description: string | null;
   referenceId: string | null;
+  paymentMethod: string | null;
   createdAt: string;
+}
+
+/**
+ * Taxa real do Mercado Pago por método (tabela de set/2026): Pix 0,99%,
+ * crédito à vista 4,99%, débito 3,99%, boleto R$3,49 fixo. Antes o relatório
+ * usava 1% fixo para todos, o que subestimava o desconto do cartão.
+ */
+const TAXA_MP_METODO: Record<string, number> = {
+  pix: 0.0099,
+  credito: 0.0499,
+  debito: 0.0399,
+  saldo: 0,
+};
+function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null }): number {
+  const m = (t.paymentMethod || 'pix').toLowerCase();
+  if (m === 'boleto') return 3.49; // valor fixo por boleto
+  return t.amount * (TAXA_MP_METODO[m] ?? TAXA_MP_METODO.pix);
 }
 
 export const FinancialReport = () => {
@@ -373,7 +391,9 @@ export const FinancialReport = () => {
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
   const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0);
   const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
-  const mercadoPagoFeeDeposits = totalDeposits * 0.01;
+  // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
+  // crédito, débito, boleto) — não mais 1% fixo para todos.
+  const mercadoPagoFeeDeposits = deposits.reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
   const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
   const grossRevenue = totals.revenue;
@@ -978,7 +998,7 @@ export const FinancialReport = () => {
               <span className="material-symbols-outlined text-foreground">account_balance_wallet</span>
               Depósitos em Carteira
             </h2>
-            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
+            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) — Taxa Mercado Pago por método (Pix ~1% · crédito ~5% · débito ~4%)</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -1088,7 +1108,7 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-xl font-bold text-foreground">-R$ {fmt(taxasTotais)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-on-surface-variant"><span>Taxa MP (1%):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Taxa Mercado Pago (por método):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
                   <div className="flex justify-between text-on-surface-variant"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
