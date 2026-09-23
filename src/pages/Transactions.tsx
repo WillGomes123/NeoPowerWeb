@@ -173,10 +173,16 @@ export const Transactions = () => {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txTab]);
+  // As recargas de saldo também acompanham sozinhas: o operador (ex.: Vip
+  // Energy) vê o depósito do cliente cair sem precisar recarregar a página.
   useEffect(() => {
-    if (txTab === 'saldo' && walletTxs.length === 0 && isAdmin) {
-      void fetchWalletTransactions();
-    }
+    if (txTab !== 'saldo' || !isAdmin) return;
+    if (walletTxs.length === 0) void fetchWalletTransactions();
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void fetchWalletTransactions({ silencioso: true });
+    }, INTERVALO_AO_VIVO_MS);
+    return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txTab]);
 
@@ -199,17 +205,18 @@ export const Transactions = () => {
     }
   };
 
-  const fetchWalletTransactions = async () => {
-    setLoadingWallet(true);
+  const fetchWalletTransactions = async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+    if (!silencioso) setLoadingWallet(true);
     try {
       const response = await api.get('/admin/wallet-transactions?type=deposit');
       if (!response.ok) throw new Error('Falha ao buscar depósitos.');
       const data = await response.json();
       setWalletTxs(data);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao buscar depósitos.');
+      // No ciclo silencioso uma falha de rede não vira toast; tenta no próximo.
+      if (!silencioso) toast.error(err instanceof Error ? err.message : 'Erro ao buscar depósitos.');
     } finally {
-      setLoadingWallet(false);
+      if (!silencioso) setLoadingWallet(false);
     }
   };
 
