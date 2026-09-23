@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { dataLocal } from '../components/ui/utils';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { toast } from 'sonner';
@@ -231,11 +232,11 @@ export const FinancialReport = () => {
         const data = await response.json();
         let filtered = data;
         if (startDate) {
-          const start = new Date(startDate);
+          const start = dataLocal(startDate);
           filtered = filtered.filter((t: WalletTransactionItem) => new Date(t.createdAt) >= start);
         }
         if (endDate) {
-          const end = new Date(endDate);
+          const end = dataLocal(endDate);
           end.setHours(23, 59, 59, 999);
           filtered = filtered.filter((t: WalletTransactionItem) => new Date(t.createdAt) <= end);
         }
@@ -512,7 +513,7 @@ export const FinancialReport = () => {
   };
 
   const periodLabel = startDate && endDate
-    ? `${new Date(startDate).toLocaleDateString('pt-BR')} — ${new Date(endDate).toLocaleDateString('pt-BR')}`
+    ? `${dataLocal(startDate).toLocaleDateString('pt-BR')} — ${dataLocal(endDate).toLocaleDateString('pt-BR')}`
     : 'Todo o período';
 
   const getStatusBadge = (status: string) => {

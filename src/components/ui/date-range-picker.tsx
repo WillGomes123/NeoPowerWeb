@@ -7,7 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { DayPicker, DateRange } from 'react-day-picker';
 
-import { cn } from './utils';
+import { cn, dataLocal } from './utils';
 import { Button } from './button';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Input } from './input';
@@ -105,7 +105,7 @@ export function DateRangePicker({
   // Parse dates from string
   const parseDate = (dateStr: string): Date | undefined => {
     if (!dateStr) return undefined;
-    const date = new Date(dateStr);
+    const date = dataLocal(dateStr);
     return isNaN(date.getTime()) ? undefined : date;
   };
 
@@ -167,8 +167,8 @@ export function DateRangePicker({
       return 'Selecionar período';
     }
 
-    const fromStr = startDate ? format(new Date(startDate), 'dd/MM/yyyy', { locale: ptBR }) : '';
-    const toStr = endDate ? format(new Date(endDate), 'dd/MM/yyyy', { locale: ptBR }) : '';
+    const fromStr = startDate ? format(dataLocal(startDate), 'dd/MM/yyyy', { locale: ptBR }) : '';
+    const toStr = endDate ? format(dataLocal(endDate), 'dd/MM/yyyy', { locale: ptBR }) : '';
 
     if (showTime && startTime && endTime) {
       return `${fromStr} ${startTime} - ${toStr} ${endTime}`;

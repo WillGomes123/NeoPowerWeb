@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ExportButton } from '../components/ExportButton';
 import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
 import { DateRangePicker } from '../components/ui/date-range-picker';
+import { dataLocal } from '../components/ui/utils';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -257,12 +258,12 @@ export const Transactions = () => {
     let list = transactions;
 
     if (startDate) {
-      const start = new Date(startDate);
+      const start = dataLocal(startDate);
       start.setHours(0, 0, 0, 0);
       list = list.filter(tx => new Date(tx.start_timestamp) >= start);
     }
     if (endDate) {
-      const end = new Date(endDate);
+      const end = dataLocal(endDate);
       end.setHours(23, 59, 59, 999);
       list = list.filter(tx => new Date(tx.start_timestamp) <= end);
     }
@@ -310,12 +311,12 @@ export const Transactions = () => {
     let list = walletTxs;
 
     if (startDate) {
-      const start = new Date(startDate);
+      const start = dataLocal(startDate);
       start.setHours(0, 0, 0, 0);
       list = list.filter(wt => new Date(wt.createdAt) >= start);
     }
     if (endDate) {
-      const end = new Date(endDate);
+      const end = dataLocal(endDate);
       end.setHours(23, 59, 59, 999);
       list = list.filter(wt => new Date(wt.createdAt) <= end);
     }
