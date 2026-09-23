@@ -17,6 +17,8 @@ interface Transaction {
   total_cost: number | null;
   address: string | null;
   status: string;
+  recargaCruzada?: boolean;
+  redeDoCliente?: string | null;
 }
 
 interface WalletTx {
@@ -546,7 +548,16 @@ export const Transactions = () => {
                         #{tx.transaction_id}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-medium text-sm">{tx.charge_point_id}</td>
+                    <td className="px-6 py-4 font-medium text-sm">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{tx.charge_point_id}</span>
+                        {tx.recargaCruzada && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20" title={`Recarga Cruzada - Rede do cliente: ${tx.redeDoCliente || 'Outra rede'}`}>
+                            Cliente {tx.redeDoCliente || 'outra rede'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">

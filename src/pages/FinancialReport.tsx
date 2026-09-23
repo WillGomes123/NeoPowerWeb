@@ -42,11 +42,32 @@ interface FinancialReportItem {
   'Valor Recebido (R$)': string;
   'Valor Pago ao Cliente (R$)': string;
   Status: string;
+  recargaCruzada?: boolean;
+  redeDoCliente?: string | null;
   // Campos NFS-e vindos do backend
   invoice_id?: string;
   invoice_status?: string;
   invoice_pdf_url?: string;
   transaction_id?: number;
+}
+
+interface RecargaCruzadaRedeItem {
+  rede: string;
+  quantidade: number;
+  valorBruto: number;
+}
+
+interface RecargasCruzadasData {
+  recebidas: {
+    quantidade: number;
+    valorBruto: number;
+    porRede: RecargaCruzadaRedeItem[];
+  };
+  aRepassar: {
+    quantidade: number;
+    valorBruto: number;
+    porRede: RecargaCruzadaRedeItem[];
+  };
 }
 
 interface WalletTransactionItem {
@@ -97,6 +118,7 @@ export const FinancialReport = () => {
   const overviewMode = isSuperAdmin && !drillDownClientId;
 
   const [reportData, setReportData] = useState<FinancialReportItem[]>([]);
+  const [recargasCruzadas, setRecargasCruzadas] = useState<RecargasCruzadasData | null>(null);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
   const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,7 +172,8 @@ export const FinancialReport = () => {
       if (!response.ok) throw new Error('Erro ao buscar relatório');
 
       const data = await response.json();
-      const items = Array.isArray(data) ? data : [];
+      const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
+      setRecargasCruzadas(data?.recargasCruzadas || null);
 
       if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
@@ -167,6 +190,7 @@ export const FinancialReport = () => {
       console.error(error);
       toast.error('Erro ao buscar relatório financeiro');
       setReportData([]);
+      setRecargasCruzadas(null);
     } finally {
       setLoading(false);
     }
@@ -961,6 +985,97 @@ export const FinancialReport = () => {
         </div>
       )}
 
+      {/* ─── Seção Recargas de outras redes (Recarga Cruzada) ─── */}
+      {recargasCruzadas && (recargasCruzadas.recebidas.quantidade > 0 || recargasCruzadas.aRepassar.quantidade > 0) && (
+        <div className="glass-card rounded-xl p-6 border border-outline-variant/15 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-2xl">sync_alt</span>
+              <div>
+                <h2 className="text-lg font-headline font-semibold text-foreground">Recargas de outras redes</h2>
+                <p className="text-xs text-on-surface-variant">Sessões realizadas de forma cruzada entre marcas parceiras</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+              Recarga Cruzada
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* A receber */}
+            <div className="p-4 rounded-xl bg-surface-container/60 border border-outline-variant/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A receber (postos próprios)</p>
+                  <p className="text-2xl font-bold text-primary mt-1">
+                    R$ {fmt(recargasCruzadas.recebidas.valorBruto * 0.95)}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Líquido após 5% NeoPower (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+                  <span className="material-symbols-outlined">call_received</span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-outline-variant/10 space-y-1.5">
+                <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de origem ({recargasCruzadas.recebidas.quantidade} sessões):</p>
+                {recargasCruzadas.recebidas.porRede.length > 0 ? (
+                  recargasCruzadas.recebidas.porRede.map(item => (
+                    <div key={item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                      <span className="font-medium text-foreground">{item.rede}</span>
+                      <span className="text-on-surface-variant">
+                        {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto * 0.95)} líq.
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-on-surface-variant italic">Nenhuma sessão no período.</p>
+                )}
+              </div>
+            </div>
+
+            {/* A repassar */}
+            <div className="p-4 rounded-xl bg-surface-container/60 border border-outline-variant/15 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A repassar (postos parceiros)</p>
+                  <p className="text-2xl font-bold text-amber-500 mt-1">
+                    R$ {fmt(recargasCruzadas.aRepassar.valorBruto)}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                    Valor a acertar com redes parceiras
+                  </p>
+                </div>
+                <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-500">
+                  <span className="material-symbols-outlined">call_made</span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-outline-variant/10 space-y-1.5">
+                <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de destino ({recargasCruzadas.aRepassar.quantidade} sessões):</p>
+                {recargasCruzadas.aRepassar.porRede.length > 0 ? (
+                  recargasCruzadas.aRepassar.porRede.map(item => (
+                    <div key={item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                      <span className="font-medium text-foreground">{item.rede}</span>
+                      <span className="text-on-surface-variant">
+                        {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto)}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-on-surface-variant italic">Nenhuma sessão no período.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-on-surface-variant italic flex items-center gap-1.5 pt-1">
+            <span className="material-symbols-outlined text-sm text-outline">info</span>
+            O acerto entre redes é manual.
+          </p>
+        </div>
+      )}
+
       {/* Non-admin: Info + resumo */}
       {!isAdmin && (
         <div className="glass-card rounded-xl p-5">
@@ -1420,7 +1535,16 @@ export const FinancialReport = () => {
               {visibleReportData.length > 0 ? (
                 visibleReportData.map((row, index) => (
                   <tr key={index} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
-                    <td className="py-3 px-4 text-sm font-medium text-foreground">{row['Estação']}</td>
+                    <td className="py-3 px-4 text-sm font-medium text-foreground">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{row['Estação']}</span>
+                        {row.recargaCruzada && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20" title={`Recarga Cruzada - Rede: ${row.redeDoCliente || 'Outra rede'}`}>
+                            Cliente {row.redeDoCliente || 'outra rede'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
