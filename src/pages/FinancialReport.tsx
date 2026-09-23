@@ -60,7 +60,25 @@ interface WalletTransactionItem {
   balanceAfter: number;
   description: string | null;
   referenceId: string | null;
+  paymentMethod: string | null;
   createdAt: string;
+}
+
+/**
+ * Taxa real do Mercado Pago por método (tabela de set/2026): Pix 0,99%,
+ * crédito à vista 4,99%, débito 3,99%, boleto R$3,49 fixo. Antes o relatório
+ * usava 1% fixo para todos, o que subestimava o desconto do cartão.
+ */
+const TAXA_MP_METODO: Record<string, number> = {
+  pix: 0.0099,
+  credito: 0.0499,
+  debito: 0.0399,
+  saldo: 0,
+};
+function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null }): number {
+  const m = (t.paymentMethod || 'pix').toLowerCase();
+  if (m === 'boleto') return 3.49; // valor fixo por boleto
+  return t.amount * (TAXA_MP_METODO[m] ?? TAXA_MP_METODO.pix);
 }
 
 export const FinancialReport = () => {
@@ -69,6 +87,9 @@ export const FinancialReport = () => {
   const userClientId = user?.branding?.clientId || null;
   // Super admin = admin sem whitelabel específico → vê todos os tenants
   const isSuperAdmin = isAdmin && !userClientId;
+  // A API já limita o relatório à marca. O filtro extra pelos locais atribuídos
+  // é só do comum; o operador vê a marca inteira, como o admin da marca.
+  const filtraPorLocaisDoUsuario = user?.role === 'comum';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const drillDownClientId = searchParams.get('clientId');
@@ -86,13 +107,13 @@ export const FinancialReport = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [userLocationNames, setUserLocationNames] = useState<string[]>([]);
-  const [locationsLoaded, setLocationsLoaded] = useState(isAdmin);
+  const [locationsLoaded, setLocationsLoaded] = useState(!filtraPorLocaisDoUsuario);
   // NFS-e
   const [nfseFilter, setNfseFilter] = useState<'all' | 'Issued' | 'Pending' | 'Error'>('all');
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
-    if (isAdmin) {
+    if (!filtraPorLocaisDoUsuario) {
       setLocationsLoaded(true);
       return;
     }
@@ -107,7 +128,7 @@ export const FinancialReport = () => {
     }).catch(() => {}).finally(() => {
       setLocationsLoaded(true);
     });
-  }, [isAdmin, user?.id]);
+  }, [filtraPorLocaisDoUsuario, user?.id]);
 
   const fetchReport = useCallback(async () => {
     setLoading(true);
@@ -131,13 +152,13 @@ export const FinancialReport = () => {
       const data = await response.json();
       const items = Array.isArray(data) ? data : [];
 
-      if (!isAdmin && userLocationNames.length > 0) {
+      if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
           const stationName = item['Estação'] || '';
           return userLocationNames.some(loc => loc && stationName.toLowerCase().includes(loc.toLowerCase()));
         });
         setReportData(filtered);
-      } else if (!isAdmin && userLocationNames.length === 0) {
+      } else if (filtraPorLocaisDoUsuario && userLocationNames.length === 0) {
         setReportData([]);
       } else {
         setReportData(items);
@@ -149,7 +170,7 @@ export const FinancialReport = () => {
     } finally {
       setLoading(false);
     }
-  }, [submittedFilter, startDate, endDate, isAdmin, userLocationNames, drillDownClientId]);
+  }, [submittedFilter, startDate, endDate, filtraPorLocaisDoUsuario, userLocationNames, drillDownClientId]);
 
   const fetchTenantOverview = useCallback(async () => {
     if (!isSuperAdmin) {
@@ -370,7 +391,9 @@ export const FinancialReport = () => {
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
   const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0);
   const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
-  const mercadoPagoFeeDeposits = totalDeposits * 0.01;
+  // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
+  // crédito, débito, boleto) — não mais 1% fixo para todos.
+  const mercadoPagoFeeDeposits = deposits.reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
   const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
   const grossRevenue = totals.revenue;
@@ -382,11 +405,13 @@ export const FinancialReport = () => {
   const liquidoDepositos = netDeposits;
   const liquidoTotal = liquidoRecargas + liquidoDepositos;
 
-  const valorPagoCliente = liquidoTotal * 0.70;
-  const lucroNeoPower = liquidoTotal * 0.20;
-  const manutencaoSite = liquidoTotal * 0.10;
+  // Divisão do líquido (depois das taxas do Mercado Pago): 95% do dono da
+  // estação, 5% da NeoPower — e a manutenção do site sai desses 5%.
+  const PERCENTUAL_NEOPOWER = 0.05;
+  const valorPagoCliente = liquidoTotal * (1 - PERCENTUAL_NEOPOWER);
+  const lucroNeoPower = liquidoTotal * PERCENTUAL_NEOPOWER;
 
-  const platformProfit = manutencaoSite + lucroNeoPower;
+  const platformProfit = lucroNeoPower;
   // profitMargin calculated for future use: (platformProfit / entradaBrutaTotal) * 100
 
   const visibleReportData = React.useMemo(() => {
@@ -906,13 +931,13 @@ export const FinancialReport = () => {
 
       {/* Admin Only: Revenue Distribution Cards */}
       {isAdmin && liquidoTotal > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-foreground font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
                 <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">70% do líquido</p>
+                <p className="text-xs text-on-surface-variant mt-1">95% do líquido, após a taxa do Mercado Pago</p>
               </div>
               <div className="p-3 bg-surface-container-highest rounded-xl">
                 <span className="material-symbols-outlined text-foreground text-2xl">group</span>
@@ -925,7 +950,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-2xl font-bold text-primary mt-1">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-outline mt-1">20% do líquido</p>
+                <p className="text-xs text-outline mt-1">5% do líquido, já com a manutenção</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-xl">
                 <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
@@ -933,18 +958,6 @@ export const FinancialReport = () => {
             </div>
           </div>
 
-          <div className="glass-card rounded-xl p-5 border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Manutenção do Site</p>
-                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(manutencaoSite)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">10% do líquido</p>
-              </div>
-              <div className="p-3 bg-surface-container-highest rounded-xl">
-                <span className="material-symbols-outlined text-foreground text-2xl">bolt</span>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -985,7 +998,7 @@ export const FinancialReport = () => {
               <span className="material-symbols-outlined text-foreground">account_balance_wallet</span>
               Depósitos em Carteira
             </h2>
-            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) - Taxa Mercado Pago 1%</p>
+            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) — Taxa Mercado Pago por método (Pix ~1% · crédito ~5% · débito ~4%)</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -1095,7 +1108,7 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-xl font-bold text-foreground">-R$ {fmt(taxasTotais)}</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-on-surface-variant"><span>Taxa MP (1%):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
+                  <div className="flex justify-between text-on-surface-variant"><span>Taxa Mercado Pago (por método):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
                   <div className="flex justify-between text-on-surface-variant"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
@@ -1119,16 +1132,14 @@ export const FinancialReport = () => {
                 const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
                 const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
                 const percNeoPower = entradaBrutaTotal > 0 ? (lucroNeoPower / entradaBrutaTotal) * 100 : 0;
-                const percManutencao = entradaBrutaTotal > 0 ? (manutencaoSite / entradaBrutaTotal) * 100 : 0;
                 return (
                   <>
                     <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
                       <div className="bg-red-500/40 transition-all" style={{ width: `${percTaxas}%` }} title={`Taxas: R$ ${fmt(taxasTotais)}`} />
                       <div className="bg-blue-500/50 transition-all" style={{ width: `${percCliente}%` }} title={`Cliente: R$ ${fmt(valorPagoCliente)}`} />
                       <div className="bg-primary/70 transition-all" style={{ width: `${percNeoPower}%` }} title={`NeoPower: R$ ${fmt(lucroNeoPower)}`} />
-                      <div className="bg-cyan-500/50 transition-all" style={{ width: `${percManutencao}%` }} title={`Manutenção: R$ ${fmt(manutencaoSite)}`} />
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-xs">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 text-xs">
                       <div className="flex items-center gap-1.5 text-on-surface-variant">
                         <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
                         <span>Taxas ({percTaxas.toFixed(1)}%)</span>
@@ -1140,10 +1151,6 @@ export const FinancialReport = () => {
                       <div className="flex items-center gap-1.5 text-on-surface-variant">
                         <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                         <span>NeoPower ({percNeoPower.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-on-surface-variant">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500/50" />
-                        <span>Manutenção ({percManutencao.toFixed(1)}%)</span>
                       </div>
                     </div>
                   </>

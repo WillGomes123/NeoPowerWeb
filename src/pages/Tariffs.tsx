@@ -233,10 +233,11 @@ const TariffCard = ({
 };
 
 export const Tariffs = () => {
-  // Operador white-label (comum) só precifica os PRÓPRIOS locais — não a rede
-  // global. Pra ele, a box já vem com o local selecionado e sem "Toda a rede".
+  // Quem não é admin da plataforma (admin da marca, operador) só precifica os
+  // PRÓPRIOS locais — a tarifa global da rede é da plataforma, e a API recusa.
+  // Pra ele, a box já vem com o local selecionado e sem "Toda a rede".
   const { user } = useAuth();
-  const isOperator = user?.role === 'comum';
+  const isOperator = !(user?.role === 'admin' && !user?.clientId);
   const [allTariffs, setAllTariffs] = useState<Tariff[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);

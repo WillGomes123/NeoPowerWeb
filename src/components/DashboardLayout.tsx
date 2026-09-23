@@ -1,6 +1,7 @@
 import { ReactNode, useState, useMemo, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { ehAdminDaPlataforma } from '../lib/plataforma';
 import { UserRole } from '../types';
 import { LogOut, Sun, Moon, Search, Menu, X } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
@@ -44,34 +45,32 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
 
   const navItems = [
-    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'comum'] },
-    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'comum'] },
-    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'comum'] },
-    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'comum'] },
+    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'operador', 'comum'] },
+    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
+    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
+    { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true },
+    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'operador', 'comum'] },
     {
       path: '/indicadores',
       label: 'Indicadores',
       icon: 'leaderboard',
-      roles: ['admin', 'comum'],
+      roles: ['admin', 'operador', 'comum'],
     },
-    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'comum'] },
+    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'operador', 'comum'] },
     {
       path: '/relatorio-financeiro',
       label: 'Relatório Financeiro',
       icon: 'payments',
-      roles: ['admin', 'comum'],
+      roles: ['admin', 'operador', 'comum'],
     },
     { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
-    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'comum'] },
-    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'comum'] },
+    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'operador', 'comum'] },
+    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
     { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'comum'] },
-    { path: '/sustentabilidade', label: 'Sustentabilidade', icon: 'eco', roles: ['admin', 'comum'] },
-    { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'comum'] },
-    { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
-    { path: '/metas', label: 'Metas de Recarga', icon: 'flag', roles: ['admin'] },
-    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
-    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
+    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
+    { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
+    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
+    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
   ];
 
   const navigationGroups = [
@@ -80,13 +79,15 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       label: 'Gestão',
       icon: 'business_center',
       items: [
-        { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'comum'] },
-        { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'comum'] },
-        { path: '/cameras', label: 'Câmeras', icon: 'videocam', roles: ['admin', 'comum'] },
-        { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'comum'] },
-        { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'comum'] },
-        { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'comum'] },
-        { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'comum'] },
+        { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
+        { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
+        // Usinas, rateio e split com a Ecofin são da operação própria: só a NeoPower vê.
+        { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true, novo: true },
+        { path: '/cameras', label: 'Câmeras', icon: 'videocam', roles: ['admin', 'operador', 'comum'] },
+        { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'operador', 'comum'] },
+        { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'operador', 'comum'] },
+        { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
+        { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
       ],
     },
     {
@@ -94,12 +95,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       label: 'Financeiro',
       icon: 'payments',
       items: [
-        { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'comum'] },
-        { path: '/relatorio-financeiro', label: 'Relatório Financeiro', icon: 'payments', roles: ['admin', 'comum'] },
-        { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'comum'] },
-        { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'comum'] },
-        { path: '/metas', label: 'Metas de Recarga', icon: 'flag', roles: ['admin'] },
-        { path: '/sustentabilidade', label: 'Sustentabilidade', icon: 'eco', roles: ['admin', 'comum'] },
+        { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'operador', 'comum'] },
+        { path: '/relatorio-financeiro', label: 'Relatório Financeiro', icon: 'payments', roles: ['admin', 'operador', 'comum'] },
+        { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'operador', 'comum'] },
+        { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
       ],
     },
     {
@@ -109,9 +108,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       items: [
         { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
         { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-        { path: '/agendamentos', label: 'Agendamentos', icon: 'schedule', roles: ['admin'] },
-        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'] },
-        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'] },
+        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
+        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
       ],
     },
   ];
@@ -119,9 +117,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const path = location.pathname;
     return {
-      gestao: ['/estacoes', '/locais', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
-      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas', '/metas', '/sustentabilidade'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/agendamentos', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+      gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
+      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
   });
 
@@ -132,7 +130,13 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     }));
   };
 
-  const visibleNavItems = navItems.filter(item => item.roles.includes(user?.role || 'comum'));
+  // Email e White Label são só da plataforma NeoPower (admin sem marca); admins
+  // de marca, operadores e contas comuns não veem.
+  const ehPlataforma = ehAdminDaPlataforma(user);
+  const podeVerItem = (item: { roles: string[]; somentePlataforma?: boolean }) =>
+    item.roles.includes(user?.role || 'comum') && (!item.somentePlataforma || ehPlataforma);
+
+  const visibleNavItems = navItems.filter(podeVerItem);
 
   const filteredResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -144,6 +148,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const roleLabels: Record<UserRole, string> = {
     admin: 'Admin',
+    operador: 'Operador',
     comum: 'Comum',
   };
 
@@ -242,7 +247,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Grouped Items */}
           {navigationGroups.map(group => {
-            const groupVisibleItems = group.items.filter(item => item.roles.includes(user?.role || 'comum'));
+            const groupVisibleItems = group.items.filter(podeVerItem);
             if (groupVisibleItems.length === 0) return null;
 
             const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;
@@ -284,6 +289,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         >
                           <span className="material-symbols-outlined text-lg">{item.icon}</span>
                           <span>{item.label}</span>
+                          {'novo' in item && item.novo === true && (
+                            <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-primary">NOVO</span>
+                          )}
                         </Link>
                       );
                     })}

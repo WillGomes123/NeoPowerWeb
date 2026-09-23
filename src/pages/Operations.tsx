@@ -71,7 +71,26 @@ interface ChargePoint {
   protocol?: string;
   locationId?: number | null;
   description?: string;
+  power_kw?: number | string | null;
 }
+
+// Limite de potência: o operador digita kW e o carregador recebe corrente por
+// fase (A). Em W o MOBY CVBE (Vip Energy, 12/09) aplicou 2 A: o conector foi para
+// SuspendedEVSE e a recarga encerrava sozinha. Em A o mesmo firmware aplica certo.
+const TENSAO_FASE_V = 220;
+const CORRENTE_MINIMA_A = 6; // abaixo disso nenhum carro carrega
+
+/** Carregador de até 7,4 kW é monofásico; acima, ou sem potência cadastrada, trifásico. */
+function kwParaAmperes(kw: number, potenciaCarregadorKw?: number | string | null) {
+  const potencia = Number(potenciaCarregadorKw);
+  const fases = Number.isFinite(potencia) && potencia > 0 && potencia <= 7.4 ? 1 : 3;
+  // Para baixo: o limite nunca passa da potência pedida.
+  const amperes = Math.floor((kw * 1000) / (TENSAO_FASE_V * fases));
+  return { amperes, fases };
+}
+
+const formatarKw = (kw: number) => kw.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const minimoKw = (fases: number) => formatarKw(Math.ceil((CORRENTE_MINIMA_A * TENSAO_FASE_V * fases) / 100) / 10);
 
 interface Location {
   id: number;
@@ -340,13 +359,17 @@ export const Operations = () => {
     setSelectedChargePoints([]);
   };
 
-  // Add result to log
-  const addResult = (result: Omit<OperationResult, 'id' | 'timestamp'>) => {
-    setResults(prev => [{
-      ...result,
-      id: Date.now().toString(),
-      timestamp: new Date(),
-    }, ...prev].slice(0, 50));
+  // Add result to log. Devolve o id para o executeCommand atualizar a MESMA
+  // linha (pendente → sucesso/erro): antes cada comando virava duas linhas e a
+  // "pendente" ficava girando para sempre.
+  const addResult = (result: Omit<OperationResult, 'id' | 'timestamp'>): string => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setResults(prev => [{ ...result, id, timestamp: new Date() }, ...prev].slice(0, 50));
+    return id;
+  };
+
+  const updateResult = (id: string, patch: Partial<Omit<OperationResult, 'id'>>) => {
+    setResults(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
   };
 
   // Execute command (supports GET and POST)
@@ -358,7 +381,7 @@ export const Operations = () => {
     commandName: string,
     method: 'GET' | 'POST' | 'DELETE' = 'POST'
   ) => {
-    addResult({ chargePointId: cpId, command: commandName, status: 'pending' });
+    const resultId = addResult({ chargePointId: cpId, command: commandName, status: 'pending' });
 
     try {
       let response: Response;
@@ -389,11 +412,21 @@ export const Operations = () => {
         throw new Error(friendly);
       }
       const result = await response.json();
-      addResult({ chargePointId: cpId, command: commandName, status: 'success', response: result, message: 'Executado com sucesso' });
+      // HTTP 200 só diz que o comando chegou; a resposta OCPP pode ser recusa.
+      const statusOcpp = (result?.data ?? result)?.status;
+      const recusado =
+        typeof statusOcpp === 'string' &&
+        ['Rejected', 'NotSupported', 'NotImplemented', 'UnlockFailed', 'Failed'].includes(statusOcpp);
+      updateResult(
+        resultId,
+        recusado
+          ? { status: 'error', response: result, message: `O carregador respondeu ${statusOcpp}.` }
+          : { status: 'success', response: result, message: 'Executado com sucesso' }
+      );
       return result;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      addResult({ chargePointId: cpId, command: commandName, status: 'error', message: errorMessage });
+      updateResult(resultId, { status: 'error', message: errorMessage });
       throw err;
     }
   };
@@ -442,6 +475,7 @@ export const Operations = () => {
 
     let successCount = 0;
     let errorCount = 0;
+    let ultimoErro = '';
 
     for (const cpId of selectedChargePoints) {
       // Pula chargers offline — comandos OCPP exigem WebSocket ativo
@@ -527,22 +561,29 @@ export const Operations = () => {
             break;
           case 'setChargingProfile': {
             let csChargingProfiles: Record<string, unknown>;
-            if (params.powerLimitW) {
-              const limitW = parseFloat(params.powerLimitW);
-              if (isNaN(limitW) || limitW <= 0) {
-                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Limite de potência inválido.' });
+            let nomeDoComando = commandName;
+            if (params.powerLimitKw) {
+              const kw = parseFloat(String(params.powerLimitKw).replace(',', '.'));
+              const carregador = chargePoints.find(c => c.charge_point_id === cpId);
+              const { amperes, fases } = kwParaAmperes(kw, carregador?.power_kw);
+              if (isNaN(kw) || amperes < CORRENTE_MINIMA_A) {
+                addResult({ chargePointId: cpId, command: commandName, status: 'error', message: `Potência muito baixa. O mínimo para carregar é ${minimoKw(fases)} kW neste carregador (${fases === 3 ? 'trifásico' : 'monofásico'}).` });
                 errorCount++;
                 continue;
               }
+              nomeDoComando = `${commandName} (${formatarKw(kw)} kW → ${amperes} A/fase)`;
               csChargingProfiles = {
                 chargingProfileId: 1,
                 stackLevel: 0,
                 chargingProfilePurpose: 'TxDefaultProfile',
-                chargingProfileKind: 'Recurring',
-                recurrencyKind: 'Daily',
+                // Absolute com startSchedule: o MOBY CVBE (Vip Energy) responde ProtocolError
+                // ao perfil Recurring sem startSchedule — o schema OCPP 1.6 não exige, o
+                // firmware sim. Horário sem milissegundos, que alguns firmwares recusam.
+                chargingProfileKind: 'Absolute',
                 chargingSchedule: {
-                  chargingRateUnit: 'W',
-                  chargingSchedulePeriod: [{ startPeriod: 0, limit: limitW }],
+                  startSchedule: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+                  chargingRateUnit: 'A',
+                  chargingSchedulePeriod: [{ startPeriod: 0, limit: amperes }],
                 },
               };
             } else {
@@ -557,7 +598,7 @@ export const Operations = () => {
             await executeCommand(cpId, 'charging-profile', {
               connectorId: parseInt(params.connectorId) || 0,
               csChargingProfiles,
-            }, commandName);
+            }, nomeDoComando);
             break;
           }
           case 'clearChargingProfile':
@@ -654,8 +695,9 @@ export const Operations = () => {
             throw new Error('Comando não implementado');
         }
         successCount++;
-      } catch {
+      } catch (err) {
         errorCount++;
+        ultimoErro = err instanceof Error ? err.message : String(err);
       }
     }
 
@@ -669,7 +711,7 @@ export const Operations = () => {
     } else if (errorCount > 0 && successCount > 0) {
       toast.warning(`${successCount} sucesso(s), ${errorCount} erro(s). Veja a aba de Resultados.`);
     } else if (errorCount > 0) {
-      toast.error(`Falha em ${errorCount} carregador(es). Verifique a aba de Resultados para detalhes do erro (ex: ID Tag obrigatório).`);
+      toast.error(`Falha em ${errorCount} carregador(es): ${ultimoErro || 'veja o motivo na aba de Resultados.'}`);
     }
   };
 
@@ -870,17 +912,29 @@ export const Operations = () => {
               <p className="text-xs text-muted-foreground">0 = carregador inteiro; 1, 2... = conector específico</p>
             </div>
             <div className="space-y-2">
-              <Label>Limite de Potência (W) — modo simples</Label>
+              <Label>Limite de Potência (kW)</Label>
               <Input
                 className={inputClass}
                 type="number"
-                placeholder="Ex: 7400 (7,4 kW) | 11000 (11 kW) | 22000 (22 kW)"
-                value={commandParams.powerLimitW || ''}
-                onChange={e => setCommandParams({ ...commandParams, powerLimitW: e.target.value, chargingProfile: '' })}
+                step="0.1"
+                min="0"
+                placeholder="Ex: 7 | 11 | 22"
+                value={commandParams.powerLimitKw || ''}
+                onChange={e => setCommandParams({ ...commandParams, powerLimitKw: e.target.value, chargingProfile: '' })}
               />
-              <p className="text-xs text-muted-foreground">Preencha aqui para limitar a potência automaticamente. Deixe em branco para usar o JSON avançado abaixo.</p>
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const kw = parseFloat(String(commandParams.powerLimitKw || '').replace(',', '.'));
+                  if (!kw) return 'Digite a potência máxima em kW. O sistema converte para a corrente que o carregador entende.';
+                  const carregador = chargePoints.find(c => c.charge_point_id === selectedChargePoints[0]);
+                  const { amperes, fases } = kwParaAmperes(kw, carregador?.power_kw);
+                  if (amperes < CORRENTE_MINIMA_A) return `Muito baixo: o mínimo para carregar é ${minimoKw(fases)} kW.`;
+                  return `Será enviado ${amperes} A por fase (${fases === 3 ? 'trifásico' : 'monofásico'}, ≈ ${formatarKw((amperes * TENSAO_FASE_V * fases) / 1000)} kW).`;
+                })()}{' '}
+                Deixe em branco para usar o JSON avançado abaixo.
+              </p>
             </div>
-            {!commandParams.powerLimitW && (
+            {!commandParams.powerLimitKw && (
               <div className="space-y-2">
                 <Label>Perfil Avançado (JSON)</Label>
                 <textarea

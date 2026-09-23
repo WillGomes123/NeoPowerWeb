@@ -31,10 +31,57 @@ interface WalletTx {
   balanceAfter: number;
   description: string | null;
   referenceId: string | null;
+  paymentMethod: string | null;
   createdAt: string;
 }
 
+/** Badge do método de pagamento do depósito (Pix / Crédito / Débito / ...). */
+function metodoDeposito(dep: { paymentMethod?: string | null; description?: string | null }): {
+  label: string;
+  cls: string;
+  icon: string;
+} {
+  let m = (dep.paymentMethod || '').toLowerCase();
+  if (!m) {
+    // Fallback para registros antigos sem payment_method: lê da descrição.
+    const d = (dep.description || '').toLowerCase();
+    if (d.includes('crédito') || d.includes('credito')) m = 'credito';
+    else if (d.includes('débito') || d.includes('debito')) m = 'debito';
+    else if (d.includes('boleto')) m = 'boleto';
+    else if (d.includes('pix')) m = 'pix';
+  }
+  switch (m) {
+    case 'pix':
+      return { label: 'Pix', cls: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', icon: 'bolt' };
+    case 'credito':
+      return { label: 'Crédito', cls: 'bg-amber-500/10 text-amber-500 border border-amber-500/20', icon: 'credit_card' };
+    case 'debito':
+      return { label: 'Débito', cls: 'bg-blue-500/10 text-blue-500 border border-blue-500/20', icon: 'credit_card' };
+    case 'boleto':
+      return { label: 'Boleto', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'receipt_long' };
+    case 'saldo':
+      return { label: 'Saldo MP', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'account_balance_wallet' };
+    default:
+      return { label: 'Mercado Pago', cls: 'bg-slate-500/10 text-slate-400 border border-slate-500/20', icon: 'payments' };
+  }
+}
+
 type TxTab = 'recargas' | 'saldo';
+
+/** Recarga em andamento, com consumo lido do medidor a cada ciclo. */
+interface SessaoAtiva {
+  transactionId: number;
+  energyKwh: number;
+  powerKw: number | null;
+  estimatedCost: number;
+  userName: string | null;
+  visitante: boolean;
+  paidAmount: number | null;
+  remaining: number | null;
+}
+
+/** De quanto em quanto tempo a tela busca as recargas em andamento. */
+const INTERVALO_AO_VIVO_MS = 10_000;
 
 const exportColumns: ExportColumn[] = [
   { key: 'transaction_id', header: 'ID', format: 'number' },
@@ -53,6 +100,7 @@ export const Transactions = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [ativas, setAtivas] = useState<Record<number, SessaoAtiva>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,7 +142,35 @@ export const Transactions = () => {
     status: tx.status,
   }));
 
-  useEffect(() => { void fetchTransactions(); }, []);
+  const fetchAtivas = async () => {
+    try {
+      const response = await api.get('/transactions/active');
+      if (!response.ok) return;
+      const data = await response.json();
+      const lista: SessaoAtiva[] = Array.isArray(data) ? data : (data?.data ?? []);
+      setAtivas(Object.fromEntries(lista.map(s => [s.transactionId, s])));
+    } catch {
+      /* uma falha de rede não pode derrubar a tela; tenta no próximo ciclo */
+    }
+  };
+
+  useEffect(() => {
+    void fetchTransactions();
+    void fetchAtivas();
+  }, []);
+
+  // A recarga em andamento é acompanhada sozinha: sem isso, só recarregando a
+  // página dava para ver o consumo crescer.
+  useEffect(() => {
+    if (txTab !== 'recargas') return;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void fetchAtivas();
+      void fetchTransactions({ silencioso: true });
+    }, INTERVALO_AO_VIVO_MS);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [txTab]);
   useEffect(() => {
     if (txTab === 'saldo' && walletTxs.length === 0 && isAdmin) {
       void fetchWalletTransactions();
@@ -102,8 +178,8 @@ export const Transactions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txTab]);
 
-  const fetchTransactions = async () => {
-    setLoading(true);
+  const fetchTransactions = async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
+    if (!silencioso) setLoading(true);
     setError(null);
     try {
       const response = await api.get('/transactions');
@@ -112,10 +188,12 @@ export const Transactions = () => {
       setTransactions(Array.isArray(data) ? data : []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(msg);
-      toast.error(msg);
+      if (!silencioso) {
+        setError(msg);
+        toast.error(msg);
+      }
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   };
 
@@ -198,8 +276,23 @@ export const Transactions = () => {
   const current = filtered.slice(startIndex, startIndex + itemsPerPage);
 
   // Summary metrics
-  const totalRevenue = useMemo(() => filtered.reduce((s, tx) => s + (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0), 0), [filtered]);
-  const totalKwh = useMemo(() => filtered.reduce((s, tx) => s + (tx.consumed_wh ? tx.consumed_wh / 1000 : 0), 0), [filtered]);
+  /** Recarga aberta: o valor vem do medidor, não da coluna (só preenchida no fim). */
+  const aoVivo = (tx: Transaction) => (tx.stop_timestamp ? null : (ativas[tx.transaction_id] ?? null));
+  const custoDe = (tx: Transaction) =>
+    aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
+  const kwhDe = (tx: Transaction) =>
+    aoVivo(tx)?.energyKwh ?? (tx.consumed_wh ? tx.consumed_wh / 1000 : 0);
+
+  const totalRevenue = useMemo(
+    () => filtered.reduce((s, tx) => s + custoDe(tx), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, ativas]
+  );
+  const totalKwh = useMemo(
+    () => filtered.reduce((s, tx) => s + kwhDe(tx), 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtered, ativas]
+  );
   const avgTicket = filtered.length > 0 ? totalRevenue / filtered.length : 0;
   const completedCount = filtered.filter(tx => (tx.status || '').toLowerCase() === 'completed' || tx.status === 'finalizado').length;
 
@@ -416,6 +509,7 @@ export const Transactions = () => {
               <Legend dot="bg-primary" label="Concluído" />
               <Legend dot="bg-error" label="Falhou" />
               <Legend dot="bg-tertiary animate-pulse" label="Em andamento" />
+              <span className="text-[10px] text-on-surface-variant">Atualiza sozinha a cada 10s</span>
             </div>
           </div>
         </div>
@@ -427,6 +521,7 @@ export const Transactions = () => {
                 <th className="px-6 py-4">Carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
+                <th className="px-6 py-4">Energia</th>
                 <th className="px-6 py-4">Custo</th>
                 <th className="px-6 py-4">Endereço</th>
                 <th className="px-6 py-4">Status</th>
@@ -436,13 +531,14 @@ export const Transactions = () => {
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={9} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
                 </tr>
               ) : current.map(tx => {
                 const st = statusStyle(tx.status);
+                const vivo = aoVivo(tx);
                 return (
                   <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
                     <td className="px-6 py-4">
@@ -454,7 +550,16 @@ export const Transactions = () => {
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">
-                      <span className="text-on-surface-variant text-xs">R$</span> {tx.total_cost != null ? fmt(parseFloat(tx.total_cost.toString())) : '0,00'}
+                      {fmt(kwhDe(tx), 2)} <span className="text-on-surface-variant text-xs">kWh</span>
+                      {vivo?.powerKw ? (
+                        <span className="block text-[10px] font-normal text-tertiary">{fmt(vivo.powerKw, 1)} kW agora</span>
+                      ) : null}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold font-headline">
+                      <span className="text-on-surface-variant text-xs">R$</span> {fmt(custoDe(tx))}
+                      {vivo ? (
+                        <span className="block text-[10px] font-normal text-on-surface-variant">parcial</span>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant max-w-[200px] truncate">{tx.address || 'N/A'}</td>
                     <td className="px-6 py-4">
@@ -462,6 +567,12 @@ export const Transactions = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
                         {st.label}
                       </span>
+                      {vivo ? (
+                        <span className="block mt-1 text-[10px] text-on-surface-variant">
+                          {vivo.visitante ? 'Visitante' : (vivo.userName ?? 'Motorista')}
+                          {vivo.remaining != null ? ` · resta R$ ${fmt(vivo.remaining)}` : ''}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="px-6 py-4">
                       <span className="material-symbols-outlined text-base text-on-surface-variant group-hover:text-primary transition-colors">show_chart</span>
@@ -541,6 +652,7 @@ export const Transactions = () => {
                       <th className="px-6 py-4">Data</th>
                       <th className="px-6 py-4">Valor</th>
                       <th className="px-6 py-4">Saldo após</th>
+                      <th className="px-6 py-4">Método</th>
                       <th className="px-6 py-4">MP Payment</th>
                       <th className="px-6 py-4">Ações</th>
                     </tr>
@@ -548,13 +660,14 @@ export const Transactions = () => {
                   <tbody className="divide-y divide-outline-variant/5">
                     {currentDeposits.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-6 py-16 text-center">
+                        <td colSpan={8} className="px-6 py-16 text-center">
                           <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
                           <p className="text-sm text-on-surface-variant">Nenhum depósito encontrado</p>
                         </td>
                       </tr>
                     ) : currentDeposits.map(dep => {
                       const isMpPayment = dep.referenceId && /^[0-9]+$/.test(dep.referenceId);
+                      const metodo = metodoDeposito(dep);
                       return (
                         <tr key={dep.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                           <td className="px-6 py-4">
@@ -572,6 +685,12 @@ export const Transactions = () => {
                           </td>
                           <td className="px-6 py-4 text-sm text-on-surface-variant font-mono">
                             R$ {fmt(dep.balanceAfter)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${metodo.cls}`}>
+                              <span className="material-symbols-outlined text-sm">{metodo.icon}</span>
+                              {metodo.label}
+                            </span>
                           </td>
                           <td className="px-6 py-4">
                             {isMpPayment ? (

@@ -40,6 +40,7 @@ interface LocationFormData {
   address: string;
   numero: string;
   complemento: string;
+  bairro: string;
   cidade: string;
   estado: string;
   pais: string;
@@ -156,6 +157,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
     address: '',
     numero: '',
     complemento: '',
+    bairro: '',
     cidade: '',
     estado: '',
     pais: 'Brasil',
@@ -222,6 +224,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         cidade: data.localidade || '',
         estado: data.uf || '',
         complemento: data.complemento || prev.complemento,
+        bairro: data.bairro || prev.bairro,
       }));
 
       toast.success('Endereço preenchido automaticamente!');
@@ -364,6 +367,7 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
         cep: formData.cep.replace(/\D/g, ''),
         // Converter strings vazias para null em campos opcionais
         complemento: formData.complemento || null,
+        bairro: formData.bairro.trim() || null,
         logo_url: formData.logo_url || null,
         imagem_local_url: formData.imagem_local_url || null,
         observacoes: formData.observacoes || null,
@@ -643,6 +647,18 @@ export function AddLocationForm({ onSuccess, onCancel }: AddLocationFormProps) {
                       value={formData.complemento}
                       onChange={e => setFormData({ ...formData, complemento: e.target.value })}
                       placeholder="Sala 1"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bairro" className="text-on-surface-variant text-xs uppercase tracking-widest mb-2 block">
+                      Bairro
+                    </Label>
+                    <Input
+                      id="bairro"
+                      value={formData.bairro}
+                      onChange={e => setFormData({ ...formData, bairro: e.target.value })}
+                      placeholder="Preenchido pelo CEP"
                       className="bg-surface-container-low border-outline-variant/20 text-on-surface h-11 text-sm"
                     />
                   </div>

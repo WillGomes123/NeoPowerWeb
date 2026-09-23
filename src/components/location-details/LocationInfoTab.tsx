@@ -27,6 +27,7 @@ interface LocationData {
   endereco: string;
   numero: string;
   complemento?: string;
+  bairro?: string | null;
   cidade: string;
   estado: string;
   cep: string;
@@ -91,6 +92,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
     endereco: location.endereco || '',
     numero: location.numero || '',
     complemento: location.complemento || '',
+    bairro: location.bairro || '',
     cidade: location.cidade || '',
     estado: location.estado || '',
     cep: location.cep || '',
@@ -117,6 +119,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       endereco: location.endereco || '',
       numero: location.numero || '',
       complemento: location.complemento || '',
+      bairro: location.bairro || '',
       cidade: location.cidade || '',
       estado: location.estado || '',
       cep: location.cep || '',
@@ -184,6 +187,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
         cidade: data.localidade || prev.cidade,
         estado: data.uf || prev.estado,
         complemento: data.complemento || prev.complemento,
+        bairro: data.bairro || prev.bairro,
       }));
 
       // Buscar coordenadas via Nominatim
@@ -215,6 +219,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
       if (form.endereco) payload.address = form.endereco;
       if (form.numero) payload.numero = form.numero;
       if (form.complemento !== undefined) payload.complemento = form.complemento;
+      if (form.bairro !== undefined) payload.bairro = form.bairro.trim() || null;
       if (form.cidade) payload.cidade = form.cidade;
       if (form.estado) payload.estado = form.estado;
       if (form.cep) payload.cep = form.cep;
@@ -432,6 +437,10 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                   </div>
                 </div>
                 <div className="space-y-1.5">
+                  <Label className="text-foreground/70">Bairro</Label>
+                  <Input value={form.bairro} onChange={e => update('bairro', e.target.value)} className="bg-surface-container-high border-border text-foreground" />
+                </div>
+                <div className="space-y-1.5">
                   <Label className="text-foreground/70">Cidade</Label>
                   <Input value={form.cidade} onChange={e => update('cidade', e.target.value)} className="bg-surface-container-high border-border text-foreground" />
                 </div>
@@ -618,6 +627,7 @@ export function LocationInfoTab({ location, onUpdate }: Props) {
                   <span>
                     {location.endereco}, {location.numero}
                     {location.complemento && ` - ${location.complemento}`}
+                    {location.bairro && ` - ${location.bairro}`}
                     <br />
                     {location.cidade}/{location.estado} - CEP: {formatCEP(location.cep)}
                   </span>
