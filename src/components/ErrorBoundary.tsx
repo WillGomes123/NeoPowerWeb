@@ -3,6 +3,10 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
+/** Chunk de uma versão anterior que não existe mais no servidor (pós-deploy). */
+const ERRO_CHUNK =
+  /dynamically imported module|Importing a module script failed|error loading dynamically imported module/i;
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
@@ -53,11 +57,23 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
+    // Erro de chunk não se resolve re-renderizando: só recarregando a página
+    // para buscar o index.html e os assets da versão nova.
+    if (ERRO_CHUNK.test(this.state.error?.message || '')) {
+      window.location.reload();
+      return;
+    }
     this.setState({
       hasError: false,
       error: null,
       errorInfo: null,
     });
+  };
+
+  /** Início do tenant (/<slug>/): o basename do Router é o slug, e "/" cai fora dele. */
+  handleHome = () => {
+    const tenant = (window.location.pathname || '').split('/').filter(Boolean)[0];
+    window.location.href = tenant ? `/${tenant}/` : '/';
   };
 
   render() {
@@ -101,7 +117,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </Button>
 
                 <Button
-                  onClick={() => (window.location.href = '/')}
+                  onClick={this.handleHome}
                   variant="outline"
                   className="flex-1 border-emerald-800/30 hover:bg-emerald-900/20"
                 >

@@ -422,13 +422,22 @@ export const FinancialReport = () => {
   const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
   const grossRevenue = totals.revenue;
-  const entradaBrutaTotal = grossRevenue + totalDeposits;
+  // A recarga é paga com o saldo da carteira, ou seja, é consumo do dinheiro que
+  // já entrou como depósito (o visitante também entra como depósito). Somar as
+  // duas coisas contava o mesmo real duas vezes. Entrada = depósitos; as
+  // recargas aparecem à parte, como consumo, sem somar.
+  const entradaBrutaTotal = totalDeposits;
   const taxasRecargas = totals.fees;
-  const taxasTotais = taxasRecargas + mercadoPagoFeeDeposits;
+  // Pelo mesmo motivo, a taxa que sai do caixa é a do Mercado Pago no depósito;
+  // a taxa estimada por recarga não é somada de novo.
+  const taxasTotais = mercadoPagoFeeDeposits;
 
   const liquidoRecargas = totals.received;
   const liquidoDepositos = netDeposits;
-  const liquidoTotal = liquidoRecargas + liquidoDepositos;
+  const liquidoTotal = liquidoDepositos;
+  // Recargas de clientes de outras redes nos postos próprios: o dinheiro entrou
+  // na carteira da outra rede, então é valor a receber, não entrada.
+  const aReceberCruzadas = recargasCruzadas?.recebidas.valorBruto ?? 0;
 
   // Divisão do líquido (depois das taxas do Mercado Pago): 95% do dono da
   // estação, 5% da NeoPower — e a manutenção do site sai desses 5%.
@@ -897,7 +906,7 @@ export const FinancialReport = () => {
                 R$ {fmt(isAdmin ? entradaBrutaTotal : grossRevenue)}
               </p>
               <p className="text-xs text-outline mt-1">
-                {isAdmin ? 'Recargas + Depósitos' : `${reportData.length} transação(ões)`}
+                {isAdmin ? 'Depósitos (recargas não somam)' : `${reportData.length} transação(ões)`}
               </p>
             </div>
             <div className="p-3 bg-primary/10 rounded-xl">
@@ -929,7 +938,7 @@ export const FinancialReport = () => {
                 -R$ {fmt(isAdmin ? taxasTotais : taxasRecargas)}
               </p>
               <p className="text-xs text-on-surface-variant mt-1">
-                {isAdmin ? 'Recargas + MP (1%)' : '14.26% sobre recargas'}
+                {isAdmin ? 'Mercado Pago sobre depósitos' : '14.26% sobre recargas'}
               </p>
             </div>
             <div className="p-3 bg-surface-container-highest rounded-xl">
@@ -942,12 +951,14 @@ export const FinancialReport = () => {
           <div className="glass-card rounded-xl p-5 border-border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Depósitos Líquidos</p>
-                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(netDeposits)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">{deposits.length} depósito(s)</p>
+                {/* O líquido dos depósitos já é a Receita Líquida; aqui vai o consumo
+                    (recargas pagas com esse saldo), à parte e sem somar. */}
+                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Recargas (Consumo)</p>
+                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(grossRevenue)}</p>
+                <p className="text-xs text-on-surface-variant mt-1">{reportData.length} recarga(s) · pagas com saldo</p>
               </div>
               <div className="p-3 bg-surface-container-highest rounded-xl">
-                <span className="material-symbols-outlined text-foreground text-2xl">account_balance_wallet</span>
+                <span className="material-symbols-outlined text-foreground text-2xl">bolt</span>
               </div>
             </div>
           </div>
@@ -1202,7 +1213,7 @@ export const FinancialReport = () => {
         <div className="glass-card rounded-xl overflow-hidden">
           <div className="px-6 py-5 border-b border-outline-variant/15">
             <h2 className="text-lg font-headline font-semibold text-foreground">Distribuição de Receita Total</h2>
-            <p className="text-sm text-on-surface-variant mt-1">Depósitos + Recargas - como o dinheiro é distribuído</p>
+            <p className="text-sm text-on-surface-variant mt-1">Depósitos - como o dinheiro é distribuído (recargas são consumo desse saldo)</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -1214,7 +1225,8 @@ export const FinancialReport = () => {
                 <p className="text-xl font-bold text-foreground">R$ {fmt(entradaBrutaTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between text-on-surface-variant"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
-                  <div className="flex justify-between text-on-surface-variant"><span>Recargas:</span><span>R$ {fmt(grossRevenue)}</span></div>
+                  {/* Consumo do saldo: informativo, não soma na entrada */}
+                  <div className="flex justify-between text-outline"><span>Recargas (consumo, não soma):</span><span>R$ {fmt(grossRevenue)}</span></div>
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-border">
@@ -1225,7 +1237,6 @@ export const FinancialReport = () => {
                 <p className="text-xl font-bold text-foreground">-R$ {fmt(taxasTotais)}</p>
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between text-on-surface-variant"><span>Taxa Mercado Pago (por método):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
-                  <div className="flex justify-between text-on-surface-variant"><span>Taxas recargas:</span><span>-R$ {fmt(taxasRecargas)}</span></div>
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
@@ -1236,7 +1247,9 @@ export const FinancialReport = () => {
                 <p className="text-xl font-bold text-primary">R$ {fmt(liquidoTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between text-on-surface-variant"><span>Depósitos líquidos:</span><span>R$ {fmt(liquidoDepositos)}</span></div>
-                  <div className="flex justify-between text-on-surface-variant"><span>Recargas líquidas:</span><span>R$ {fmt(liquidoRecargas)}</span></div>
+                  {aReceberCruzadas > 0 && (
+                    <div className="flex justify-between text-outline"><span>A receber (recargas cruzadas, não soma):</span><span>R$ {fmt(aReceberCruzadas)}</span></div>
+                  )}
                 </div>
               </div>
             </div>

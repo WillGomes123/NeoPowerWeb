@@ -31,5 +31,8 @@ RUN npm install -g serve
 # Copia os artefatos gerados no estágio de build
 COPY --from=builder /app/build ./build
 
-# Expõe e inicia o servidor usando a variável de ambiente $PORT do Railway
-CMD serve -s build -l tcp://0.0.0.0:${PORT:-3000}
+# Expõe e inicia o servidor usando a variável de ambiente $PORT do Railway.
+# Sem -s: o -s devolvia index.html com 200 para /assets/inexistente.js, e a aba
+# aberta antes de um deploy quebrava com erro de MIME em vez de 404. O fallback
+# SPA e o cache (html no-cache, assets imutáveis) ficam em public/serve.json.
+CMD serve build -l tcp://0.0.0.0:${PORT:-3000}
