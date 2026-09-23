@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { dataLocal } from '../components/ui/utils';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
@@ -134,7 +135,7 @@ export const Overview = () => {
           <div className="flex items-center gap-4 mt-2">
             <p className="text-on-surface-variant font-medium text-sm">
               {startDate || endDate
-                ? `Período: ${startDate ? new Date(startDate).toLocaleDateString('pt-BR') : 'Início'} — ${endDate ? new Date(endDate).toLocaleDateString('pt-BR') : 'Hoje'}`
+                ? `Período: ${startDate ? dataLocal(startDate).toLocaleDateString('pt-BR') : 'Início'} — ${endDate ? dataLocal(endDate).toLocaleDateString('pt-BR') : 'Hoje'}`
                 : `Período: ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
             </p>
             {/* Real-time indicator */}
