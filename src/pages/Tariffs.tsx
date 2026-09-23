@@ -26,6 +26,8 @@ interface Tariff {
   id: number;
   price_per_kwh: number;
   min_price?: number;
+  /** Taxa de destrava (R$ por recarga). */
+  connection_fee?: number | null;
   location_address: string | null;
   location_id?: number | null;
   profileId?: number | null;
@@ -55,6 +57,7 @@ interface TariffCardProps {
   subtitle?: string | null;
   price: number;
   minPrice?: number | null;
+  connectionFee?: number | null;
   updatedAt: string;
   globalPrice?: number;
   isEditing: boolean;
@@ -74,6 +77,7 @@ const TariffCard = ({
   subtitle,
   price,
   minPrice,
+  connectionFee,
   updatedAt,
   globalPrice,
   isEditing,
@@ -182,6 +186,14 @@ const TariffCard = ({
                 </span>
               </div>
             )}
+            {connectionFee != null && Number(connectionFee) > 0 && (
+              <div className="mb-1">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  <span className="material-symbols-outlined text-[12px]">lock_open</span>
+                  Destrava: {formatCurrency(Number(connectionFee))}
+                </span>
+              </div>
+            )}
             <p className="text-[10px] text-on-surface-variant">
               Atualizado em {formatDate(updatedAt)}
             </p>
@@ -247,6 +259,7 @@ export const Tariffs = () => {
   const [newMinPrice, setNewMinPrice] = useState('');
   const [newFloorKwh, setNewFloorKwh] = useState('');
   const [newMaxPrice, setNewMaxPrice] = useState('');
+  const [newConnectionFee, setNewConnectionFee] = useState('');
   // Copiar o preço de uma tarifa já existente (reaproveitar em vez de redigitar).
   const [copyFromId, setCopyFromId] = useState<string>('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
@@ -318,6 +331,7 @@ export const Tariffs = () => {
                 ...t,
                 price_per_kwh: Number(t.price_per_kwh),
                 min_price: t.min_price != null ? Number(t.min_price) : t.min_price,
+                connection_fee: t.connection_fee != null ? Number(t.connection_fee) : t.connection_fee,
               })),
             );
             usedNewEndpoint = true;
@@ -413,6 +427,7 @@ export const Tariffs = () => {
         minPrice?: number;
         floorPerKwh?: number;
         maxPrice?: number;
+        connectionFee?: number;
         locationAddress?: string;
         locationId?: number;
         chargePointId?: string;
@@ -422,6 +437,10 @@ export const Tariffs = () => {
       if (newMinPrice && parseFloat(newMinPrice) > 0) base.minPrice = parseFloat(newMinPrice);
       if (newFloorKwh && parseFloat(newFloorKwh) > 0) base.floorPerKwh = parseFloat(newFloorKwh);
       if (newMaxPrice && parseFloat(newMaxPrice) > 0) base.maxPrice = parseFloat(newMaxPrice);
+      // Taxa aceita 0 explícito (para tirar a taxa); vazio = herda a atual.
+      if (newConnectionFee.trim() !== '' && parseFloat(newConnectionFee) >= 0) {
+        base.connectionFee = parseFloat(newConnectionFee);
+      }
       const prof = selectedProfile !== 'all' ? parseInt(selectedProfile) : undefined;
       const withProf = (p: TariffPayload): TariffPayload => (prof ? { ...p, profileId: prof } : p);
 
@@ -457,6 +476,7 @@ export const Tariffs = () => {
         setNewMinPrice('');
         setNewFloorKwh('');
         setNewMaxPrice('');
+        setNewConnectionFee('');
         setCopyFromId('');
         setSelectedLocation('all');
         setSelectedProfile('all');
@@ -647,6 +667,7 @@ export const Tariffs = () => {
                         if (t) {
                           setNewPrice(String(t.price_per_kwh));
                           setNewMinPrice(t.min_price != null && Number(t.min_price) > 0 ? String(t.min_price) : '');
+                          setNewConnectionFee(t.connection_fee != null && Number(t.connection_fee) > 0 ? String(t.connection_fee) : '');
                         }
                       }}
                     >
@@ -723,7 +744,7 @@ export const Tariffs = () => {
                   className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline w-fit"
                 >
                   <span className="material-symbols-outlined text-base">{showAdvanced ? 'expand_less' : 'tune'}</span>
-                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, teto, carregador, perfil)'}
+                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, teto, taxa de destrava, carregador, perfil)'}
                 </button>
 
                 <div className={showAdvanced ? 'space-y-4 rounded-xl border border-outline-variant/10 bg-surface-container-low/40 p-4' : 'hidden'}>
@@ -776,11 +797,28 @@ export const Tariffs = () => {
                       className="bg-surface-container-low border-outline-variant/20 text-on-surface"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Taxa de destrava (R$)
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
+                    </Label>
+                    <Input
+                      id="connectionFee"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newConnectionFee}
+                      onChange={e => setNewConnectionFee(e.target.value)}
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                  </div>
                 </div>
                 <p className="text-[11px] text-on-surface-variant leading-relaxed -mt-2">
                   <b>Mínimo por sessão</b>: nenhuma recarga com energia custa menos que isso — cobre o custo de conexão de sessões curtas (sessão de 0 kWh não é cobrada).<br />
                   <b>Piso por kWh</b>: a cobrança nunca fica abaixo desse custo por kWh — protege de vender energia no prejuízo. Normalmente vem preenchido pela aba <b>Conta de Energia</b> do local.<br />
-                  <b>Teto por sessão</b>: nenhuma recarga custa mais que isso — sanidade contra sessão disparada (0 ou vazio = sem teto).
+                  <b>Teto por sessão</b>: nenhuma recarga custa mais que isso — sanidade contra sessão disparada (0 ou vazio = sem teto).<br />
+                  <b>Taxa de destrava</b>: valor fixo por recarga, somado à energia assim que a recarga entrega energia (o mínimo vale sobre a soma). Vazio mantém a taxa atual; 0 remove.
                 </p>
 
                 <div className="space-y-2">
@@ -893,6 +931,7 @@ export const Tariffs = () => {
             title="TARIFA GLOBAL"
             price={globalTariff.price_per_kwh}
             minPrice={globalTariff.min_price}
+            connectionFee={globalTariff.connection_fee}
             updatedAt={globalTariff.created_at}
             isEditing={editingCard?.type === 'global'}
             editPrice={editPrice}
@@ -928,6 +967,7 @@ export const Tariffs = () => {
               title={tariff.profileName || `Perfil #${tariff.profileId}`}
               price={tariff.price_per_kwh}
               minPrice={tariff.min_price}
+              connectionFee={tariff.connection_fee}
               updatedAt={tariff.created_at}
               globalPrice={globalTariff?.price_per_kwh}
               isEditing={isCurrentEditing}
@@ -963,6 +1003,7 @@ export const Tariffs = () => {
               subtitle={enderecoLegivel}
               price={tariff.price_per_kwh}
               minPrice={tariff.min_price}
+              connectionFee={tariff.connection_fee}
               updatedAt={tariff.created_at}
               globalPrice={globalTariff?.price_per_kwh}
               isEditing={isCurrentEditing}
