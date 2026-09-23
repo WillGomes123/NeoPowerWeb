@@ -29,12 +29,15 @@ interface LegalLayoutProps {
   sections: LegalSection[];
   /** Conteúdo extra renderizado antes das seções (ex.: passo a passo). */
   intro?: React.ReactNode;
+  /** Rótulo no canto do cabeçalho. */
+  etiqueta?: string;
 }
 
 const LEGAL_LINKS = [
   { to: '/privacidade', label: 'Política de Privacidade' },
   { to: '/termos', label: 'Termos de Uso' },
   { to: '/excluir-conta', label: 'Excluir conta' },
+  { to: '/suporte', label: 'Suporte' },
 ];
 
 /** Nome da marca do tenant atual (com fallback para a plataforma). */
@@ -43,7 +46,7 @@ export function useBrandName(): string {
   return tenantBranding?.companyName?.trim() || 'NeoPower';
 }
 
-export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro }: LegalLayoutProps) => {
+export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro, etiqueta = 'Documento legal' }: LegalLayoutProps) => {
   const { tenantBranding, isDark } = useTenant();
   const brand = useBrandName();
 
@@ -71,7 +74,7 @@ export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro }: L
             <span className="font-headline font-bold text-lg tracking-tight">{brand}</span>
           </div>
           <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold hidden sm:inline">
-            Documento legal
+            {etiqueta}
           </span>
         </div>
       </header>

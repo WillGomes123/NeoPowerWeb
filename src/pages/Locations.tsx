@@ -103,14 +103,21 @@ export const Locations = () => {
   }, [mergedChargers]);
 
   const filtered = useMemo(() => {
-    if (!searchQuery) return locations;
     const q = searchQuery.toLowerCase();
-    return locations.filter(loc =>
-      (loc.nomeDoLocal || '').toLowerCase().includes(q) ||
-      (loc.endereco || '').toLowerCase().includes(q) ||
-      (loc.cidade || '').toLowerCase().includes(q)
-    );
-  }, [locations, searchQuery]);
+    const lista = !searchQuery
+      ? locations
+      : locations.filter(loc =>
+          (loc.nomeDoLocal || '').toLowerCase().includes(q) ||
+          (loc.endereco || '').toLowerCase().includes(q) ||
+          (loc.cidade || '').toLowerCase().includes(q)
+        );
+    // Locais com carregador online no topo (mais online primeiro); o resto mantém a ordem.
+    const online = (loc: Location) => mergedChargers.filter(c => c.locationId === loc.id && c.isConnected).length;
+    return lista
+      .map((loc, ordem) => ({ loc, ordem, online: online(loc) }))
+      .sort((a, b) => b.online - a.online || a.ordem - b.ordem)
+      .map(({ loc }) => loc);
+  }, [locations, searchQuery, mergedChargers]);
 
   const totalChargers = locations.reduce((s, l) => s + (l.chargePoints?.length || 0), 0);
 

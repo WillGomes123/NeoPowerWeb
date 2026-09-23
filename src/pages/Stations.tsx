@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
-import { QrCodeTemplate } from '../components/QrCodeTemplate';
+import { QrCodeTemplate, type MarcaDoAdesivo } from '../components/QrCodeTemplate';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -60,6 +60,8 @@ export const Stations = () => {
   // é o backend que manda, aqui a checagem só evita mostrar um campo que
   // resultaria em 403.
   const ehAdminPlataforma = user?.role === 'admin' && !user?.clientId;
+  // Excluir carregador ou local é só admin na API; operador nem vê o botão.
+  const isAdmin = user?.role === 'admin';
   const [chargers, setChargers] = useState<Charger[]>([]);
   const [operadores, setOperadores] = useState<{ clientId: string; companyName?: string }[]>([]);
   const [selectedOwners, setSelectedOwners] = useState<{ [key: string]: string }>({});
@@ -78,7 +80,7 @@ export const Stations = () => {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState<string | null>(null);
-  const [qrPages, setQrPages] = useState<{ chargePointId: string; connectorIndex: number; totalConnectors: number; description?: string; model?: string; vendor?: string; powerKw?: number; connectorType?: string }[]>([]);
+  const [qrPages, setQrPages] = useState<{ chargePointId: string; connectorIndex: number; totalConnectors: number; description?: string; model?: string; vendor?: string; powerKw?: number; connectorType?: string; marca?: MarcaDoAdesivo | null }[]>([]);
   const { chargerStatuses } = useSocket();
   const [kwhToday, setKwhToday] = useState(0);
 
@@ -276,11 +278,31 @@ export const Stations = () => {
   };
 
   const handleDownloadQrCode = async (chargerId: string) => {
+    let estiloDoPdf: HTMLStyleElement | null = null;
     setDownloadingQr(chargerId);
     toast.loading('Gerando QR Code...', { id: 'qr-gen' });
     try {
       const charger = mergedChargers.find(c => c.charge_point_id === chargerId);
       const numConn = charger?.num_connectors || 1;
+
+      // O adesivo leva a marca do operador dono do carregador (o cliente final
+      // usa o app dele), não a de quem está gerando o PDF.
+      let marca: MarcaDoAdesivo | null = null;
+      if (charger?.clientId) {
+        try {
+          const r = await api.get(`/branding/${encodeURIComponent(charger.clientId)}`);
+          if (r.ok) {
+            const d = (await r.json()).data;
+            if (d) {
+              marca = {
+                companyName: d.companyName,
+                logoUri: d.logoUriDark || d.logoUri || null,
+                primaryColor: d.primaryColorDark || d.primaryColor || null,
+              };
+            }
+          }
+        } catch { /* sem a marca do operador, usa a do usuário */ }
+      }
 
       // Build pages data
       const pages = Array.from({ length: numConn }, (_, i) => ({
@@ -292,6 +314,7 @@ export const Stations = () => {
         vendor: charger?.vendor,
         powerKw: charger?.power_kw,
         connectorType: charger?.connector_type,
+        marca,
       }));
       setQrPages(pages);
 
@@ -300,6 +323,13 @@ export const Stations = () => {
 
       const root = document.getElementById('qrcode-report-root');
       if (!root) throw new Error('Template não encontrado');
+
+      // O html2canvas mede a linha de base do texto com um <img> num <div> solto
+      // no <body>; o `img { display: block }` do Tailwind estraga a medida e
+      // desloca todo texto para baixo no PDF. A regra só alcança esse <div>.
+      estiloDoPdf = document.createElement('style');
+      estiloDoPdf.textContent = 'body > div:not(#root) > img { display: inline-block !important; }';
+      document.head.appendChild(estiloDoPdf);
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -343,6 +373,7 @@ export const Stations = () => {
       console.error('Erro ao gerar QR Code:', err);
       toast.error('Erro ao gerar QR Code', { id: 'qr-gen' });
     } finally {
+      estiloDoPdf?.remove();
       setDownloadingQr(null);
       setQrPages([]);
     }
@@ -397,6 +428,10 @@ export const Stations = () => {
       if (!groups[locId]) groups[locId] = [];
       groups[locId].push(c);
     });
+    // Dentro do local, carregadores online primeiro.
+    Object.values(groups).forEach(lista =>
+      lista.sort((a, b) => Number(b.isConnected) - Number(a.isConnected))
+    );
     return groups;
   }, [assignedChargers]);
 
@@ -648,13 +683,13 @@ export const Stations = () => {
                               >
                                 {savingPending === c.charge_point_id ? 'Salvando…' : 'Salvar'}
                               </button>
-                              <button
+                              {isAdmin && (<button
                                 onClick={() => handleDeleteCharger(c.charge_point_id)}
                                 className="p-1.5 rounded-lg border border-outline-variant/10 text-error/80 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all"
                                 title="Excluir carregador"
                               >
                                 <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                              </button>)}
                             </div>
                           </td>
                         </tr>
@@ -680,7 +715,14 @@ export const Stations = () => {
           <Accordion type="multiple" defaultValue={locations.map(l => `location-${l.id}`)} className="space-y-4">
             {locations
               .filter(loc => chargersByLocation[loc.id] && chargersByLocation[loc.id].length > 0)
-              .map(loc => {
+              // Locais com carregador online no topo (mais online primeiro); o resto mantém a ordem.
+              .map((loc, ordem) => ({
+                loc,
+                ordem,
+                online: chargersByLocation[loc.id].filter(c => c.isConnected).length,
+              }))
+              .sort((a, b) => b.online - a.online || a.ordem - b.ordem)
+              .map(({ loc }) => {
                 const locChargers = chargersByLocation[loc.id] || [];
                 const locOnlineCount = locChargers.filter(c => c.isConnected).length;
                 const locOfflineCount = locChargers.length - locOnlineCount;
@@ -780,19 +822,19 @@ export const Stations = () => {
                                     <span className="material-symbols-outlined text-base">link</span>
                                   </button>
                                 )}
-                                <button
+                                {isAdmin && (<button
                                   onClick={() => handleDeleteCharger(c.charge_point_id)}
                                   className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
                                   title="Excluir carregador"
                                 >
                                   <span className="material-symbols-outlined text-base">delete</span>
-                                </button>
+                                </button>)}
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                      <div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
+                      {isAdmin && (<div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
                         <button
                           onClick={() => handleDeleteLocation(loc.id, loc.nomeDoLocal)}
                           className="flex items-center gap-1.5 text-xs font-bold text-error/80 hover:text-error px-3 py-1.5 rounded-lg hover:bg-error/10 transition-all"
@@ -801,7 +843,7 @@ export const Stations = () => {
                           <span className="material-symbols-outlined text-sm">delete</span>
                           Excluir local
                         </button>
-                      </div>
+                      </div>)}
                     </AccordionContent>
                   </AccordionItem>
                 );
@@ -893,13 +935,13 @@ export const Stations = () => {
                                   <span className="material-symbols-outlined text-base">link</span>
                                 </button>
                               )}
-                              <button
+                              {isAdmin && (<button
                                 onClick={() => handleDeleteCharger(c.charge_point_id)}
                                 className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
                                 title="Excluir carregador"
                               >
                                 <span className="material-symbols-outlined text-base">delete</span>
-                              </button>
+                              </button>)}
                             </div>
                           </div>
                         );

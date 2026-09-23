@@ -8,6 +8,7 @@ import { TenantProvider, useTenant } from './contexts/TenantContext';
 
 // Eager load login (usada imediatamente)
 import { Login } from './pages/Login';
+import { ehAdminDaPlataforma } from './lib/plataforma';
 
 // Lazy load outras páginas (carregadas sob demanda)
 const Overview = lazy(() => import('./pages/Overview').then(m => ({ default: m.Overview })));
@@ -31,16 +32,15 @@ const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wal
 const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m => ({ default: m.PushNotifications })));
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
 const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
-const Sustainability = lazy(() => import('./pages/Sustainability').then(m => ({ default: m.Sustainability })));
 const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
-const Scheduling = lazy(() => import('./pages/Scheduling').then(m => ({ default: m.Scheduling })));
-const ChargingGoals = lazy(() => import('./pages/ChargingGoals').then(m => ({ default: m.ChargingGoals })));
+const Energia = lazy(() => import('./pages/Energia').then(m => ({ default: m.Energia })));
 
 // Páginas legais públicas (sem login) — URLs exigidas pelas lojas por white label:
-// /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta
+// /<tenant>/privacidade, /<tenant>/termos, /<tenant>/excluir-conta, /<tenant>/suporte
 const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy').then(m => ({ default: m.PrivacyPolicy })));
 const TermsOfUse = lazy(() => import('./pages/legal/TermsOfUse').then(m => ({ default: m.TermsOfUse })));
 const AccountDeletion = lazy(() => import('./pages/legal/AccountDeletion').then(m => ({ default: m.AccountDeletion })));
+const Support = lazy(() => import('./pages/legal/Support').then(m => ({ default: m.Support })));
 
 // Loading Component
 const PageLoader = () => (
@@ -53,9 +53,12 @@ const PageLoader = () => (
 const ProtectedRoute = ({
   children,
   requireAdmin = false,
+  requirePlatform = false,
 }: {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  /** Só a plataforma NeoPower (admin sem marca vinculada). */
+  requirePlatform?: boolean;
 }) => {
   const { user } = useAuth();
 
@@ -67,12 +70,20 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
+  if (requirePlatform && !ehAdminDaPlataforma(user)) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 
 // Helper para criar rota protegida com Suspense e Layout
-const createProtectedRoute = (Component: React.LazyExoticComponent<any>, requireAdmin = false) => (
-  <ProtectedRoute requireAdmin={requireAdmin}>
+const createProtectedRoute = (
+  Component: React.LazyExoticComponent<any>,
+  requireAdmin = false,
+  requirePlatform = false
+) => (
+  <ProtectedRoute requireAdmin={requireAdmin} requirePlatform={requirePlatform}>
     <DashboardLayout>
       <Suspense fallback={<PageLoader />}>
         <Component />
@@ -93,6 +104,7 @@ const AppRoutes = () => {
       <Route path="/privacidade" element={<Suspense fallback={<PageLoader />}><PrivacyPolicy /></Suspense>} />
       <Route path="/termos" element={<Suspense fallback={<PageLoader />}><TermsOfUse /></Suspense>} />
       <Route path="/excluir-conta" element={<Suspense fallback={<PageLoader />}><AccountDeletion /></Suspense>} />
+      <Route path="/suporte" element={<Suspense fallback={<PageLoader />}><Support /></Suspense>} />
 
       {/* Protected Routes */}
       <Route path="/" element={createProtectedRoute(Overview)} />
@@ -112,12 +124,11 @@ const AppRoutes = () => {
       <Route path="/tarifas" element={createProtectedRoute(Tariffs)} />
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
-      <Route path="/email" element={createProtectedRoute(Email, true)} />
-      <Route path="/branding" element={createProtectedRoute(Branding, true)} />
-      <Route path="/sustentabilidade" element={createProtectedRoute(Sustainability)} />
+      <Route path="/email" element={createProtectedRoute(Email, true, true)} />
+      <Route path="/branding" element={createProtectedRoute(Branding, true, true)} />
       <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
-      <Route path="/agendamentos" element={createProtectedRoute(Scheduling, true)} />
-      <Route path="/metas" element={createProtectedRoute(ChargingGoals, true)} />
+      {/* Energia (usinas): só a NeoPower, como Email e White Label. A API também barra. */}
+      <Route path="/energia" element={createProtectedRoute(Energia, true, true)} />
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

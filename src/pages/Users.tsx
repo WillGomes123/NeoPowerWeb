@@ -18,7 +18,7 @@ import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 
-type ManagedRole = 'admin' | 'comum' | 'blocked';
+type ManagedRole = 'admin' | 'operador' | 'comum' | 'blocked';
 type Platform = 'web' | 'mobile' | null;
 type PlatformFilter = 'web' | 'mobile';
 
@@ -302,6 +302,7 @@ export const Users = () => {
                       <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
                       <SelectContent className="bg-surface-container border-outline-variant/20">
                         <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
                         <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
                       </SelectContent>
                     </Select>
@@ -501,6 +502,7 @@ export const Users = () => {
                       </SelectTrigger>
                       <SelectContent className="bg-surface-container border-outline-variant/20">
                         <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
                         <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
                         <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
                       </SelectContent>
@@ -695,6 +697,7 @@ export const Users = () => {
                   <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-surface-container border-outline-variant/20">
                     <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
+<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
                     <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
                     <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
                   </SelectContent>
