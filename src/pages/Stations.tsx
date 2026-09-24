@@ -993,7 +993,13 @@ export const Stations = () => {
       )}
 
       {/* Charger Details Dialog */}
-      <ChargerDetailsDialog chargePointId={selectedCharger} open={detailsOpen} onOpenChange={setDetailsOpen} onUpdate={fetchData} />
+      <ChargerDetailsDialog
+        chargePointId={selectedCharger}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        onUpdate={fetchData}
+        onOpenLogs={(id, nome) => { setDetailsOpen(false); setLogsCharger({ id, nome }); setLogsOpen(true); }}
+      />
       <ChargerLogsSheet
         chargePointId={logsCharger?.id ?? null}
         nome={logsCharger?.nome}

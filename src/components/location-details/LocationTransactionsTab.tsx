@@ -93,9 +93,11 @@ export function LocationTransactionsTab({ locationId }: Props) {
     return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
   };
 
-  const getStatusBadge = (status: string) => {
+  // `stopTimestamp` preenchido significa sessão encerrada, mesmo que o status
+  // tenha ficado em 'Active' — ver a regra equivalente em pages/Transactions.
+  const getStatusBadge = (status: string, stopTimestamp?: string | null) => {
     const statusLower = status.toLowerCase();
-    if (statusLower === 'completed') {
+    if (statusLower === 'completed' || (statusLower !== 'failed' && stopTimestamp)) {
       return <span className="px-2 py-1 rounded-full text-xs bg-primary/10 text-primary">Concluída</span>;
     }
     if (statusLower === 'active') {
@@ -213,7 +215,7 @@ export function LocationTransactionsTab({ locationId }: Props) {
                           R$ {parseFloat(String(t.totalCost || 0)).toFixed(2)}
                         </span>
                       </td>
-                      <td className="py-3 px-4">{getStatusBadge(t.status)}</td>
+                      <td className="py-3 px-4">{getStatusBadge(t.status, t.stopTimestamp)}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -15,6 +15,11 @@ interface Transaction {
   start_timestamp: string;
   stop_timestamp: string | null;
   consumed_wh: number | null;
+  /** Energia apurada pela API (medidor antes de consumed_wh). */
+  energia_kwh?: number | null;
+  meter_start?: number | null;
+  meter_stop?: number | null;
+  stop_reason?: string | null;
   total_cost: number | null;
   address: string | null;
   status: string;
@@ -97,6 +102,16 @@ const exportColumns: ExportColumn[] = [
   { key: 'status', header: 'Status', format: 'text' },
 ];
 
+/**
+ * Energia da recarga: o valor apurado pela API (leitura do medidor) e, se a API
+ * ainda não mandar o campo, consumed_wh.
+ */
+const energiaApurada = (tx: Transaction) => {
+  const apurada = tx.energia_kwh != null ? Number(tx.energia_kwh) : NaN;
+  if (Number.isFinite(apurada)) return apurada;
+  return tx.consumed_wh ? Number(tx.consumed_wh) / 1000 : 0;
+};
+
 const fmt = (v: number, d = 2) => v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
 export const Transactions = () => {
@@ -119,7 +134,7 @@ export const Transactions = () => {
   const [startDate, setStartDate] = useState<string>(getTodayString());
   const [endDate, setEndDate] = useState<string>(getTodayString());
   const [curveOpen, setCurveOpen] = useState(false);
-  const [curveTransaction, setCurveTransaction] = useState<{ id: number; chargerId: string } | null>(null);
+  const [curveTransaction, setCurveTransaction] = useState<Transaction | null>(null);
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
   // Tab type: charging sessions vs wallet deposits
@@ -279,7 +294,7 @@ export const Transactions = () => {
     charge_point_id: tx.charge_point_id,
     start_timestamp: tx.start_timestamp,
     stop_timestamp: tx.stop_timestamp,
-    consumed_kwh: tx.consumed_wh != null ? (tx.consumed_wh / 1000) : 0,
+    consumed_kwh: energiaApurada(tx),
     total_cost: tx.total_cost != null ? parseFloat(tx.total_cost.toString()) : 0,
     address: tx.address || 'N/A',
     status: tx.status,
@@ -292,10 +307,25 @@ export const Transactions = () => {
   // Summary metrics
   /** Recarga aberta: o valor vem do medidor, não da coluna (só preenchida no fim). */
   const aoVivo = (tx: Transaction) => (tx.stop_timestamp ? null : (ativas[tx.transaction_id] ?? null));
+
+  /**
+   * Quem tem hora de fim acabou — mesmo que o status tenha ficado para trás.
+   *
+   * Três serviços escrevem na mesma linha (API, CSMS e o encerramento pelo
+   * app) e só o `stop_timestamp` é gravado por todos. Uma sessão com fim na
+   * tela e status 'Active'/NULL aparecia "Em andamento" para sempre e entrava
+   * em "Não Concluídas". A API acerta o status na reconciliação; aqui a tela
+   * não depende disso para mostrar a verdade que já está na linha.
+   */
+  const concluida = (tx: Transaction) => {
+    const s = (tx.status || '').toLowerCase();
+    if (s === 'failed' || s === 'falhou') return false;
+    return s === 'completed' || s === 'finalizado' || s === 'refunded' || s === 'partialrefund' || Boolean(tx.stop_timestamp);
+  };
+
   const custoDe = (tx: Transaction) =>
     aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
-  const kwhDe = (tx: Transaction) =>
-    aoVivo(tx)?.energyKwh ?? (tx.consumed_wh ? tx.consumed_wh / 1000 : 0);
+  const kwhDe = (tx: Transaction) => aoVivo(tx)?.energyKwh ?? energiaApurada(tx);
 
   const totalRevenue = useMemo(
     () => filtered.reduce((s, tx) => s + custoDe(tx), 0),
@@ -308,7 +338,7 @@ export const Transactions = () => {
     [filtered, ativas]
   );
   const avgTicket = filtered.length > 0 ? totalRevenue / filtered.length : 0;
-  const completedCount = filtered.filter(tx => (tx.status || '').toLowerCase() === 'completed' || tx.status === 'finalizado').length;
+  const completedCount = filtered.filter(concluida).length;
 
   // Wallet deposits filtered & metrics
   const filteredDeposits = useMemo(() => {
@@ -348,12 +378,13 @@ export const Transactions = () => {
     return new Date(iso).toLocaleString('pt-BR');
   };
 
-  const statusStyle = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s === 'completed' || s === 'finalizado') return { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', dot: 'bg-primary', label: 'Concluído' };
+  const statusStyle = (tx: Transaction) => {
+    const s = (tx.status || '').toLowerCase();
     if (s === 'refunded') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estornado' };
     if (s === 'partialrefund') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estorno Parcial' };
+    if (s === 'invalid' || s === 'cancelled') return { bg: 'bg-surface-container-highest', text: 'text-on-surface-variant', border: 'border-outline-variant/20', dot: 'bg-outline', label: 'Interrompida' };
     if (s === 'failed' || s === 'falhou') return { bg: 'bg-error/10', text: 'text-error', border: 'border-error/20', dot: 'bg-error', label: 'Falhou' };
+    if (concluida(tx)) return { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', dot: 'bg-primary', label: 'Concluído' };
     return { bg: 'bg-tertiary/10', text: 'text-tertiary', border: 'border-tertiary/20', dot: 'bg-tertiary animate-pulse', label: 'Em andamento' };
   };
 
@@ -551,10 +582,10 @@ export const Transactions = () => {
                   </td>
                 </tr>
               ) : current.map(tx => {
-                const st = statusStyle(tx.status);
+                const st = statusStyle(tx);
                 const vivo = aoVivo(tx);
                 return (
-                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
+                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction(tx); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
                         #{tx.transaction_id}
@@ -780,8 +811,17 @@ export const Transactions = () => {
       {/* Charging Curve Dialog */}
       {curveTransaction && (
         <ChargingCurveDialog
-          transactionId={curveTransaction.id}
-          chargerId={curveTransaction.chargerId}
+          transactionId={curveTransaction.transaction_id}
+          chargerId={curveTransaction.charge_point_id}
+          resumo={{
+            inicio: curveTransaction.start_timestamp,
+            fim: curveTransaction.stop_timestamp,
+            energiaKwh: aoVivo(curveTransaction)?.energyKwh ?? energiaApurada(curveTransaction),
+            medidorInicialWh: curveTransaction.meter_start ?? null,
+            medidorFinalWh: curveTransaction.meter_stop ?? null,
+            custo: custoDe(curveTransaction),
+            emAndamento: !curveTransaction.stop_timestamp,
+          }}
           open={curveOpen}
           onClose={() => { setCurveOpen(false); setCurveTransaction(null); }}
         />
