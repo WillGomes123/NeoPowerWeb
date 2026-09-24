@@ -292,6 +292,22 @@ export const Transactions = () => {
   // Summary metrics
   /** Recarga aberta: o valor vem do medidor, não da coluna (só preenchida no fim). */
   const aoVivo = (tx: Transaction) => (tx.stop_timestamp ? null : (ativas[tx.transaction_id] ?? null));
+
+  /**
+   * Quem tem hora de fim acabou — mesmo que o status tenha ficado para trás.
+   *
+   * Três serviços escrevem na mesma linha (API, CSMS e o encerramento pelo
+   * app) e só o `stop_timestamp` é gravado por todos. Uma sessão com fim na
+   * tela e status 'Active'/NULL aparecia "Em andamento" para sempre e entrava
+   * em "Não Concluídas". A API acerta o status na reconciliação; aqui a tela
+   * não depende disso para mostrar a verdade que já está na linha.
+   */
+  const concluida = (tx: Transaction) => {
+    const s = (tx.status || '').toLowerCase();
+    if (s === 'failed' || s === 'falhou') return false;
+    return s === 'completed' || s === 'finalizado' || s === 'refunded' || s === 'partialrefund' || Boolean(tx.stop_timestamp);
+  };
+
   const custoDe = (tx: Transaction) =>
     aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
   const kwhDe = (tx: Transaction) =>
@@ -308,7 +324,7 @@ export const Transactions = () => {
     [filtered, ativas]
   );
   const avgTicket = filtered.length > 0 ? totalRevenue / filtered.length : 0;
-  const completedCount = filtered.filter(tx => (tx.status || '').toLowerCase() === 'completed' || tx.status === 'finalizado').length;
+  const completedCount = filtered.filter(concluida).length;
 
   // Wallet deposits filtered & metrics
   const filteredDeposits = useMemo(() => {
@@ -348,12 +364,12 @@ export const Transactions = () => {
     return new Date(iso).toLocaleString('pt-BR');
   };
 
-  const statusStyle = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s === 'completed' || s === 'finalizado') return { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', dot: 'bg-primary', label: 'Concluído' };
+  const statusStyle = (tx: Transaction) => {
+    const s = (tx.status || '').toLowerCase();
     if (s === 'refunded') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estornado' };
     if (s === 'partialrefund') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estorno Parcial' };
     if (s === 'failed' || s === 'falhou') return { bg: 'bg-error/10', text: 'text-error', border: 'border-error/20', dot: 'bg-error', label: 'Falhou' };
+    if (concluida(tx)) return { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20', dot: 'bg-primary', label: 'Concluído' };
     return { bg: 'bg-tertiary/10', text: 'text-tertiary', border: 'border-tertiary/20', dot: 'bg-tertiary animate-pulse', label: 'Em andamento' };
   };
 
@@ -551,7 +567,7 @@ export const Transactions = () => {
                   </td>
                 </tr>
               ) : current.map(tx => {
-                const st = statusStyle(tx.status);
+                const st = statusStyle(tx);
                 const vivo = aoVivo(tx);
                 return (
                   <tr key={tx.transaction_id} onClick={() => { setCurveTransaction({ id: tx.transaction_id, chargerId: tx.charge_point_id }); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
