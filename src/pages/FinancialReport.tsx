@@ -412,9 +412,25 @@ export const FinancialReport = () => {
     { energy: 0, revenue: 0, fees: 0, received: 0, payout: 0 }
   );
 
-  const deposits = walletTransactions.filter(t => t.type === 'deposit');
+  // Só é ENTRADA o que veio de um pagamento de verdade (Mercado Pago). Crédito
+  // manual do admin e migração de saldo movem saldo sem dinheiro entrar — um
+  // "Crédito manual" de teste de R$ 200.000 fazia a entrada estourar.
+  const ehCreditoSemPagamento = (t: WalletTransactionItem) =>
+    !t.referenceId ||
+    t.referenceId.startsWith('migration_') ||
+    /^cr[eé]dito manual/i.test(t.description || '');
+  const deposits = walletTransactions.filter(t => t.type === 'deposit' && !ehCreditoSemPagamento(t));
+  const creditosSemPagamento = walletTransactions.filter(
+    t => t.type === 'deposit' && ehCreditoSemPagamento(t)
+  );
+  const totalCreditosSemPagamento = creditosSemPagamento.reduce((acc, t) => acc + t.amount, 0);
+  // Estorno de depósito (refund-deposit-<id>) devolve dinheiro: sai da entrada.
+  const estornosDeposito = walletTransactions.filter(
+    t => t.type === 'refund' && (t.referenceId || '').startsWith('refund-deposit-')
+  );
+  const totalEstornosDeposito = estornosDeposito.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
-  const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0);
+  const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0) - totalEstornosDeposito;
   const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
   // crédito, débito, boleto) — não mais 1% fixo para todos.
@@ -1143,7 +1159,7 @@ export const FinancialReport = () => {
                   <p className="text-xs text-foreground font-medium uppercase">Taxa Mercado Pago</p>
                 </div>
                 <p className="text-lg font-bold text-foreground">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
-                <p className="text-xs text-outline mt-1">1% sobre depósitos</p>
+                <p className="text-xs text-outline mt-1">por método (Pix, crédito, débito)</p>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
@@ -1187,8 +1203,8 @@ export const FinancialReport = () => {
                         </td>
                         <td className="py-3 px-4 text-sm text-on-surface-variant">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
                         <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(deposit.amount)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">-R$ {fmt(deposit.amount * 0.01)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount * 0.99)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">-R$ {fmt(taxaMpDoDeposito(deposit))}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount - taxaMpDoDeposito(deposit))}</td>
                         <td className="py-3 px-4 text-sm text-on-surface-variant">{deposit.referenceId || '-'}</td>
                       </tr>
                     ))}
@@ -1225,6 +1241,12 @@ export const FinancialReport = () => {
                 <p className="text-xl font-bold text-foreground">R$ {fmt(entradaBrutaTotal)}</p>
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between text-on-surface-variant"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
+                  {totalEstornosDeposito > 0 && (
+                    <div className="flex justify-between text-outline"><span>Estornos de depósito (já descontados):</span><span>-R$ {fmt(totalEstornosDeposito)}</span></div>
+                  )}
+                  {totalCreditosSemPagamento > 0 && (
+                    <div className="flex justify-between text-outline"><span>Créditos manuais/migração (não é entrada):</span><span>R$ {fmt(totalCreditosSemPagamento)}</span></div>
+                  )}
                   {/* Consumo do saldo: informativo, não soma na entrada */}
                   <div className="flex justify-between text-outline"><span>Recargas (consumo, não soma):</span><span>R$ {fmt(grossRevenue)}</span></div>
                 </div>
