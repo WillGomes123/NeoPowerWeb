@@ -13,10 +13,12 @@ import {
   AlertCircle,
   Power,
   Link2Off,
+  ScrollText,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
+import { ChargerLogsSheet } from '@/components/ChargerLogsSheet';
 
 interface ChargerStatus {
   id: number;
@@ -45,6 +47,11 @@ export function LocationMonitoringTab({ locationId }: Props) {
   const { user } = useAuth();
   // Desvincular carregador do local: admin ou operador da marca.
   const podeGerir = user?.role === 'admin' || user?.role === 'operador';
+  // Logs OCPP/conexão: a API atende admin e operador da marca (comum é o
+  // motorista do app e recebe 404), então o botão some só para o comum.
+  const podeVerLogs = !!user?.role && user.role !== 'comum';
+  const [logsCharger, setLogsCharger] = useState<{ id: string; nome: string } | null>(null);
+  const [logsOpen, setLogsOpen] = useState(false);
 
   const fetchChargers = useCallback(async () => {
     try {
@@ -190,62 +197,21 @@ export function LocationMonitoringTab({ locationId }: Props) {
   return (
     <div className="space-y-6">
       {/* Resumo de Status */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Wifi className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase">Online</p>
-                <p className="text-2xl font-bold text-foreground">{statusCounts.online}</p>
-              </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { rotulo: 'Online', valor: statusCounts.online, Icone: Wifi, cor: 'text-primary' },
+          { rotulo: 'Carregando', valor: statusCounts.charging, Icone: Zap, cor: 'text-primary' },
+          { rotulo: 'Offline', valor: statusCounts.offline, Icone: WifiOff, cor: 'text-gray-400' },
+          { rotulo: 'Com falha', valor: statusCounts.faulted, Icone: XCircle, cor: 'text-error' },
+        ].map(({ rotulo, valor, Icone, cor }) => (
+          <div key={rotulo} className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="whitespace-nowrap text-xs font-medium text-muted-foreground">{rotulo}</span>
+              <Icone className={`h-4 w-4 shrink-0 ${cor}`} aria-hidden />
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-surface-container-highest rounded-lg">
-                <Zap className="w-5 h-5 text-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase">Carregando</p>
-                <p className="text-2xl font-bold text-foreground">{statusCounts.charging}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gray-500/20 rounded-lg">
-                <WifiOff className="w-5 h-5 text-gray-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase">Offline</p>
-                <p className="text-2xl font-bold text-foreground">{statusCounts.offline}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border-border">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-error/10 rounded-lg">
-                <XCircle className="w-5 h-5 text-error" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase">Com Falha</p>
-                <p className="text-2xl font-bold text-foreground">{statusCounts.faulted}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <span className="text-2xl font-semibold leading-8 tabular-nums text-foreground">{valor}</span>
+          </div>
+        ))}
       </div>
 
       {/* Lista de Carregadores */}
@@ -305,8 +271,8 @@ export function LocationMonitoringTab({ locationId }: Props) {
                     className={`bg-surface-container border-border transition-all hover:border-border`}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className={`p-2 ${statusInfo.bg} rounded-lg`}>
                             <StatusIcon className={`w-5 h-5 ${statusInfo.color}`} />
                           </div>
@@ -324,22 +290,39 @@ export function LocationMonitoringTab({ locationId }: Props) {
                             </p>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.badgeClass}`}>
+                        <span className={`shrink-0 whitespace-nowrap px-2 py-1 rounded-full text-xs font-medium ${statusInfo.badgeClass}`}>
                           {statusInfo.label}
                         </span>
                       </div>
 
-                      {podeGerir && (
+                      {(podeVerLogs || podeGerir) && (
                         <div className="flex items-center gap-2 mb-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 h-8 text-[11px] border-primary/20 text-primary hover:bg-primary/10"
-                            onClick={() => handleUnlinkCharger(charger.chargePointId)}
-                          >
-                            <Link2Off className="w-3 h-3 mr-1" />
-                            Desvincular
-                          </Button>
+                          {podeVerLogs && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 h-8 text-[11px] border-border text-foreground/80 hover:bg-surface-container-high"
+                              title="Ver mensagens OCPP e conexões deste carregador"
+                              onClick={() => {
+                                setLogsCharger({ id: charger.chargePointId, nome: charger.description || charger.chargePointId });
+                                setLogsOpen(true);
+                              }}
+                            >
+                              <ScrollText className="w-3 h-3 mr-1" />
+                              Logs
+                            </Button>
+                          )}
+                          {podeGerir && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 h-8 text-[11px] border-primary/20 text-primary hover:bg-primary/10"
+                              onClick={() => handleUnlinkCharger(charger.chargePointId)}
+                            >
+                              <Link2Off className="w-3 h-3 mr-1" />
+                              Desvincular
+                            </Button>
+                          )}
                         </div>
                       )}
 
@@ -382,6 +365,13 @@ export function LocationMonitoringTab({ locationId }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <ChargerLogsSheet
+        chargePointId={logsCharger?.id ?? null}
+        nome={logsCharger?.nome}
+        open={logsOpen}
+        onOpenChange={setLogsOpen}
+      />
     </div>
   );
 }
