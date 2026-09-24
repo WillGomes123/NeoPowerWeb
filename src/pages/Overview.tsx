@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { dataLocal } from '../components/ui/utils';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -41,6 +42,10 @@ const fmt = (v: number, decimals = 2) =>
   v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
 export const Overview = () => {
+  const { user } = useAuth();
+  // A API só manda os depósitos para o super admin (carteiras são globais);
+  // para operador/admin da marca eles vêm zerados, então o card fica oculto.
+  const isSuperAdmin = user?.role === 'admin' && !user?.branding?.clientId;
   const [data, setData] = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,10 +108,22 @@ export const Overview = () => {
     { name: 'Carregando', value: statusCounts.charging, color: 'var(--color-tertiary)' },
   ];
 
-  const netRevenue = (data?.revenueTotal || 0) + (data?.totalDepositsNet || 0);
+  // Recarga é paga com saldo da carteira: é consumo do dinheiro que já entrou
+  // como depósito. Somar recargas + depósitos contava o mesmo real duas vezes.
+  // Com depósitos (super admin), a receita é o depósito líquido; sem eles
+  // (operador), fica a receita das recargas, como já era.
+  const receitaDe = (d: OverviewData | null) =>
+    isSuperAdmin ? d?.totalDepositsNet || 0 : d?.revenueTotal || 0;
+  const netRevenue = receitaDe(data);
   const grossDeposits = data?.totalDepositsGross || 0;
   const depositQuota = grossDeposits > 0 ? Math.min((grossDeposits / (grossDeposits * 1.02)) * 100, 100) : 0;
-  const revenueChange = calculateChange(data?.revenueTotal || 0, previousData?.revenueTotal);
+  const revenueChange = calculateChange(
+    netRevenue,
+    previousData ? receitaDe(previousData) : undefined
+  );
+  // A API devolve o período em revenueToday/kwhToday quando há filtro; o "Month"
+  // é sempre o mês atual. Os cards mostram o período quando ele está filtrado.
+  const filtrado = !!(startDate || endDate);
 
   if (loading) {
     return (
@@ -168,12 +185,16 @@ export const Overview = () => {
       </div>
 
       {/* KPI Section: Bento Style (4 Consolidated Cards) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
         {/* Card 1: Receita Líquida */}
         <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
           <div>
             <div className="flex justify-between items-start mb-2">
-              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
+              <div>
+                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
+                {/* A API não filtra este total por período */}
+                <p className="text-[10px] text-outline">Todo o histórico</p>
+              </div>
               {revenueChange !== undefined && (
                 <div className={`flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${revenueChange >= 0 ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
                   <span className="material-symbols-outlined text-sm mr-0.5">{revenueChange >= 0 ? 'trending_up' : 'trending_down'}</span>
@@ -187,8 +208,11 @@ export const Overview = () => {
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
-            <span className="text-on-surface-variant">Depósitos Líquidos</span>
-            <span className="font-semibold text-on-surface">R$ {fmt(data.totalDepositsNet || 0)}</span>
+            {/* Recargas à parte: consumo do saldo, não soma na receita */}
+            <span className="text-on-surface-variant">{isSuperAdmin ? 'Recargas (consumo)' : 'Transações'}</span>
+            <span className="font-semibold text-on-surface">
+              {isSuperAdmin ? `R$ ${fmt(data.revenueTotal || 0)}` : String(data.transactionsTotal || 0)}
+            </span>
           </div>
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
@@ -197,77 +221,88 @@ export const Overview = () => {
         <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
           <div>
             <div className="flex justify-between items-start mb-2">
-              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Operacional</span>
+              <div>
+                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Operacional</span>
+                <p className="text-[10px] text-outline">{filtrado ? 'Período selecionado' : 'Mês atual'}</p>
+              </div>
               <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
                 <span className="material-symbols-outlined text-primary text-lg">calendar_month</span>
               </div>
             </div>
             <div className="flex items-baseline gap-1 mt-2">
               <span className="text-on-surface-variant text-sm font-medium">R$</span>
-              <span className="text-3xl font-headline font-bold text-foreground">{fmt(data.revenueMonth)}</span>
+              <span className="text-3xl font-headline font-bold text-foreground">{fmt(filtrado ? data.revenueToday : data.revenueMonth)}</span>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant">{startDate || endDate ? 'No Período' : 'Hoje'}</span>
-              {!startDate && !endDate && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+              <span className="text-on-surface-variant">{filtrado ? 'Mês atual' : 'Hoje'}</span>
+              {!filtrado && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
             </div>
-            <span className="font-semibold text-on-surface">R$ {fmt(data.revenueToday)}</span>
+            <span className="font-semibold text-on-surface">R$ {fmt(filtrado ? data.revenueMonth : data.revenueToday)}</span>
           </div>
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
-        {/* Card 3: Depósitos & Taxas */}
-        <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden flex flex-col justify-between min-h-[160px]">
-          <div className="relative z-10">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Depósitos Brutos</span>
-              <span className="px-2 py-0.5 bg-primary/15 text-primary text-[10px] font-extrabold rounded">
-                {data.depositsCount || 0} DEP.
+        {/* Card 3: Depósitos & Taxas — só super admin (a API não manda depósitos do operador) */}
+        {isSuperAdmin && (
+          <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden flex flex-col justify-between min-h-[160px]">
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Depósitos Brutos</span>
+                  <p className="text-[10px] text-outline">Todo o histórico</p>
+                </div>
+                <span className="px-2 py-0.5 bg-primary/15 text-primary text-[10px] font-extrabold rounded">
+                  {data.depositsCount || 0} DEP.
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 mt-2">
+                <span className="text-primary/70 text-sm font-medium">R$</span>
+                <span className="text-3xl font-headline font-bold text-primary">{fmt(grossDeposits)}</span>
+              </div>
+
+              <div className="w-full bg-surface/50 h-1.5 rounded-full mt-4">
+                <div
+                  className="bg-primary h-full rounded-full"
+                  style={{ width: `${depositQuota}%`, boxShadow: '0 0 8px var(--primary)' }}
+                />
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-outline-variant/10 flex justify-between items-center text-xs relative z-10">
+              <span className="text-on-surface-variant flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs text-error">trending_down</span>
+                Taxa Mercado Pago
               </span>
+              <span className="font-semibold text-error">- R$ {fmt(data.mercadoPagoFee || 0)}</span>
             </div>
-            <div className="flex items-baseline gap-1 mt-2">
-              <span className="text-primary/70 text-sm font-medium">R$</span>
-              <span className="text-3xl font-headline font-bold text-primary">{fmt(grossDeposits)}</span>
-            </div>
-            
-            <div className="w-full bg-surface/50 h-1.5 rounded-full mt-4">
-              <div
-                className="bg-primary h-full rounded-full"
-                style={{ width: `${depositQuota}%`, boxShadow: '0 0 8px var(--primary)' }}
-              />
-            </div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
           </div>
-          <div className="mt-3 pt-3 border-t border-outline-variant/10 flex justify-between items-center text-xs relative z-10">
-            <span className="text-on-surface-variant flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs text-error">trending_down</span>
-              Taxa Mercado Pago
-            </span>
-            <span className="font-semibold text-error">- R$ {fmt(data.mercadoPagoFee || 0)}</span>
-          </div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] rounded-full pointer-events-none" />
-        </div>
+        )}
 
         {/* Card 4: Energia Consumida */}
         <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
           <div>
             <div className="flex justify-between items-start mb-2">
-              <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Energia Consumida</span>
+              <div>
+                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Energia Consumida</span>
+                <p className="text-[10px] text-outline">{filtrado ? 'Período selecionado' : 'Mês atual'}</p>
+              </div>
               <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
                 <span className="material-symbols-outlined text-tertiary text-lg">bolt</span>
               </div>
             </div>
             <div className="flex items-baseline gap-1 mt-2">
-              <span className="text-3xl font-headline font-bold text-foreground">{fmt(data.kwhMonth, 1)}</span>
+              <span className="text-3xl font-headline font-bold text-foreground">{fmt(filtrado ? data.kwhToday : data.kwhMonth, 1)}</span>
               <span className="text-on-surface-variant text-sm font-medium">kWh</span>
             </div>
           </div>
           <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
             <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant">{startDate || endDate ? 'No Período' : 'Hoje'}</span>
-              {!startDate && !endDate && <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />}
+              <span className="text-on-surface-variant">{filtrado ? 'Mês atual' : 'Hoje'}</span>
+              {!filtrado && <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />}
             </div>
-            <span className="font-semibold text-on-surface">{fmt(data.kwhToday, 1)} kWh</span>
+            <span className="font-semibold text-on-surface">{fmt(filtrado ? data.kwhMonth : data.kwhToday, 1)} kWh</span>
           </div>
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-tertiary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
@@ -443,7 +478,7 @@ export const Overview = () => {
         {/* Side Cards */}
         <div className="space-y-6">
           <SideMetric icon="confirmation_number" label="VOUCHERS ATIVOS" value={String(data.activeVouchers ?? 0)} accent />
-          <SideMetric icon="receipt_long" label="TRANSAÇÕES (MÊS)" value={String(data.transactionsMonth)} />
+          <SideMetric icon="receipt_long" label={filtrado ? 'TRANSAÇÕES (PERÍODO)' : 'TRANSAÇÕES (MÊS)'} value={String(data.transactionsMonth)} />
           <SideMetric icon="ev_station" label="ESTAÇÕES TOTAIS" value={String(data.chargers.total)} />
           {lastUpdate && (
             <div className="flex items-center gap-2 text-xs text-on-surface-variant px-1">

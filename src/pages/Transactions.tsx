@@ -134,17 +134,6 @@ export const Transactions = () => {
   const [depositRefundToMP, setDepositRefundToMP] = useState(false);
   const itemsPerPage = 10;
 
-  const exportData = transactions.map(tx => ({
-    transaction_id: tx.transaction_id,
-    charge_point_id: tx.charge_point_id,
-    start_timestamp: tx.start_timestamp,
-    stop_timestamp: tx.stop_timestamp,
-    consumed_kwh: tx.consumed_wh != null ? (tx.consumed_wh / 1000) : 0,
-    total_cost: tx.total_cost != null ? parseFloat(tx.total_cost.toString()) : 0,
-    address: tx.address || 'N/A',
-    status: tx.status,
-  }));
-
   const fetchAtivas = async () => {
     try {
       const response = await api.get('/transactions/active');
@@ -256,16 +245,19 @@ export const Transactions = () => {
 
   const filtered = useMemo(() => {
     let list = transactions;
+    // Recarga em andamento fica visível mesmo fora do período: sem isso, a que
+    // começou ontem sumia da tela (filtro padrão = hoje) depois da meia-noite.
+    const emAndamento = (tx: Transaction) => !tx.stop_timestamp || tx.transaction_id in ativas;
 
     if (startDate) {
       const start = dataLocal(startDate);
       start.setHours(0, 0, 0, 0);
-      list = list.filter(tx => new Date(tx.start_timestamp) >= start);
+      list = list.filter(tx => emAndamento(tx) || new Date(tx.start_timestamp) >= start);
     }
     if (endDate) {
       const end = dataLocal(endDate);
       end.setHours(23, 59, 59, 999);
-      list = list.filter(tx => new Date(tx.start_timestamp) <= end);
+      list = list.filter(tx => emAndamento(tx) || new Date(tx.start_timestamp) <= end);
     }
 
     // Filtro por texto (carregador, endereço, ID)
@@ -279,7 +271,19 @@ export const Transactions = () => {
     }
 
     return list;
-  }, [transactions, startDate, endDate, searchQuery]);
+  }, [transactions, ativas, startDate, endDate, searchQuery]);
+
+  // Exporta o que está na tela (período + busca), não o histórico inteiro.
+  const exportData = filtered.map(tx => ({
+    transaction_id: tx.transaction_id,
+    charge_point_id: tx.charge_point_id,
+    start_timestamp: tx.start_timestamp,
+    stop_timestamp: tx.stop_timestamp,
+    consumed_kwh: tx.consumed_wh != null ? (tx.consumed_wh / 1000) : 0,
+    total_cost: tx.total_cost != null ? parseFloat(tx.total_cost.toString()) : 0,
+    address: tx.address || 'N/A',
+    status: tx.status,
+  }));
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
