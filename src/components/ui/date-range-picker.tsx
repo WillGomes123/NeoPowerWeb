@@ -208,23 +208,26 @@ export function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 !bg-card border-border shadow-2xl shadow-black/20 backdrop-blur-none"
+        className="w-auto max-w-[calc(100vw-16px)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-0 !bg-card border-border shadow-2xl shadow-black/20 backdrop-blur-none"
         align="start"
         sideOffset={8}
+        collisionPadding={8}
         style={{ backgroundColor: '#18181b' }}
       >
-        <div className="flex bg-card">
+        {/* Em telas estreitas os atalhos viram chips acima do calendário. */}
+        <div className="flex flex-col sm:flex-row bg-card">
           {/* Sidebar - Presets */}
-          <div className="w-44 border-r border-border p-3 space-y-1 bg-surface-container">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+          <div className="w-full sm:w-44 border-b sm:border-b-0 sm:border-r border-border p-3 bg-surface-container">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 sm:mb-3 px-2">
               Atalhos
             </p>
+            <div className="flex flex-wrap gap-1 sm:block sm:space-y-1">
             {presetRanges.map((preset) => (
               <button
                 key={preset.label}
                 onClick={() => handlePresetClick(preset)}
                 className={cn(
-                  'w-full text-left px-3 py-2 rounded-md text-sm transition-all',
+                  'sm:w-full text-left px-3 py-1.5 sm:py-2 rounded-md text-sm transition-all',
                   selectedPreset === preset.label
                     ? 'bg-primary text-on-primary font-medium'
                     : 'text-foreground/70 hover:bg-surface-container-high hover:text-foreground'
@@ -233,10 +236,11 @@ export function DateRangePicker({
                 {preset.label}
               </button>
             ))}
+            </div>
 
             {/* Custom days input */}
-            <div className="pt-3 mt-3 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-2 px-2">Dias anteriores</p>
+            <div className="pt-3 mt-3 border-t border-border flex items-center gap-2 sm:block">
+              <p className="text-xs text-muted-foreground sm:mb-2 px-2">Dias anteriores</p>
               <div className="flex items-center gap-2 px-2">
                 <Input
                   type="number"
@@ -252,7 +256,7 @@ export function DateRangePicker({
           </div>
 
           {/* Main Calendar Area */}
-          <div className="p-4 bg-card">
+          <div className="p-3 sm:p-4 bg-card">
             {/* Header - Manual Date Inputs */}
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
               <div className="flex-1">

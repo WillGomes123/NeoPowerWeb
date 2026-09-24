@@ -130,9 +130,11 @@ interface ChargerDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate?: () => void;
+  /** Atalho para a linha do tempo de logs (ChargerLogsSheet) deste carregador. */
+  onOpenLogs?: (chargePointId: string, nome: string) => void;
 }
 
-export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpdate }: ChargerDetailsDialogProps) => {
+export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpdate, onOpenLogs }: ChargerDetailsDialogProps) => {
   const [charger, setCharger] = useState<ChargerDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -206,7 +208,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     setResetting(true);
     try {
       const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/reset`, { type: resetType });
-      if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? toast.success(`Reset ${resetType} aceito`) : toast.warning(`Reset ${resetType} rejeitado`); onUpdate?.(); }
+      if (r.ok) { const d = await r.json(); if (d.status === 'Accepted') toast.success(`Reset ${resetType} aceito`); else toast.warning(`Reset ${resetType} rejeitado`); onUpdate?.(); }
       else { const e = await r.json(); toast.error(e.error || 'Erro no reset'); }
     } catch { toast.error('Erro no reset'); }
     finally { setResetting(false); }
@@ -217,7 +219,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     setChangingAvailability(true);
     try {
       const r = await api.post(`/chargers/${encodeURIComponent(chargePointId)}/availability`, { type: available ? 'Operative' : 'Inoperative', connectorId: 0 });
-      if (r.ok) { const d = await r.json(); d.status === 'Accepted' ? (toast.success(`${available ? 'Ativado' : 'Desativado'}!`), void fetchChargerDetails(), onUpdate?.()) : toast.warning('Comando rejeitado'); }
+      if (r.ok) { const d = await r.json(); if (d.status === 'Accepted') { toast.success(`${available ? 'Ativado' : 'Desativado'}!`); void fetchChargerDetails(); onUpdate?.(); } else toast.warning('Comando rejeitado'); }
       else { const e = await r.json(); toast.error(e.error || 'Erro'); }
     } catch { toast.error('Erro ao alterar disponibilidade'); }
     finally { setChangingAvailability(false); }
@@ -239,13 +241,28 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-surface-container border-outline-variant/20 max-w-2xl !max-h-[80vh] !flex !flex-col overflow-hidden">
         <DialogHeader className="shrink-0 pb-4 border-b border-outline-variant/10">
-          <DialogTitle className="text-on-surface font-headline flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <span className="material-symbols-outlined text-primary text-xl">ev_station</span>
+          <div className="flex items-start justify-between gap-3 pr-8">
+            <div className="min-w-0 space-y-1.5">
+              <DialogTitle className="text-on-surface font-headline flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <span className="material-symbols-outlined text-primary text-xl">ev_station</span>
+                </div>
+                Detalhes do Carregador
+              </DialogTitle>
+              <DialogDescription className="text-on-surface-variant font-mono text-xs">{chargePointId}</DialogDescription>
             </div>
-            Detalhes do Carregador
-          </DialogTitle>
-          <DialogDescription className="text-on-surface-variant font-mono text-xs">{chargePointId}</DialogDescription>
+            {onOpenLogs && chargePointId && (
+              <button
+                type="button"
+                onClick={() => onOpenLogs(chargePointId, charger?.description || chargePointId)}
+                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 bg-surface-container-highest hover:bg-surface-variant"
+                title="Ver logs OCPP e de conexão"
+              >
+                <span className="material-symbols-outlined text-xs">receipt_long</span>
+                Logs
+              </button>
+            )}
+          </div>
         </DialogHeader>
 
         {loading ? (
