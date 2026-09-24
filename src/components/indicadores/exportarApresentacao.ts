@@ -16,6 +16,7 @@ import {
   type Carregador,
   type RelatorioMensal,
 } from './tipos';
+import { montarDestaques } from './destaques';
 
 /**
  * Gera a apresentação mensal (.pptx) no navegador, no mesmo roteiro da
@@ -930,14 +931,16 @@ export async function exportarApresentacao(
   }
 
   // --------------------------------------------------------------- 12. leituras
-  if (r.leituras.length) {
+  const destaques = montarDestaques(r);
+  if (destaques.length) {
     const s = novoSlide(
       'Leituras e próximos passos',
       `O que os dados de ${nomeDoMes(r.mes)} sugerem para o time`,
       'Leituras geradas automaticamente a partir das transações — revise antes de apresentar'
     );
-    const cores = { positivo: VERDE, alerta: VERMELHO, info: '0284C7' };
-    r.leituras.slice(0, 6).forEach((l, i) => {
+    const cores = { ok: VERDE, atencao: VERMELHO, info: '0284C7' };
+    // Atenção primeiro; listas longas já vêm resumidas por local (textoCurto).
+    destaques.slice(0, 6).forEach((l, i) => {
       const col = i % 2;
       const lin = Math.floor(i / 2);
       const x = 0.6 + col * 6.15;
@@ -956,8 +959,8 @@ export async function exportarApresentacao(
         y,
         w: 0.09,
         h: 1.6,
-        fill: { color: cores[l.tipo] },
-        line: { color: cores[l.tipo] },
+        fill: { color: cores[l.severidade] },
+        line: { color: cores[l.severidade] },
       });
       T(s, l.titulo, {
         x: x + 0.3,
@@ -969,7 +972,11 @@ export async function exportarApresentacao(
         color: AZUL,
         fit: 'shrink',
       });
-      T(s, l.texto, {
+      const texto =
+        l.valor && !l.textoCurto.startsWith(l.valor)
+          ? `${l.valor}${l.unidade ? ` ${l.unidade}` : ''} · ${l.textoCurto}`
+          : l.textoCurto;
+      T(s, texto, {
         x: x + 0.3,
         y: y + 0.55,
         w: 5.45,

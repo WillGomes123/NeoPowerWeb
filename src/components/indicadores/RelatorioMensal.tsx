@@ -21,6 +21,8 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { MetasDialog } from './MetasDialog';
+import { DestaquesDoMes } from './DestaquesDoMes';
+import { montarDestaques, resumoDosDestaques } from './destaques';
 import {
   DIAS_SEMANA,
   STATUS_META,
@@ -524,13 +526,13 @@ export function RelatorioMensal() {
           <ResumoDoMes r={r} mesAnteriorNome={mesAnteriorNome} />
 
           {/* Abas */}
-          <div className="no-print flex gap-1 overflow-x-auto rounded-full bg-surface-container-high p-1 w-full sm:w-fit">
+          <div className="no-print grid grid-cols-2 sm:flex gap-1 rounded-2xl sm:rounded-full bg-surface-container-high p-1 w-full sm:w-fit">
             {ABAS.map(a => (
               <button
                 key={a.id}
                 type="button"
                 onClick={() => setAba(a.id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                className={`shrink-0 inline-flex items-center justify-center sm:justify-start gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                   aba === a.id
                     ? 'bg-surface-container-lowest text-on-surface shadow'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -847,49 +849,10 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
 }
 
 function Destaques({ r }: { r: Relatorio }) {
-  const estilo = {
-    positivo: {
-      icone: 'thumb_up',
-      cor: 'text-emerald-600 dark:text-emerald-400',
-      fundo: 'bg-emerald-500/10',
-    },
-    alerta: {
-      icone: 'priority_high',
-      cor: 'text-amber-600 dark:text-amber-400',
-      fundo: 'bg-amber-500/10',
-    },
-    info: { icone: 'info', cor: 'text-sky-600 dark:text-sky-400', fundo: 'bg-sky-500/10' },
-  } as const;
+  const destaques = montarDestaques(r);
   return (
-    <Secao
-      titulo="Destaques do mês"
-      subtitulo="O que merece atenção nos números"
-      icone="auto_awesome"
-    >
-      {r.leituras.length === 0 ? (
-        <p className="text-sm text-on-surface-variant">Nada fora do normal neste período.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {r.leituras.map((l, i) => {
-            const e = estilo[l.tipo];
-            return (
-              <div key={i} className="flex gap-3 rounded-xl bg-surface-container-high/40 p-4">
-                <span
-                  className={`material-symbols-outlined h-9 w-9 shrink-0 rounded-full ${e.fundo} ${e.cor} inline-flex items-center justify-center text-xl`}
-                >
-                  {e.icone}
-                </span>
-                <div>
-                  <p className="font-semibold text-on-surface text-sm">{l.titulo}</p>
-                  <p className="text-sm text-on-surface-variant mt-0.5 leading-relaxed">
-                    {l.texto}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <Secao titulo="Destaques do mês" subtitulo={resumoDosDestaques(destaques)} icone="auto_awesome">
+      <DestaquesDoMes destaques={destaques} />
     </Secao>
   );
 }
@@ -1015,6 +978,8 @@ function Trajetoria({
   const cfg = METRICAS_SERIE.find(m => m.id === metrica)!;
   const dados = serie.map(p => ({ mes: mesCurto(p.mes), chave: p.mes, valor: p[metrica] }));
   if (!dados.some(d => d.valor > 0)) return <Vazio texto="Sem dados no período" />;
+  // No celular os rótulos em cima das barras se sobrepõem; o tooltip mostra o valor.
+  const comRotulos = typeof window === 'undefined' || window.innerWidth >= 640;
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={dados} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
@@ -1047,12 +1012,16 @@ function Trajetoria({
           dataKey="valor"
           radius={[6, 6, 0, 0]}
           maxBarSize={48}
-          label={{
-            position: 'top',
-            fill: '#adaaaa',
-            fontSize: 10,
-            formatter: (v: number) => fmtCompacto(v),
-          }}
+          label={
+            comRotulos
+              ? {
+                  position: 'top',
+                  fill: '#adaaaa',
+                  fontSize: 10,
+                  formatter: (v: number) => fmtCompacto(v),
+                }
+              : false
+          }
         >
           {dados.map(d => (
             <Cell
