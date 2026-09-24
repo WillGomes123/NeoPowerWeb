@@ -15,6 +15,8 @@ interface TenantFinancialSummary {
   clientId: string;
   companyName: string;
   transactions: number;
+  /** Carregadores da marca (a API manda desde a correção do overview por marca). */
+  chargers?: number;
   kWh: number;
   revenue: number;
   fees: number;
@@ -589,8 +591,16 @@ export const FinancialReport = () => {
   // ───── OVERVIEW POR WHITELABEL (só super admin sem drill-down) ─────
   if (overviewMode && tenantOverview) {
     const agg = tenantOverview.aggregate;
-    const activeTenants = tenantOverview.byTenant.filter(t => t.transactions > 0);
-    const topTenants = [...activeTenants].sort((a, b) => b.revenue - a.revenue).slice(0, 6);
+    // Marca com carregador e ainda sem venda também aparece (com zero) — antes
+    // sumia, e a Vip Energy, com 10 carregadores, não aparecia no overview.
+    const activeTenants = tenantOverview.byTenant.filter(
+      t => t.transactions > 0 || (t.chargers ?? 0) > 0
+    );
+    // No gráfico de receita, só quem teve receita.
+    const topTenants = [...activeTenants]
+      .filter(t => t.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 6);
     const totalRevenue = agg.revenue || 1; // evita div por zero
     const margin = agg.revenue > 0 ? (agg.net / agg.revenue) * 100 : 0;
 
@@ -714,7 +724,7 @@ export const FinancialReport = () => {
               <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Receita Bruta</p>
             </div>
             <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{activeTenants.length} whitelabels ativos</p>
+            <p className="text-xs text-on-surface-variant mt-1">{activeTenants.length} whitelabels com carregador ou venda</p>
           </div>
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -781,7 +791,7 @@ export const FinancialReport = () => {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">Por whitelabel</h2>
             <span className="text-xs text-on-surface-variant">
-              {activeTenants.length} whitelabels ativos
+              {activeTenants.length} whitelabels com carregador ou venda
             </span>
           </div>
           {activeTenants.length === 0 ? (
@@ -822,7 +832,12 @@ export const FinancialReport = () => {
                       </div>
                       <div>
                         <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
-                        <p className="text-sm text-foreground">{t.transactions}</p>
+                        <p className="text-sm text-foreground">
+                          {t.transactions}
+                          {t.chargers != null && (
+                            <span className="text-xs text-outline"> · {t.chargers} carregador{t.chargers === 1 ? '' : 'es'}</span>
+                          )}
+                        </p>
                       </div>
                     </div>
                     <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
