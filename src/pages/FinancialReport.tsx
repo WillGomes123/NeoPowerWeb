@@ -601,8 +601,17 @@ export const FinancialReport = () => {
       .filter(t => t.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 6);
-    const totalRevenue = agg.revenue || 1; // evita div por zero
-    const margin = agg.revenue > 0 ? (agg.net / agg.revenue) * 100 : 0;
+    // Mesma regra do relatório por operador: ENTRADA de dinheiro = depósitos (o
+    // visitante também entra como depósito); a taxa do Mercado Pago sai dela.
+    // Recarga é consumo do saldo já depositado e aparece à parte — antes o topo
+    // mostrava "receita líquida" das recargas (R$ 0) ao lado da taxa dos
+    // depósitos (R$ 2,89), e os números não fechavam.
+    const entradaBruta = agg.deposits.total;
+    const taxaMp = agg.deposits.mpFee;
+    const entradaLiquida = entradaBruta - taxaMp;
+    const baseEntrada = entradaBruta || 1;
+    const pctLiquido = entradaBruta > 0 ? (entradaLiquida / baseEntrada) * 100 : 0;
+    const pctTaxaMp = entradaBruta > 0 ? (taxaMp / baseEntrada) * 100 : 0;
 
     return (
       <div className="space-y-6">
@@ -666,15 +675,15 @@ export const FinancialReport = () => {
             <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
               <div>
                 <p className="text-4xl sm:text-5xl font-headline font-bold text-foreground">
-                  R$ {fmt(agg.net)}
+                  R$ {fmt(entradaLiquida)}
                 </p>
                 <p className="text-sm text-on-surface-variant mt-1">
-                  receita líquida após taxas • margem {margin.toFixed(1)}%
+                  entrada líquida (depósitos − taxa do Mercado Pago)
                 </p>
               </div>
               <div className="flex gap-6">
                 <div className="text-right">
-                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Recargas</p>
                   <p className="text-2xl font-bold text-foreground">{agg.transactions}</p>
                 </div>
                 <div className="text-right">
@@ -687,29 +696,29 @@ export const FinancialReport = () => {
             {/* Barra de composição da receita */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-on-surface-variant">
-                <span>Receita bruta: R$ {fmt(agg.revenue)}</span>
-                <span>Taxas: R$ {fmt(agg.fees + agg.deposits.mpFee)}</span>
+                <span>Depósitos: R$ {fmt(entradaBruta)}</span>
+                <span>Taxa Mercado Pago: R$ {fmt(taxaMp)}</span>
               </div>
               <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
                 <div
                   className="bg-primary/70 transition-all"
-                  style={{ width: `${(agg.net / totalRevenue) * 100}%` }}
-                  title={`Líquido: R$ ${fmt(agg.net)}`}
+                  style={{ width: `${pctLiquido}%` }}
+                  title={`Líquido: R$ ${fmt(entradaLiquida)}`}
                 />
                 <div
                   className="bg-red-500/40 transition-all"
-                  style={{ width: `${(agg.fees / totalRevenue) * 100}%` }}
-                  title={`Taxas operacionais: R$ ${fmt(agg.fees)}`}
+                  style={{ width: `${pctTaxaMp}%` }}
+                  title={`Taxa Mercado Pago: R$ ${fmt(taxaMp)}`}
                 />
               </div>
               <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider">
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
-                  Líquido ({((agg.net / totalRevenue) * 100).toFixed(0)}%)
+                  Líquido ({pctLiquido.toFixed(0)}%)
                 </span>
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
-                  Taxas operacionais ({((agg.fees / totalRevenue) * 100).toFixed(0)}%)
+                  Taxa Mercado Pago ({pctTaxaMp.toFixed(0)}%)
                 </span>
               </div>
             </div>
@@ -720,47 +729,47 @@ export const FinancialReport = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">attach_money</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Receita Bruta</p>
+              <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Entrada (depósitos)</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{activeTenants.length} whitelabels com carregador ou venda</p>
+            <p className="text-2xl font-bold text-foreground">R$ {fmt(entradaBruta)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósito{agg.deposits.count === 1 ? '' : 's'} no período</p>
           </div>
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-red-500">trending_down</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Taxas Totais</p>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Taxa Mercado Pago</p>
             </div>
-            <p className="text-2xl font-bold text-red-500">R$ {fmt(agg.fees + agg.deposits.mpFee)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">operação + {fmt(agg.deposits.mpFee)} MP</p>
+            <p className="text-2xl font-bold text-red-500">R$ {fmt(taxaMp)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">sobre os depósitos (por método)</p>
+          </div>
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">ev_station</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Recargas (consumo)</p>
+            </div>
+            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">
+              {agg.transactions} recarga{agg.transactions === 1 ? '' : 's'} · ticket R$ {fmt(agg.transactions > 0 ? agg.revenue / agg.transactions : 0)}
+            </p>
           </div>
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-primary">savings</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Ticket Médio</p>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Comissão NeoPower</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">
-              R$ {fmt(agg.transactions > 0 ? agg.revenue / agg.transactions : 0)}
-            </p>
-            <p className="text-xs text-on-surface-variant mt-1">por transação</p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Depósitos Wallet</p>
-            </div>
-            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.deposits.total)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósitos no período</p>
+            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.fees)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">5% das recargas · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}</p>
           </div>
         </div>
 
-        {/* ─── Chart: Top whitelabels por receita ─── */}
+        {/* ─── Chart: Top whitelabels por recargas ─── */}
         {topTenants.length > 0 && (
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-xl">bar_chart</span>
-                Top whitelabels por receita
+                Top whitelabels por recargas
               </h2>
               <span className="text-xs text-on-surface-variant">Top {topTenants.length}</span>
             </div>
@@ -819,15 +828,15 @@ export const FinancialReport = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Receita</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Recargas</p>
                         <p className="text-base font-bold text-foreground">R$ {fmt(t.revenue)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Líquida</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Repasse ao dono</p>
                         <p className="text-base font-bold text-primary">R$ {fmt(t.net)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Taxas</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão 5%</p>
                         <p className="text-sm text-red-500">R$ {fmt(t.fees)}</p>
                       </div>
                       <div>
@@ -847,7 +856,7 @@ export const FinancialReport = () => {
                       />
                     </div>
                     <p className="text-xs text-on-surface-variant mt-1.5">
-                      {shareOfRevenue.toFixed(1)}% da receita total
+                      {shareOfRevenue.toFixed(1)}% das recargas
                     </p>
                   </button>
                 );
