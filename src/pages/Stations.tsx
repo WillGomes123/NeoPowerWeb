@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Button } from '../components/ui/button';
 import { ChargerDetailsDialog } from '../components/ChargerDetailsDialog';
+import { ChargerLogsSheet } from '../components/ChargerLogsSheet';
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,9 @@ export const Stations = () => {
   const [savingPending, setSavingPending] = useState<string | null>(null);
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Painel lateral de logs (mensagens OCPP e conexões) de um carregador.
+  const [logsCharger, setLogsCharger] = useState<{ id: string; nome: string } | null>(null);
+  const [logsOpen, setLogsOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState<string | null>(null);
@@ -802,6 +806,14 @@ export const Stations = () => {
                                   Detalhes
                                 </button>
                                 <button
+                                  onClick={() => { setLogsCharger({ id: c.charge_point_id, nome: c.description || c.charge_point_id }); setLogsOpen(true); }}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 bg-surface-container-highest hover:bg-surface-variant"
+                                  title="Ver logs OCPP e de conexão"
+                                >
+                                  <span className="material-symbols-outlined text-xs">receipt_long</span>
+                                  Logs
+                                </button>
+                                <button
                                   onClick={() => handleDownloadQrCode(c.charge_point_id)}
                                   disabled={downloadingQr === c.charge_point_id}
                                   className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all disabled:opacity-30 flex items-center justify-center"
@@ -915,6 +927,14 @@ export const Stations = () => {
                                 Detalhes
                               </button>
                               <button
+                                onClick={() => { setLogsCharger({ id: c.charge_point_id, nome: c.description || c.charge_point_id }); setLogsOpen(true); }}
+                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 bg-surface-container-highest hover:bg-surface-variant"
+                                title="Ver logs OCPP e de conexão"
+                              >
+                                <span className="material-symbols-outlined text-xs">receipt_long</span>
+                                Logs
+                              </button>
+                              <button
                                 onClick={() => handleDownloadQrCode(c.charge_point_id)}
                                 disabled={downloadingQr === c.charge_point_id}
                                 className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all disabled:opacity-30 flex items-center justify-center"
@@ -974,6 +994,12 @@ export const Stations = () => {
 
       {/* Charger Details Dialog */}
       <ChargerDetailsDialog chargePointId={selectedCharger} open={detailsOpen} onOpenChange={setDetailsOpen} onUpdate={fetchData} />
+      <ChargerLogsSheet
+        chargePointId={logsCharger?.id ?? null}
+        nome={logsCharger?.nome}
+        open={logsOpen}
+        onOpenChange={setLogsOpen}
+      />
 
       {/* Register Charger Dialog */}
       <Dialog open={registerOpen} onOpenChange={o => { setRegisterOpen(o); if (!o) setConnectionUrl(null); }}>
