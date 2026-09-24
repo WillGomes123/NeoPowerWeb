@@ -5,7 +5,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
@@ -102,10 +102,15 @@ export const Overview = () => {
     return { online: data.chargers.online, offline: data.chargers.offline, charging: data.chargers.charging };
   }, [data]);
 
-  const statusData = [
-    { name: 'Online', value: statusCounts.online, color: 'var(--color-primary)' },
-    { name: 'Offline', value: statusCounts.offline, color: 'var(--color-outline)' },
-    { name: 'Carregando', value: statusCounts.charging, color: 'var(--color-tertiary)' },
+  // Os três estados são disjuntos (a API desconta os carregando dos online) e
+  // somam o total de carregadores.
+  const statusTotal = statusCounts.online + statusCounts.charging + statusCounts.offline;
+  const statusConectados = statusCounts.online + statusCounts.charging;
+  const statusPct = (n: number) => (statusTotal > 0 ? Math.round((n / statusTotal) * 100) : 0);
+  const statusItens = [
+    { label: 'Livres', value: statusCounts.online, icone: 'check_circle', texto: 'text-primary', barra: 'bg-primary' },
+    { label: 'Em uso', value: statusCounts.charging, icone: 'bolt', texto: 'text-tertiary', barra: 'bg-tertiary' },
+    { label: 'Offline', value: statusCounts.offline, icone: 'wifi_off', texto: 'text-muted-foreground', barra: 'bg-outline' },
   ];
 
   // Recarga é paga com saldo da carteira: é consumo do dinheiro que já entrou
@@ -403,74 +408,63 @@ export const Overview = () => {
           <div className="p-6 border-b border-neutral-100 flex justify-between items-center">
             <h3 className="font-headline font-bold">Status das Estações</h3>
             <span className={`flex items-center gap-1.5 px-3 py-1 text-[10px] font-bold rounded-full ${
-              statusCounts.online > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+              statusConectados > 0 ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${statusCounts.online > 0 ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
-              {statusCounts.online} ONLINE
+              <span className={`w-1.5 h-1.5 rounded-full ${statusConectados > 0 ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
+              {statusConectados} ONLINE
             </span>
           </div>
-          {statusData.every(d => d.value === 0) ? (
+          {statusTotal === 0 ? (
             <div className="p-12 flex flex-col items-center justify-center gap-3">
               <span className="material-symbols-outlined text-4xl text-outline">ev_station</span>
               <p className="text-sm text-on-surface-variant">Nenhuma estação registrada</p>
             </div>
-          ) : statusCounts.online === 0 && statusCounts.charging === 0 ? (
-            /* Todas offline — mostrar status detalhado sem gráfico vazio */
-            <div className="p-8 flex flex-col items-center gap-5">
-              <div className="relative">
-                <div className="w-32 h-32 rounded-full border-[10px] border-muted flex items-center justify-center">
-                  <div className="text-center">
-                    <span className="material-symbols-outlined text-3xl text-muted-foreground">wifi_off</span>
-                    <p className="text-2xl font-headline font-bold text-muted-foreground mt-1">{statusCounts.offline}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-muted-foreground">Todas as estações estão offline</p>
-                <p className="text-xs text-muted-foreground/60 mt-1">Verifique a conexão dos carregadores</p>
-              </div>
-              <div className="flex justify-center gap-6">
-                {statusData.map(d => (
-                  <span key={d.name} className="flex items-center gap-1.5 text-xs text-on-surface-variant">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                    {d.name}: <span className="font-bold text-on-surface">{d.value}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
           ) : (
-            <div className="p-6">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={statusData.filter(d => d.value > 0)}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={85}
-                    paddingAngle={4}
-                    dataKey="value"
-                    strokeWidth={0}
-                  >
-                    {statusData.filter(d => d.value > 0).map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', color: 'var(--color-foreground)' }}
-                    labelStyle={{ color: 'var(--color-muted-foreground)' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              {/* Legend */}
-              <div className="flex justify-center gap-6 mt-4">
-                {statusData.filter(d => d.value > 0).map(d => (
-                  <span key={d.name} className="flex items-center gap-1.5 text-xs text-on-surface-variant">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                    {d.name}: <span className="font-bold text-on-surface">{d.value}</span>
-                  </span>
+            // Indicador direto no lugar do gráfico de rosca: com poucos
+            // carregadores a rosca virava um anel de uma cor só e não se lia nada.
+            <div className="p-6 space-y-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-4xl font-headline font-bold tracking-tight">
+                    {statusConectados}
+                    <span className="text-lg text-on-surface-variant font-medium"> de {statusTotal}</span>
+                  </p>
+                  <p className="text-sm text-on-surface-variant mt-1">carregadores conectados</p>
+                </div>
+                <p className={`text-2xl font-headline font-bold ${statusConectados > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                  {statusPct(statusConectados)}%
+                </p>
+              </div>
+
+              {/* Barra segmentada: proporção de cada estado */}
+              <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-container-highest" role="img"
+                aria-label={statusItens.map(d => `${d.label}: ${d.value}`).join(', ')}>
+                {statusItens.filter(d => d.value > 0).map(d => (
+                  <div key={d.label} className={`h-full ${d.barra}`} style={{ width: `${(d.value / statusTotal) * 100}%` }} title={`${d.label}: ${d.value}`} />
                 ))}
               </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {statusItens.map(d => (
+                  <div key={d.label} className="min-w-0 rounded-xl border border-outline-variant/20 bg-background/50 p-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`material-symbols-outlined text-lg leading-none ${d.texto}`} style={{ fontVariationSettings: "'FILL' 1" }}>{d.icone}</span>
+                      <span className="w-full truncate text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{d.label}</span>
+                    </div>
+                    <p className="text-2xl font-headline font-bold mt-2">{d.value}</p>
+                    <p className="text-[11px] text-on-surface-variant">{statusPct(d.value)}% da rede</p>
+                  </div>
+                ))}
+              </div>
+
+              {statusCounts.offline > 0 && (
+                <p className="text-xs text-on-surface-variant flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">info</span>
+                  {statusCounts.offline === statusTotal
+                    ? 'Todos os carregadores estão offline. Verifique a conexão deles.'
+                    : `${statusCounts.offline} carregador${statusCounts.offline === 1 ? '' : 'es'} sem conexão.`}
+                </p>
+              )}
             </div>
           )}
         </div>
