@@ -105,6 +105,9 @@ function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null }): 
   return t.amount * (TAXA_MP_METODO[m] ?? TAXA_MP_METODO.pix);
 }
 
+/** Usado só até a API responder; o percentual real vem no relatório. */
+const COMISSAO_PADRAO_PERCENT = 5;
+
 export const FinancialReport = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -122,6 +125,10 @@ export const FinancialReport = () => {
 
   const [reportData, setReportData] = useState<FinancialReportItem[]>([]);
   const [recargasCruzadas, setRecargasCruzadas] = useState<RecargasCruzadasData | null>(null);
+  // Comissao da plataforma para esta marca, como a API aplicou. A pagina
+  // dividia o liquido com 5% escrito aqui dentro, entao uma marca com
+  // percentual diferente lia um repasse que nao era o dela.
+  const [comissaoPercent, setComissaoPercent] = useState<number>(COMISSAO_PADRAO_PERCENT);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
   const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -177,6 +184,7 @@ export const FinancialReport = () => {
       const data = await response.json();
       const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
       setRecargasCruzadas(data?.recargasCruzadas || null);
+      if (typeof data?.comissaoPercent === 'number') setComissaoPercent(data.comissaoPercent);
 
       if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
@@ -478,9 +486,11 @@ export const FinancialReport = () => {
   // na carteira da outra rede, então é valor a receber, não entrada.
   const aReceberCruzadas = recargasCruzadas?.recebidas.valorBruto ?? 0;
 
-  // Divisão do líquido (depois das taxas do Mercado Pago): 95% do dono da
-  // estação, 5% da NeoPower — e a manutenção do site sai desses 5%.
-  const PERCENTUAL_NEOPOWER = 0.05;
+  // Divisão do líquido (depois das taxas do Mercado Pago): o dono da estação
+  // fica com o resto, a NeoPower com a comissão — e a manutenção do site sai
+  // dessa comissão. O percentual é o que a API aplicou, não um número fixo.
+  const PERCENTUAL_NEOPOWER = comissaoPercent / 100;
+  const percentCliente = 100 - comissaoPercent;
   const valorPagoCliente = liquidoTotal * (1 - PERCENTUAL_NEOPOWER);
   const lucroNeoPower = liquidoTotal * PERCENTUAL_NEOPOWER;
 
@@ -599,6 +609,8 @@ export const FinancialReport = () => {
   };
 
   const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  /** Percentual sem casas inuteis: 5 vira "5", 7,5 vira "7,5". */
+  const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
   if (loading && reportData.length === 0 && !tenantOverview) {
     return (
@@ -780,7 +792,7 @@ export const FinancialReport = () => {
               <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Comissão NeoPower</p>
             </div>
             <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.fees)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">5% das recargas · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}</p>
+            <p className="text-xs text-on-surface-variant mt-1">{pct(comissaoPercent)}% das recargas · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}</p>
           </div>
         </div>
 
@@ -857,7 +869,7 @@ export const FinancialReport = () => {
                         <p className="text-base font-bold text-primary">R$ {fmt(t.net)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão 5%</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão {pct(comissaoPercent)}%</p>
                         <p className="text-sm text-red-500">R$ {fmt(t.fees)}</p>
                       </div>
                       <div>
@@ -1041,7 +1053,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-foreground font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
                 <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">95% do líquido, após a taxa do Mercado Pago</p>
+                <p className="text-xs text-on-surface-variant mt-1">{pct(percentCliente)}% do líquido, após a taxa do Mercado Pago</p>
               </div>
               <div className="p-3 bg-surface-container-highest rounded-xl">
                 <span className="material-symbols-outlined text-foreground text-2xl">group</span>
@@ -1054,7 +1066,7 @@ export const FinancialReport = () => {
               <div>
                 <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Lucro NeoPower</p>
                 <p className="text-2xl font-bold text-primary mt-1">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-outline mt-1">5% do líquido, já com a manutenção</p>
+                <p className="text-xs text-outline mt-1">{pct(comissaoPercent)}% do líquido, já com a manutenção</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-xl">
                 <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
@@ -1088,10 +1100,10 @@ export const FinancialReport = () => {
                 <div>
                   <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A receber (postos próprios)</p>
                   <p className="text-2xl font-bold text-primary mt-1">
-                    R$ {fmt(recargasCruzadas.recebidas.valorBruto * 0.95)}
+                    R$ {fmt(recargasCruzadas.recebidas.valorBruto * (percentCliente / 100))}
                   </p>
                   <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    Líquido após 5% NeoPower (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
+                    Líquido após {pct(comissaoPercent)}% NeoPower (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
                   </p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
@@ -1105,7 +1117,7 @@ export const FinancialReport = () => {
                     <div key={item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
                       <span className="font-medium text-foreground">{item.rede}</span>
                       <span className="text-on-surface-variant">
-                        {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto * 0.95)} líq.
+                        {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto * (percentCliente / 100))} líq.
                       </span>
                     </div>
                   ))
