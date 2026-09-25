@@ -247,7 +247,7 @@ export function PagamentosDaMarca({ clientId }: { clientId: string }) {
         <div className="flex gap-2">
           <Input
             inputMode="decimal"
-            placeholder={`padrão: ${cred?.padraoPlataformaPercent ?? 30}%`}
+            placeholder={`padrão: ${cred?.padraoPlataformaPercent ?? 5}%`}
             value={comissao}
             onChange={e => setComissao(e.target.value)}
             className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
@@ -263,7 +263,7 @@ export function PagamentosDaMarca({ clientId }: { clientId: string }) {
         </div>
         <p className="text-on-surface-variant text-xs leading-relaxed">
           Fica retida em cada pagamento. Hoje está em {cred?.comissaoEfetivaPercent ?? '—'}%. Deixe
-          vazio para usar o padrão da plataforma ({cred?.padraoPlataformaPercent ?? 30}%). Só vale
+          vazio para usar o padrão da plataforma ({cred?.padraoPlataformaPercent ?? 5}%). Só vale
           depois que o cliente conectar a conta.
         </p>
       </div>
