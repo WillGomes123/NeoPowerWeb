@@ -431,12 +431,33 @@ export const FinancialReport = () => {
     t => t.type === 'refund' && (t.referenceId || '').startsWith('refund-deposit-')
   );
   const totalEstornosDeposito = estornosDeposito.reduce((acc, t) => acc + Math.abs(t.amount), 0);
+  // Estorno de RECARGA devolvido pelo Mercado Pago (mp-refund-tx-<id>): o
+  // dinheiro voltou para o cartão/Pix do cliente, então saiu do caixa e não
+  // pode continuar contado como entrada. Fica registrado como saque na
+  // carteira — por isso não aparecia na conta da entrada, e o repasse de 95%
+  // era calculado sobre um dinheiro que já tinha ido embora. O estorno
+  // creditado na carteira (refund-tx-<id>) NÃO entra aqui: o saldo continua
+  // com o cliente, dentro de casa.
+  const estornosRecargaMp = walletTransactions.filter(
+    t => (t.referenceId || '').startsWith('mp-refund-tx-')
+  );
+  const totalEstornosRecargaMp = estornosRecargaMp.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
-  const totalDeposits = deposits.reduce((acc, t) => acc + t.amount, 0) - totalEstornosDeposito;
+  const totalDeposits =
+    deposits.reduce((acc, t) => acc + t.amount, 0) -
+    totalEstornosDeposito -
+    totalEstornosRecargaMp;
   const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
-  // crédito, débito, boleto) — não mais 1% fixo para todos.
-  const mercadoPagoFeeDeposits = deposits.reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
+  // crédito, débito, boleto) — não mais 1% fixo para todos. Depósito estornado
+  // fica de fora: o Mercado Pago devolve a tarifa junto com o valor, e mantê-la
+  // aqui inflava a taxa e reduzia o repasse ao dono da estação.
+  const idsDepositoEstornado = new Set(
+    estornosDeposito.map(t => (t.referenceId || '').replace('refund-deposit-', ''))
+  );
+  const mercadoPagoFeeDeposits = deposits
+    .filter(t => !idsDepositoEstornado.has(String(t.id)))
+    .reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
   const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
   const grossRevenue = totals.revenue;
@@ -948,6 +969,13 @@ export const FinancialReport = () => {
               <p className="text-xs text-outline mt-1">
                 {isAdmin ? 'Depósitos (recargas não somam)' : `${reportData.length} transação(ões)`}
               </p>
+              {/* Sem esta linha, a entrada cai depois de um estorno e não há
+                  como saber de onde veio a diferença. */}
+              {isAdmin && totalEstornosDeposito + totalEstornosRecargaMp > 0 && (
+                <p className="text-xs text-amber-500 mt-1">
+                  Já descontados R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp)} em estornos
+                </p>
+              )}
             </div>
             <div className="p-3 bg-primary/10 rounded-xl">
               <span className="material-symbols-outlined text-primary text-2xl">account_balance</span>
