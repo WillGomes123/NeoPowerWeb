@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
+import { DonosDoCarregador } from './DonosDoCarregador';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
@@ -395,6 +396,11 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
                 </div>
               </Section>
             )}
+
+            {/* Quem investiu neste ponto — alimenta o app do investidor. */}
+            <Section icon="handshake" title="Investidores">
+              <DonosDoCarregador chargePointId={chargePointId!} />
+            </Section>
 
             {/* Actions */}
             <Section icon="settings_power" title="Ações">
