@@ -450,11 +450,24 @@ export const FinancialReport = () => {
     t => (t.referenceId || '').startsWith('mp-refund-tx-')
   );
   const totalEstornosRecargaMp = estornosRecargaMp.reduce((acc, t) => acc + Math.abs(t.amount), 0);
+  // Devolução ao VISITANTE (GUEST_REFUND_<sessão>): o pague-e-carregue lança o
+  // valor pago como depósito e, no fim, devolve a sobra — por Pix, ou soltando
+  // o que foi reservado no cartão e nunca chegou a ser capturado. Dos dois
+  // jeitos a operação só ficou com o que foi consumido, mas a entrada seguia
+  // mostrando o valor cheio do depósito.
+  const devolucoesVisitante = walletTransactions.filter(t =>
+    (t.referenceId || '').startsWith('GUEST_REFUND_')
+  );
+  const totalDevolucoesVisitante = devolucoesVisitante.reduce(
+    (acc, t) => acc + Math.abs(t.amount),
+    0
+  );
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
   const totalDeposits =
     deposits.reduce((acc, t) => acc + t.amount, 0) -
     totalEstornosDeposito -
-    totalEstornosRecargaMp;
+    totalEstornosRecargaMp -
+    totalDevolucoesVisitante;
   const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
   // crédito, débito, boleto) — não mais 1% fixo para todos. Depósito estornado
@@ -983,9 +996,9 @@ export const FinancialReport = () => {
               </p>
               {/* Sem esta linha, a entrada cai depois de um estorno e não há
                   como saber de onde veio a diferença. */}
-              {isAdmin && totalEstornosDeposito + totalEstornosRecargaMp > 0 && (
+              {isAdmin && totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante > 0 && (
                 <p className="text-xs text-amber-500 mt-1">
-                  Já descontados R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp)} em estornos
+                  Já descontados R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante)} em estornos
                 </p>
               )}
             </div>
@@ -1216,6 +1229,13 @@ export const FinancialReport = () => {
                 </div>
                 <p className="text-lg font-bold text-foreground">R$ {fmt(totalDeposits)}</p>
                 <p className="text-xs text-outline mt-1">{deposits.length} depósitos</p>
+                {/* A lista abaixo mostra cada depósito pelo valor cheio; sem
+                    esta linha o total não fecha com a soma da lista. */}
+                {totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante > 0 && (
+                  <p className="text-xs text-amber-500 mt-1">
+                    menos R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante)} devolvidos
+                  </p>
+                )}
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
