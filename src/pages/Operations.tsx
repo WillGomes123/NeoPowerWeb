@@ -58,6 +58,7 @@ import { useSocket } from '../lib/hooks/useSocket';
 import { useEnviosDiagnostico, type NovoEnvio } from '../lib/hooks/useEnviosDiagnostico';
 import {
   ServidorDiagnosticosIndisponivel,
+  arquivoDaResposta,
   criarPedidoDiagnostico,
   servidorDiagnosticosNoAr,
   type PedidoDiagnostico,
@@ -701,12 +702,27 @@ export const Operations = () => {
               errorCount++;
               continue;
             }
-            const resposta = (await executeCommand(cpId, 'diagnostics', { location: pedido.uploadUrl, ...periodo }, commandName)) as { fileName?: unknown } | null;
+            // FTP primeiro (é o que os MOBY aceitam); se o carregador responder sem
+            // fileName — não aceitou aquele endereço —, tenta o https.
+            const destinos = [pedido.uploadUrlFtp, pedido.uploadUrl].filter(
+              (d): d is string => typeof d === 'string' && d.length > 0
+            );
+            let arquivoAnunciado: string | undefined;
+            for (const location of destinos) {
+              const resposta = await executeCommand(
+                cpId,
+                'diagnostics',
+                { location, ...periodo },
+                commandName
+              );
+              arquivoAnunciado = arquivoDaResposta(resposta);
+              if (arquivoAnunciado) break;
+            }
             novosEnvios.push({
               token: pedido.token,
               chargerId: cpId,
               iniciadoEm,
-              arquivoAnunciado: typeof resposta?.fileName === 'string' && resposta.fileName ? resposta.fileName : undefined,
+              arquivoAnunciado,
             });
             break;
           }
@@ -1150,7 +1166,7 @@ export const Operations = () => {
                     <span className="min-w-0">
                       <span className="block text-sm font-medium text-foreground">Servidor NeoPower (recomendado)</span>
                       <span className="block text-xs text-muted-foreground mt-0.5">
-                        Cada carregador recebe um endereço de envio exclusivo. O arquivo aparece na aba Diagnósticos, pronto para baixar.
+                        Cada carregador recebe um endereço de envio exclusivo (FTP e, se ele não aceitar, HTTPS). O arquivo aparece na aba Diagnósticos, pronto para baixar.
                       </span>
                       {servidorDiag === 'verificando' && (
                         <span className="block text-xs text-muted-foreground/70 mt-1">Verificando o servidor…</span>
