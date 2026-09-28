@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Badge } from '../components/ui/badge';
 import {
   Play,
@@ -54,6 +55,14 @@ import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { api } from '../lib/api';
 import { useSocket } from '../lib/hooks/useSocket';
+import { useEnviosDiagnostico, type NovoEnvio } from '../lib/hooks/useEnviosDiagnostico';
+import {
+  ServidorDiagnosticosIndisponivel,
+  criarPedidoDiagnostico,
+  servidorDiagnosticosNoAr,
+  type PedidoDiagnostico,
+} from '../lib/diagnosticos';
+import { PainelDiagnosticos } from '../components/diagnosticos/PainelDiagnosticos';
 
 // ============================================================================
 // Types
@@ -163,7 +172,7 @@ const operations: Operation[] = [
 
   // Firmware & Diagnósticos
   { id: 'updateFirmware', name: 'Atualizar Firmware', icon: <Upload className="w-4 h-4" />, description: 'Solicita que o carregador baixe e instale um novo firmware a partir de uma URL. O carregador fará o download na data/hora especificada.', category: 'firmware' },
-  { id: 'getDiagnostics', name: 'Obter Diagnósticos', icon: <FileText className="w-4 h-4" />, description: 'Faz o carregador enviar seus logs de diagnóstico para um servidor FTP/HTTP. Essencial para análise de problemas de hardware.', category: 'firmware' },
+  { id: 'getDiagnostics', name: 'Obter Diagnósticos', icon: <FileText className="w-4 h-4" />, description: 'Faz o carregador enviar seus logs de diagnóstico ao servidor NeoPower (ou a um FTP/HTTP próprio). O arquivo aparece na aba Diagnósticos. Essencial para análise de problemas de hardware.', category: 'firmware' },
   { id: 'dataTransfer', name: 'Transferir Dados', icon: <Download className="w-4 h-4" />, description: 'Envia mensagens proprietárias do fabricante ao carregador (funcionalidades específicas não cobertas pelo protocolo OCPP padrão).', category: 'firmware' },
 
   // Segurança (OCPP 1.6J)
@@ -215,6 +224,19 @@ export const Operations = () => {
     totalCost: number;
   }>>([]);
   const [loadingActiveTxs, setLoadingActiveTxs] = useState(false);
+
+  // Obter Diagnósticos: receptor da API (um endereço de envio por carregador)
+  // ou URL própria. 'fora' = API ainda sem o receptor (404) — só URL própria.
+  const [servidorDiag, setServidorDiag] = useState<'verificando' | 'no_ar' | 'fora' | 'incerto'>('verificando');
+  const [diagCarregadorInicial, setDiagCarregadorInicial] = useState<string | undefined>();
+  const {
+    envios: enviosDiag,
+    adicionar: adicionarEnviosDiag,
+    removerConcluidos: limparEnviosDiag,
+  } = useEnviosDiagnostico();
+  const destinoDiag: 'neopower' | 'propria' =
+    servidorDiag === 'fora' || commandParams.destino === 'propria' ? 'propria' : 'neopower';
+  const enviosAguardando = enviosDiag.filter(e => e.estado === 'aguardando').length;
 
   // Real-time socket connection for live charger status updates
   const { isConnected: socketConnected, chargerStatuses } = useSocket();
@@ -340,6 +362,21 @@ export const Operations = () => {
       void loadActiveTransactions(selectedChargePoints);
     }
   }, [showCommandDialog, selectedOperation, selectedChargePoints, loadActiveTransactions]);
+
+  // Ao abrir o Obter Diagnósticos, confere se a API já tem o receptor. Consulta
+  // só de leitura: não gera token de envio.
+  useEffect(() => {
+    if (!showCommandDialog || selectedOperation !== 'getDiagnostics') return;
+    const cpId = selectedChargePoints[0];
+    if (!cpId) return;
+    let ativo = true;
+    void servidorDiagnosticosNoAr(cpId).then(noAr => {
+      if (ativo) setServidorDiag(noAr === true ? 'no_ar' : noAr === false ? 'fora' : 'incerto');
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [showCommandDialog, selectedOperation, selectedChargePoints]);
 
   // Selection handlers
   const toggleChargePointSelection = (cpId: string) => {
@@ -468,6 +505,10 @@ export const Operations = () => {
   // Handle command confirmation
   const handleCommandConfirm = async () => {
     if (!selectedOperation) return;
+    if (selectedOperation === 'getDiagnostics' && destinoDiag === 'propria' && !commandParams.location?.trim()) {
+      toast.error('Informe a URL do seu servidor FTP/HTTP.');
+      return;
+    }
     setExecuting(true);
 
     const operation = operations.find(op => op.id === selectedOperation);
@@ -476,6 +517,9 @@ export const Operations = () => {
     let successCount = 0;
     let errorCount = 0;
     let ultimoErro = '';
+    // Obter Diagnósticos pelo servidor NeoPower: um token por carregador.
+    const novosEnvios: NovoEnvio[] = [];
+    let servidorDiagFora = false;
 
     for (const cpId of selectedChargePoints) {
       // Pula chargers offline — comandos OCPP exigem WebSocket ativo
@@ -631,9 +675,41 @@ export const Operations = () => {
               retrieveDate: toISO(params.retrieveDate) || new Date().toISOString()
             }, commandName);
             break;
-          case 'getDiagnostics':
-            await executeCommand(cpId, 'diagnostics', { location: params.location }, commandName);
+          case 'getDiagnostics': {
+            const periodo = { startTime: toISO(params.startTime), stopTime: toISO(params.stopTime) };
+            if (destinoDiag === 'propria') {
+              await executeCommand(cpId, 'diagnostics', { location: params.location?.trim(), ...periodo }, commandName);
+              break;
+            }
+            if (servidorDiagFora) {
+              addResult({ chargePointId: cpId, command: commandName, status: 'error', message: 'Servidor de diagnósticos da NeoPower indisponível. Comando não enviado.' });
+              errorCount++;
+              continue;
+            }
+            // Cada carregador recebe o seu endereço de envio (o token vai na URL).
+            const iniciadoEm = Date.now();
+            let pedido: PedidoDiagnostico;
+            try {
+              pedido = await criarPedidoDiagnostico(cpId);
+            } catch (err) {
+              if (err instanceof ServidorDiagnosticosIndisponivel) {
+                servidorDiagFora = true;
+                setServidorDiag('fora');
+              }
+              ultimoErro = err instanceof Error ? err.message : 'Não foi possível gerar o endereço de envio.';
+              addResult({ chargePointId: cpId, command: commandName, status: 'error', message: ultimoErro });
+              errorCount++;
+              continue;
+            }
+            const resposta = (await executeCommand(cpId, 'diagnostics', { location: pedido.uploadUrl, ...periodo }, commandName)) as { fileName?: unknown } | null;
+            novosEnvios.push({
+              token: pedido.token,
+              chargerId: cpId,
+              iniciadoEm,
+              arquivoAnunciado: typeof resposta?.fileName === 'string' && resposta.fileName ? resposta.fileName : undefined,
+            });
             break;
+          }
           case 'dataTransfer':
             await executeCommand(cpId, 'data-transfer', {
               vendorId: params.vendorId,
@@ -702,11 +778,26 @@ export const Operations = () => {
     }
 
     setExecuting(false);
+
+    // API sem o receptor e nada enviado: o diálogo continua aberto, já na URL própria.
+    if (servidorDiagFora && successCount === 0) {
+      toast.error('O servidor de diagnósticos da NeoPower ainda não está no ar. Informe uma URL própria (FTP/HTTP).', { duration: 6000 });
+      return;
+    }
+
     setShowCommandDialog(false);
     setSelectedOperation(null);
     setCommandParams({ idTag: 'USER001' });
 
-    if (successCount > 0 && errorCount === 0) {
+    if (novosEnvios.length > 0) {
+      adicionarEnviosDiag(novosEnvios);
+      setDiagCarregadorInicial(novosEnvios[0].chargerId);
+      setActiveTab('diagnosticos');
+    }
+
+    if (novosEnvios.length > 0 && errorCount === 0) {
+      toast.success(`Pedido enviado a ${novosEnvios.length} carregador(es). Acompanhe a chegada do arquivo aqui.`);
+    } else if (successCount > 0 && errorCount === 0) {
       toast.success(`Comando executado em ${successCount} carregador(es)`);
     } else if (errorCount > 0 && successCount > 0) {
       toast.warning(`${successCount} sucesso(s), ${errorCount} erro(s). Veja a aba de Resultados.`);
@@ -1031,13 +1122,72 @@ export const Operations = () => {
           </>
         );
 
-      case 'getDiagnostics':
+      case 'getDiagnostics': {
+        const opcaoClass = (ativa: boolean) =>
+          `flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+            ativa ? 'border-primary bg-primary/10' : 'border-outline-variant/30 hover:border-primary/50'
+          }`;
         return (
-          <div className="space-y-2">
-            <Label>Upload Location (URL) *</Label>
-            <Input className={inputClass} placeholder="ftp://server/upload" value={commandParams.location || ''} onChange={e => setCommandParams({ ...commandParams, location: e.target.value })} />
-          </div>
+          <>
+            {servidorDiag === 'fora' ? (
+              <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/10">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs leading-relaxed">
+                  <p className="font-medium text-foreground">O servidor de diagnósticos da NeoPower ainda não está no ar.</p>
+                  <p className="text-muted-foreground mt-0.5">Por enquanto, informe a URL de um servidor FTP/HTTP seu para receber o arquivo.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Para onde o carregador envia</Label>
+                <RadioGroup
+                  value={destinoDiag}
+                  onValueChange={v => setCommandParams({ ...commandParams, destino: v })}
+                  className="gap-2"
+                >
+                  <label htmlFor="diag-neopower" className={opcaoClass(destinoDiag === 'neopower')}>
+                    <RadioGroupItem value="neopower" id="diag-neopower" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">Servidor NeoPower (recomendado)</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Cada carregador recebe um endereço de envio exclusivo. O arquivo aparece na aba Diagnósticos, pronto para baixar.
+                      </span>
+                      {servidorDiag === 'verificando' && (
+                        <span className="block text-xs text-muted-foreground/70 mt-1">Verificando o servidor…</span>
+                      )}
+                    </span>
+                  </label>
+                  <label htmlFor="diag-propria" className={opcaoClass(destinoDiag === 'propria')}>
+                    <RadioGroupItem value="propria" id="diag-propria" className="mt-0.5" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-foreground">URL própria (FTP/HTTP)</span>
+                      <span className="block text-xs text-muted-foreground mt-0.5">
+                        Para quem tem um servidor FTP ou HTTP. O arquivo fica no seu servidor.
+                      </span>
+                    </span>
+                  </label>
+                </RadioGroup>
+              </div>
+            )}
+            {destinoDiag === 'propria' && (
+              <div className="space-y-2">
+                <Label>Upload Location (URL) *</Label>
+                <Input className={inputClass} placeholder="ftp://server/upload" value={commandParams.location || ''} onChange={e => setCommandParams({ ...commandParams, location: e.target.value })} />
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Logs a partir de (opcional)</Label>
+                <Input className={inputClass} type="datetime-local" value={commandParams.startTime || ''} onChange={e => setCommandParams({ ...commandParams, startTime: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Logs até (opcional)</Label>
+                <Input className={inputClass} type="datetime-local" value={commandParams.stopTime || ''} onChange={e => setCommandParams({ ...commandParams, stopTime: e.target.value })} />
+              </div>
+            </div>
+          </>
         );
+      }
 
       case 'dataTransfer':
         return (
@@ -1307,16 +1457,23 @@ export const Operations = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-surface-container border border-border">
+        <TabsList className="bg-surface-container border border-border max-w-full overflow-x-auto justify-start">
           <TabsTrigger value="operations" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
-            <Zap className="w-4 h-4 mr-2" />
+            <Zap className="hidden sm:block w-4 h-4 mr-2" />
             Operações
           </TabsTrigger>
           <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
-            <Activity className="w-4 h-4 mr-2" />
+            <Activity className="hidden sm:block w-4 h-4 mr-2" />
             Resultados
             {results.length > 0 && (
               <Badge variant="secondary" className="ml-2 bg-primary/20 text-primary">{results.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="diagnosticos" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
+            <FileText className="hidden sm:block w-4 h-4 mr-2" />
+            Diagnósticos
+            {enviosAguardando > 0 && (
+              <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-700 dark:text-amber-300">{enviosAguardando}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -1579,6 +1736,16 @@ export const Operations = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab: Diagnósticos (envios em andamento e arquivos recebidos) */}
+        <TabsContent value="diagnosticos">
+          <PainelDiagnosticos
+            carregadores={mergedChargePoints}
+            envios={enviosDiag}
+            onLimparConcluidos={limparEnviosDiag}
+            carregadorInicial={diagCarregadorInicial ?? selectedChargePoints[0]}
+          />
         </TabsContent>
       </Tabs>
 
