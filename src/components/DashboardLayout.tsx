@@ -305,7 +305,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {/* KAIROS Trigger Button (Círculo Brilhante) */}
         <div className="flex flex-col items-center justify-center pb-6 pt-2 mt-auto shrink-0">
           <button
-            onClick={() => setIsKairosOpen(!isKairosOpen)}
+            onClick={() => {
+              setIsKairosOpen(!isKairosOpen);
+              setMenuAberto(false);
+            }}
             className={`relative w-14 h-14 rounded-full bg-zinc-950 border flex items-center justify-center shadow-lg active:scale-95 transition-all hover:scale-105 group ${
               isKairosOpen 
                 ? 'border-primary shadow-[0_0_20px_rgba(142,255,113,0.3)] text-primary' 
