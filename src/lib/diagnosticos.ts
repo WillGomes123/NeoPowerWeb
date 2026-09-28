@@ -7,6 +7,12 @@ export interface PedidoDiagnostico {
   token: string;
   /** URL pública terminada em "/" — vai no campo location do GetDiagnostics. */
   uploadUrl: string;
+  /**
+   * Mesmo pedido pelo receptor FTP (ftp://token:token@host:porta/), quando a
+   * API tem o serviço ftp-diagnosticos configurado. Os MOBY CVBE só enviam por
+   * FTP: com https respondem ao GetDiagnostics sem fileName.
+   */
+  uploadUrlFtp?: string | null;
   expiraEm: string;
 }
 
@@ -128,4 +134,15 @@ export function formatarDataHora(iso: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+/**
+ * Nome do arquivo que o carregador anunciou no GetDiagnostics.conf. A API
+ * devolve { success, data: { fileName } }; sem fileName, o carregador não vai
+ * enviar para aquele endereço.
+ */
+export function arquivoDaResposta(resposta: unknown): string | undefined {
+  const r = resposta as { data?: { fileName?: unknown }; fileName?: unknown } | null;
+  const nome = r?.data?.fileName ?? r?.fileName;
+  return typeof nome === 'string' && nome ? nome : undefined;
 }
