@@ -658,8 +658,13 @@ export const Branding = () => {
                             variant="outline"
                             className="h-10 text-xs shrink-0"
                             onClick={() => {
+                              // SEM barra no fim. Quem cola isto num carregador que
+                              // acrescenta "/<id>" sozinho acabava com
+                              // ".../ocpp/marca//240500147" — barra dupla que o
+                              // equipamento reclama e que já criou carregador
+                              // fantasma no banco.
                               navigator.clipboard
-                                .writeText(`wss://neocms.up.railway.app/ocpp/${formData.clientId}/`)
+                                .writeText(`wss://neocms.up.railway.app/ocpp/${formData.clientId}`)
                                 .then(() => toast.success('URL copiada'))
                                 .catch(() => toast.error('Não foi possível copiar'));
                             }}
@@ -674,6 +679,15 @@ export const Branding = () => {
                           este operador. A URL genérica (
                           <span className="font-mono">wss://neocms.up.railway.app/ocpp/…</span>)
                           continua caindo na plataforma NeoPower.
+                        </p>
+                        <p className="text-amber-500 text-xs leading-relaxed flex items-start gap-1.5">
+                          <span className="material-symbols-outlined text-sm shrink-0">warning</span>
+                          <span>
+                            Não termine o endereço com barra. Se o seu carregador tem um campo
+                            separado para o ID, ele junta a barra sozinho — e o endereço vira{' '}
+                            <span className="font-mono">…/{formData.clientId}//ID</span>, que o
+                            equipamento recusa.
+                          </span>
                         </p>
                       </div>
                     )}
