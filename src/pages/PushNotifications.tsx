@@ -18,6 +18,7 @@ import {
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 interface Campaign {
   id: number;
@@ -25,6 +26,8 @@ interface Campaign {
   message: string;
   status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
   targetAudience: 'all_users' | 'specific_location' | 'specific_users' | 'specific_profile';
+  /** Marca dona da campanha; null = todas as marcas. */
+  clientId?: string | null;
   locationId: number | null;
   profileId: number | null;
   sentCount: number;
@@ -50,6 +53,11 @@ interface PushStats {
 interface Location {
   id: number;
   nomeDoLocal: string;
+}
+
+interface MarcaOpcao {
+  clientId: string;
+  companyName: string;
 }
 
 interface ProfileOption {
@@ -81,7 +89,17 @@ const audienceLabels = {
   specific_profile: 'Perfil Específico',
 };
 
+// Valores que a API entende no clientId da campanha (super-admin).
+const MARCA_PADRAO = 'neopower-default';
+const TODAS_AS_MARCAS = 'todas';
+
 export const PushNotifications = () => {
+  const { user } = useAuth();
+  // Admin da plataforma (sem marca) escolhe para qual marca vai a campanha.
+  // Antes a campanha dele ia para os clientes de todas as white labels.
+  const isSuperAdmin = user?.role === 'admin' && !user?.branding?.clientId;
+  const [marcas, setMarcas] = useState<MarcaOpcao[]>([]);
+  const [marca, setMarca] = useState<string>(MARCA_PADRAO);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [stats, setStats] = useState<PushStats | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -100,6 +118,34 @@ export const PushNotifications = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    void (async () => {
+      try {
+        const r = await api.get('/admin/branding');
+        if (!r.ok) return;
+        const data = await r.json();
+        const brutas: Array<{ clientId?: string; companyName?: string }> = Array.isArray(data)
+          ? data
+          : data?.payload || [];
+        const lista: MarcaOpcao[] = brutas
+          .filter((b): b is { clientId: string; companyName?: string } => !!b?.clientId)
+          .map(b => ({ clientId: b.clientId, companyName: b.companyName || b.clientId }));
+        if (!lista.some(m => m.clientId === MARCA_PADRAO)) {
+          lista.unshift({ clientId: MARCA_PADRAO, companyName: 'NeoPower' });
+        }
+        setMarcas(lista);
+      } catch {
+        // sem a lista, fica só a NeoPower (padrão da API)
+      }
+    })();
+  }, [isSuperAdmin]);
+
+  const nomeDaMarca = (clientId: string | null | undefined) =>
+    clientId == null
+      ? 'Todas as marcas'
+      : (marcas.find(m => m.clientId === clientId)?.companyName ?? clientId);
 
   const fetchData = async () => {
     setLoading(true);
@@ -152,12 +198,25 @@ export const PushNotifications = () => {
       return;
     }
 
+    if (
+      isSuperAdmin &&
+      marca === TODAS_AS_MARCAS &&
+      !confirm(
+        'Esta campanha vai para os clientes de TODAS as marcas, white labels incluídas. Continuar?'
+      )
+    ) {
+      return;
+    }
+
     try {
       const payload: any = {
         title: title.trim(),
         message: message.trim(),
         targetAudience,
       };
+      if (isSuperAdmin) {
+        payload.clientId = marca;
+      }
 
       if (targetAudience === 'specific_location' && selectedLocation) {
         payload.locationId = parseInt(selectedLocation);
@@ -182,7 +241,17 @@ export const PushNotifications = () => {
     }
   };
 
-  const handleSendCampaign = async (id: number) => {
+  const handleSendCampaign = async (campaign: Campaign) => {
+    const { id } = campaign;
+    const publico = audienceLabels[campaign.targetAudience].toLowerCase();
+    const daMarca = isSuperAdmin ? ` (${nomeDaMarca(campaign.clientId)})` : '';
+    if (
+      !confirm(
+        `Enviar "${campaign.title}" para ${publico}${daMarca}? O push chega nos celulares na hora e não dá para desfazer.`
+      )
+    ) {
+      return;
+    }
     setSending(id);
     try {
       const response = await api.post(`/push/campaigns/${id}/send`);
@@ -227,6 +296,7 @@ export const PushNotifications = () => {
     setTargetAudience('all_users');
     setSelectedLocation('');
     setSelectedProfile('');
+    setMarca(MARCA_PADRAO);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -298,6 +368,43 @@ export const PushNotifications = () => {
                   />
                   <p className="text-[10px] text-on-surface-variant">{message.length}/500 caracteres</p>
                 </div>
+
+                {isSuperAdmin && (
+                  <div className="space-y-2">
+                    <label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                      Marca
+                    </label>
+                    <Select value={marca} onValueChange={setMarca}>
+                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-surface-container border-outline-variant/20">
+                        {(marcas.length
+                          ? marcas
+                          : [{ clientId: MARCA_PADRAO, companyName: 'NeoPower' }]
+                        ).map(m => (
+                          <SelectItem
+                            key={m.clientId}
+                            value={m.clientId}
+                            className="text-on-surface focus:bg-surface-container-highest"
+                          >
+                            {m.companyName}
+                          </SelectItem>
+                        ))}
+                        <SelectItem
+                          value={TODAS_AS_MARCAS}
+                          className="text-error focus:bg-surface-container-highest"
+                        >
+                          Todas as marcas (white labels incluídas)
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-on-surface-variant">
+                      Só os clientes desta marca recebem. Para teste, use um perfil ou local
+                      específico.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-on-surface-variant text-xs uppercase tracking-widest">Público-Alvo</label>
@@ -443,6 +550,7 @@ export const PushNotifications = () => {
                 <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                   <th className="px-6 py-4">Título</th>
                   <th className="px-6 py-4">Mensagem</th>
+                  {isSuperAdmin && <th className="px-6 py-4">Marca</th>}
                   <th className="px-6 py-4">Público</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4">Enviadas</th>
@@ -459,6 +567,13 @@ export const PushNotifications = () => {
                     <td className="px-6 py-4 max-w-xs">
                       <span className="text-sm text-on-surface-variant truncate block">{campaign.message}</span>
                     </td>
+                    {isSuperAdmin && (
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-on-surface-variant">
+                          {nomeDaMarca(campaign.clientId)}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className="text-sm text-on-surface-variant">{audienceLabels[campaign.targetAudience]}</span>
                     </td>
@@ -481,7 +596,7 @@ export const PushNotifications = () => {
                       <div className="flex items-center gap-2">
                         {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
                           <button
-                            onClick={() => handleSendCampaign(campaign.id)}
+                            onClick={() => handleSendCampaign(campaign)}
                             disabled={sending === campaign.id}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary text-xs font-bold shadow-[0_2px_10px_rgba(142,255,113,0.2)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
                           >
