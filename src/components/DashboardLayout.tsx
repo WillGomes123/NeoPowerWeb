@@ -69,6 +69,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
     { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
     { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
+    { path: '/atendimento', label: 'Atendimento', icon: 'support_agent', roles: ['admin'], somentePlataforma: true },
     { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
     { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
   ];
@@ -88,6 +89,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'operador', 'comum'] },
         { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
         { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
+        // Atendimento por WhatsApp do suporte: só a NeoPower vê.
+        { path: '/atendimento', label: 'Atendimento', icon: 'support_agent', roles: ['admin'], somentePlataforma: true, novo: true },
       ],
     },
     {
@@ -117,7 +120,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const path = location.pathname;
     return {
-      gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes'].some(p => path === p || path.startsWith(p + '/')),
+      gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes', '/atendimento'].some(p => path === p || path.startsWith(p + '/')),
       financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
       configuracoes: ['/usuarios', '/carteiras', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
     };
