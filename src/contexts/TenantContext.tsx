@@ -28,7 +28,7 @@ const APP_ROUTES = [
   'login', 'estacoes', 'locais', 'transacoes', 'indicadores', 
   'operacoes', 'relatorio-financeiro', 'usuarios', 'vouchers', 
   'tarifas', 'carteiras', 'notificacoes', 'email', 'branding',
-  'sustentabilidade', 'alarmes', 'agendamentos', 'metas', 'energia',
+  'sustentabilidade', 'alarmes', 'agendamentos', 'metas', 'energia', 'atendimento',
   // páginas legais públicas (sem tenant na URL → redireciona para /neopower/...)
   'privacidade', 'termos', 'excluir-conta', 'suporte'
 ];

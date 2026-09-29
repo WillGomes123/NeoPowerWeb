@@ -247,6 +247,13 @@ export const api = {
     });
   },
 
+  patch: async <T = unknown>(endpoint: string, data?: T) => {
+    return fetchWithAuth(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(data ?? {}),
+    });
+  },
+
   delete: async <T = unknown>(endpoint: string, data?: T | FormData) => {
     const isFormData = data instanceof FormData;
     return fetchWithAuth(endpoint, {

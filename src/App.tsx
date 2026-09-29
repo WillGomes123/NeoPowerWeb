@@ -31,6 +31,7 @@ const Tariffs = lazy(() => import('./pages/Tariffs').then(m => ({ default: m.Tar
 const Wallets = lazy(() => import('./pages/Wallets').then(m => ({ default: m.Wallets })));
 const PushNotifications = lazy(() => import('./pages/PushNotifications').then(m => ({ default: m.PushNotifications })));
 const Email = lazy(() => import('./pages/Email').then(m => ({ default: m.Email })));
+const Atendimento = lazy(() => import('./pages/Atendimento').then(m => ({ default: m.Atendimento })));
 const Branding = lazy(() => import('./pages/Branding').then(m => ({ default: m.Branding })));
 const Alarms = lazy(() => import('./pages/Alarms').then(m => ({ default: m.Alarms })));
 const Energia = lazy(() => import('./pages/Energia').then(m => ({ default: m.Energia })));
@@ -125,6 +126,7 @@ const AppRoutes = () => {
       <Route path="/carteiras" element={createProtectedRoute(Wallets, true)} />
       <Route path="/notificacoes" element={createProtectedRoute(PushNotifications)} />
       <Route path="/email" element={createProtectedRoute(Email, true, true)} />
+      <Route path="/atendimento" element={createProtectedRoute(Atendimento, true, true)} />
       <Route path="/branding" element={createProtectedRoute(Branding, true, true)} />
       <Route path="/alarmes" element={createProtectedRoute(Alarms)} />
       {/* Energia (usinas): só a NeoPower, como Email e White Label. A API também barra. */}
