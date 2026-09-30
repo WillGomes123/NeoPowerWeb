@@ -736,8 +736,20 @@ export const Vouchers = () => {
 
                       {/* Restriction */}
                       <td className="px-6 py-4">
+                        {/*
+                          Cortesia precisa ser visivel NA LISTA. Sem isto, o unico
+                          jeito de saber se um codigo libera recarga de graca era
+                          abrir a edicao um por um -- e foi assim que uma cortesia
+                          desligada por engano passou despercebida.
+                        */}
+                        {voucher.somente_visitante && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 mr-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-xs">qr_code_2</span>
+                            Cortesia
+                          </span>
+                        )}
                         {voucher.location_id || voucher.charger_id ? (
-                          <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center gap-2">
                             {voucher.location_id && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold">
                                 <span className="material-symbols-outlined text-xs">location_on</span>
@@ -751,6 +763,11 @@ export const Vouchers = () => {
                               </span>
                             )}
                           </div>
+                        ) : voucher.somente_visitante ? (
+                          <span className="inline-flex items-center gap-1 text-amber-500 text-xs font-medium">
+                            <span className="material-symbols-outlined text-sm">warning</span>
+                            Vale em qualquer carregador
+                          </span>
                         ) : (
                           <span className="text-on-surface-variant text-xs">Sem restrição</span>
                         )}
