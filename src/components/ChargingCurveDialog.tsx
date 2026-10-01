@@ -59,30 +59,50 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   // tela desenhava uma curva INVENTADA — 60 min a 7,4 kW, tensão aleatória e
   // SoC fictício — e o operador via "Energia total" de uma recarga que não
   // tinha dado nenhum.
-  const buscarLeituras = useCallback(async () => {
-    setLoading(true);
-    setErro(false);
-    try {
-      const res = await api.get(`/chargers/${encodeURIComponent(chargerId)}/transactions/${transactionId}/meter-values`);
-      if (!res.ok) {
-        setErro(true);
-        setData([]);
-        return;
+  // `silencioso`: atualização automática, sem spinner e sem apagar a curva já
+  // na tela por causa de um erro passageiro.
+  const buscarLeituras = useCallback(
+    async (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      try {
+        const res = await api.get(`/chargers/${encodeURIComponent(chargerId)}/transactions/${transactionId}/meter-values`);
+        if (!res.ok) {
+          if (!silencioso) {
+            setErro(true);
+            setData([]);
+          }
+          return;
+        }
+        const raw: unknown = await res.json();
+        setErro(false);
+        setData(Array.isArray(raw) ? (raw as MeterPoint[]) : []);
+      } catch {
+        if (!silencioso) {
+          setErro(true);
+          setData([]);
+        }
+      } finally {
+        if (!silencioso) setLoading(false);
       }
-      const raw: unknown = await res.json();
-      setData(Array.isArray(raw) ? (raw as MeterPoint[]) : []);
-    } catch {
-      setErro(true);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [chargerId, transactionId]);
+    },
+    [chargerId, transactionId]
+  );
 
   useEffect(() => {
     if (!open) return;
     void buscarLeituras();
   }, [open, buscarLeituras]);
+
+  // Recarga em andamento: o carregador manda uma leitura por minuto, então a
+  // janela se atualiza sozinha. Antes ficava parada no que havia ao abrir, e
+  // logo no início (uma leitura só) dizia que o carregador não tinha enviado
+  // medições (240500559, transação #90, 01/10).
+  const emAndamento = !!resumo?.emAndamento;
+  useEffect(() => {
+    if (!open || !emAndamento) return;
+    const id = setInterval(() => void buscarLeituras(true), 30000);
+    return () => clearInterval(id);
+  }, [open, emAndamento, buscarLeituras]);
 
   if (!open) return null;
 
@@ -90,6 +110,10 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   const hasSoc = data.some(d => d.soc_percent != null && d.soc_percent > 0);
   const picoPotencia = temCurva ? Math.max(...data.map(d => d.power_kw || 0)) : 0;
   const picoCorrente = temCurva ? Math.max(...data.map(d => d.current_a || 0)) : 0;
+  // Leituras chegando, mas todas sem corrente: o carregador liberou e o carro
+  // não puxa (SuspendedEV). É o que o operador precisa saber, não "sem leituras".
+  const semCorrente = temCurva && picoCorrente === 0 && picoPotencia === 0;
+  const aguardando = !erro && emAndamento;
   const tensoes = data.map(d => d.voltage_v).filter(v => v > 0);
   const tensaoMedia = tensoes.length ? tensoes.reduce((a, b) => a + b, 0) / tensoes.length : 0;
 
@@ -151,16 +175,28 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
               <div className="h-[200px] flex flex-col items-center justify-center text-center gap-2 px-4">
                 <span className="material-symbols-outlined text-3xl text-outline">{erro ? 'cloud_off' : 'show_chart'}</span>
                 <p className="text-sm font-medium text-on-surface">
-                  {erro ? 'Não foi possível carregar as leituras agora' : 'Sem leituras do medidor durante esta recarga'}
+                  {erro
+                    ? 'Não foi possível carregar as leituras agora'
+                    : aguardando
+                      ? 'Aguardando as leituras do carregador'
+                      : 'Sem leituras do medidor durante esta recarga'}
                 </p>
                 <p className="text-xs text-on-surface-variant max-w-md">
                   {erro
                     ? 'Tente abrir de novo em instantes.'
-                    : 'O carregador não enviou medições intermediárias. A energia acima vem das leituras do medidor no início e no fim da recarga.'}
+                    : aguardando
+                      ? `O carregador manda uma medição por minuto, e a curva aparece a partir da segunda.${data.length === 1 ? ' A primeira já chegou.' : ''} Esta janela se atualiza sozinha.`
+                      : 'O carregador não enviou medições intermediárias. A energia acima vem das leituras do medidor no início e no fim da recarga.'}
                 </p>
               </div>
             ) : (
               <>
+                {semCorrente && (
+                  <div className="mb-4 rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-xs text-on-surface leading-relaxed">
+                    <strong>Nenhuma corrente nas {data.length} leituras.</strong> O carregador liberou a energia, mas o
+                    carro não está puxando: pode estar com recarga agendada, com a bateria cheia ou recusando a carga.
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
                   <ChartLegend color="bg-[#22c55e]" label="Potência (kW)" />
                   {hasSoc && <ChartLegend color="bg-[#3b82f6]" label="SoC (%)" dashed />}
