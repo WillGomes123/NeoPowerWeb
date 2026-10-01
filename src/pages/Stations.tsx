@@ -439,14 +439,17 @@ export const Stations = () => {
     return groups;
   }, [assignedChargers]);
 
-  // Base do link de conexão do operador (white label), derivada do connection_url
-  // de qualquer carregador (tira o ID do fim). O instalador acrescenta o ID de
-  // cada carregador ao final — ou copia o link completo em cada estação abaixo.
+  // Base do link de conexão de quem está vendo: marca → /ocpp/<marca>/;
+  // plataforma (admin sem marca) → /ocpp/, onde conectam os carregadores sem
+  // marca. O instalador acrescenta o ID ao final, ou copia o link completo de
+  // cada estação abaixo. Antes a base saía do primeiro carregador da lista, e o
+  // admin, que vê todas as marcas, recebia o link de outra (/ocpp/FulgoTeste/).
   const serverBase = useMemo(() => {
-    const withUrl = mergedChargers.find(c => c.connection_url);
-    if (!withUrl?.connection_url) return null;
-    return withUrl.connection_url.replace(/\/[^/]+$/, '/');
-  }, [mergedChargers]);
+    const exemplo = mergedChargers.find(c => c.connection_url)?.connection_url;
+    const raiz = exemplo?.match(/^(.*?\/ocpp\/)/)?.[1] ?? 'wss://neocms.up.railway.app/ocpp/';
+    const marca = ehAdminPlataforma ? null : user?.clientId || user?.branding?.clientId || null;
+    return marca ? `${raiz}${marca}/` : raiz;
+  }, [mergedChargers, ehAdminPlataforma, user?.clientId, user?.branding?.clientId]);
 
   if (loading) {
     return (
