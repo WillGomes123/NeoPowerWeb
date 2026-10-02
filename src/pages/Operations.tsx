@@ -100,6 +100,9 @@ function kwParaAmperes(kw: number, potenciaCarregadorKw?: number | string | null
 }
 
 const formatarKw = (kw: number) => kw.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+/** Valor do item "Nenhum" no propósito do ClearChargingProfile (o Select não aceita ""). */
+const PROPOSITO_NENHUM = 'nenhum';
 const minimoKw = (fases: number) => formatarKw(Math.ceil((CORRENTE_MINIMA_A * TENSAO_FASE_V * fases) / 100) / 10);
 
 interface Location {
@@ -1068,10 +1071,17 @@ export const Operations = () => {
             </div>
             <div className="space-y-2">
               <Label>Purpose (opcional)</Label>
-              <Select value={commandParams.purpose || ''} onValueChange={v => setCommandParams({ ...commandParams, purpose: v })}>
+              {/* O Select do Radix não aceita item com value="" (derrubava a página
+                  inteira ao abrir "Limpar perfil de carga"). "Nenhum" usa um valor
+                  próprio e volta a ser vazio no estado, que o envio trata como
+                  "sem filtro de propósito". */}
+              <Select
+                value={commandParams.purpose || PROPOSITO_NENHUM}
+                onValueChange={v => setCommandParams({ ...commandParams, purpose: v === PROPOSITO_NENHUM ? '' : v })}
+              >
                 <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value={PROPOSITO_NENHUM}>Nenhum</SelectItem>
                   <SelectItem value="ChargePointMaxProfile">ChargePoint Max Profile</SelectItem>
                   <SelectItem value="TxDefaultProfile">Tx Default Profile</SelectItem>
                   <SelectItem value="TxProfile">Tx Profile</SelectItem>
