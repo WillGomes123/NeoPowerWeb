@@ -181,7 +181,7 @@ describe('Erros do app', () => {
     expect(desde).toBeLessThanOrEqual(Date.now() - trintaDias + 1000);
   });
 
-  it('mostra o clientId no filtro de marca quando o nome se repete', async () => {
+  it('filtra a NeoPower pelo clientId que o app manda, mesmo com link de marca=neo', async () => {
     // A NeoPower existe como 'neo' (configuração) e 'neopower-default' (build do app).
     configurar({
       marcas: [
@@ -192,9 +192,25 @@ describe('Erros do app', () => {
     });
     renderizar('/erros-do-app?marca=neo');
 
+    await waitFor(() => expect(ultimaConsulta()?.get('clientId')).toBe('neopower-default'));
+    expect(consultasDaLista().some(q => q.get('clientId') === 'neo')).toBe(false);
+    // O 'neo' sai do filtro: sobra uma NeoPower só, sem o clientId no rótulo.
     const filtro = screen.getByRole('combobox', { name: 'Marca' });
-    await waitFor(() => expect(filtro).toHaveTextContent('NeoPower (neo)'));
-    await waitFor(() => expect(ultimaConsulta()?.get('clientId')).toBe('neo'));
+    await waitFor(() => expect(filtro).toHaveTextContent('NeoPower'));
+    expect(filtro).not.toHaveTextContent('neo');
+  });
+
+  it('mostra o clientId no filtro de marca quando o nome se repete', async () => {
+    configurar({
+      marcas: [
+        { clientId: 'vipenergy', companyName: 'Vip Energy' },
+        { clientId: 'vipenergy-sp', companyName: 'Vip Energy' },
+      ],
+    });
+    renderizar('/erros-do-app?marca=vipenergy-sp');
+
+    const filtro = screen.getByRole('combobox', { name: 'Marca' });
+    await waitFor(() => expect(filtro).toHaveTextContent('Vip Energy (vipenergy-sp)'));
   });
 
   it('mostra só o nome no filtro de marca quando ele é único', async () => {
@@ -265,7 +281,8 @@ describe('Erros do app', () => {
   });
 
   it('pagina pela API', async () => {
-    configurar({ lista: { ...PAGINA, total: 60 } });
+    const itens = Array.from({ length: 25 }, (_, i) => relato({ id: 100 + i }));
+    configurar({ lista: { itens, total: 60, pagina: 1, porPagina: 25 } });
     const user = userEvent.setup();
     renderizar();
 
@@ -273,6 +290,64 @@ describe('Erros do app', () => {
     expect(screen.getByText(/1–25/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /próxima/i }));
     await waitFor(() => expect(ultimaConsulta().get('pagina')).toBe('2'));
+  });
+
+  it('com link de uma página que não existe mais, vai para a última que tem relatos', async () => {
+    // 30 relatos: a página 3 (de um link antigo) veio vazia.
+    mockGet.mockImplementation((endpoint: string) => {
+      if (endpoint === '/admin/branding') return resposta(200, []);
+      if (endpoint === '/app/erros/resumo') return resposta(200, RESUMO);
+      if (endpoint.startsWith('/app/erros?')) {
+        const pagina = Number(new URLSearchParams(endpoint.split('?')[1]).get('pagina'));
+        return resposta(200, {
+          itens: pagina === 2 ? Array.from({ length: 5 }, (_, i) => relato({ id: 200 + i })) : [],
+          total: 30,
+          pagina,
+          porPagina: 25,
+        });
+      }
+      return resposta(404, {});
+    });
+    renderizar('/erros-do-app?pagina=3');
+
+    await waitFor(() => expect(ultimaConsulta()?.get('pagina')).toBe('2'));
+    await screen.findByRole('table');
+    expect(screen.getByText(/26–30/)).toBeInTheDocument();
+    expect(screen.getByText(/Página/)).toHaveTextContent('Página 2 de 2');
+    expect(screen.queryByText(/51–30/)).toBeNull();
+  });
+
+  it('numa falha de rede, explica em português em vez do texto do navegador', async () => {
+    mockGet.mockImplementation((endpoint: string) => {
+      if (endpoint === '/admin/branding') return resposta(200, []);
+      if (endpoint === '/app/erros/resumo') return resposta(200, RESUMO);
+      if (endpoint.startsWith('/app/erros?'))
+        return Promise.reject(new TypeError('Failed to fetch'));
+      return resposta(404, {});
+    });
+    renderizar();
+
+    expect(await screen.findByText('Falha de rede ao buscar os erros')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).toBeNull();
+    expect(screen.getByRole('button', { name: /tentar de novo/i })).toBeEnabled();
+  });
+
+  it('avisa quando o resumo não atualiza, sem esconder os números de antes', async () => {
+    configurar();
+    const user = userEvent.setup();
+    renderizar();
+
+    await screen.findByRole('button', { name: /Erro fatal de JS\s*3/ });
+    await screen.findByRole('table');
+    mockGet.mockImplementation((endpoint: string) => {
+      if (endpoint === '/app/erros/resumo') return resposta(500, {});
+      if (endpoint.startsWith('/app/erros?')) return resposta(200, PAGINA);
+      return resposta(404, {});
+    });
+    await user.click(screen.getByRole('button', { name: /atualizar/i }));
+
+    expect(await screen.findByText(/Não foi possível atualizar o resumo/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Erro fatal de JS\s*3/ })).toBeInTheDocument();
   });
 
   it('avisa quando a API ainda não tem a rota (404)', async () => {

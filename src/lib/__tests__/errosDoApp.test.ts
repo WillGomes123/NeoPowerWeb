@@ -8,9 +8,11 @@ import {
   compararVersoes,
   consultaDosErros,
   ehFatal,
+  faixaDaPagina,
   infoDoTipo,
   jsEmUso,
   lerFiltros,
+  mensagemDaFalha,
   mensagemDeErro,
   normalizarPagina,
   normalizarResumo,
@@ -18,7 +20,7 @@ import {
   temFiltroAtivo,
   textoDoRelato,
   versaoComBuild,
-  versoesDoResumo,
+  versoesDoFiltro,
   type RelatoDeErro,
 } from '../errosDoApp';
 
@@ -103,6 +105,11 @@ describe('filtros na URL', () => {
     expect(temFiltroAtivo(FILTROS_PADRAO)).toBe(false);
   });
 
+  it('troca a marca neo (só do painel) pelo clientId que o app NeoPower manda', () => {
+    expect(lerFiltros(new URLSearchParams('marca=neo')).filtros.marca).toBe('neopower-default');
+    expect(lerFiltros(new URLSearchParams('marca=vipenergy')).filtros.marca).toBe('vipenergy');
+  });
+
   it('ignora tipo, período e página que não existem', () => {
     const { filtros, pagina } = lerFiltros(
       new URLSearchParams('tipo=crash&periodo=1ano&pagina=-2&versao=%20')
@@ -130,8 +137,18 @@ describe('versões', () => {
       ],
       porTipo: [],
     });
-    expect(versoesDoResumo(resumo)).toEqual(['1.0.10', '1.0.5']);
-    expect(versoesDoResumo(null)).toEqual([]);
+    expect(versoesDoFiltro(resumo, [], null)).toEqual(['1.0.10', '1.0.5']);
+    expect(versoesDoFiltro(null, [], null)).toEqual([]);
+  });
+
+  it('junta ao filtro as versões da página e a escolhida, que podem ser de antes dos 7 dias', () => {
+    const resumo = normalizarResumo({
+      porVersao: [{ appVersao: '1.0.6', appBuild: '12', plataforma: 'ios', total: 1 }],
+    });
+    const itens = [relato({ appVersao: '1.0.3' }), relato({ appVersao: null }), relato()];
+    expect(versoesDoFiltro(resumo, itens, '1.0.4')).toEqual(['1.0.6', '1.0.4', '1.0.3']);
+    // Sem o resumo (falhou), o filtro ainda tem o que a lista trouxe.
+    expect(versoesDoFiltro(null, itens, null)).toEqual(['1.0.6', '1.0.3']);
   });
 
   it('mostra a versão com o build entre parênteses', () => {
@@ -202,6 +219,36 @@ describe('respostas da API', () => {
 
   it('normaliza o resumo mesmo com campos faltando', () => {
     expect(normalizarResumo(undefined)).toEqual({ desde: null, porVersao: [], porTipo: [] });
+  });
+
+  it('troca o texto do navegador numa falha de rede', () => {
+    expect(mensagemDaFalha(new TypeError('Failed to fetch'))).toBe(
+      'Falha de rede ao buscar os erros'
+    );
+    expect(mensagemDaFalha('x')).toBe('Falha de rede ao buscar os erros');
+    expect(mensagemDaFalha(new Error('Unauthorized'))).toBe('Unauthorized');
+  });
+
+  it('o rodapé conta a página que chegou e não passa do fim', () => {
+    const itens = (n: number) => Array.from({ length: n }, (_, i) => relato({ id: i }));
+    expect(faixaDaPagina({ itens: itens(5), total: 30, pagina: 2, porPagina: 25 })).toEqual({
+      inicio: 26,
+      fim: 30,
+      pagina: 2,
+      totalDePaginas: 2,
+      passouDoFim: false,
+    });
+    // Link de uma página que não existe mais: nada de "51–30 de 30" nem "Página 3 de 2".
+    expect(faixaDaPagina({ itens: [], total: 30, pagina: 3, porPagina: 25 })).toEqual({
+      inicio: 0,
+      fim: 0,
+      pagina: 2,
+      totalDePaginas: 2,
+      passouDoFim: true,
+    });
+    expect(faixaDaPagina({ itens: [], total: 0, pagina: 1, porPagina: 25 }).passouDoFim).toBe(
+      false
+    );
   });
 
   it('extrai a mensagem de erro do envelope da API', () => {

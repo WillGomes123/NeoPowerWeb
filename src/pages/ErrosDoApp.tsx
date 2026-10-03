@@ -10,21 +10,23 @@ import {
 } from '../components/ui/select';
 import { DetalheDoRelato, SeloDoTipo } from '../components/erros-do-app/DetalheDoRelato';
 import {
+  APELIDOS_DE_MARCA,
   CLASSES_DO_TOM,
   FILTROS_PADRAO,
   INFO_DOS_TIPOS,
   PERIODOS,
-  POR_PAGINA,
   TIPOS_DE_RELATO,
   atrasoDaChegada,
   codigoDoRelato,
   consultaDosErros,
   dataHoraCompleta,
   ehTipoDeRelato,
+  faixaDaPagina,
   formatarDataHora,
   iconeDaPlataforma,
   jsEmUso,
   lerFiltros,
+  mensagemDaFalha,
   mensagemDeErro,
   momentoDoRelato,
   normalizarPagina,
@@ -33,7 +35,7 @@ import {
   rotuloDaPlataforma,
   temFiltroAtivo,
   versaoComBuild,
-  versoesDoResumo,
+  versoesDoFiltro,
   type FiltrosDeErros,
   type PaginaDeRelatos,
   type Periodo,
@@ -118,15 +120,23 @@ export const ErrosDoApp = () => {
     [marcas]
   );
 
-  // A NeoPower é 'neo' e 'neopower-default', as duas com o mesmo nome: no filtro
-  // escolhido, nome repetido leva o clientId junto.
+  // O 'neo' fica para dar nome a um relato que venha com ele, mas sai do filtro:
+  // o app NeoPower manda 'neopower-default' e filtrar por 'neo' viria vazio.
+  const opcoesDeMarca = useMemo(
+    () => marcas.filter(m => !APELIDOS_DE_MARCA.has(m.clientId)),
+    [marcas]
+  );
+
+  // Duas marcas com o mesmo nome: no filtro escolhido, o clientId vai junto.
   const rotuloDaMarcaEscolhida = (clientId: string) => {
     const nome = nomeDaMarca(clientId);
-    return marcas.filter(m => m.nome === nome).length > 1 ? `${nome} (${clientId})` : nome;
+    return opcoesDeMarca.filter(m => m.nome === nome).length > 1 ? `${nome} (${clientId})` : nome;
   };
 
   const carregarResumo = useCallback(async () => {
     const g = ++geracaoDoResumo.current;
+    // Some o aviso de falha enquanto tenta de novo; os números antigos ficam.
+    setEstadoDoResumo('carregando');
     try {
       const r = await api.get('/app/erros/resumo');
       if (g !== geracaoDoResumo.current) return;
@@ -169,7 +179,7 @@ export const ErrosDoApp = () => {
       setEstado('pronto');
     } catch (e) {
       if (g !== geracaoDaLista.current) return;
-      setErro(e instanceof Error && e.message ? e.message : 'Falha de rede ao buscar os erros');
+      setErro(mensagemDaFalha(e));
       setEstado('erro');
     } finally {
       if (g === geracaoDaLista.current) setAtualizando(false);
@@ -209,13 +219,20 @@ export const ErrosDoApp = () => {
     setDetalheAberto(true);
   };
 
-  const versoes = useMemo(() => {
-    const doResumo = versoesDoResumo(resumo);
-    // A versão do filtro pode não ter relato nos últimos 7 dias: continua na lista.
-    return filtros.versao && !doResumo.includes(filtros.versao)
-      ? [filtros.versao, ...doResumo]
-      : doResumo;
-  }, [resumo, filtros.versao]);
+  const versoes = useMemo(
+    () => versoesDoFiltro(resumo, lista?.itens ?? [], filtros.versao),
+    [resumo, lista, filtros.versao]
+  );
+
+  const faixa = useMemo(() => (lista ? faixaDaPagina(lista) : null), [lista]);
+
+  // Link de uma página que não existe mais (a limpeza dos 90 dias apagou
+  // relatos): vai para a última página que tem relatos.
+  useEffect(() => {
+    if (!lista || !faixa?.passouDoFim || estado !== 'pronto' || atualizando) return;
+    if (lista.pagina !== pagina) return;
+    setParams(paramsDosFiltros(filtros, faixa.totalDePaginas), { replace: true });
+  }, [lista, faixa, estado, atualizando, pagina, filtros, setParams]);
 
   const cabecalho = (
     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -267,10 +284,6 @@ export const ErrosDoApp = () => {
   }
 
   const total = lista?.total ?? 0;
-  const porPagina = lista?.porPagina || POR_PAGINA;
-  const totalDePaginas = Math.max(1, Math.ceil(total / porPagina));
-  const inicio = total ? (pagina - 1) * porPagina + 1 : 0;
-  const fim = Math.min(pagina * porPagina, total);
   const itens = lista?.itens ?? [];
 
   return (
@@ -305,9 +318,9 @@ export const ErrosDoApp = () => {
               <SelectItem value={TODAS} className="text-on-surface">
                 Todas as marcas
               </SelectItem>
-              {(marcas.some(m => m.clientId === filtros.marca) || !filtros.marca
-                ? marcas
-                : [...marcas, { clientId: filtros.marca, nome: filtros.marca }]
+              {(opcoesDeMarca.some(m => m.clientId === filtros.marca) || !filtros.marca
+                ? opcoesDeMarca
+                : [...opcoesDeMarca, { clientId: filtros.marca, nome: filtros.marca }]
               ).map(m => (
                 <SelectItem key={m.clientId} value={m.clientId} className="text-on-surface">
                   {m.nome}
@@ -425,15 +438,19 @@ export const ErrosDoApp = () => {
             <button
               type="button"
               onClick={() => void carregarLista()}
-              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg border border-outline-variant/20 text-on-surface text-sm font-bold hover:bg-surface-container-highest transition-all"
+              disabled={atualizando}
+              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg border border-outline-variant/20 text-on-surface text-sm font-bold hover:bg-surface-container-highest transition-all disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">
+              <span
+                className={`material-symbols-outlined text-base ${atualizando ? 'animate-spin' : ''}`}
+                aria-hidden="true"
+              >
                 refresh
               </span>
-              Tentar de novo
+              {atualizando ? 'Tentando…' : 'Tentar de novo'}
             </button>
           </div>
-        ) : !lista ? (
+        ) : !lista || faixa?.passouDoFim ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
@@ -497,29 +514,33 @@ export const ErrosDoApp = () => {
           </div>
         )}
 
-        {lista && estado !== 'erro' && (
+        {/* Os números são da página que chegou, não da pedida: na troca de página
+            não aparecem sobre a lista anterior. */}
+        {faixa && estado !== 'erro' && !faixa.passouDoFim && (
           <div className="px-6 py-4 border-t border-outline-variant/10 flex flex-wrap justify-between items-center gap-3">
             <p className="text-xs text-on-surface-variant">
-              {total > 0 ? (
+              {faixa.inicio > 0 ? (
                 <>
                   <span className="font-bold text-on-surface">
-                    {inicio}–{fim}
+                    {faixa.inicio}–{faixa.fim}
                   </span>{' '}
                   de <span className="font-bold text-on-surface">{total}</span>
                 </>
+              ) : total > 0 ? (
+                'Nenhum relato nesta página'
               ) : (
                 'Nenhum relato'
               )}
               <span className="ml-3">
-                Página <span className="font-bold text-on-surface">{pagina}</span> de{' '}
-                <span className="font-bold text-on-surface">{totalDePaginas}</span>
+                Página <span className="font-bold text-on-surface">{faixa.pagina}</span> de{' '}
+                <span className="font-bold text-on-surface">{faixa.totalDePaginas}</span>
               </span>
             </p>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => irParaPagina(pagina - 1)}
-                disabled={pagina <= 1 || atualizando}
+                onClick={() => irParaPagina(faixa.pagina - 1)}
+                disabled={faixa.pagina <= 1 || atualizando}
                 className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
               >
                 <span className="material-symbols-outlined text-base" aria-hidden="true">
@@ -529,8 +550,8 @@ export const ErrosDoApp = () => {
               </button>
               <button
                 type="button"
-                onClick={() => irParaPagina(pagina + 1)}
-                disabled={pagina >= totalDePaginas || atualizando}
+                onClick={() => irParaPagina(faixa.pagina + 1)}
+                disabled={faixa.pagina >= faixa.totalDePaginas || atualizando}
                 className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
               >
                 Próxima
@@ -702,6 +723,22 @@ function Resumo({
     <section className="space-y-4" aria-label="Resumo dos últimos 7 dias">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-headline font-bold text-on-surface">Últimos 7 dias</h3>
+        {/* Os números antigos continuam, mas quem lê precisa saber que não são os de agora. */}
+        {estado === 'erro' && resumo && (
+          <span className="flex items-center gap-1.5 text-xs text-on-surface-variant">
+            <span className="material-symbols-outlined text-sm text-error" aria-hidden="true">
+              error
+            </span>
+            Não foi possível atualizar o resumo.
+            <button
+              type="button"
+              onClick={aoTentarDeNovo}
+              className="font-bold text-primary hover:underline"
+            >
+              Tentar de novo
+            </button>
+          </span>
+        )}
         <span className="text-xs text-on-surface-variant">
           Todas as marcas
           {resumo?.desde ? `, desde ${formatarDataHora(resumo.desde)}` : ''}. Clique para filtrar a

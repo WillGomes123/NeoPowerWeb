@@ -272,18 +272,32 @@ export const FILTROS_PADRAO: FiltrosDeErros = {
 
 const ehPeriodo = (valor: string | null): valor is Periodo => PERIODOS.some(p => p.id === valor);
 
+/**
+ * clientIds que só existem na configuração do painel e nunca chegam de um app.
+ * A NeoPower é 'neo' no banco, mas o build dela manda 'neopower-default' no
+ * X-Client-Id: filtrar por 'neo' sempre traria a lista vazia.
+ */
+export const APELIDOS_DE_MARCA: ReadonlyMap<string, string> = new Map([
+  ['neo', 'neopower-default'],
+]);
+
+/** O clientId que os apps mandam para esta marca. */
+export const marcaDoApp = (clientId: string): string => APELIDOS_DE_MARCA.get(clientId) ?? clientId;
+
 /** Lê os filtros e a página da URL, ignorando valor que não existe. */
 export function lerFiltros(params: URLSearchParams): {
   filtros: FiltrosDeErros;
   pagina: number;
 } {
   const texto = (chave: string) => params.get(chave)?.trim() || null;
+  const marca = texto('marca');
   const tipo = texto('tipo');
   const periodo = texto('periodo');
   const pagina = Number(texto('pagina'));
   return {
     filtros: {
-      marca: texto('marca'),
+      // Link antigo com marca=neo continua trazendo os relatos da NeoPower.
+      marca: marca ? marcaDoApp(marca) : null,
       versao: texto('versao'),
       tipo: ehTipoDeRelato(tipo) ? tipo : null,
       periodo: ehPeriodo(periodo) ? periodo : PERIODO_PADRAO,
@@ -361,6 +375,51 @@ export function mensagemDeErro(corpo: unknown, status: number): string {
   return `Erro ${status} ao buscar os erros do app`;
 }
 
+/**
+ * Mensagem de uma consulta que nem teve resposta. Sem rede, o fetch lança
+ * TypeError com o texto do navegador ("Failed to fetch"), que não diz nada a
+ * quem lê o painel em português.
+ */
+export function mensagemDaFalha(e: unknown): string {
+  if (e instanceof TypeError || !(e instanceof Error) || !e.message) {
+    return 'Falha de rede ao buscar os erros';
+  }
+  return e.message;
+}
+
+/** O que o rodapé da lista mostra: sempre da página que chegou da API. */
+export interface FaixaDaPagina {
+  inicio: number;
+  fim: number;
+  pagina: number;
+  totalDePaginas: number;
+  /** A página pedida passou do fim (link antigo, relatos apagados pela limpeza). */
+  passouDoFim: boolean;
+}
+
+export function faixaDaPagina(lista: PaginaDeRelatos): FaixaDaPagina {
+  const porPagina = lista.porPagina > 0 ? lista.porPagina : POR_PAGINA;
+  const totalDePaginas = Math.max(1, Math.ceil(lista.total / porPagina));
+  const passouDoFim = lista.total > 0 && lista.itens.length === 0 && lista.pagina > totalDePaginas;
+  if (lista.itens.length === 0) {
+    return {
+      inicio: 0,
+      fim: 0,
+      pagina: Math.min(lista.pagina, totalDePaginas),
+      totalDePaginas,
+      passouDoFim,
+    };
+  }
+  const inicio = (lista.pagina - 1) * porPagina + 1;
+  return {
+    inicio,
+    fim: Math.min(inicio + lista.itens.length - 1, lista.total),
+    pagina: lista.pagina,
+    totalDePaginas,
+    passouDoFim,
+  };
+}
+
 /** Ordem de versão: 1.0.10 vem depois de 1.0.9, o que a ordem alfabética erra. */
 export function compararVersoes(a: string, b: string): number {
   const pa = a.split(/[.\-+]/);
@@ -375,10 +434,20 @@ export function compararVersoes(a: string, b: string): number {
   return 0;
 }
 
-/** Versões que aparecem no resumo, da mais nova para a mais antiga. */
-export function versoesDoResumo(resumo: ResumoDeErros | null): string[] {
+/**
+ * Opções do filtro de versão, da mais nova para a mais antiga. O resumo cobre
+ * só 7 dias: com o período em 30 ou 90 dias (ou com o resumo fora do ar), as
+ * versões dos relatos da página e a versão já escolhida entram também.
+ */
+export function versoesDoFiltro(
+  resumo: ResumoDeErros | null,
+  itens: ReadonlyArray<Pick<RelatoDeErro, 'appVersao'>>,
+  escolhida: string | null
+): string[] {
   const versoes = new Set<string>();
   for (const l of resumo?.porVersao ?? []) if (l.appVersao) versoes.add(l.appVersao);
+  for (const r of itens) if (r.appVersao) versoes.add(r.appVersao);
+  if (escolhida) versoes.add(escolhida);
   return [...versoes].sort((a, b) => compararVersoes(b, a));
 }
 
