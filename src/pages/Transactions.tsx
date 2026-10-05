@@ -98,7 +98,6 @@ interface SessaoAtiva {
 const INTERVALO_AO_VIVO_MS = 10_000;
 
 const exportColumns: ExportColumn[] = [
-  { key: 'transaction_id', header: 'ID', format: 'number' },
   { key: 'sequenciaNoLocal', header: 'No. no local', format: 'number' },
   { key: 'nomeDoLocal', header: 'Local', format: 'text' },
   { key: 'nomeDoCarregador', header: 'Carregador', format: 'text' },
@@ -109,6 +108,20 @@ const exportColumns: ExportColumn[] = [
   { key: 'total_cost', header: 'Custo (R$)', format: 'currency' },
   { key: 'address', header: 'Endereco', format: 'text' },
   { key: 'status', header: 'Status', format: 'text' },
+  // O id interno fecha a planilha: nao ocupa espaco na tela e e por ele que o
+  // suporte acha a linha no banco.
+  { key: 'transaction_id', header: 'ID interno', format: 'number' },
+];
+
+const exportDepositColumns: ExportColumn[] = [
+  { key: 'cliente', header: 'Cliente', format: 'text' },
+  { key: 'email', header: 'Email', format: 'text' },
+  { key: 'data', header: 'Data', format: 'date' },
+  { key: 'valor', header: 'Valor (R$)', format: 'currency' },
+  { key: 'saldoApos', header: 'Saldo apos (R$)', format: 'currency' },
+  { key: 'metodo', header: 'Metodo', format: 'text' },
+  { key: 'referencia', header: 'Referencia', format: 'text' },
+  { key: 'id', header: 'ID interno', format: 'number' },
 ];
 
 /**
@@ -298,8 +311,13 @@ export const Transactions = () => {
   }, [transactions, ativas, startDate, endDate, searchQuery]);
 
   // Exporta o que está na tela (período + busca), não o histórico inteiro.
+  const ehSaldo = txTab === 'saldo';
+
   const exportData = filtered.map(tx => ({
     transaction_id: tx.transaction_id,
+    sequenciaNoLocal: tx.sequenciaNoLocal ?? '',
+    nomeDoLocal: tx.nomeDoLocal ?? '',
+    nomeDoCarregador: tx.nomeDoCarregador ?? tx.charge_point_id,
     charge_point_id: tx.charge_point_id,
     start_timestamp: tx.start_timestamp,
     stop_timestamp: tx.stop_timestamp,
@@ -377,6 +395,18 @@ export const Transactions = () => {
     return list;
   }, [walletTxs, startDate, endDate, searchQuery]);
 
+  // Exporta o que esta na tela, igual a aba de recargas.
+  const exportDeposits = filteredDeposits.map(dep => ({
+    cliente: dep.userName,
+    email: dep.userEmail,
+    data: dep.createdAt,
+    valor: dep.amount,
+    saldoApos: dep.balanceAfter,
+    metodo: metodoDeposito(dep).label,
+    referencia: dep.referenceId || '',
+    id: dep.id,
+  }));
+
   const totalDeposits = useMemo(() => filteredDeposits.reduce((s, wt) => s + wt.amount, 0), [filteredDeposits]);
   const avgDeposit = filteredDeposits.length > 0 ? totalDeposits / filteredDeposits.length : 0;
   const currentDeposits = filteredDeposits.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -437,12 +467,16 @@ export const Transactions = () => {
             <span className="material-symbols-outlined text-sm">refresh</span>
             <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
           </button>
+          {/*
+            Na aba de Saldo o botao baixava as RECARGAS, nao os depositos, e
+            ficava habilitado pela contagem da outra aba.
+          */}
           <ExportButton
-            data={exportData}
-            columns={exportColumns}
-            filename="transacoes_neopower"
-            title="Historico de Transacoes - NeoPower"
-            disabled={transactions.length === 0}
+            data={ehSaldo ? exportDeposits : exportData}
+            columns={ehSaldo ? exportDepositColumns : exportColumns}
+            filename={ehSaldo ? 'recargas_de_saldo_neopower' : 'transacoes_neopower'}
+            title={ehSaldo ? 'Recargas de Saldo - NeoPower' : 'Historico de Transacoes - NeoPower'}
+            disabled={(ehSaldo ? filteredDeposits : filtered).length === 0}
           />
         </div>
       </div>
@@ -460,10 +494,12 @@ export const Transactions = () => {
           >
             <span className="material-symbols-outlined text-base">bolt</span>
             Recargas (Eletroposto)
+            {/* A contagem e a do periodo filtrado. Antes era o total da base:
+                com o filtro em um unico dia a aba dizia 61 e a tabela listava 4. */}
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               txTab === 'recargas' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
             }`}>
-              {transactions.length}
+              {filtered.length}
             </span>
           </button>
           <button
@@ -479,7 +515,7 @@ export const Transactions = () => {
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               txTab === 'saldo' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
             }`}>
-              {walletTxs.length}
+              {filteredDeposits.length}
             </span>
           </button>
         </div>
@@ -571,7 +607,7 @@ export const Transactions = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                <th className="px-6 py-4">ID</th>
+                <th className="px-6 py-4">Nº</th>
                 <th className="px-6 py-4">Local e carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
@@ -594,23 +630,20 @@ export const Transactions = () => {
                 const st = statusStyle(tx);
                 const vivo = aoVivo(tx);
                 return (
-                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction(tx); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
+                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction(tx); setCurveOpen(true); }} title={`Transação #${tx.transaction_id}`} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
+                    {/*
+                      O #id da transação é sequencial na rede inteira e serve ao
+                      back end, não a quem lê a tela: ele fica no tooltip da linha,
+                      no topo da janela da curva e na exportação. Aqui vai o número
+                      da recarga DENTRO do local, que é o que o condomínio confere.
+                    */}
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
-                        #{tx.transaction_id}
-                      </span>
-                      {/*
-                        O #id é sequencial na rede inteira, então o extrato de um
-                        condomínio pula (#109, #111, #112). Este é o número da
-                        recarga dentro do local, que é o que o síndico confere.
-                      */}
-                      {tx.sequenciaNoLocal != null && (
-                        <span
-                          className="block mt-1 text-[10px] text-on-surface-variant"
-                          title="Posição desta recarga no histórico do local"
-                        >
-                          {tx.sequenciaNoLocal}ª no local
+                      {tx.sequenciaNoLocal != null ? (
+                        <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                          {tx.sequenciaNoLocal}ª
                         </span>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant/50">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4 font-medium text-sm">
@@ -730,7 +763,6 @@ export const Transactions = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                      <th className="px-6 py-4">ID</th>
                       <th className="px-6 py-4">Cliente</th>
                       <th className="px-6 py-4">Data</th>
                       <th className="px-6 py-4">Valor</th>
@@ -743,7 +775,7 @@ export const Transactions = () => {
                   <tbody className="divide-y divide-outline-variant/5">
                     {currentDeposits.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-16 text-center">
+                        <td colSpan={7} className="px-6 py-16 text-center">
                           <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
                           <p className="text-sm text-on-surface-variant">Nenhum depósito encontrado</p>
                         </td>
@@ -751,13 +783,10 @@ export const Transactions = () => {
                     ) : currentDeposits.map(dep => {
                       const isMpPayment = dep.referenceId && /^[0-9]+$/.test(dep.referenceId);
                       const metodo = metodoDeposito(dep);
+                      // Sem coluna de id: ele e do back end. Fica no tooltip da
+                      // linha e na exportacao.
                       return (
-                        <tr key={dep.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                          <td className="px-6 py-4">
-                            <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
-                              #{dep.id}
-                            </span>
-                          </td>
+                        <tr key={dep.id} title={`Depósito #${dep.id}`} className="hover:bg-surface-container-highest/30 transition-colors group">
                           <td className="px-6 py-4">
                             <p className="text-sm font-medium text-foreground">{dep.userName}</p>
                             <p className="text-[11px] text-on-surface-variant">{dep.userEmail}</p>
