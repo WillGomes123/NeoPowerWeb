@@ -12,7 +12,25 @@ interface MeterPoint {
   soc_percent: number | null;
   /** Energia da recarga até esta leitura (a API já desconta o medidor inicial). */
   energy_kwh: number;
+  /** Corrente de cada fase. Nulo = o carregador não informa a fase. */
+  corrente_l1?: number | null;
+  corrente_l2?: number | null;
+  corrente_l3?: number | null;
 }
+
+/**
+ * As fases, na ordem em que o carregador as reporta.
+ *
+ * Nos carregadores que não mandam SoC — os da Vip, entre eles — esta é a
+ * informação mais útil da curva: mostra se o carro está puxando de uma fase ou
+ * das três, que é metade do diagnóstico de potência baixa. As classes do
+ * Tailwind ficam escritas por extenso porque o JIT lê o código-fonte.
+ */
+const FASES = [
+  { chave: 'corrente_l1', nome: 'L1', cor: '#ef4444', classe: 'bg-[#ef4444]' },
+  { chave: 'corrente_l2', nome: 'L2', cor: '#eab308', classe: 'bg-[#eab308]' },
+  { chave: 'corrente_l3', nome: 'L3', cor: '#8b5cf6', classe: 'bg-[#8b5cf6]' },
+] as const;
 
 /** Números da própria transação: valem mesmo sem leituras intermediárias. */
 export interface ResumoRecarga {
@@ -114,6 +132,25 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   // não puxa (SuspendedEV). É o que o operador precisa saber, não "sem leituras".
   const semCorrente = temCurva && picoCorrente === 0 && picoPotencia === 0;
   const aguardando = !erro && emAndamento;
+  const porFase = FASES.map(f => ({
+    ...f,
+    // Medida != com corrente: uma fase lida em 0 A diz que o carro não a usa,
+    // e isso é um dado, não uma ausência de dado.
+    medida: data.some(d => d[f.chave] != null),
+    pico: Math.max(0, ...data.map(d => d[f.chave] ?? 0)),
+  }));
+  const fasesMedidas = porFase.filter(f => f.medida);
+  const fasesComCorrente = porFase.filter(f => f.pico > 0);
+  const temFases = temCurva && fasesMedidas.length > 0;
+  const resumoFases =
+    fasesComCorrente.length === 0
+      ? null
+      : fasesComCorrente.length === 1
+        ? `Monofásico — o carro usou só a ${fasesComCorrente[0].nome}`
+        : fasesComCorrente.length === 3
+          ? 'Trifásico — o carro usou as três fases'
+          : `Duas fases — ${fasesComCorrente.map(f => f.nome).join(' e ')}`;
+
   const tensoes = data.map(d => d.voltage_v).filter(v => v > 0);
   const tensaoMedia = tensoes.length ? tensoes.reduce((a, b) => a + b, 0) / tensoes.length : 0;
 
@@ -237,6 +274,42 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
                     <Line yAxisId="energia" type="monotone" dataKey="energy_kwh" stroke="#f59e0b" strokeWidth={1.5} dot={false} opacity={0.8} />
                   </ComposedChart>
                 </ResponsiveContainer>
+
+                {temFases && (
+                  <div className="mt-6 pt-5 border-t border-outline-variant/10">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-3">
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                        Corrente por fase
+                      </span>
+                      {fasesMedidas.map(f => (
+                        <ChartLegend key={f.nome} color={f.classe} label={`${f.nome} — pico ${num(f.pico, 1)} A`} />
+                      ))}
+                      {resumoFases && (
+                        <span className="text-[10px] text-on-surface uppercase tracking-widest sm:ml-auto">
+                          {resumoFases}
+                        </span>
+                      )}
+                    </div>
+                    <ResponsiveContainer width="100%" height={150}>
+                      <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.3} vertical={false} />
+                        <XAxis dataKey="timestamp" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} tickFormatter={hora} axisLine={false} tickLine={false} minTickGap={24} />
+                        <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => `${v} A`} />
+                        <Tooltip
+                          {...tooltipStyle}
+                          labelFormatter={(label: string) => `Horário: ${hora(label)}`}
+                          formatter={(value: number, name: string) => [
+                            `${num(value, 1)} A`,
+                            FASES.find(f => f.chave === name)?.nome ?? name,
+                          ]}
+                        />
+                        {fasesMedidas.map(f => (
+                          <Line key={f.nome} type="monotone" dataKey={f.chave} stroke={f.cor} strokeWidth={1.8} dot={false} connectNulls />
+                        ))}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </>
             )}
           </div>
