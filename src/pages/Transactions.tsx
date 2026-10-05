@@ -23,6 +23,12 @@ interface Transaction {
   total_cost: number | null;
   address: string | null;
   status: string;
+  /** Nome do local ("CONDOMÍNIO MORADA DOS PRÍNCIPES"). */
+  nomeDoLocal?: string | null;
+  /** Nome que o operador deu ao equipamento ("Morada dos Principes 02"). */
+  nomeDoCarregador?: string | null;
+  /** Posição desta recarga dentro do local — o #id é da rede inteira. */
+  sequenciaNoLocal?: number | null;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
 }
@@ -93,7 +99,10 @@ const INTERVALO_AO_VIVO_MS = 10_000;
 
 const exportColumns: ExportColumn[] = [
   { key: 'transaction_id', header: 'ID', format: 'number' },
-  { key: 'charge_point_id', header: 'Carregador', format: 'text' },
+  { key: 'sequenciaNoLocal', header: 'No. no local', format: 'number' },
+  { key: 'nomeDoLocal', header: 'Local', format: 'text' },
+  { key: 'nomeDoCarregador', header: 'Carregador', format: 'text' },
+  { key: 'charge_point_id', header: 'ID do carregador', format: 'text' },
   { key: 'start_timestamp', header: 'Inicio', format: 'date' },
   { key: 'stop_timestamp', header: 'Fim', format: 'date' },
   { key: 'consumed_kwh', header: 'Energia (kWh)', format: 'number' },
@@ -563,7 +572,7 @@ export const Transactions = () => {
             <thead>
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                 <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Carregador</th>
+                <th className="px-6 py-4">Local e carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
                 <th className="px-6 py-4">Energia</th>
@@ -590,16 +599,36 @@ export const Transactions = () => {
                       <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
                         #{tx.transaction_id}
                       </span>
+                      {/*
+                        O #id é sequencial na rede inteira, então o extrato de um
+                        condomínio pula (#109, #111, #112). Este é o número da
+                        recarga dentro do local, que é o que o síndico confere.
+                      */}
+                      {tx.sequenciaNoLocal != null && (
+                        <span
+                          className="block mt-1 text-[10px] text-on-surface-variant"
+                          title="Posição desta recarga no histórico do local"
+                        >
+                          {tx.sequenciaNoLocal}ª no local
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-medium text-sm">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{tx.charge_point_id}</span>
+                        {/* O nome do local é o que a pessoa reconhece; o id do
+                            equipamento, sozinho, não diz nada a ninguém. */}
+                        <span>{tx.nomeDoLocal || tx.nomeDoCarregador || tx.charge_point_id}</span>
                         {tx.recargaCruzada && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20" title={`Recarga Cruzada - Rede do cliente: ${tx.redeDoCliente || 'Outra rede'}`}>
                             Cliente {tx.redeDoCliente || 'outra rede'}
                           </span>
                         )}
                       </div>
+                      {tx.nomeDoLocal && (
+                        <span className="block mt-0.5 text-[11px] font-normal text-on-surface-variant">
+                          {tx.nomeDoCarregador || tx.charge_point_id}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
