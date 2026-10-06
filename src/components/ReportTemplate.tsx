@@ -10,11 +10,21 @@ interface ReportTemplateProps {
   data: {
     locationName?: string;
     totalKwh: number;
+    /** Consumido em recargas. */
     totalRevenue: number;
-    totalFees: number;
-    netReceived: number;
-    totalPayout: number;
+    /** Taxa do Mercado Pago proporcional ao consumo. */
+    totalTaxaMp: number;
+    totalComissao: number;
+    /** Repasse ao dono (o valor a pagar). */
+    totalRepasse: number;
+    comissaoPercent: number;
+    /** Taxa efetiva do Mercado Pago dos depósitos (%), e de onde saiu. */
+    taxaMpPercent: number;
+    taxaMpFonte: string;
     sessionsCount: number;
+    /** Caixa da marca: só para quem a gerencia (null nos demais). */
+    entrouNoCaixa: number | null;
+    saldoClientes: number | null;
     walletDeposits: number;
     walletWithdrawals: number;
     chartData?: any[];
@@ -47,6 +57,9 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
 
   const SHADOW_SM = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
   const SHADOW_2XL = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
+
+  const brl = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const pct = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
   const KPICard = ({ title, value, unit, subtitle, color = primaryColor }: any) => (
     <div className="rounded-xl p-5 border flex flex-col justify-between h-36" style={{ backgroundColor: '#ffffff', borderColor: '#f4f4f5', boxShadow: SHADOW_SM }}>
@@ -131,15 +144,18 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
           <div className="h-[4px] w-12 rounded-full" style={{ backgroundColor: primaryColor }}></div>
         </h2>
 
-        <div className="grid grid-cols-4 gap-4 mb-8">
-          <KPICard title="Receita Bruta" value={`R$ ${data.totalRevenue.toFixed(2)}`} unit="" subtitle="Total faturado" />
-          <KPICard title="Total de Taxas" value={`R$ ${data.totalFees.toFixed(2)}`} unit="" subtitle="Moove + Cartão + Imposto" color="#f87171" />
-          <KPICard title="Valor Recebido" value={`R$ ${data.netReceived.toFixed(2)}`} unit="" subtitle="Líquido Platarforma" color="#34d399" />
-          <KPICard title="Pago ao Cliente" value={`R$ ${data.totalPayout.toFixed(2)}`} unit="" subtitle="Investidores" />
+        <div className="grid grid-cols-4 gap-4 mb-4">
+          <KPICard title="Consumido em recargas" value={`R$ ${brl(data.totalRevenue)}`} unit="" subtitle={`${data.sessionsCount} recargas`} />
+          <KPICard title={`Taxa Mercado Pago (${pct(data.taxaMpPercent)}%)`} value={`R$ ${brl(data.totalTaxaMp)}`} unit="" subtitle="Proporcional ao consumo" color="#f87171" />
+          <KPICard title={`Comissão NeoPower ${pct(data.comissaoPercent)}%`} value={`R$ ${brl(data.totalComissao)}`} unit="" subtitle="Sobre o consumido − taxa MP" color="#f87171" />
+          <KPICard title="Repasse ao dono" value={`R$ ${brl(data.totalRepasse)}`} unit="" subtitle="Valor a pagar" color="#34d399" />
         </div>
+        <p className="text-[10px] font-medium mb-8" style={{ color: ZINC_500 }}>
+          Repasse sobre o consumido em recargas: o saldo parado na carteira é do cliente até ele usar. Taxa do Mercado Pago efetiva de {pct(data.taxaMpPercent)}% ({data.taxaMpFonte}), dividida na proporção do consumo.
+        </p>
 
         <div className="rounded-2xl p-6 border flex-1 flex flex-col mb-8" style={{ backgroundColor: '#ffffff', borderColor: '#f4f4f5', boxShadow: SHADOW_SM }}>
-          <h3 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: ZINC_400 }}>Receita vs Taxas por Período</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: ZINC_400 }}>Consumido vs Taxa MP + Comissão</h3>
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.chartData || []}>
@@ -151,8 +167,8 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 9}} />
                 <Tooltip />
                 <Legend iconType="circle" wrapperStyle={{fontSize: 10, paddingTop: 20}} />
-                <Area type="monotone" name="Receita" dataKey="revenue" stroke={primaryColor} strokeWidth={2} fill="url(#colorRev)" />
-                <Area type="monotone" name="Taxas" dataKey="fees" stroke="#f87171" strokeWidth={2} fill="#fee2e2" fillOpacity={0.2} />
+                <Area type="monotone" name="Consumido" dataKey="revenue" stroke={primaryColor} strokeWidth={2} fill="url(#colorRev)" />
+                <Area type="monotone" name="Taxa MP + comissão" dataKey="fees" stroke="#f87171" strokeWidth={2} fill="#fee2e2" fillOpacity={0.2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -166,17 +182,17 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="rounded-2xl p-6 border flex items-center justify-between" style={{ backgroundColor: '#ffffff', borderColor: '#f4f4f5', boxShadow: SHADOW_SM }}>
             <div>
-              <p className="text-[10px] font-bold uppercase mb-1" style={{ color: ZINC_400 }}>Total de Depósitos</p>
-              <p className="text-2xl font-black" style={{ color: EMERALD_500 }}>R$ {data.walletDeposits.toFixed(2)}</p>
+              <p className="text-[10px] font-bold uppercase mb-1" style={{ color: ZINC_400 }}>{data.entrouNoCaixa != null ? 'Entrou no caixa' : 'Total de Depósitos'}</p>
+              <p className="text-2xl font-black" style={{ color: EMERALD_500 }}>R$ {brl(data.entrouNoCaixa ?? data.walletDeposits)}</p>
             </div>
             <div className="p-3 rounded-full font-black text-xs" style={{ backgroundColor: EMERALD_50, color: EMERALD_500 }}>WALLET</div>
           </div>
           <div className="rounded-2xl p-6 border flex items-center justify-between" style={{ backgroundColor: '#ffffff', borderColor: '#f4f4f5', boxShadow: SHADOW_SM }}>
             <div>
-              <p className="text-[10px] font-bold uppercase mb-1" style={{ color: ZINC_400 }}>Total de Saídas</p>
-              <p className="text-2xl font-black" style={{ color: RED_400 }}>R$ {data.walletWithdrawals.toFixed(2)}</p>
+              <p className="text-[10px] font-bold uppercase mb-1" style={{ color: ZINC_400 }}>{data.saldoClientes != null ? 'Saldo de clientes a consumir' : 'Total de Saídas'}</p>
+              <p className="text-2xl font-black" style={{ color: data.saldoClientes != null ? ZINC_900 : RED_400 }}>R$ {brl(data.saldoClientes ?? data.walletWithdrawals)}</p>
             </div>
-            <div className="p-3 rounded-full font-black text-xs" style={{ backgroundColor: RED_50, color: RED_400 }}>OUTFLOW</div>
+            <div className="p-3 rounded-full font-black text-xs" style={{ backgroundColor: RED_50, color: RED_400 }}>{data.saldoClientes != null ? 'SALDO' : 'OUTFLOW'}</div>
           </div>
         </div>
 
@@ -200,9 +216,10 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                 <th className="px-5 py-4">Data</th>
                 <th className="px-5 py-4">Estação</th>
                 <th className="px-5 py-4 text-right">kWh</th>
-                <th className="px-5 py-4 text-right">Receita</th>
-                <th className="px-5 py-4 text-right">Taxas</th>
-                <th className="px-5 py-4 text-right">Líquido</th>
+                <th className="px-5 py-4 text-right">Consumido</th>
+                <th className="px-5 py-4 text-right">Taxa MP</th>
+                <th className="px-5 py-4 text-right">Comissão</th>
+                <th className="px-5 py-4 text-right">Repasse</th>
               </tr>
             </thead>
             <tbody className="text-[11px] font-medium" style={{ color: ZINC_900 }}>
@@ -212,8 +229,9 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                   <td className="px-5 py-3">{row.charger}</td>
                   <td className="px-5 py-3 text-right font-mono" style={{ color: AMBER_500 }}>{row.kwh}</td>
                   <td className="px-5 py-3 text-right font-bold">R$ {row.revenue}</td>
-                  <td className="px-5 py-3 text-right" style={{ color: RED_400 }}>R$ {row.fees}</td>
-                  <td className="px-5 py-3 text-right font-black" style={{ color: EMERALD_500 }}>R$ {row.net}</td>
+                  <td className="px-5 py-3 text-right" style={{ color: RED_400 }}>R$ {row.taxaMp}</td>
+                  <td className="px-5 py-3 text-right" style={{ color: RED_400 }}>R$ {row.comissao}</td>
+                  <td className="px-5 py-3 text-right font-black" style={{ color: EMERALD_500 }}>R$ {row.repasse}</td>
                 </tr>
               ))}
             </tbody>
@@ -222,6 +240,7 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
             {data.financialTableData && data.financialTableData.length > 15 
               ? `Exibindo 15 de ${data.financialTableData.length} transações recentes` 
               : `Total de ${data.financialTableData?.length || 0} transações`}
+            {` · Taxa Mercado Pago efetiva ${pct(data.taxaMpPercent)}% · Comissão ${pct(data.comissaoPercent)}%`}
           </div>
         </div>
 

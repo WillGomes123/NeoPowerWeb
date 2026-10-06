@@ -17,6 +17,8 @@ export interface ExportOptions {
   data: Record<string, unknown>[];
   author?: string;
   dateFormat?: string;
+  /** Linhas de texto depois dos dados (totais, notas), no CSV e no Excel. */
+  rodape?: string[];
 }
 
 /**
@@ -51,7 +53,7 @@ const formatValue = (value: unknown, format: ExportColumn['format'] = 'text'): s
  * Export data to CSV format (Excel compatible)
  */
 export const exportToCSV = (options: ExportOptions): void => {
-  const { filename, columns, data } = options;
+  const { filename, columns, data, rodape = [] } = options;
 
   // Create header row
   const headers = columns.map(col => `"${col.header}"`).join(';');
@@ -70,7 +72,10 @@ export const exportToCSV = (options: ExportOptions): void => {
 
   // Combine headers and rows with BOM for Excel UTF-8 compatibility
   const BOM = '\uFEFF';
-  const csvContent = BOM + [headers, ...rows].join('\r\n');
+  const linhasDoRodape = rodape.length
+    ? ['', ...rodape.map(linha => `"${linha.replace(/"/g, '""')}"`)]
+    : [];
+  const csvContent = BOM + [headers, ...rows, ...linhasDoRodape].join('\r\n');
 
   // Create blob and download
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -88,7 +93,7 @@ export const exportToCSV = (options: ExportOptions): void => {
  * Export data to Excel XLSX format using a simple XML approach
  */
 export const exportToExcel = (options: ExportOptions): void => {
-  const { filename, title, columns, data, author = 'NeoPower Dashboard' } = options;
+  const { filename, title, columns, data, author = 'NeoPower Dashboard', rodape = [] } = options;
 
   // Create worksheet XML
   const worksheetHeader = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -178,8 +183,20 @@ export const exportToExcel = (options: ExportOptions): void => {
   </Worksheet>
 </Workbook>`;
 
+  const escapar = (t: string) =>
+    t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rodapeRows = rodape.length
+    ? '<Row></Row>' +
+      rodape
+        .map(
+          linha =>
+            `<Row><Cell ss:MergeAcross="${columns.length - 1}"><Data ss:Type="String">${escapar(linha)}</Data></Cell></Row>`
+        )
+        .join('\n')
+    : '';
+
   const xmlContent =
-    worksheetHeader + columnDefs + titleRow + headerRow + dataRows + worksheetFooter;
+    worksheetHeader + columnDefs + titleRow + headerRow + dataRows + rodapeRows + worksheetFooter;
 
   // Create blob and download
   const blob = new Blob([xmlContent], {
