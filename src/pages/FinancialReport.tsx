@@ -18,9 +18,18 @@ interface TenantFinancialSummary {
   /** Carregadores da marca (a API manda desde a correção do overview por marca). */
   chargers?: number;
   kWh: number;
+  /** Consumido em recargas nos carregadores da marca. */
   revenue: number;
+  /** Comissão NeoPower. */
   fees: number;
+  /** Repasse ao dono (o mesmo da visão da marca). */
   net: number;
+  comissaoPercent?: number;
+  /** Taxa do Mercado Pago proporcional ao consumo (API com o repasse por recarga). */
+  mpFee?: number;
+  taxaMpPercent?: number;
+  taxaMpFonte?: FonteDaTaxaMp;
+  cruzadas?: { quantidade: number; receita: number; repasse: number };
 }
 
 interface TenantOverviewResponse {
@@ -28,9 +37,17 @@ interface TenantOverviewResponse {
     transactions: number;
     kWh: number;
     revenue: number;
+    mpFee?: number;
     fees: number;
     net: number;
-    deposits: { total: number; count: number; mpFee: number };
+    deposits: {
+      total: number;
+      count: number;
+      mpFee: number;
+      devolvidos?: number;
+      liquido?: number;
+      creditosSemPagamento?: number;
+    };
   };
   byTenant: TenantFinancialSummary[];
 }
@@ -44,6 +61,11 @@ interface FinancialReportItem {
   'Valor Total de Taxas (R$)': string;
   'Valor Recebido (R$)': string;
   'Valor Pago ao Cliente (R$)': string;
+  // Repasse por recarga (API nova). Sem eles, a linha é só receita − comissão.
+  'Taxa Mercado Pago (%)'?: string;
+  'Taxa Mercado Pago (R$)'?: string;
+  'Comissão NeoPower (R$)'?: string;
+  'Repasse ao Dono (R$)'?: string;
   Status: string;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
@@ -54,8 +76,60 @@ interface FinancialReportItem {
   transaction_id?: number;
 }
 
+/**
+ * De onde saiu a taxa efetiva do Mercado Pago: depósitos do período, dos 90
+ * dias até o fim dele (sem depósito pago no período) ou nenhum (0%).
+ */
+type FonteDaTaxaMp = 'periodo' | 'ultimos-90-dias' | 'sem-depositos';
+
+interface ValoresDoRepasse {
+  quantidade: number;
+  receita: number;
+  taxaMp: number;
+  base: number;
+  comissao: number;
+  repasse: number;
+}
+
+/** Resumo do repasse por recarga, calculado na API (utils/repasse.ts). */
+interface ResumoRepasse {
+  regra: 'por-recarga';
+  marca: string;
+  comissaoPercent: number;
+  taxaMp: {
+    percentual: number;
+    fonte: FonteDaTaxaMp;
+    depositos: number;
+    taxa: number;
+    quantidade: number;
+  };
+  recargas: ValoresDoRepasse;
+  proprias: ValoresDoRepasse;
+  cruzadas: ValoresDoRepasse;
+  /** Só para quem gerencia a marca. */
+  entrada: {
+    depositos: number;
+    quantidade: number;
+    creditosSemPagamento: number;
+    estornosDeposito: number;
+    estornosRecargaMp: number;
+    devolucoesVisitante: number;
+    taxaMp: number;
+    liquido: number;
+  } | null;
+  saldoClientes: {
+    aConsumir: number;
+    devedor: number;
+    carteiras: number;
+    em: string;
+    fonte: 'carteiras-no-fim-do-periodo' | 'carteiras-agora';
+  } | null;
+}
+
 interface RecargaCruzadaRedeItem {
-  rede: string;
+  /** A API manda `nome`; `rede` ficou do formato antigo. */
+  nome?: string;
+  rede?: string;
   quantidade: number;
   valorBruto: number;
 }
@@ -64,6 +138,8 @@ interface RecargasCruzadasData {
   recebidas: {
     quantidade: number;
     valorBruto: number;
+    /** Repasse dessas recargas (comissão descontada, sem taxa do Mercado Pago). */
+    valorRepasse?: number;
     porRede: RecargaCruzadaRedeItem[];
   };
   aRepassar: {
@@ -85,6 +161,8 @@ interface WalletTransactionItem {
   description: string | null;
   referenceId: string | null;
   paymentMethod: string | null;
+  /** Taxa do Mercado Pago do depósito, pela regra da API (utils/repasse.ts). */
+  taxaMp?: number;
   createdAt: string;
 }
 
@@ -92,6 +170,9 @@ interface WalletTransactionItem {
  * Taxa real do Mercado Pago por método (tabela de set/2026): Pix 0,99%,
  * crédito à vista 4,99%, débito 3,99%, boleto R$3,49 fixo. Antes o relatório
  * usava 1% fixo para todos, o que subestimava o desconto do cartão.
+ *
+ * A regra vive na API (utils/repasse.ts), que manda a taxa de cada depósito
+ * e o resumo do repasse. Esta cópia só cobre a API antiga, sem esses campos.
  */
 const TAXA_MP_METODO: Record<string, number> = {
   pix: 0.0099,
@@ -99,7 +180,8 @@ const TAXA_MP_METODO: Record<string, number> = {
   debito: 0.0399,
   saldo: 0,
 };
-function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null }): number {
+function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null; taxaMp?: number }): number {
+  if (typeof t.taxaMp === 'number') return t.taxaMp;
   const m = (t.paymentMethod || 'pix').toLowerCase();
   if (m === 'boleto') return 3.49; // valor fixo por boleto
   return t.amount * (TAXA_MP_METODO[m] ?? TAXA_MP_METODO.pix);
@@ -107,6 +189,46 @@ function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null }): 
 
 /** Usado só até a API responder; o percentual real vem no relatório. */
 const COMISSAO_PADRAO_PERCENT = 5;
+
+/** Cartão do resumo do repasse (visão de uma marca). */
+function CartaoDoRepasse({
+  icone,
+  titulo,
+  valor,
+  detalhe,
+  destaque = false,
+  tom,
+}: {
+  icone: string;
+  titulo: string;
+  valor: string;
+  detalhe?: React.ReactNode;
+  destaque?: boolean;
+  tom?: 'negativo';
+}) {
+  return (
+    <div
+      className={`p-4 rounded-xl border ${
+        destaque ? 'bg-primary/10 border-primary/30' : 'bg-background/50 border-outline-variant/15'
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`material-symbols-outlined text-lg ${destaque ? 'text-primary' : 'text-on-surface-variant'}`}>
+          {icone}
+        </span>
+        <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">{titulo}</p>
+      </div>
+      <p
+        className={`text-2xl font-bold ${
+          destaque ? 'text-primary' : tom === 'negativo' ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+        }`}
+      >
+        {valor}
+      </p>
+      {detalhe && <p className="text-xs text-on-surface-variant mt-1">{detalhe}</p>}
+    </div>
+  );
+}
 
 export const FinancialReport = () => {
   const { user } = useAuth();
@@ -129,6 +251,8 @@ export const FinancialReport = () => {
   // dividia o liquido com 5% escrito aqui dentro, entao uma marca com
   // percentual diferente lia um repasse que nao era o dela.
   const [comissaoPercent, setComissaoPercent] = useState<number>(COMISSAO_PADRAO_PERCENT);
+  // Repasse por recarga como a API calculou (taxa MP efetiva, caixa e saldo).
+  const [resumo, setResumo] = useState<ResumoRepasse | null>(null);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
   const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,6 +309,7 @@ export const FinancialReport = () => {
       const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
       setRecargasCruzadas(data?.recargasCruzadas || null);
       if (typeof data?.comissaoPercent === 'number') setComissaoPercent(data.comissaoPercent);
+      setResumo(data?.repasse?.regra === 'por-recarga' ? data.repasse : null);
 
       if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
@@ -202,6 +327,7 @@ export const FinancialReport = () => {
       toast.error('Erro ao buscar relatório financeiro');
       setReportData([]);
       setRecargasCruzadas(null);
+      setResumo(null);
     } finally {
       setLoading(false);
     }
@@ -237,7 +363,10 @@ export const FinancialReport = () => {
       return;
     }
     try {
-      const response = await api.get('/admin/wallet-transactions');
+      // No drill-down do super admin, só os clientes da marca aberta: antes a
+      // visão da Vip listava (e somava) os depósitos de todas as marcas.
+      const marca = drillDownClientId ? `?clientId=${encodeURIComponent(drillDownClientId)}` : '';
+      const response = await api.get(`/admin/wallet-transactions${marca}`);
       if (response.ok) {
         const data = await response.json();
         let filtered = data;
@@ -255,7 +384,7 @@ export const FinancialReport = () => {
     } catch (error) {
       console.error('Erro ao buscar transações da carteira:', error);
     }
-  }, [isAdmin, startDate, endDate]);
+  }, [isAdmin, startDate, endDate, drillDownClientId]);
 
   useEffect(() => {
     if (!locationsLoaded) return;
@@ -370,35 +499,55 @@ export const FinancialReport = () => {
       return;
     }
 
-    const exportData = reportData.map(row => ({
-      'Estação': row['Estação'],
-      'Início': row['Início'],
-      'Fim': row['Fim'],
-      'Recarga (kWh)': row['Recarga (kWh)'],
-      'Receita (R$)': row['Receita (R$)'],
-      'Taxas (R$)': row['Valor Total de Taxas (R$)'],
-      'Recebido (R$)': row['Valor Recebido (R$)'],
-      'Pago Cliente (R$)': row['Valor Pago ao Cliente (R$)'],
-      'Status': row['Status'],
-    }));
+    // CSV em texto pt-BR (vírgula decimal, como o Excel brasileiro lê com ';');
+    // Excel com número de verdade. Antes as colunas iam como texto com formato
+    // 'number' e o Excel exportava tudo 0.
+    const emTexto = format === 'csv';
+    const valor = (n: number) => (emTexto ? fmt(n) : Math.round(n * 100) / 100);
+    const exportData = reportData.map(row => {
+      const v = valoresDaLinha(row);
+      return {
+        'Estação': row['Estação'],
+        'Início': row['Início'],
+        'Fim': row['Fim'],
+        'Recarga (kWh)': valor(parseFloat(row['Recarga (kWh)']) || 0),
+        'Receita (R$)': valor(v.receita),
+        'Taxa MP (%)': row.recargaCruzada ? valor(0) : valor(taxaMpPercent),
+        'Taxa MP (R$)': valor(v.taxaMp),
+        'Comissão (R$)': valor(v.comissao),
+        'Repasse ao dono (R$)': valor(v.repasse),
+        'Cliente de outra rede': row.recargaCruzada ? row.redeDoCliente || 'sim' : '',
+        'Status': row['Status'],
+      };
+    });
 
+    const numerico = emTexto ? undefined : ('currency' as const);
     const columns = [
       { key: 'Estação', header: 'Estação' },
       { key: 'Início', header: 'Início' },
       { key: 'Fim', header: 'Fim' },
-      { key: 'Recarga (kWh)', header: 'Recarga (kWh)', format: 'number' as const },
-      { key: 'Receita (R$)', header: 'Receita (R$)', format: 'number' as const },
-      { key: 'Taxas (R$)', header: 'Taxas (R$)', format: 'number' as const },
-      { key: 'Recebido (R$)', header: 'Recebido (R$)', format: 'number' as const },
-      { key: 'Pago Cliente (R$)', header: 'Pago Cliente (R$)', format: 'number' as const },
+      { key: 'Recarga (kWh)', header: 'Recarga (kWh)', format: emTexto ? undefined : ('number' as const) },
+      { key: 'Receita (R$)', header: 'Consumido (R$)', format: numerico },
+      { key: 'Taxa MP (%)', header: 'Taxa Mercado Pago (%)', format: emTexto ? undefined : ('number' as const) },
+      { key: 'Taxa MP (R$)', header: 'Taxa Mercado Pago proporcional (R$)', format: numerico },
+      { key: 'Comissão (R$)', header: `Comissão NeoPower ${pct(comissaoPercent)}% (R$)`, format: numerico },
+      { key: 'Repasse ao dono (R$)', header: 'Repasse ao dono (R$)', format: numerico },
+      { key: 'Cliente de outra rede', header: 'Cliente de outra rede' },
       { key: 'Status', header: 'Status' },
     ];
 
     const options = {
       filename: `relatorio_financeiro_${new Date().toISOString().split('T')[0]}`,
-      title: 'Relatório Financeiro',
+      title: `Relatório Financeiro — ${periodLabel}`,
       columns,
       data: exportData,
+      // Rodapé com os totais e a taxa efetiva do Mercado Pago usada.
+      rodape: [
+        `Período: ${periodLabel}`,
+        `Consumido em recargas: R$ ${fmt(totals.revenue)} | Taxa Mercado Pago proporcional: R$ ${fmt(totals.taxaMp)} | Comissão NeoPower ${pct(comissaoPercent)}%: R$ ${fmt(totals.comissao)} | Repasse ao dono: R$ ${fmt(totals.repasse)}`,
+        `Taxa Mercado Pago efetiva: ${pct(taxaMpPercent)}% (${textoDaFonteDaTaxa})`,
+        'Regra: repasse sobre o consumido em recargas. Taxa MP proporcional = consumido × (taxa MP dos depósitos ÷ depósitos); repasse = (consumido − taxa MP) × (100% − comissão). Recarga de cliente de outra rede fica sem taxa MP.',
+      ],
     };
 
     if (format === 'csv') {
@@ -410,17 +559,61 @@ export const FinancialReport = () => {
     }
   };
 
-  const totals = reportData.reduce(
-    (acc, row) => {
-      acc.energy += parseFloat(row['Recarga (kWh)']) || 0;
-      acc.revenue += parseFloat(row['Receita (R$)']) || 0;
-      acc.fees += parseFloat(row['Valor Total de Taxas (R$)']) || 0;
-      acc.received += parseFloat(row['Valor Recebido (R$)']) || 0;
-      acc.payout += parseFloat(row['Valor Pago ao Cliente (R$)']) || 0;
-      return acc;
-    },
-    { energy: 0, revenue: 0, fees: 0, received: 0, payout: 0 }
-  );
+  /**
+   * Valores de uma recarga como a API repartiu (taxa MP proporcional,
+   * comissão e repasse; a soma das linhas bate com o resumo). Com a API
+   * antiga, sem esses campos, a linha é receita − comissão.
+   */
+  const valoresDaLinha = (row: FinancialReportItem) => {
+    const n = (v: string | undefined) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+    const receita = n(row['Receita (R$)']);
+    const taxaMp = n(row['Taxa Mercado Pago (R$)']);
+    const comissao =
+      row['Comissão NeoPower (R$)'] != null
+        ? n(row['Comissão NeoPower (R$)'])
+        : n(row['Valor Total de Taxas (R$)']);
+    const repasse = n(row['Repasse ao Dono (R$)'] ?? row['Valor Pago ao Cliente (R$)']);
+    return { receita, taxaMp, comissao, repasse };
+  };
+
+  // Somas em centavos: as linhas já vêm repartidas ao centavo pela API.
+  const totals = (() => {
+    const c = { energy: 0, revenue: 0, taxaMp: 0, comissao: 0, repasse: 0, revenueCruzadas: 0, repasseCruzadas: 0 };
+    for (const row of reportData) {
+      const v = valoresDaLinha(row);
+      c.energy += parseFloat(row['Recarga (kWh)']) || 0;
+      c.revenue += Math.round(v.receita * 100);
+      c.taxaMp += Math.round(v.taxaMp * 100);
+      c.comissao += Math.round(v.comissao * 100);
+      c.repasse += Math.round(v.repasse * 100);
+      if (row.recargaCruzada) {
+        c.revenueCruzadas += Math.round(v.receita * 100);
+        c.repasseCruzadas += Math.round(v.repasse * 100);
+      }
+    }
+    return {
+      energy: c.energy,
+      revenue: c.revenue / 100,
+      taxaMp: c.taxaMp / 100,
+      comissao: c.comissao / 100,
+      repasse: c.repasse / 100,
+      revenueCruzadas: c.revenueCruzadas / 100,
+      repasseCruzadas: c.repasseCruzadas / 100,
+    };
+  })();
+  const qtdCruzadas = reportData.filter(r => r.recargaCruzada).length;
+
+  // Taxa efetiva do Mercado Pago que a API aplicou ao consumo.
+  const taxaMpPercent = resumo?.taxaMp.percentual ?? 0;
+  const fonteDaTaxa: FonteDaTaxaMp | null = resumo?.taxaMp.fonte ?? null;
+  const textoDaFonteDaTaxa =
+    fonteDaTaxa === 'periodo'
+      ? 'depósitos pagos da marca no período'
+      : fonteDaTaxa === 'ultimos-90-dias'
+        ? 'sem depósito pago no período: últimos 90 dias da marca'
+        : fonteDaTaxa === 'sem-depositos'
+          ? 'sem depósito pago nos últimos 90 dias'
+          : 'API sem o repasse por recarga';
 
   // Só é ENTRADA o que veio de um pagamento de verdade (Mercado Pago). Crédito
   // manual do admin e migração de saldo movem saldo sem dinheiro entrar — um
@@ -433,82 +626,60 @@ export const FinancialReport = () => {
   const creditosSemPagamento = walletTransactions.filter(
     t => t.type === 'deposit' && ehCreditoSemPagamento(t)
   );
-  const totalCreditosSemPagamento = creditosSemPagamento.reduce((acc, t) => acc + t.amount, 0);
   // Estorno de depósito (refund-deposit-<id>) devolve dinheiro: sai da entrada.
   const estornosDeposito = walletTransactions.filter(
     t => t.type === 'refund' && (t.referenceId || '').startsWith('refund-deposit-')
   );
-  const totalEstornosDeposito = estornosDeposito.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   // Estorno de RECARGA devolvido pelo Mercado Pago (mp-refund-tx-<id>): o
-  // dinheiro voltou para o cartão/Pix do cliente, então saiu do caixa e não
-  // pode continuar contado como entrada. Fica registrado como saque na
-  // carteira — por isso não aparecia na conta da entrada, e o repasse de 95%
-  // era calculado sobre um dinheiro que já tinha ido embora. O estorno
-  // creditado na carteira (refund-tx-<id>) NÃO entra aqui: o saldo continua
-  // com o cliente, dentro de casa.
+  // dinheiro voltou para o cartão/Pix do cliente, então saiu do caixa. O
+  // estorno creditado na carteira (refund-tx-<id>) NÃO entra aqui: o saldo
+  // continua com o cliente, dentro de casa.
   const estornosRecargaMp = walletTransactions.filter(
     t => (t.referenceId || '').startsWith('mp-refund-tx-')
   );
-  const totalEstornosRecargaMp = estornosRecargaMp.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   // Devolução ao VISITANTE (GUEST_REFUND_<sessão>): o pague-e-carregue lança o
-  // valor pago como depósito e, no fim, devolve a sobra — por Pix, ou soltando
-  // o que foi reservado no cartão e nunca chegou a ser capturado. Dos dois
-  // jeitos a operação só ficou com o que foi consumido, mas a entrada seguia
-  // mostrando o valor cheio do depósito.
+  // valor pago como depósito e, no fim, devolve a sobra.
   const devolucoesVisitante = walletTransactions.filter(t =>
     (t.referenceId || '').startsWith('GUEST_REFUND_')
   );
-  const totalDevolucoesVisitante = devolucoesVisitante.reduce(
-    (acc, t) => acc + Math.abs(t.amount),
-    0
-  );
+  const somaAbs = (lista: WalletTransactionItem[]) => lista.reduce((acc, t) => acc + Math.abs(t.amount), 0);
   const withdrawals = walletTransactions.filter(t => t.type === 'withdrawal' || t.type === 'charge');
-  const totalDeposits =
-    deposits.reduce((acc, t) => acc + t.amount, 0) -
-    totalEstornosDeposito -
-    totalEstornosRecargaMp -
-    totalDevolucoesVisitante;
-  const totalWithdrawals = withdrawals.reduce((acc, t) => acc + Math.abs(t.amount), 0);
-  // Desconto real do Mercado Pago, somado por método de cada depósito (Pix,
-  // crédito, débito, boleto) — não mais 1% fixo para todos. Depósito estornado
-  // fica de fora: o Mercado Pago devolve a tarifa junto com o valor, e mantê-la
-  // aqui inflava a taxa e reduzia o repasse ao dono da estação.
+  const totalWithdrawals = somaAbs(withdrawals);
+  // Depósito estornado fica fora da taxa: o Mercado Pago devolve a tarifa
+  // junto com o valor.
   const idsDepositoEstornado = new Set(
     estornosDeposito.map(t => (t.referenceId || '').replace('refund-deposit-', ''))
   );
-  const mercadoPagoFeeDeposits = deposits
-    .filter(t => !idsDepositoEstornado.has(String(t.id)))
-    .reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
-  const netDeposits = totalDeposits - mercadoPagoFeeDeposits;
 
-  const grossRevenue = totals.revenue;
-  // A recarga é paga com o saldo da carteira, ou seja, é consumo do dinheiro que
-  // já entrou como depósito (o visitante também entra como depósito). Somar as
-  // duas coisas contava o mesmo real duas vezes. Entrada = depósitos; as
-  // recargas aparecem à parte, como consumo, sem somar.
-  const entradaBrutaTotal = totalDeposits;
-  const taxasRecargas = totals.fees;
-  // Pelo mesmo motivo, a taxa que sai do caixa é a do Mercado Pago no depósito;
-  // a taxa estimada por recarga não é somada de novo.
-  const taxasTotais = mercadoPagoFeeDeposits;
+  // "Entrou no caixa": a conta é da API (a mesma do card da visão geral). Com a
+  // API antiga, cai na conta feita aqui com os lançamentos da carteira.
+  const entrada = resumo?.entrada ?? null;
+  const totalCreditosSemPagamento = entrada
+    ? entrada.creditosSemPagamento
+    : creditosSemPagamento.reduce((acc, t) => acc + t.amount, 0);
+  const totalDevolvido = entrada
+    ? entrada.estornosDeposito + entrada.estornosRecargaMp + entrada.devolucoesVisitante
+    : somaAbs(estornosDeposito) + somaAbs(estornosRecargaMp) + somaAbs(devolucoesVisitante);
+  const depositosPagos = entrada ? entrada.depositos : deposits.reduce((acc, t) => acc + t.amount, 0);
+  const qtdDepositos = entrada ? entrada.quantidade : deposits.length;
+  // Depósitos menos o que voltou ao cliente (antes da taxa do Mercado Pago).
+  const totalDeposits = depositosPagos - totalDevolvido;
+  const mercadoPagoFeeDeposits = entrada
+    ? entrada.taxaMp
+    : deposits
+        .filter(t => !idsDepositoEstornado.has(String(t.id)))
+        .reduce((acc, t) => acc + taxaMpDoDeposito(t), 0);
+  const entrouNoCaixa = entrada ? entrada.liquido : totalDeposits - mercadoPagoFeeDeposits;
+  const saldoClientes = resumo?.saldoClientes ?? null;
+  // Caixa e saldo são da marca: só para quem a gerencia (a API decide).
+  const mostraCaixa = !!entrada || isAdmin;
 
-  const liquidoRecargas = totals.received;
-  const liquidoDepositos = netDeposits;
-  const liquidoTotal = liquidoDepositos;
-  // Recargas de clientes de outras redes nos postos próprios: o dinheiro entrou
-  // na carteira da outra rede, então é valor a receber, não entrada.
-  const aReceberCruzadas = recargasCruzadas?.recebidas.valorBruto ?? 0;
-
-  // Divisão do líquido (depois das taxas do Mercado Pago): o dono da estação
-  // fica com o resto, a NeoPower com a comissão — e a manutenção do site sai
-  // dessa comissão. O percentual é o que a API aplicou, não um número fixo.
-  const PERCENTUAL_NEOPOWER = comissaoPercent / 100;
+  // Repasse por recarga: consumo − taxa MP proporcional − comissão.
+  const consumido = totals.revenue;
   const percentCliente = 100 - comissaoPercent;
-  const valorPagoCliente = liquidoTotal * (1 - PERCENTUAL_NEOPOWER);
-  const lucroNeoPower = liquidoTotal * PERCENTUAL_NEOPOWER;
-
-  const platformProfit = lucroNeoPower;
-  // profitMargin calculated for future use: (platformProfit / entradaBrutaTotal) * 100
+  const repasseAoDono = totals.repasse;
+  const comissaoNeoPower = totals.comissao;
+  const taxaMpProporcional = totals.taxaMp;
 
   const visibleReportData = React.useMemo(() => {
     return reportData.filter(row => {
@@ -562,25 +733,37 @@ export const FinancialReport = () => {
     locationName: isAdmin ? 'Painel Administrativo' : `Estações de ${user?.name || 'Usuário'}`,
     totalKwh: totals.energy,
     totalRevenue: totals.revenue,
-    totalFees: totals.fees,
-    netReceived: totals.received,
-    totalPayout: totals.payout,
+    totalTaxaMp: totals.taxaMp,
+    totalComissao: totals.comissao,
+    totalRepasse: totals.repasse,
+    comissaoPercent,
+    taxaMpPercent,
+    taxaMpFonte: textoDaFonteDaTaxa,
     sessionsCount: reportData.length,
+    entrouNoCaixa: mostraCaixa ? entrouNoCaixa : null,
+    saldoClientes: saldoClientes ? saldoClientes.aConsumir : null,
     walletDeposits: totalDeposits,
     walletWithdrawals: totalWithdrawals,
-    chartData: reportData.slice(0, 30).map((row, i) => ({
-      name: row['Início']?.split(' ')[0] || `#${i + 1}`,
-      revenue: parseFloat(row['Receita (R$)']) || 0,
-      fees: parseFloat(row['Valor Total de Taxas (R$)']) || 0,
-    })),
-    financialTableData: reportData.map(row => ({
-      date: row['Início']?.split(' ')[0] || '-',
-      charger: row['Estação'],
-      kwh: row['Recarga (kWh)'],
-      revenue: row['Receita (R$)'],
-      fees: row['Valor Total de Taxas (R$)'],
-      net: row['Valor Recebido (R$)'],
-    })),
+    chartData: reportData.slice(0, 30).map((row, i) => {
+      const v = valoresDaLinha(row);
+      return {
+        name: row['Início']?.split(' ')[0] || `#${i + 1}`,
+        revenue: v.receita,
+        fees: v.taxaMp + v.comissao,
+      };
+    }),
+    financialTableData: reportData.map(row => {
+      const v = valoresDaLinha(row);
+      return {
+        date: row['Início']?.split(' ')[0] || '-',
+        charger: row['Estação'],
+        kwh: row['Recarga (kWh)'],
+        revenue: v.receita.toFixed(2),
+        taxaMp: v.taxaMp.toFixed(2),
+        comissao: v.comissao.toFixed(2),
+        repasse: v.repasse.toFixed(2),
+      };
+    }),
   };
 
   const periodLabel = startDate && endDate
@@ -654,10 +837,15 @@ export const FinancialReport = () => {
     // depósitos (R$ 2,89), e os números não fechavam.
     const entradaBruta = agg.deposits.total;
     const taxaMp = agg.deposits.mpFee;
-    const entradaLiquida = entradaBruta - taxaMp;
+    // Devolvido ao cliente (estornos e sobra do visitante): a API nova manda.
+    const devolvido = agg.deposits.devolvidos ?? 0;
+    const entradaLiquida = agg.deposits.liquido ?? entradaBruta - taxaMp;
     const baseEntrada = entradaBruta || 1;
     const pctLiquido = entradaBruta > 0 ? (entradaLiquida / baseEntrada) * 100 : 0;
     const pctTaxaMp = entradaBruta > 0 ? (taxaMp / baseEntrada) * 100 : 0;
+    const pctDevolvido = entradaBruta > 0 ? (devolvido / baseEntrada) * 100 : 0;
+    // Repasse aos donos = soma dos cards por marca (mesma conta da visão da marca).
+    const taxaMpProporcionalTotal = agg.mpFee ?? 0;
 
     return (
       <div className="space-y-6">
@@ -724,7 +912,7 @@ export const FinancialReport = () => {
                   R$ {fmt(entradaLiquida)}
                 </p>
                 <p className="text-sm text-on-surface-variant mt-1">
-                  entrada líquida (depósitos − taxa do Mercado Pago)
+                  entrou no caixa (depósitos − devoluções − taxa do Mercado Pago)
                 </p>
               </div>
               <div className="flex gap-6">
@@ -739,7 +927,7 @@ export const FinancialReport = () => {
               </div>
             </div>
 
-            {/* Barra de composição da receita */}
+            {/* Barra de composição da entrada */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-on-surface-variant">
                 <span>Depósitos: R$ {fmt(entradaBruta)}</span>
@@ -749,7 +937,12 @@ export const FinancialReport = () => {
                 <div
                   className="bg-primary/70 transition-all"
                   style={{ width: `${pctLiquido}%` }}
-                  title={`Líquido: R$ ${fmt(entradaLiquida)}`}
+                  title={`Entrou no caixa: R$ ${fmt(entradaLiquida)}`}
+                />
+                <div
+                  className="bg-amber-500/40 transition-all"
+                  style={{ width: `${pctDevolvido}%` }}
+                  title={`Devolvido: R$ ${fmt(devolvido)}`}
                 />
                 <div
                   className="bg-red-500/40 transition-all"
@@ -757,11 +950,17 @@ export const FinancialReport = () => {
                   title={`Taxa Mercado Pago: R$ ${fmt(taxaMp)}`}
                 />
               </div>
-              <div className="flex gap-4 text-[10px] font-semibold uppercase tracking-wider">
+              <div className="flex flex-wrap gap-4 text-[10px] font-semibold uppercase tracking-wider">
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
                   Líquido ({pctLiquido.toFixed(0)}%)
                 </span>
+                {devolvido > 0 && (
+                  <span className="flex items-center gap-1.5 text-on-surface-variant">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40" />
+                    Devolvido ({pctDevolvido.toFixed(0)}%)
+                  </span>
+                )}
                 <span className="flex items-center gap-1.5 text-on-surface-variant">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
                   Taxa Mercado Pago ({pctTaxaMp.toFixed(0)}%)
@@ -772,14 +971,14 @@ export const FinancialReport = () => {
         </div>
 
         {/* ─── KPIs secundários ─── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
               <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Entrada (depósitos)</p>
             </div>
             <p className="text-2xl font-bold text-foreground">R$ {fmt(entradaBruta)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósito{agg.deposits.count === 1 ? '' : 's'} no período</p>
+            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósito{agg.deposits.count === 1 ? '' : 's'} pago{agg.deposits.count === 1 ? '' : 's'} no período</p>
           </div>
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
@@ -792,7 +991,7 @@ export const FinancialReport = () => {
           <div className="glass-card rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="material-symbols-outlined text-primary">ev_station</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Recargas (consumo)</p>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Consumido em recargas</p>
             </div>
             <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
             <p className="text-xs text-on-surface-variant mt-1">
@@ -805,7 +1004,17 @@ export const FinancialReport = () => {
               <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Comissão NeoPower</p>
             </div>
             <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.fees)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{pct(comissaoPercent)}% das recargas · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}</p>
+            <p className="text-xs text-on-surface-variant mt-1">sobre o consumido menos a taxa MP · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}</p>
+          </div>
+          <div className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-primary">payments</span>
+              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Repasse aos donos</p>
+            </div>
+            <p className="text-2xl font-bold text-primary">R$ {fmt(agg.net)}</p>
+            <p className="text-xs text-on-surface-variant mt-1">
+              consumido − taxa MP proporcional (R$ {fmt(taxaMpProporcionalTotal)}) − comissão
+            </p>
           </div>
         </div>
 
@@ -874,7 +1083,7 @@ export const FinancialReport = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Recargas</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Consumido</p>
                         <p className="text-base font-bold text-foreground">R$ {fmt(t.revenue)}</p>
                       </div>
                       <div>
@@ -882,10 +1091,16 @@ export const FinancialReport = () => {
                         <p className="text-base font-bold text-primary">R$ {fmt(t.net)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão {pct(comissaoPercent)}%</p>
-                        <p className="text-sm text-red-500">R$ {fmt(t.fees)}</p>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">
+                          Taxa MP{t.taxaMpPercent != null ? ` ${pct(t.taxaMpPercent)}%` : ''}
+                        </p>
+                        <p className="text-sm text-red-500">R$ {fmt(t.mpFee ?? 0)}</p>
                       </div>
                       <div>
+                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão {pct(t.comissaoPercent ?? comissaoPercent)}%</p>
+                        <p className="text-sm text-red-500">R$ {fmt(t.fees)}</p>
+                      </div>
+                      <div className="col-span-2">
                         <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
                         <p className="text-sm text-foreground">
                           {t.transactions}
@@ -893,6 +1108,12 @@ export const FinancialReport = () => {
                             <span className="text-xs text-outline"> · {t.chargers} carregador{t.chargers === 1 ? '' : 'es'}</span>
                           )}
                         </p>
+                        {/* Recarga cruzada: entra no consumo e no repasse sem a taxa MP. */}
+                        {(t.cruzadas?.quantidade ?? 0) > 0 && (
+                          <p className="text-xs text-amber-500 mt-0.5">
+                            R$ {fmt(t.cruzadas!.receita)} de clientes de outras redes ({t.cruzadas!.quantidade}) · sem taxa MP
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
@@ -902,7 +1123,7 @@ export const FinancialReport = () => {
                       />
                     </div>
                     <p className="text-xs text-on-surface-variant mt-1.5">
-                      {shareOfRevenue.toFixed(1)}% das recargas
+                      {shareOfRevenue.toFixed(1)}% do consumido
                     </p>
                   </button>
                 );
@@ -980,115 +1201,123 @@ export const FinancialReport = () => {
         </div>
       </div>
 
-      {/* KPI Summary Cards */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">
-                {isAdmin ? 'Entrada Bruta Total' : 'Receita Bruta'}
-              </p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                R$ {fmt(isAdmin ? entradaBrutaTotal : grossRevenue)}
-              </p>
-              <p className="text-xs text-outline mt-1">
-                {isAdmin ? 'Depósitos (recargas não somam)' : `${reportData.length} transação(ões)`}
-              </p>
-              {/* Sem esta linha, a entrada cai depois de um estorno e não há
-                  como saber de onde veio a diferença. */}
-              {isAdmin && totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante > 0 && (
-                <p className="text-xs text-amber-500 mt-1">
-                  Já descontados R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante)} em estornos
-                </p>
-              )}
-            </div>
-            <div className="p-3 bg-primary/10 rounded-xl">
-              <span className="material-symbols-outlined text-primary text-2xl">account_balance</span>
-            </div>
-          </div>
+      {/* ─── Repasse por recarga ─── */}
+      <div className="glass-card rounded-xl p-5 space-y-4">
+        <div>
+          <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">payments</span>
+            Repasse ao dono por recarga
+          </h2>
+          <p className="text-sm text-on-surface-variant mt-1 max-w-3xl">
+            O repasse é sobre o que foi <strong>consumido em recargas</strong>: o saldo parado na carteira é do
+            cliente até ele usar. A taxa do Mercado Pago, cobrada no depósito, é dividida na proporção do
+            consumo ({pct(taxaMpPercent)}% efetiva) e a comissão sai do que sobra.
+            {submittedFilter && mostraCaixa && ' Com o filtro de estação, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
+          </p>
+        </div>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${mostraCaixa ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
+          {mostraCaixa && (
+            <CartaoDoRepasse
+              icone="account_balance"
+              titulo="Entrou no caixa"
+              valor={`R$ ${fmt(entrouNoCaixa)}`}
+              detalhe={
+                <>
+                  Depósitos R$ {fmt(depositosPagos)} − devoluções R$ {fmt(totalDevolvido)} − taxa MP R$ {fmt(mercadoPagoFeeDeposits)}
+                  {totalCreditosSemPagamento > 0 && (
+                    <span className="block text-outline">Créditos manuais/migração (R$ {fmt(totalCreditosSemPagamento)}) não são entrada</span>
+                  )}
+                </>
+              }
+            />
+          )}
+          <CartaoDoRepasse
+            icone="bolt"
+            titulo="Consumido em recargas"
+            valor={`R$ ${fmt(consumido)}`}
+            detalhe={
+              <>
+                {reportData.length} recarga{reportData.length === 1 ? '' : 's'}
+                {qtdCruzadas > 0 && ` · R$ ${fmt(totals.revenueCruzadas)} de clientes de outras redes`}
+              </>
+            }
+          />
+          <CartaoDoRepasse
+            icone="percent"
+            titulo="Taxa Mercado Pago (proporcional)"
+            valor={`−R$ ${fmt(taxaMpProporcional)}`}
+            tom="negativo"
+            detalhe={
+              <>
+                {pct(taxaMpPercent)}% efetiva · {textoDaFonteDaTaxa}
+                {qtdCruzadas > 0 && (
+                  <span className="block text-outline">Recargas de outras redes ficam sem (a taxa ficou no depósito da rede do cliente)</span>
+                )}
+              </>
+            }
+          />
+          <CartaoDoRepasse
+            icone="savings"
+            titulo={`Comissão NeoPower ${pct(comissaoPercent)}%`}
+            valor={`−R$ ${fmt(comissaoNeoPower)}`}
+            tom="negativo"
+            detalhe="Sobre o consumido menos a taxa do Mercado Pago"
+          />
+          <CartaoDoRepasse
+            icone="handshake"
+            titulo="Repasse ao dono"
+            valor={`R$ ${fmt(repasseAoDono)}`}
+            destaque
+            detalhe={
+              <>
+                Valor a pagar: {pct(percentCliente)}% do consumido menos a taxa MP
+                {qtdCruzadas > 0 && (
+                  <span className="block">Inclui R$ {fmt(totals.repasseCruzadas)} de clientes de outras redes (acerto manual)</span>
+                )}
+              </>
+            }
+          />
+          {mostraCaixa && (
+            <CartaoDoRepasse
+              icone="account_balance_wallet"
+              titulo="Saldo de clientes a consumir"
+              valor={saldoClientes ? `R$ ${fmt(saldoClientes.aConsumir)}` : '—'}
+              detalhe={
+                saldoClientes ? (
+                  <>
+                    Soma das carteiras dos clientes da marca{' '}
+                    {saldoClientes.fonte === 'carteiras-agora'
+                      ? 'hoje'
+                      : `no fim do período (${new Date(saldoClientes.em).toLocaleDateString('pt-BR')})`}
+                    {' '}· {saldoClientes.carteiras} carteira{saldoClientes.carteiras === 1 ? '' : 's'}. Entrou e ainda não virou recarga.
+                    {saldoClientes.devedor > 0 && (
+                      <span className="block text-amber-500">Clientes devendo: R$ {fmt(saldoClientes.devedor)}</span>
+                    )}
+                  </>
+                ) : (
+                  'Disponível quando a API do repasse por recarga estiver no ar'
+                )
+              }
+            />
+          )}
         </div>
 
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Receita Líquida</p>
-              <p className="text-2xl font-bold text-primary mt-1">
-                R$ {fmt(isAdmin ? liquidoTotal : liquidoRecargas)}
-              </p>
-              <p className="text-xs text-outline mt-1">Após taxas</p>
+        {/* Para onde vai o consumido */}
+        {consumido > 0 && (
+          <div>
+            <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
+              <div className="bg-red-500/40 transition-all" style={{ width: `${(taxaMpProporcional / consumido) * 100}%` }} title={`Taxa MP: R$ ${fmt(taxaMpProporcional)}`} />
+              <div className="bg-primary/70 transition-all" style={{ width: `${(comissaoNeoPower / consumido) * 100}%` }} title={`Comissão: R$ ${fmt(comissaoNeoPower)}`} />
+              <div className="bg-blue-500/50 transition-all" style={{ width: `${(repasseAoDono / consumido) * 100}%` }} title={`Repasse: R$ ${fmt(repasseAoDono)}`} />
             </div>
-            <div className="p-3 bg-primary/10 rounded-xl">
-              <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card rounded-xl p-5 border-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-foreground font-medium uppercase tracking-wide">Total Taxas</p>
-              <p className="text-2xl font-bold text-foreground mt-1">
-                -R$ {fmt(isAdmin ? taxasTotais : taxasRecargas)}
-              </p>
-              <p className="text-xs text-on-surface-variant mt-1">
-                {isAdmin ? 'Mercado Pago sobre depósitos' : '14.26% sobre recargas'}
-              </p>
-            </div>
-            <div className="p-3 bg-surface-container-highest rounded-xl">
-              <span className="material-symbols-outlined text-foreground text-2xl">percent</span>
-            </div>
-          </div>
-        </div>
-
-        {isAdmin && (
-          <div className="glass-card rounded-xl p-5 border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                {/* O líquido dos depósitos já é a Receita Líquida; aqui vai o consumo
-                    (recargas pagas com esse saldo), à parte e sem somar. */}
-                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Recargas (Consumo)</p>
-                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(grossRevenue)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">{reportData.length} recarga(s) · pagas com saldo</p>
-              </div>
-              <div className="p-3 bg-surface-container-highest rounded-xl">
-                <span className="material-symbols-outlined text-foreground text-2xl">bolt</span>
-              </div>
+            <div className="flex flex-wrap gap-4 mt-2 text-xs text-on-surface-variant">
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />Taxa MP ({((taxaMpProporcional / consumido) * 100).toFixed(1)}%)</span>
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary/70" />NeoPower ({((comissaoNeoPower / consumido) * 100).toFixed(1)}%)</span>
+              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />Dono ({((repasseAoDono / consumido) * 100).toFixed(1)}%)</span>
             </div>
           </div>
         )}
       </div>
-
-      {/* Admin Only: Revenue Distribution Cards */}
-      {isAdmin && liquidoTotal > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="glass-card rounded-xl p-5 border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-foreground font-medium uppercase tracking-wide">Cliente (Dono Estação)</p>
-                <p className="text-2xl font-bold text-foreground mt-1">R$ {fmt(valorPagoCliente)}</p>
-                <p className="text-xs text-on-surface-variant mt-1">{pct(percentCliente)}% do líquido, após a taxa do Mercado Pago</p>
-              </div>
-              <div className="p-3 bg-surface-container-highest rounded-xl">
-                <span className="material-symbols-outlined text-foreground text-2xl">group</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-card rounded-xl p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">Lucro NeoPower</p>
-                <p className="text-2xl font-bold text-primary mt-1">R$ {fmt(lucroNeoPower)}</p>
-                <p className="text-xs text-outline mt-1">{pct(comissaoPercent)}% do líquido, já com a manutenção</p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-xl">
-                <span className="material-symbols-outlined text-primary text-2xl">trending_up</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
 
       {/* ─── Seção Recargas de outras redes (Recarga Cruzada) ─── */}
       {recargasCruzadas && (recargasCruzadas.recebidas.quantidade > 0 || recargasCruzadas.aRepassar.quantidade > 0) && (
@@ -1113,10 +1342,10 @@ export const FinancialReport = () => {
                 <div>
                   <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A receber (postos próprios)</p>
                   <p className="text-2xl font-bold text-primary mt-1">
-                    R$ {fmt(recargasCruzadas.recebidas.valorBruto * (percentCliente / 100))}
+                    R$ {fmt(recargasCruzadas.recebidas.valorRepasse ?? recargasCruzadas.recebidas.valorBruto * (percentCliente / 100))}
                   </p>
                   <p className="text-[11px] text-on-surface-variant mt-0.5">
-                    Líquido após {pct(comissaoPercent)}% NeoPower (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
+                    Líquido após {pct(comissaoPercent)}% NeoPower, sem taxa MP (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
                   </p>
                 </div>
                 <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
@@ -1127,8 +1356,8 @@ export const FinancialReport = () => {
                 <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de origem ({recargasCruzadas.recebidas.quantidade} sessões):</p>
                 {recargasCruzadas.recebidas.porRede.length > 0 ? (
                   recargasCruzadas.recebidas.porRede.map(item => (
-                    <div key={item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
-                      <span className="font-medium text-foreground">{item.rede}</span>
+                    <div key={item.nome ?? item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                      <span className="font-medium text-foreground">{item.nome ?? item.rede}</span>
                       <span className="text-on-surface-variant">
                         {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto * (percentCliente / 100))} líq.
                       </span>
@@ -1160,8 +1389,8 @@ export const FinancialReport = () => {
                 <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de destino ({recargasCruzadas.aRepassar.quantidade} sessões):</p>
                 {recargasCruzadas.aRepassar.porRede.length > 0 ? (
                   recargasCruzadas.aRepassar.porRede.map(item => (
-                    <div key={item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
-                      <span className="font-medium text-foreground">{item.rede}</span>
+                    <div key={item.nome ?? item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                      <span className="font-medium text-foreground">{item.nome ?? item.rede}</span>
                       <span className="text-on-surface-variant">
                         {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto)}
                       </span>
@@ -1176,7 +1405,7 @@ export const FinancialReport = () => {
 
           <p className="text-xs text-on-surface-variant italic flex items-center gap-1.5 pt-1">
             <span className="material-symbols-outlined text-sm text-outline">info</span>
-            O acerto entre redes é manual.
+            Já incluídas no consumido e no repasse acima, com o tratamento de antes: só a comissão, sem a taxa do Mercado Pago (ela ficou no depósito da rede do cliente). O acerto entre redes é manual.
           </p>
         </div>
       )}
@@ -1193,19 +1422,9 @@ export const FinancialReport = () => {
               )}
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Energia Total</p>
-              <p className="text-xl font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
-            </div>
-            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Valor Recebido</p>
-              <p className="text-xl font-bold text-primary">R$ {fmt(totals.received)}</p>
-            </div>
-            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Pago ao Cliente</p>
-              <p className="text-xl font-bold text-foreground">R$ {fmt(totals.payout)}</p>
-            </div>
+          <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15 max-w-xs">
+            <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Energia Total</p>
+            <p className="text-xl font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
           </div>
         </div>
       )}
@@ -1218,7 +1437,7 @@ export const FinancialReport = () => {
               <span className="material-symbols-outlined text-foreground">account_balance_wallet</span>
               Depósitos em Carteira
             </h2>
-            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos usuários (Pix/Cartão) — Taxa Mercado Pago por método (Pix ~1% · crédito ~5% · débito ~4%)</p>
+            <p className="text-sm text-on-surface-variant mt-1">Valores depositados pelos clientes da marca (Pix/Cartão) — Taxa Mercado Pago por método (Pix 0,99% · crédito 4,99% · débito 3,99%)</p>
           </div>
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -1228,12 +1447,12 @@ export const FinancialReport = () => {
                   <p className="text-xs text-foreground font-medium uppercase">Total Depósitos</p>
                 </div>
                 <p className="text-lg font-bold text-foreground">R$ {fmt(totalDeposits)}</p>
-                <p className="text-xs text-outline mt-1">{deposits.length} depósitos</p>
+                <p className="text-xs text-outline mt-1">{qtdDepositos} depósito{qtdDepositos === 1 ? '' : 's'} pago{qtdDepositos === 1 ? '' : 's'}</p>
                 {/* A lista abaixo mostra cada depósito pelo valor cheio; sem
                     esta linha o total não fecha com a soma da lista. */}
-                {totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante > 0 && (
+                {totalDevolvido > 0 && (
                   <p className="text-xs text-amber-500 mt-1">
-                    menos R$ {fmt(totalEstornosDeposito + totalEstornosRecargaMp + totalDevolucoesVisitante)} devolvidos
+                    menos R$ {fmt(totalDevolvido)} devolvidos
                   </p>
                 )}
               </div>
@@ -1243,15 +1462,18 @@ export const FinancialReport = () => {
                   <p className="text-xs text-foreground font-medium uppercase">Taxa Mercado Pago</p>
                 </div>
                 <p className="text-lg font-bold text-foreground">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
-                <p className="text-xs text-outline mt-1">por método (Pix, crédito, débito)</p>
+                <p className="text-xs text-outline mt-1">
+                  por método (Pix, crédito, débito)
+                  {resumo?.taxaMp.fonte === 'periodo' && ` · ${pct(taxaMpPercent)}% efetiva`}
+                </p>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase">Depósitos Líquidos</p>
+                  <p className="text-xs text-on-surface-variant font-medium uppercase">Entrou no caixa</p>
                 </div>
-                <p className="text-lg font-bold text-primary">R$ {fmt(netDeposits)}</p>
-                <p className="text-xs text-outline mt-1">Valor disponível</p>
+                <p className="text-lg font-bold text-primary">R$ {fmt(entrouNoCaixa)}</p>
+                <p className="text-xs text-outline mt-1">Depósitos − devoluções − taxa MP</p>
               </div>
               <div className="p-4 rounded-xl bg-background/50 border border-border">
                 <div className="flex items-center gap-2 mb-2">
@@ -1259,11 +1481,16 @@ export const FinancialReport = () => {
                   <p className="text-xs text-foreground font-medium uppercase">Média por Depósito</p>
                 </div>
                 <p className="text-lg font-bold text-foreground">
-                  R$ {deposits.length > 0 ? fmt(totalDeposits / deposits.length) : '0,00'}
+                  R$ {qtdDepositos > 0 ? fmt(depositosPagos / qtdDepositos) : '0,00'}
                 </p>
                 <p className="text-xs text-outline mt-1">Valor médio</p>
               </div>
             </div>
+            {totalCreditosSemPagamento > 0 && (
+              <p className="text-xs text-outline -mt-3 mb-4">
+                Créditos manuais/migração no período: R$ {fmt(totalCreditosSemPagamento)} (movem saldo, não são entrada nem pagam taxa).
+              </p>
+            )}
 
             {deposits.length > 0 ? (
               <div className="overflow-x-auto">
@@ -1304,94 +1531,6 @@ export const FinancialReport = () => {
                 <p className="text-outline">Nenhum depósito encontrado no período.</p>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Admin Only: Distribuição de Receita */}
-      {isAdmin && entradaBrutaTotal > 0 && (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-outline-variant/15">
-            <h2 className="text-lg font-headline font-semibold text-foreground">Distribuição de Receita Total</h2>
-            <p className="text-sm text-on-surface-variant mt-1">Depósitos - como o dinheiro é distribuído (recargas são consumo desse saldo)</p>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase">Entrada Bruta Total</p>
-                </div>
-                <p className="text-xl font-bold text-foreground">R$ {fmt(entradaBrutaTotal)}</p>
-                <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-on-surface-variant"><span>Depósitos:</span><span>R$ {fmt(totalDeposits)}</span></div>
-                  {totalEstornosDeposito > 0 && (
-                    <div className="flex justify-between text-outline"><span>Estornos de depósito (já descontados):</span><span>-R$ {fmt(totalEstornosDeposito)}</span></div>
-                  )}
-                  {totalCreditosSemPagamento > 0 && (
-                    <div className="flex justify-between text-outline"><span>Créditos manuais/migração (não é entrada):</span><span>R$ {fmt(totalCreditosSemPagamento)}</span></div>
-                  )}
-                  {/* Consumo do saldo: informativo, não soma na entrada */}
-                  <div className="flex justify-between text-outline"><span>Recargas (consumo, não soma):</span><span>R$ {fmt(grossRevenue)}</span></div>
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                  <p className="text-xs text-foreground font-medium uppercase">Total Taxas</p>
-                </div>
-                <p className="text-xl font-bold text-foreground">-R$ {fmt(taxasTotais)}</p>
-                <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-on-surface-variant"><span>Taxa Mercado Pago (por método):</span><span>-R$ {fmt(mercadoPagoFeeDeposits)}</span></div>
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase">Receita Líquida Total</p>
-                </div>
-                <p className="text-xl font-bold text-primary">R$ {fmt(liquidoTotal)}</p>
-                <div className="mt-2 space-y-1 text-xs">
-                  <div className="flex justify-between text-on-surface-variant"><span>Depósitos líquidos:</span><span>R$ {fmt(liquidoDepositos)}</span></div>
-                  {aReceberCruzadas > 0 && (
-                    <div className="flex justify-between text-outline"><span>A receber (recargas cruzadas, não soma):</span><span>R$ {fmt(aReceberCruzadas)}</span></div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="mt-4">
-              <p className="text-xs text-on-surface-variant mb-2">Distribuição (% do bruto):</p>
-              {(() => {
-                const percTaxas = entradaBrutaTotal > 0 ? (taxasTotais / entradaBrutaTotal) * 100 : 0;
-                const percCliente = entradaBrutaTotal > 0 ? (valorPagoCliente / entradaBrutaTotal) * 100 : 0;
-                const percNeoPower = entradaBrutaTotal > 0 ? (lucroNeoPower / entradaBrutaTotal) * 100 : 0;
-                return (
-                  <>
-                    <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
-                      <div className="bg-red-500/40 transition-all" style={{ width: `${percTaxas}%` }} title={`Taxas: R$ ${fmt(taxasTotais)}`} />
-                      <div className="bg-blue-500/50 transition-all" style={{ width: `${percCliente}%` }} title={`Cliente: R$ ${fmt(valorPagoCliente)}`} />
-                      <div className="bg-primary/70 transition-all" style={{ width: `${percNeoPower}%` }} title={`NeoPower: R$ ${fmt(lucroNeoPower)}`} />
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 text-xs">
-                      <div className="flex items-center gap-1.5 text-on-surface-variant">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
-                        <span>Taxas ({percTaxas.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-on-surface-variant">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />
-                        <span>Cliente ({percCliente.toFixed(1)}%)</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-on-surface-variant">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
-                        <span>NeoPower ({percNeoPower.toFixed(1)}%)</span>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
           </div>
         </div>
       )}
@@ -1644,16 +1783,18 @@ export const FinancialReport = () => {
                 <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Início</th>
                 <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Fim</th>
                 <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Receita</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Taxas</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Recebido</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Pago</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Consumido</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4" title="Taxa do Mercado Pago proporcional ao consumo">Taxa MP</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Comissão</th>
+                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Repasse</th>
                 <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Status</th>
               </tr>
             </thead>
             <tbody>
               {visibleReportData.length > 0 ? (
-                visibleReportData.map((row, index) => (
+                visibleReportData.map((row, index) => {
+                  const v = valoresDaLinha(row);
+                  return (
                   <tr key={index} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
                     <td className="py-3 px-4 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1668,13 +1809,14 @@ export const FinancialReport = () => {
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {row['Valor Total de Taxas (R$)']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-primary/80">R$ {row['Valor Recebido (R$)']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {row['Valor Pago ao Cliente (R$)']}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(v.receita)}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {fmt(v.taxaMp)}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {fmt(v.comissao)}</td>
+                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(v.repasse)}</td>
                     <td className="py-3 px-4 text-center">{getStatusBadge(row['Status'])}</td>
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={9} className="text-center py-16">
@@ -1695,7 +1837,7 @@ export const FinancialReport = () => {
 
         {visibleReportData.length > 0 && (
           <div className="px-6 py-5 border-t border-outline-variant/15">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Total Transações</p>
                 <p className="text-lg font-bold text-foreground">{visibleReportData.length}</p>
@@ -1705,18 +1847,20 @@ export const FinancialReport = () => {
                 <p className="text-lg font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Receita Total</p>
+                <p className="text-xs text-on-surface-variant mb-1">Consumido</p>
                 <p className="text-lg font-bold text-primary">R$ {fmt(totals.revenue)}</p>
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Total Taxas</p>
-                <p className="text-lg font-bold text-red-600 dark:text-red-400">R$ {fmt(totals.fees)}</p>
+                <p className="text-xs text-on-surface-variant mb-1">Taxa MP ({pct(taxaMpPercent)}%)</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">R$ {fmt(totals.taxaMp)}</p>
               </div>
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">{isAdmin ? 'Lucro Plataforma' : 'Valor Recebido'}</p>
-                <p className={`text-lg font-bold ${isAdmin ? (platformProfit >= 0 ? 'text-primary' : 'text-red-600 dark:text-red-400') : 'text-primary'}`}>
-                  R$ {fmt(isAdmin ? platformProfit : totals.received)}
-                </p>
+                <p className="text-xs text-on-surface-variant mb-1">Comissão NeoPower</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">R$ {fmt(totals.comissao)}</p>
+              </div>
+              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                <p className="text-xs text-on-surface-variant mb-1">Repasse ao dono</p>
+                <p className="text-lg font-bold text-primary">R$ {fmt(totals.repasse)}</p>
               </div>
             </div>
           </div>
