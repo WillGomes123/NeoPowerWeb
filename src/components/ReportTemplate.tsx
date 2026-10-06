@@ -12,15 +12,21 @@ interface ReportTemplateProps {
     totalKwh: number;
     /** Consumido em recargas. */
     totalRevenue: number;
-    /** Taxa do Mercado Pago proporcional ao consumo. */
-    totalTaxaMp: number;
     totalComissao: number;
-    /** Repasse ao dono (o valor a pagar). */
+    /** Repasse ao dono (o valor a pagar): 95% do consumido. */
     totalRepasse: number;
     comissaoPercent: number;
-    /** Taxa efetiva do Mercado Pago dos depósitos (%), e de onde saiu. */
-    taxaMpPercent: number;
-    taxaMpFonte: string;
+    repassePercent: number;
+    /**
+     * Custo da plataforma (taxa do Mercado Pago absorvida nos 5% e o líquido
+     * da NeoPower): só no PDF da NeoPower; null para o operador da marca.
+     */
+    custo: {
+      taxaMp: number;
+      taxaMpPercent: number;
+      taxaMpFonte: string;
+      liquidoNeoPower: number;
+    } | null;
     sessionsCount: number;
     /** Caixa da marca: só para quem a gerencia (null nos demais). */
     entrouNoCaixa: number | null;
@@ -146,16 +152,21 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
 
         <div className="grid grid-cols-4 gap-4 mb-4">
           <KPICard title="Consumido em recargas" value={`R$ ${brl(data.totalRevenue)}`} unit="" subtitle={`${data.sessionsCount} recargas`} />
-          <KPICard title={`Taxa Mercado Pago (${pct(data.taxaMpPercent)}%)`} value={`R$ ${brl(data.totalTaxaMp)}`} unit="" subtitle="Proporcional ao consumo" color="#f87171" />
-          <KPICard title={`Comissão NeoPower ${pct(data.comissaoPercent)}%`} value={`R$ ${brl(data.totalComissao)}`} unit="" subtitle="Sobre o consumido − taxa MP" color="#f87171" />
-          <KPICard title="Repasse ao dono" value={`R$ ${brl(data.totalRepasse)}`} unit="" subtitle="Valor a pagar" color="#34d399" />
+          <KPICard title={`Comissão NeoPower ${pct(data.comissaoPercent)}%`} value={`R$ ${brl(data.totalComissao)}`} unit="" subtitle={`${pct(data.comissaoPercent)}% do consumido`} color="#f87171" />
+          <KPICard title={`Repasse ao dono ${pct(data.repassePercent)}%`} value={`R$ ${brl(data.totalRepasse)}`} unit="" subtitle="Valor a pagar" color="#34d399" />
+          {data.custo ? (
+            <KPICard title="Líquido NeoPower" value={`R$ ${brl(data.custo.liquidoNeoPower)}`} unit="" subtitle={`Comissão − taxa MP absorvida R$ ${brl(data.custo.taxaMp)} (${pct(data.custo.taxaMpPercent)}%)`} color="#f87171" />
+          ) : (
+            <KPICard title="Energia" value={data.totalKwh.toFixed(2)} unit="kWh" subtitle="Entregue no período" />
+          )}
         </div>
         <p className="text-[10px] font-medium mb-8" style={{ color: ZINC_500 }}>
-          Repasse sobre o consumido em recargas: o saldo parado na carteira é do cliente até ele usar. Taxa do Mercado Pago efetiva de {pct(data.taxaMpPercent)}% ({data.taxaMpFonte}), dividida na proporção do consumo.
+          O repasse ao dono é {pct(data.repassePercent)}% do consumido em recargas; o saldo parado na carteira é do cliente até ele usar. As taxas do Mercado Pago saem dos {pct(data.comissaoPercent)}% da NeoPower.
+          {data.custo && ` Custo da plataforma: taxa do Mercado Pago efetiva de ${pct(data.custo.taxaMpPercent)}% (${data.custo.taxaMpFonte}).`}
         </p>
 
         <div className="rounded-2xl p-6 border flex-1 flex flex-col mb-8" style={{ backgroundColor: '#ffffff', borderColor: '#f4f4f5', boxShadow: SHADOW_SM }}>
-          <h3 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: ZINC_400 }}>Consumido vs Taxa MP + Comissão</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest mb-6" style={{ color: ZINC_400 }}>Consumido vs Comissão</h3>
           <div className="flex-1 w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.chartData || []}>
@@ -168,7 +179,7 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                 <Tooltip />
                 <Legend iconType="circle" wrapperStyle={{fontSize: 10, paddingTop: 20}} />
                 <Area type="monotone" name="Consumido" dataKey="revenue" stroke={primaryColor} strokeWidth={2} fill="url(#colorRev)" />
-                <Area type="monotone" name="Taxa MP + comissão" dataKey="fees" stroke="#f87171" strokeWidth={2} fill="#fee2e2" fillOpacity={0.2} />
+                <Area type="monotone" name="Comissão" dataKey="fees" stroke="#f87171" strokeWidth={2} fill="#fee2e2" fillOpacity={0.2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -217,7 +228,6 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                 <th className="px-5 py-4">Estação</th>
                 <th className="px-5 py-4 text-right">kWh</th>
                 <th className="px-5 py-4 text-right">Consumido</th>
-                <th className="px-5 py-4 text-right">Taxa MP</th>
                 <th className="px-5 py-4 text-right">Comissão</th>
                 <th className="px-5 py-4 text-right">Repasse</th>
               </tr>
@@ -229,7 +239,6 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
                   <td className="px-5 py-3">{row.charger}</td>
                   <td className="px-5 py-3 text-right font-mono" style={{ color: AMBER_500 }}>{row.kwh}</td>
                   <td className="px-5 py-3 text-right font-bold">R$ {row.revenue}</td>
-                  <td className="px-5 py-3 text-right" style={{ color: RED_400 }}>R$ {row.taxaMp}</td>
                   <td className="px-5 py-3 text-right" style={{ color: RED_400 }}>R$ {row.comissao}</td>
                   <td className="px-5 py-3 text-right font-black" style={{ color: EMERALD_500 }}>R$ {row.repasse}</td>
                 </tr>
@@ -240,7 +249,8 @@ export const ReportTemplate: React.FC<ReportTemplateProps> = ({ data, period, ge
             {data.financialTableData && data.financialTableData.length > 15 
               ? `Exibindo 15 de ${data.financialTableData.length} transações recentes` 
               : `Total de ${data.financialTableData?.length || 0} transações`}
-            {` · Taxa Mercado Pago efetiva ${pct(data.taxaMpPercent)}% · Comissão ${pct(data.comissaoPercent)}%`}
+            {` · Comissão ${pct(data.comissaoPercent)}% · Repasse ${pct(data.repassePercent)}%`}
+            {data.custo && ` · Taxa Mercado Pago absorvida ${pct(data.custo.taxaMpPercent)}%`}
           </div>
         </div>
 

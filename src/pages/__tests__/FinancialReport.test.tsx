@@ -1,11 +1,12 @@
 /**
- * Relatório financeiro: repasse por recarga (decisão do dono, 06/10/2026).
+ * Relatório financeiro: repasse por recarga (decisão do dono, 06/10/2026,
+ * revista no mesmo dia).
  *
- * A visão de uma marca mostra entrou no caixa, consumido, taxa do Mercado
- * Pago proporcional, comissão, repasse ao dono e saldo de clientes a consumir,
- * com os números que a API calculou; o card da visão geral usa o mesmo
- * repasse. Antes a visão da marca repartia os DEPÓSITOS (e, no drill-down do
- * super admin, os depósitos de todas as marcas).
+ * O dono recebe 95% do consumido em recargas e a NeoPower fica com 5%. A taxa
+ * do Mercado Pago não reduz o repasse: a NeoPower a absorve nos 5% dela. O
+ * operador da marca vê entrou no caixa, consumido, comissão, repasse e saldo
+ * de clientes a consumir; só a plataforma vê a taxa absorvida e o líquido da
+ * NeoPower. O card da visão geral usa o mesmo repasse.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -20,8 +21,11 @@ vi.mock('../../lib/api', () => ({
   api: { get: (endpoint: string) => mockGet(endpoint) },
 }));
 
+const SUPER_ADMIN = { id: 1, name: 'Admin', role: 'admin', branding: null };
+const ADMIN_DA_VIP = { id: 5, name: 'Vip', role: 'admin', branding: { clientId: 'vipenergy' } };
+let usuario: Record<string, unknown> = SUPER_ADMIN;
 vi.mock('../../lib/auth', () => ({
-  useAuth: () => ({ user: { id: 1, name: 'Admin', role: 'admin', branding: null } }),
+  useAuth: () => ({ user: usuario }),
 }));
 
 // Gráficos não têm tamanho no jsdom; não fazem parte da conta.
@@ -58,31 +62,39 @@ const linha = (over: Record<string, unknown>) => ({
 });
 
 /** Mesmos números do teste da API (repassePorRecarga.test.ts). */
-const RELATORIO = {
-  items: [
-    linha({
-      'Receita (R$)': '60.00',
-      'Taxa Mercado Pago (%)': '2.99',
-      'Taxa Mercado Pago (R$)': '1.79',
-      'Comissão NeoPower (R$)': '2.91',
-      'Valor Total de Taxas (R$)': '4.70',
-      'Valor Recebido (R$)': '55.30',
-      'Repasse ao Dono (R$)': '55.30',
-      'Valor Pago ao Cliente (R$)': '55.30',
-    }),
-    linha({
-      'Receita (R$)': '50.00',
-      'Taxa Mercado Pago (%)': '0.00',
-      'Taxa Mercado Pago (R$)': '0.00',
-      'Comissão NeoPower (R$)': '2.50',
-      'Valor Total de Taxas (R$)': '2.50',
-      'Valor Recebido (R$)': '47.50',
-      'Repasse ao Dono (R$)': '47.50',
-      'Valor Pago ao Cliente (R$)': '47.50',
-      recargaCruzada: true,
-      redeDoCliente: 'NeoPower',
-    }),
-  ],
+const linhasDaVip = (comCusto: boolean) => [
+  linha({
+    'Receita (R$)': '60.00',
+    'Comissão NeoPower (R$)': '3.00',
+    'Valor Total de Taxas (R$)': '3.00',
+    'Valor Recebido (R$)': '57.00',
+    'Repasse ao Dono (R$)': '57.00',
+    'Valor Pago ao Cliente (R$)': '57.00',
+    ...(comCusto
+      ? {
+          'Taxa Mercado Pago (%)': '2.99',
+          'Taxa Mercado Pago (R$)': '1.79',
+          'Líquido NeoPower (R$)': '1.21',
+        }
+      : {}),
+  }),
+  linha({
+    'Receita (R$)': '50.00',
+    'Comissão NeoPower (R$)': '2.50',
+    'Valor Total de Taxas (R$)': '2.50',
+    'Valor Recebido (R$)': '47.50',
+    'Repasse ao Dono (R$)': '47.50',
+    'Valor Pago ao Cliente (R$)': '47.50',
+    ...(comCusto
+      ? { 'Taxa Mercado Pago (%)': '0.00', 'Taxa Mercado Pago (R$)': '0.00', 'Líquido NeoPower (R$)': '2.50' }
+      : {}),
+    recargaCruzada: true,
+    redeDoCliente: 'NeoPower',
+  }),
+];
+
+const relatorio = (comCusto: boolean) => ({
+  items: linhasDaVip(comCusto),
   recargasCruzadas: {
     recebidas: {
       quantidade: 1,
@@ -94,13 +106,13 @@ const RELATORIO = {
   },
   comissaoPercent: 5,
   repasse: {
-    regra: 'por-recarga',
+    regra: 'repasse-95',
     marca: 'vipenergy',
     comissaoPercent: 5,
-    taxaMp: { percentual: 2.99, fonte: 'periodo', depositos: 200, taxa: 5.98, quantidade: 2 },
-    recargas: { quantidade: 2, receita: 110, taxaMp: 1.79, base: 108.21, comissao: 5.41, repasse: 102.8 },
-    proprias: { quantidade: 1, receita: 60, taxaMp: 1.79, base: 58.21, comissao: 2.91, repasse: 55.3 },
-    cruzadas: { quantidade: 1, receita: 50, taxaMp: 0, base: 50, comissao: 2.5, repasse: 47.5 },
+    repassePercent: 95,
+    recargas: { quantidade: 2, receita: 110, comissao: 5.5, repasse: 104.5 },
+    proprias: { quantidade: 1, receita: 60, comissao: 3, repasse: 57 },
+    cruzadas: { quantidade: 1, receita: 50, comissao: 2.5, repasse: 47.5 },
     entrada: {
       depositos: 200,
       quantidade: 2,
@@ -108,8 +120,8 @@ const RELATORIO = {
       estornosDeposito: 0,
       estornosRecargaMp: 0,
       devolucoesVisitante: 0,
-      taxaMp: 5.98,
-      liquido: 194.02,
+      liquido: 200,
+      ...(comCusto ? { taxaMp: 5.98, liquidoAposTaxaMp: 194.02 } : {}),
     },
     saldoClientes: {
       aConsumir: 100,
@@ -118,26 +130,36 @@ const RELATORIO = {
       em: '2026-10-01T02:59:59.999Z',
       fonte: 'carteiras-no-fim-do-periodo',
     },
+    custoMercadoPago: comCusto
+      ? {
+          percentual: 2.99,
+          fonte: 'periodo',
+          depositos: 200,
+          taxaDosDepositos: 5.98,
+          quantidade: 2,
+          absorvida: 1.79,
+          comissao: 5.5,
+          liquidoNeoPower: 3.71,
+        }
+      : null,
   },
-};
+});
 
-const DEPOSITOS = [
-  {
-    id: 1,
-    userId: 10,
-    userName: 'Cliente Vip',
-    userEmail: 'c@vip.com',
-    type: 'deposit',
-    amount: 100,
-    balanceBefore: 0,
-    balanceAfter: 100,
-    description: 'Recarga via cartão de crédito',
-    referenceId: '111',
-    paymentMethod: 'credito',
-    taxaMp: 4.99,
-    createdAt: '2026-09-05T12:00:00.000Z',
-  },
-];
+const deposito = (comCusto: boolean) => ({
+  id: 1,
+  userId: 10,
+  userName: 'Cliente Vip',
+  userEmail: 'c@vip.com',
+  type: 'deposit',
+  amount: 100,
+  balanceBefore: 0,
+  balanceAfter: 100,
+  description: 'Recarga via cartão de crédito',
+  referenceId: '111',
+  paymentMethod: 'credito',
+  ...(comCusto ? { taxaMp: 4.99 } : {}),
+  createdAt: '2026-09-05T12:00:00.000Z',
+});
 
 const renderizar = (url: string) =>
   render(
@@ -156,13 +178,14 @@ const cartao = (secao: HTMLElement, titulo: string) =>
 
 beforeEach(() => {
   mockGet.mockReset();
+  usuario = SUPER_ADMIN;
 });
 
-describe('Relatório financeiro — repasse por recarga', () => {
-  it('visão da marca: caixa, consumo, taxa MP proporcional, comissão, repasse e saldo', async () => {
+describe('Relatório financeiro — repasse de 95%, taxa MP absorvida pela NeoPower', () => {
+  it('super admin: repasse 95% cheio, e a taxa MP absorvida com o líquido da NeoPower', async () => {
     mockGet.mockImplementation((endpoint: string) => {
-      if (endpoint.startsWith('/reports/financial?')) return resposta(RELATORIO);
-      if (endpoint.startsWith('/admin/wallet-transactions')) return resposta(DEPOSITOS);
+      if (endpoint.startsWith('/reports/financial?')) return resposta(relatorio(true));
+      if (endpoint.startsWith('/admin/wallet-transactions')) return resposta([deposito(true)]);
       return resposta({});
     });
 
@@ -170,26 +193,55 @@ describe('Relatório financeiro — repasse por recarga', () => {
     const secao = await resumoNaTela();
 
     await waitFor(() =>
-      expect(within(cartao(secao, 'Entrou no caixa')).getByText('R$ 194,02')).toBeInTheDocument()
+      expect(within(cartao(secao, 'Entrou no caixa')).getByText('R$ 200,00')).toBeInTheDocument()
     );
+    expect(cartao(secao, 'Entrou no caixa')).toHaveTextContent('O Mercado Pago reteve R$ 5,98');
     expect(within(cartao(secao, 'Consumido em recargas')).getByText('R$ 110,00')).toBeInTheDocument();
-    const taxa = cartao(secao, 'Taxa Mercado Pago (proporcional)');
-    expect(within(taxa).getByText('−R$ 1,79')).toBeInTheDocument();
-    expect(taxa).toHaveTextContent('2,99% efetiva');
-    expect(within(cartao(secao, 'Comissão NeoPower 5%')).getByText('−R$ 5,41')).toBeInTheDocument();
+    expect(within(cartao(secao, 'Comissão NeoPower 5%')).getByText('R$ 5,50')).toBeInTheDocument();
     const repasse = cartao(secao, 'Repasse ao dono');
-    expect(within(repasse).getByText('R$ 102,80')).toBeInTheDocument();
+    expect(within(repasse).getByText('R$ 104,50')).toBeInTheDocument();
+    expect(repasse).toHaveTextContent('95% do consumido');
     expect(repasse).toHaveTextContent('Inclui R$ 47,50 de clientes de outras redes');
     expect(within(cartao(secao, 'Saldo de clientes a consumir')).getByText('R$ 100,00')).toBeInTheDocument();
-    expect(secao).toHaveTextContent(/o saldo parado na carteira é do\s+cliente até ele usar/);
+    const taxa = cartao(secao, 'Taxa Mercado Pago (absorvida pela NeoPower)');
+    expect(within(taxa).getByText('−R$ 1,79')).toBeInTheDocument();
+    expect(taxa).toHaveTextContent('2,99% efetiva');
+    expect(within(cartao(secao, 'Líquido NeoPower')).getByText('R$ 3,71')).toBeInTheDocument();
+    expect(secao).toHaveTextContent(/As taxas do Mercado Pago saem dos\s+5% da NeoPower/);
 
     // Os depósitos listados são os da marca aberta, não os de todas.
     expect(mockGet).toHaveBeenCalledWith('/admin/wallet-transactions?clientId=vipenergy');
-    // A rede de origem da recarga cruzada aparece pelo nome.
-    expect(screen.getAllByText('NeoPower').length).toBeGreaterThan(0);
   });
 
-  it('API antiga (sem o repasse): cai em receita − comissão, sem inventar taxa', async () => {
+  it('operador da marca: entrou no caixa, consumido, comissão, repasse e saldo — sem a taxa MP', async () => {
+    usuario = ADMIN_DA_VIP;
+    mockGet.mockImplementation((endpoint: string) => {
+      if (endpoint.startsWith('/reports/financial')) return resposta(relatorio(false));
+      if (endpoint.startsWith('/admin/wallet-transactions')) return resposta([deposito(false)]);
+      return resposta({});
+    });
+
+    renderizar('/financeiro');
+    const secao = await resumoNaTela();
+
+    await waitFor(() =>
+      expect(within(cartao(secao, 'Entrou no caixa')).getByText('R$ 200,00')).toBeInTheDocument()
+    );
+    expect(within(cartao(secao, 'Consumido em recargas')).getByText('R$ 110,00')).toBeInTheDocument();
+    expect(within(cartao(secao, 'Comissão NeoPower 5%')).getByText('R$ 5,50')).toBeInTheDocument();
+    expect(within(cartao(secao, 'Repasse ao dono')).getByText('R$ 104,50')).toBeInTheDocument();
+    expect(within(cartao(secao, 'Saldo de clientes a consumir')).getByText('R$ 100,00')).toBeInTheDocument();
+    expect(secao).toHaveTextContent(/o saldo parado na carteira é do cliente até ele usar/);
+
+    // Nada da taxa do Mercado Pago nem do líquido da NeoPower na tela inteira.
+    expect(screen.queryByText(/Taxa Mercado Pago/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Taxa MP/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Líquido NeoPower/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/reteve/)).not.toBeInTheDocument();
+  });
+
+  it('API antiga (sem o resumo): usa comissão e repasse das linhas, sem inventar taxa', async () => {
+    usuario = ADMIN_DA_VIP;
     const semRepasse = {
       items: [
         linha({
@@ -203,20 +255,20 @@ describe('Relatório financeiro — repasse por recarga', () => {
       comissaoPercent: 5,
     };
     mockGet.mockImplementation((endpoint: string) =>
-      endpoint.startsWith('/reports/financial?') ? resposta(semRepasse) : resposta([])
+      endpoint.startsWith('/reports/financial') ? resposta(semRepasse) : resposta([])
     );
 
-    renderizar('/financeiro?clientId=vipenergy');
+    renderizar('/financeiro');
     const secao = await resumoNaTela();
 
     await waitFor(() =>
       expect(within(cartao(secao, 'Repasse ao dono')).getByText('R$ 95,00')).toBeInTheDocument()
     );
-    expect(within(cartao(secao, 'Taxa Mercado Pago (proporcional)')).getByText('−R$ 0,00')).toBeInTheDocument();
-    expect(within(cartao(secao, 'Comissão NeoPower 5%')).getByText('−R$ 5,00')).toBeInTheDocument();
+    expect(within(cartao(secao, 'Comissão NeoPower 5%')).getByText('R$ 5,00')).toBeInTheDocument();
+    expect(screen.queryByText(/Taxa Mercado Pago \(absorvida/)).not.toBeInTheDocument();
   });
 
-  it('visão geral: o card da marca mostra o mesmo repasse, com a taxa MP', async () => {
+  it('visão geral: o card da marca mostra o mesmo repasse, com a taxa MP e o líquido', async () => {
     mockGet.mockImplementation((endpoint: string) =>
       endpoint.startsWith('/reports/financial/by-tenant')
         ? resposta({
@@ -224,10 +276,11 @@ describe('Relatório financeiro — repasse por recarga', () => {
               transactions: 3,
               kWh: 30,
               revenue: 150,
+              fees: 7.5,
+              net: 142.5,
               mpFee: 2.99,
-              fees: 7.35,
-              net: 139.66,
-              deposits: { total: 200, count: 2, mpFee: 5.98, devolvidos: 0, liquido: 194.02 },
+              liquidoNeoPower: 4.51,
+              deposits: { total: 200, count: 2, mpFee: 5.98, devolvidos: 0, liquido: 200, liquidoAposTaxaMp: 194.02 },
             },
             byTenant: [
               {
@@ -237,13 +290,14 @@ describe('Relatório financeiro — repasse por recarga', () => {
                 chargers: 1,
                 kWh: 30,
                 revenue: 150,
+                fees: 7.5,
+                net: 142.5,
+                comissaoPercent: 5,
+                cruzadas: { quantidade: 1, receita: 50, repasse: 47.5 },
                 mpFee: 2.99,
                 taxaMpPercent: 2.99,
                 taxaMpFonte: 'periodo',
-                fees: 7.35,
-                net: 139.66,
-                comissaoPercent: 5,
-                cruzadas: { quantidade: 1, receita: 50, repasse: 47.5 },
+                liquidoNeoPower: 4.51,
               },
             ],
           })
@@ -253,10 +307,14 @@ describe('Relatório financeiro — repasse por recarga', () => {
     renderizar('/financeiro');
 
     const card = (await screen.findByText('Vip Energy')).closest('button') as HTMLElement;
-    expect(within(card).getByText('R$ 139,66')).toBeInTheDocument();
+    expect(within(card).getByText('R$ 142,50')).toBeInTheDocument();
+    expect(within(card).getByText('R$ 7,50')).toBeInTheDocument();
     expect(within(card).getByText('Taxa MP 2,99%')).toBeInTheDocument();
     expect(within(card).getByText('R$ 2,99')).toBeInTheDocument();
+    expect(within(card).getByText('R$ 4,51')).toBeInTheDocument();
     expect(card).toHaveTextContent('R$ 50,00 de clientes de outras redes');
     expect(screen.getByText('Repasse aos donos')).toBeInTheDocument();
+    // KPI do consolidado e linha do card.
+    expect(screen.getAllByText('Líquido NeoPower')).toHaveLength(2);
   });
 });
