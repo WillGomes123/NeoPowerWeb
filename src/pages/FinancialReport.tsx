@@ -9,6 +9,18 @@ import { exportToCSV, exportToExcel } from '../lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { ReportTemplate } from '../components/ReportTemplate';
+import { SeletorDeLocal, LocalParaSelecao } from '../components/SeletorDeLocal';
+import {
+  LinhaDoLocal,
+  LocalDoRelatorio,
+  SubtotaisDoLocal,
+  TIPO_XLSX,
+  baixarArquivo,
+  gerarPdfDoLocal,
+  gerarXlsxDoLocal,
+  montarRelatorioDoLocal,
+  reaisOuTraco,
+} from '../lib/relatorioDoLocal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Line } from 'recharts';
 
 interface TenantFinancialSummary {
@@ -58,7 +70,12 @@ interface TenantOverviewResponse {
   byTenant: TenantFinancialSummary[];
 }
 
-interface FinancialReportItem {
+/**
+ * Linha do relatório. Os campos de LinhaDoLocal (número, horário no fuso do
+ * local, cliente abreviado, débito na carteira, conferência...) vêm da API do
+ * relatório por local; a API antiga não manda.
+ */
+interface FinancialReportItem extends Partial<LinhaDoLocal> {
   Estação: string;
   Início: string;
   Fim: string;
@@ -207,6 +224,8 @@ function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null; tax
 /** Usado só até a API responder; o percentual real vem no relatório. */
 const COMISSAO_PADRAO_PERCENT = 5;
 
+const ALINHAR = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
+
 /** Cartão do resumo do repasse (visão de uma marca). */
 function CartaoDoRepasse({
   icone,
@@ -259,8 +278,12 @@ export const FinancialReport = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const drillDownClientId = searchParams.get('clientId');
-  // Modo overview: só ativa pra super admin sem drill-down selecionado
-  const overviewMode = isSuperAdmin && !drillDownClientId;
+  // Relatório por local (?locationId=): as recargas de todos os carregadores
+  // do local, para o repasse ao dono do local.
+  const localIdParam = searchParams.get('locationId');
+  const localId = localIdParam && /^\d+$/.test(localIdParam) ? Number(localIdParam) : null;
+  // Modo overview: só ativa pra super admin sem drill-down nem local escolhido
+  const overviewMode = isSuperAdmin && !drillDownClientId && localId == null;
 
   const [reportData, setReportData] = useState<FinancialReportItem[]>([]);
   const [recargasCruzadas, setRecargasCruzadas] = useState<RecargasCruzadasData | null>(null);
@@ -284,6 +307,54 @@ export const FinancialReport = () => {
   const [locationsLoaded, setLocationsLoaded] = useState(!filtraPorLocaisDoUsuario);
   // NFS-e
   const [nfseFilter, setNfseFilter] = useState<'all' | 'Issued' | 'Pending' | 'Error'>('all');
+  // Relatório por local: os locais que a conta vê (a API decide o escopo), o
+  // cabeçalho do local e os subtotais por tipo de conta, como a API mandou.
+  const [locais, setLocais] = useState<LocalParaSelecao[]>([]);
+  const [carregandoLocais, setCarregandoLocais] = useState(true);
+  const [localDoRelatorio, setLocalDoRelatorio] = useState<LocalDoRelatorio | null>(null);
+  const [subtotaisDoLocal, setSubtotaisDoLocal] = useState<SubtotaisDoLocal | null>(null);
+  const [criterioContaInterna, setCriterioContaInterna] = useState<string | null>(null);
+  const [exportandoLocal, setExportandoLocal] = useState<'pdf' | 'xlsx' | null>(null);
+
+  // Locais do seletor: /locations/all já vem no escopo da conta (o super
+  // admin vê todos, inclusive os da plataforma; o operador, os da marca).
+  useEffect(() => {
+    if (!user?.id) return;
+    let ativo = true;
+    setCarregandoLocais(true);
+    api
+      .get('/locations/all')
+      .then(async res => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const lista: Array<{
+          id: number;
+          nomeDoLocal?: string | null;
+          cidade?: string | null;
+          estado?: string | null;
+          clientId?: string | null;
+        }> = Array.isArray(data?.locations) ? data.locations : [];
+        if (!ativo) return;
+        setLocais(
+          lista
+            .map(l => ({
+              id: l.id,
+              nome: l.nomeDoLocal?.trim() || `Local #${l.id}`,
+              cidade: l.cidade ?? null,
+              estado: l.estado ?? null,
+              clientId: l.clientId ?? null,
+            }))
+            .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+        );
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (ativo) setCarregandoLocais(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [user?.id]);
 
   // Fetch user's allowed locations for non-admin users
   useEffect(() => {
@@ -310,6 +381,7 @@ export const FinancialReport = () => {
     const params = new URLSearchParams();
 
     if (submittedFilter) params.append('chargerId', submittedFilter);
+    if (localId != null) params.append('locationId', String(localId));
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
     // Super admin drill-down: filtra o relatório por whitelabel específico
@@ -330,8 +402,14 @@ export const FinancialReport = () => {
       // Só a regra atual (95% ao dono). A 'por-recarga' (taxa dividida, API
       // #95) cai no caminho das linhas, como a API antiga.
       setResumo(data?.repasse?.regra === 'repasse-95' ? data.repasse : null);
+      setLocalDoRelatorio(data?.local ?? null);
+      setSubtotaisDoLocal(data?.porTipoDeConta ?? null);
+      setCriterioContaInterna(data?.criterioContaInterna ?? null);
 
-      if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
+      // Com um local escolhido, a API já limita ao escopo da conta.
+      if (localId != null) {
+        setReportData(items);
+      } else if (filtraPorLocaisDoUsuario && userLocationNames.length > 0) {
         const filtered = items.filter((item: FinancialReportItem) => {
           const stationName = item['Estação'] || '';
           return userLocationNames.some(loc => loc && stationName.toLowerCase().includes(loc.toLowerCase()));
@@ -348,10 +426,12 @@ export const FinancialReport = () => {
       setReportData([]);
       setRecargasCruzadas(null);
       setResumo(null);
+      setLocalDoRelatorio(null);
+      setSubtotaisDoLocal(null);
     } finally {
       setLoading(false);
     }
-  }, [submittedFilter, startDate, endDate, filtraPorLocaisDoUsuario, userLocationNames, drillDownClientId]);
+  }, [submittedFilter, localId, startDate, endDate, filtraPorLocaisDoUsuario, userLocationNames, drillDownClientId]);
 
   const fetchTenantOverview = useCallback(async () => {
     if (!isSuperAdmin) {
@@ -445,6 +525,58 @@ export const FinancialReport = () => {
     setSubmittedFilter('');
     setStartDate('');
     setEndDate('');
+    if (localId != null) selecionarLocal(null);
+  };
+
+  const selecionarLocal = (id: number | null) => {
+    const p = new URLSearchParams(searchParams);
+    if (id != null) p.set('locationId', String(id));
+    else p.delete('locationId');
+    setSearchParams(p);
+  };
+
+  // No drill-down de uma marca, só os locais dela ('neo' e local sem marca
+  // são da plataforma).
+  const marcaDoLocal = (cid?: string | null) =>
+    !cid || cid === 'neo' || cid === 'neopower-default' ? 'neopower-default' : cid;
+  const locaisDoSeletor = drillDownClientId
+    ? locais.filter(l => marcaDoLocal(l.clientId) === marcaDoLocal(drillDownClientId))
+    : locais;
+
+  // Relatório do local (tela e exportação), montado do que a API mandou.
+  const relatorioDoLocal = React.useMemo(() => {
+    if (localId == null || !localDoRelatorio || !subtotaisDoLocal) return null;
+    const linhas = reportData.filter(
+      (r): r is FinancialReportItem & LinhaDoLocal => typeof r.numero === 'number'
+    );
+    return montarRelatorioDoLocal({
+      local: localDoRelatorio,
+      linhas,
+      subtotais: subtotaisDoLocal,
+      comissaoPercent,
+      repassePercent: resumo?.repassePercent,
+      criterioContaInterna,
+      inicio: startDate || null,
+      fim: endDate || null,
+    });
+  }, [localId, localDoRelatorio, subtotaisDoLocal, reportData, comissaoPercent, resumo, criterioContaInterna, startDate, endDate]);
+
+  const exportarDoLocal = (formato: 'pdf' | 'xlsx') => {
+    if (!relatorioDoLocal) return;
+    setExportandoLocal(formato);
+    try {
+      if (formato === 'pdf') {
+        gerarPdfDoLocal(relatorioDoLocal).save(`${relatorioDoLocal.nomeDoArquivo}.pdf`);
+      } else {
+        baixarArquivo(gerarXlsxDoLocal(relatorioDoLocal), `${relatorioDoLocal.nomeDoArquivo}.xlsx`, TIPO_XLSX);
+      }
+      toast.success(`Relatório do local exportado (${formato === 'pdf' ? 'PDF' : 'Excel'})`);
+    } catch (error) {
+      console.error('Erro ao gerar o relatório do local:', error);
+      toast.error('Erro ao gerar o relatório do local');
+    } finally {
+      setExportandoLocal(null);
+    }
   };
 
   const handleExport = async (format: 'csv' | 'excel' | 'pdf') => {
@@ -950,6 +1082,20 @@ export const FinancialReport = () => {
               Limpar período
             </button>
           )}
+          {/* Relatório de um local (inclusive os da plataforma), recarga a recarga. */}
+          <div className="w-full sm:w-[300px]">
+            <label className="text-xs text-on-surface-variant uppercase tracking-wide font-medium mb-2 block">
+              Relatório por local
+            </label>
+            <SeletorDeLocal
+              locais={locais}
+              valor={null}
+              onChange={selecionarLocal}
+              mostrarMarca
+              textoVazio="Escolher um local..."
+              carregando={carregandoLocais}
+            />
+          </div>
         </div>
 
         {/* ─── Hero Card: consolidado da plataforma ─── */}
@@ -1211,8 +1357,8 @@ export const FinancialReport = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back button — só quando super admin fez drill-down num whitelabel */}
-      {isSuperAdmin && drillDownClientId && (
+      {/* Back button — só quando super admin fez drill-down num whitelabel ou abriu um local */}
+      {isSuperAdmin && (drillDownClientId || localId != null) && (
         <button
           onClick={handleBackToOverview}
           className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-foreground transition-colors"
@@ -1228,7 +1374,9 @@ export const FinancialReport = () => {
           <h1 className="text-2xl font-headline font-bold text-foreground flex items-center gap-3">
             <span className="material-symbols-outlined text-primary text-3xl">payments</span>
             Relatório Financeiro
-            {drillDownClientId && (
+            {localId != null && localDoRelatorio ? (
+              <span className="text-base font-normal text-on-surface-variant">— {localDoRelatorio.nome}</span>
+            ) : drillDownClientId && (
               <span className="text-base font-normal text-on-surface-variant">— {drillDownClientId}</span>
             )}
           </h1>
@@ -1275,6 +1423,196 @@ export const FinancialReport = () => {
         </div>
       </div>
 
+      {/* Filters */}
+      <div className="glass-card rounded-xl p-5">
+        <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
+          {/* Local: todas as recargas dos carregadores do local (repasse ao dono do local). */}
+          <div className="flex-1 min-w-[240px]">
+            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Local</label>
+            <SeletorDeLocal
+              locais={locaisDoSeletor}
+              valor={localId}
+              onChange={selecionarLocal}
+              mostrarMarca={isSuperAdmin}
+              carregando={carregandoLocais}
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">ID da Estação</label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
+              <input
+                type="text"
+                placeholder="Filtrar por estação..."
+                value={filterId}
+                onChange={e => setFilterId(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-foreground placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Período</label>
+            <DateRangePicker
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              onClear={() => { setStartDate(''); setEndDate(''); }}
+              className="min-w-[280px]"
+            />
+          </div>
+          <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium text-sm transition-all">
+            <span className="material-symbols-outlined text-lg">search</span>
+            Filtrar
+          </button>
+          {(submittedFilter || localId != null) && (
+            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-outline-variant/15 rounded-lg text-on-surface-variant hover:bg-surface-container-highest text-sm transition-all">
+              <span className="material-symbols-outlined text-lg">close</span>
+              Limpar
+            </button>
+          )}
+        </form>
+      </div>
+
+      {/* API sem o relatório por local: os números abaixo seriam da marca inteira. */}
+      {localId != null && !loading && !localDoRelatorio && reportData.length > 0 && (
+        <div className="glass-card rounded-xl p-4 border border-amber-500/30 text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
+          <span className="material-symbols-outlined">warning</span>
+          A API ainda não tem o relatório por local: os números abaixo são da marca inteira, não do local escolhido.
+        </div>
+      )}
+
+      {/* ─── Relatório do local: recarga a recarga, para o repasse ao dono do local ─── */}
+      {relatorioDoLocal && (() => {
+        const rel = relatorioDoLocal;
+        const iEnergia = rel.colunas.findIndex(c => c.chave === 'energia');
+        const kwh = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (
+          <div className="glass-card rounded-xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-outline-variant/15 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">receipt_long</span>
+                  {rel.titulo}
+                </h2>
+                {rel.cabecalho.map(linha => (
+                  <p key={linha} className="text-sm text-on-surface-variant mt-1">{linha}</p>
+                ))}
+                <p className="text-xs text-on-surface-variant mt-2 max-w-3xl">
+                  <strong className="text-foreground">Comissão:</strong> {rel.regraDoRepasse}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => exportarDoLocal('pdf')}
+                  disabled={exportandoLocal != null}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-all disabled:opacity-70"
+                >
+                  <span className={`material-symbols-outlined text-lg ${exportandoLocal === 'pdf' ? 'animate-spin' : ''}`}>
+                    {exportandoLocal === 'pdf' ? 'refresh' : 'picture_as_pdf'}
+                  </span>
+                  PDF do local
+                </button>
+                <button
+                  onClick={() => exportarDoLocal('xlsx')}
+                  disabled={exportandoLocal != null}
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-70"
+                >
+                  <span className={`material-symbols-outlined text-lg ${exportandoLocal === 'xlsx' ? 'animate-spin' : ''}`}>
+                    {exportandoLocal === 'xlsx' ? 'refresh' : 'table_view'}
+                  </span>
+                  Excel do local
+                </button>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-outline-variant/15">
+                    {rel.colunas.map(c => (
+                      <th
+                        key={c.chave}
+                        className={`${ALINHAR[c.alinhar]} text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-3 whitespace-nowrap`}
+                      >
+                        {c.titulo}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rel.linhas.length > 0 ? (
+                    rel.linhas.map(l => (
+                      <tr
+                        key={l.numero}
+                        className={`border-b border-outline-variant/10 transition-colors ${
+                          l.contaInterna ? 'bg-orange-500/10' : 'hover:bg-surface-container-highest/50'
+                        }`}
+                      >
+                        {rel.colunas.map(c => (
+                          <td
+                            key={c.chave}
+                            className={`py-2 px-3 text-sm whitespace-nowrap ${ALINHAR[c.alinhar]} ${
+                              c.chave === 'conferencia' && l.conferencia !== 'OK'
+                                ? 'text-red-600 dark:text-red-400 font-semibold'
+                                : 'text-foreground'
+                            }`}
+                          >
+                            {c.texto(l)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={rel.colunas.length} className="text-center py-12 text-outline">
+                        Nenhuma recarga neste local no período.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  {rel.subtotais.map((st, i) => {
+                    const valores: Record<string, string> = {
+                      energia: kwh(st.valores.energiaKwh),
+                      cobrado: reaisOuTraco(st.valores.valorCobrado),
+                      debito: reaisOuTraco(st.valores.debitoCarteira),
+                      conferencia: st.conferencia,
+                      comissao: reaisOuTraco(st.valores.comissao),
+                      repasse: reaisOuTraco(st.valores.repasse),
+                    };
+                    return (
+                      <tr key={st.rotulo} className={`bg-primary/5 ${i === 0 ? 'border-t-2 border-outline-variant/30' : 'border-t border-outline-variant/10'}`}>
+                        <td colSpan={iEnergia} className="py-2 px-3 text-sm font-bold text-foreground whitespace-nowrap">
+                          {st.rotulo}
+                        </td>
+                        {rel.colunas.slice(iEnergia).map(c => (
+                          <td
+                            key={c.chave}
+                            className={`py-2 px-3 text-sm font-bold whitespace-nowrap ${ALINHAR[c.alinhar]} ${
+                              c.chave === 'repasse' ? 'text-primary' : 'text-foreground'
+                            }`}
+                          >
+                            {valores[c.chave] ?? ''}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tfoot>
+              </table>
+            </div>
+            <div className="px-6 py-4 border-t border-outline-variant/15">
+              <p className="text-xs font-semibold text-foreground mb-1.5">Notas</p>
+              <ul className="space-y-1">
+                {rel.notas.map(nota => (
+                  <li key={nota} className="text-xs text-on-surface-variant">• {nota}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ─── Repasse por recarga ─── */}
       <div className="glass-card rounded-xl p-5 space-y-4">
         <div>
@@ -1286,7 +1624,7 @@ export const FinancialReport = () => {
             O repasse ao dono é <strong>{pct(percentCliente)}% do que foi consumido em recargas</strong>: o
             saldo parado na carteira é do cliente até ele usar. As taxas do Mercado Pago saem dos{' '}
             {pct(comissaoPercent)}% da NeoPower.
-            {submittedFilter && mostraCaixa && ' Com o filtro de estação, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
+            {(submittedFilter || localId != null) && mostraCaixa && ' Com o filtro de estação ou de local, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1640,46 +1978,6 @@ export const FinancialReport = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="glass-card rounded-xl p-5">
-        <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">ID da Estação</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
-              <input
-                type="text"
-                placeholder="Filtrar por estação..."
-                value={filterId}
-                onChange={e => setFilterId(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-foreground placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Período</label>
-            <DateRangePicker
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onClear={() => { setStartDate(''); setEndDate(''); }}
-              className="min-w-[280px]"
-            />
-          </div>
-          <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium text-sm transition-all">
-            <span className="material-symbols-outlined text-lg">search</span>
-            Filtrar
-          </button>
-          {submittedFilter && (
-            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-outline-variant/15 rounded-lg text-on-surface-variant hover:bg-surface-container-highest text-sm transition-all">
-              <span className="material-symbols-outlined text-lg">close</span>
-              Limpar
-            </button>
-          )}
-        </form>
-      </div>
-
       {/* ─── Seção NFS-e ──────────────────────────────────────────────────────────── */}
       {isAdmin && (() => {
         // Transações que têm dados de NFS-e
@@ -1872,8 +2170,8 @@ export const FinancialReport = () => {
         </div>
       )}
 
-      {/* Data Table */}
-      <div className="glass-card rounded-xl overflow-hidden">
+      {/* Data Table (com um local escolhido, o relatório do local acima substitui) */}
+      <div className={`glass-card rounded-xl overflow-hidden ${relatorioDoLocal ? 'hidden' : ''}`}>
         <div className="px-6 py-5 border-b border-outline-variant/15">
           <h2 className="text-lg font-headline font-semibold text-foreground">Detalhamento por Transação</h2>
           <p className="text-sm text-on-surface-variant mt-1">
