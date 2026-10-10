@@ -49,6 +49,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
+  AVISO_SEM_PERIODO_SEGURO,
   DESCRICAO_DO_MODO,
   ROTULO_DAS_FASES,
   ROTULO_DO_MODO,
@@ -67,6 +68,8 @@ import {
   revogarToken,
   salvarConfig,
   salvarMapeamento,
+  TEMPO_SEM_ATUALIZACAO_MAX_S,
+  TEMPO_SEM_ATUALIZACAO_MIN_S,
   textoDoEnvio,
   type CarregadorDoBalanceamento,
   type DecisaoDoBalanceamento,
@@ -130,6 +133,7 @@ interface FormLimites {
   limiteSeguroA: string;
   intervaloEnvioS: string;
   histereseA: string;
+  tempoSemAtualizacaoS: string;
 }
 
 const textoDe = (n: number | null | undefined) => (n == null ? '' : String(n).replace('.', ','));
@@ -145,6 +149,7 @@ function formDaConfig(v: VisaoDoBalanceamento): FormLimites {
     limiteSeguroA: textoDe(c.limiteSeguroA),
     intervaloEnvioS: textoDe(c.intervaloEnvioS),
     histereseA: textoDe(c.histereseA),
+    tempoSemAtualizacaoS: textoDe(c.tempoSemAtualizacaoS),
   };
 }
 
@@ -285,6 +290,7 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
       limiteSeguroA: numeroDoCampo(form.limiteSeguroA),
       intervaloEnvioS: numeroDoCampo(form.intervaloEnvioS),
       histereseA: numeroDoCampo(form.histereseA),
+      tempoSemAtualizacaoS: numeroDoCampo(form.tempoSemAtualizacaoS),
     };
     if (Object.values(numeros).some(n => Number.isNaN(n))) {
       toast.error('Confira os números: use só dígitos e vírgula.');
@@ -294,9 +300,22 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
       numeros.correnteMinimaA == null ||
       numeros.limiteSeguroA == null ||
       numeros.intervaloEnvioS == null ||
-      numeros.histereseA == null
+      numeros.histereseA == null ||
+      numeros.tempoSemAtualizacaoS == null
     ) {
-      toast.error('Corrente mínima, limite seguro, intervalo e histerese são obrigatórios.');
+      toast.error(
+        'Corrente mínima, limite seguro, intervalo, histerese e tempo até o limite seguro são obrigatórios.'
+      );
+      return;
+    }
+    if (
+      !Number.isInteger(numeros.tempoSemAtualizacaoS) ||
+      numeros.tempoSemAtualizacaoS < TEMPO_SEM_ATUALIZACAO_MIN_S ||
+      numeros.tempoSemAtualizacaoS > TEMPO_SEM_ATUALIZACAO_MAX_S
+    ) {
+      toast.error(
+        `Tempo até o limite seguro: de ${TEMPO_SEM_ATUALIZACAO_MIN_S} a ${TEMPO_SEM_ATUALIZACAO_MAX_S} segundos, sem casas decimais.`
+      );
       return;
     }
     setSalvando('config');
@@ -310,6 +329,7 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
         limiteSeguroA: numeros.limiteSeguroA,
         intervaloEnvioS: numeros.intervaloEnvioS,
         histereseA: numeros.histereseA,
+        tempoSemAtualizacaoS: numeros.tempoSemAtualizacaoS,
       });
       toast.success('Limites salvos');
       const v = await recarregarVisao();
@@ -784,8 +804,13 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
                             </p>
                           )}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[220px]">
+                        <TableCell className="text-xs text-muted-foreground max-w-[240px]">
                           {c.motivo ?? (c.participa ? 'ok' : '')}
+                          {c.participa && c.aceitaPeriodoSeguro === false && (
+                            <p className="mt-1 text-amber-600 dark:text-amber-400 font-medium">
+                              {AVISO_SEM_PERIODO_SEGURO}
+                            </p>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -1069,6 +1094,14 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
               aoMudar={v => setForm(f => f && { ...f, histereseA: v })}
               desabilitado={!podeEditar}
             />
+            <CampoNumero
+              id="lim-trava"
+              rotulo="Tempo até o limite seguro sem atualização (s)"
+              ajuda={`Se a plataforma parar de atualizar (fora do ar ou local sem internet), cada carregador cai sozinho para o limite seguro depois deste tempo. De ${TEMPO_SEM_ATUALIZACAO_MIN_S} a ${TEMPO_SEM_ATUALIZACAO_MAX_S} s.`}
+              valor={form.tempoSemAtualizacaoS}
+              aoMudar={v => setForm(f => f && { ...f, tempoSemAtualizacaoS: v })}
+              desabilitado={!podeEditar}
+            />
           </div>
           {podeEditar && (
             <div className="flex justify-end">
@@ -1127,6 +1160,11 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
                           {l.carregador.potenciaKw ? ` · ${l.carregador.potenciaKw} kW` : ''}
                           {!l.carregador.doLocal ? ' · não está mais neste local' : ''}
                         </p>
+                        {l.carregador.aceitaPeriodoSeguro === false && (
+                          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 font-medium max-w-[260px]">
+                            {AVISO_SEM_PERIODO_SEGURO}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <select
@@ -1264,7 +1302,17 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
                           {d.carregadores.map(c => (
                             <span key={c.chargePointId}>
                               <span className="font-medium text-foreground">{c.chargePointId}</span>
-                              {c.limite != null && ` ${formatarLimite(c.limite, c.unidade)}`}
+                              {(c.limiteEnviado ?? c.limite) != null &&
+                                ` ${formatarLimite(c.limiteEnviado ?? c.limite, c.unidade)}`}
+                              {c.periodoSeguro === false && (
+                                <span
+                                  className="text-amber-600 dark:text-amber-400"
+                                  title={AVISO_SEM_PERIODO_SEGURO}
+                                >
+                                  {' '}
+                                  · sem trava
+                                </span>
+                              )}
                               <span
                                 className={
                                   c.envio && !c.simulado && !c.enviado
@@ -1392,6 +1440,12 @@ export function LocationBalanceamentoTab({ locationId }: Props) {
                       <strong>{formatarA(visao.config.limitePorFaseA)}</strong>, margem de{' '}
                       <strong>{formatarA(visao.config.margemEfetivaA)}</strong> e a ligação de cada
                       carregador. Se o medidor parar de mandar leituras, cada carregador fica em{' '}
+                      <strong>{formatarA(visao.config.limiteSeguroA)}</strong>.
+                    </p>
+                    <p>
+                      Cada limite vai com uma trava de segurança: sem atualização por{' '}
+                      <strong>{visao.config.tempoSemAtualizacaoS} s</strong> (plataforma fora do ar
+                      ou local sem internet), o próprio carregador cai para{' '}
                       <strong>{formatarA(visao.config.limiteSeguroA)}</strong>.
                     </p>
                   </>

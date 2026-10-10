@@ -51,6 +51,7 @@ const visao = (
     limiteSeguroA: 6,
     intervaloEnvioS: 15,
     histereseA: 1,
+    tempoSemAtualizacaoS: 300,
     modoAlteradoEm: null,
     atualizadoEm: null,
   },
@@ -85,6 +86,7 @@ const visao = (
       unidade: 'A',
       prioridade: 1,
       participa: true,
+      aceitaPeriodoSeguro: true,
     },
     {
       chargePointId: 'CP-2',
@@ -100,6 +102,8 @@ const visao = (
       unidade: 'A',
       prioridade: null,
       participa: false,
+      // Já recusou o perfil de dois períodos numa ativação anterior.
+      aceitaPeriodoSeguro: false,
     },
   ],
   endpoint: ENDPOINT,
@@ -137,6 +141,8 @@ const STATUS: StatusDoBalanceamento = {
     device: null,
   },
   limitePorFaseA: 100,
+  tempoSemAtualizacaoS: 300,
+  keepaliveS: 120,
   margemA: 10,
   porFase: {
     L1: { medidoA: 70, evA: 16, semEvA: 54, disponivelA: 36 },
@@ -158,7 +164,9 @@ const STATUS: StatusDoBalanceamento = {
       idadeAmostraS: 10,
       calculadoA: 32,
       calculado: 32,
+      calculadoSeguro: 6,
       motivo: null,
+      aceitaPeriodoSeguro: false,
       enviado: null,
     },
   ],
@@ -317,5 +325,47 @@ describe('LocationBalanceamentoTab', () => {
         ],
       })
     );
+  });
+
+  it('avisa no carregador que não aceita o período de segurança', async () => {
+    prepararApi(true);
+    render(<LocationBalanceamentoTab locationId={21} />);
+    await screen.findByText('Balanceamento de carga');
+    // Na linha ao vivo (CP-1) e na ligação (CP-2, que já recusou antes).
+    const avisos = screen.getAllByText(
+      'Este carregador não aceita o período de segurança: se a internet cair, ele fica no último limite'
+    );
+    expect(avisos).toHaveLength(2);
+  });
+
+  it('admin salva o tempo até o limite seguro (60 a 3600 s)', async () => {
+    prepararApi(true);
+    const user = userEvent.setup();
+    render(<LocationBalanceamentoTab locationId={21} />);
+    const campo = await screen.findByLabelText('Tempo até o limite seguro sem atualização (s)');
+    expect(campo).toHaveValue('300');
+
+    await user.clear(campo);
+    await user.type(campo, '30');
+    await user.click(screen.getByRole('button', { name: /Salvar limites/ }));
+    expect(mockPut).not.toHaveBeenCalled();
+
+    await user.clear(campo);
+    await user.type(campo, '600');
+    await user.click(screen.getByRole('button', { name: /Salvar limites/ }));
+    await waitFor(() =>
+      expect(mockPut).toHaveBeenCalledWith(
+        '/locations/21/balanceamento',
+        expect.objectContaining({ tempoSemAtualizacaoS: 600, limitePorFaseA: 100 })
+      )
+    );
+  });
+
+  it('operador vê o tempo até o limite seguro, sem poder mudar', async () => {
+    prepararApi(false);
+    render(<LocationBalanceamentoTab locationId={21} />);
+    expect(
+      await screen.findByLabelText('Tempo até o limite seguro sem atualização (s)')
+    ).toBeDisabled();
   });
 });

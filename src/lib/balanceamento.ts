@@ -23,6 +23,8 @@ export interface ConfigBalanceamento {
   limiteSeguroA: number;
   intervaloEnvioS: number;
   histereseA: number;
+  /** Trava de segurança: sem atualização por este tempo, o carregador cai para o limite seguro. */
+  tempoSemAtualizacaoS: number;
   modoAlteradoEm: string | null;
   atualizadoEm: string | null;
 }
@@ -56,6 +58,8 @@ export interface CarregadorDoBalanceamento {
   unidade: 'A' | 'W';
   prioridade: number | null;
   participa: boolean;
+  /** false = recusou o perfil com o período de segurança (recebe um período só). */
+  aceitaPeriodoSeguro: boolean;
 }
 
 export interface VisaoDoBalanceamento {
@@ -88,7 +92,10 @@ export interface CarregadorNoStatus {
   idadeAmostraS: number | null;
   calculadoA: number | null;
   calculado: number | null;
+  /** Limite do período de segurança, na unidade do perfil. */
+  calculadoSeguro: number | null;
   motivo: string | null;
+  aceitaPeriodoSeguro: boolean;
   enviado: {
     limiteA: number | null;
     limite: number | null;
@@ -97,6 +104,7 @@ export interface CarregadorNoStatus {
     status: string | null;
     erro: string | null;
     perfilAtivo: boolean;
+    aceitaPeriodoSeguro: boolean;
     falhas: number;
     tentativaEm: string | null;
   } | null;
@@ -130,6 +138,9 @@ export interface StatusDoBalanceamento {
     device: Record<string, unknown> | null;
   } | null;
   limitePorFaseA: number | null;
+  tempoSemAtualizacaoS: number;
+  /** Reenvio do limite atual: min(120 s, metade da trava). */
+  keepaliveS: number;
   margemA: number | null;
   porFase: Partial<Record<Fase, FaseDoStatus>>;
   potencia: {
@@ -147,6 +158,11 @@ export interface CarregadorNaDecisao {
   emSessao?: boolean;
   limiteA?: number;
   limite?: number;
+  /** Valor que foi (ou seria) enviado: o calculado, ou o último aceito num reenvio. */
+  limiteEnviado?: number | null;
+  limiteSeguro?: number;
+  /** O perfil levou o período de segurança? (null = não houve envio real) */
+  periodoSeguro?: boolean | null;
   unidade?: 'A' | 'W';
   motivo?: string | null;
   envio: string | null;
@@ -185,6 +201,7 @@ export interface ConfigParaSalvar {
   limiteSeguroA?: number;
   intervaloEnvioS?: number;
   histereseA?: number;
+  tempoSemAtualizacaoS?: number;
 }
 
 export interface MapeamentoParaSalvar {
@@ -293,6 +310,13 @@ export async function excluirMedidor(medidorId: number): Promise<void> {
 // ---------------------------------------------------------------------------
 // Textos
 // ---------------------------------------------------------------------------
+
+/** Trava de segurança: faixa aceita pela API. */
+export const TEMPO_SEM_ATUALIZACAO_MIN_S = 60;
+export const TEMPO_SEM_ATUALIZACAO_MAX_S = 3600;
+
+export const AVISO_SEM_PERIODO_SEGURO =
+  'Este carregador não aceita o período de segurança: se a internet cair, ele fica no último limite';
 
 export const ROTULO_DO_MODO: Record<ModoBalanceamento, string> = {
   desligado: 'Desligado',
