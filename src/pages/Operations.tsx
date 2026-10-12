@@ -211,7 +211,9 @@ export const Operations = () => {
   const [selectedChargePoints, setSelectedChargePoints] = useState<string[]>([]);
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [showCommandDialog, setShowCommandDialog] = useState(false);
-  const [commandParams, setCommandParams] = useState<Record<string, string>>({ idTag: 'USER001' });
+  // Sem tag padrão: com 'USER001' já preenchido, o início pelo painel saía sem
+  // usuário e a recarga não era cobrada (transação 177, 24,54 kWh, R$ 0,00).
+  const [commandParams, setCommandParams] = useState<Record<string, string>>({});
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
@@ -502,7 +504,7 @@ export const Operations = () => {
       );
     }
 
-    setCommandParams({ idTag: 'USER001' });
+    setCommandParams({});
     setShowCommandDialog(true);
   };
 
@@ -511,6 +513,10 @@ export const Operations = () => {
     if (!selectedOperation) return;
     if (selectedOperation === 'getDiagnostics' && destinoDiag === 'propria' && !commandParams.location?.trim()) {
       toast.error('Informe a URL do seu servidor FTP/HTTP.');
+      return;
+    }
+    if ((selectedOperation === 'remoteStartTransaction' || selectedOperation === 'reserveNow') && !commandParams.idTag?.trim()) {
+      toast.error('Informe a ID Tag. Para cobrar um cliente, use USER_<id do cliente>.');
       return;
     }
     setExecuting(true);
@@ -806,7 +812,7 @@ export const Operations = () => {
 
     setShowCommandDialog(false);
     setSelectedOperation(null);
-    setCommandParams({ idTag: 'USER001' });
+    setCommandParams({});
 
     if (novosEnvios.length > 0) {
       adicionarEnviosDiag(novosEnvios);
@@ -924,7 +930,10 @@ export const Operations = () => {
           <>
             <div className="space-y-2">
               <Label>ID Tag (RFID) *</Label>
-              <Input className={inputClass} placeholder="Ex: TAG001" value={commandParams.idTag || ''} onChange={e => setCommandParams({ ...commandParams, idTag: e.target.value })} />
+              <Input className={inputClass} placeholder="Ex: USER_123" value={commandParams.idTag || ''} onChange={e => setCommandParams({ ...commandParams, idTag: e.target.value })} />
+              <p className="text-xs text-on-surface-variant">
+                Para cobrar um cliente, use <span className="font-mono font-semibold">USER_&lt;id do cliente&gt;</span>. Uma tag que não seja USER_&lt;id&gt; inicia uma recarga que não é cobrada.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Connector ID (opcional)</Label>
