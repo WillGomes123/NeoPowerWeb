@@ -102,8 +102,12 @@ export const Stations = () => {
     });
   }, [chargers, chargerStatuses]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  // `silencioso`: atualiza os dados sem trocar a página pela tela de
+  // carregamento. Depois de salvar ou excluir, a tela inteira era desmontada e
+  // remontada: a lista de pendentes fechava, a rolagem voltava ao topo e as
+  // seleções das outras linhas se perdiam a cada exclusão.
+  const fetchData = async (silencioso = false) => {
+    if (!silencioso) setLoading(true);
     try {
       const [chRes, locRes, statsRes] = await Promise.all([
         api.get('/chargers'),
@@ -125,7 +129,14 @@ export const Stations = () => {
 
       const init: Record<string, string> = {};
       cl.forEach((c: Charger) => { if (!c.locationId && ll.length > 0) init[c.charge_point_id] = ll[0].id.toString(); });
-      setSelectedLocations(init);
+      // Mantém o local já escolhido nas linhas que continuam pendentes.
+      setSelectedLocations(prev => {
+        const novo = { ...init };
+        for (const id of Object.keys(novo)) {
+          if (prev[id] && ll.some((l: { id: number }) => l.id.toString() === prev[id])) novo[id] = prev[id];
+        }
+        return novo;
+      });
 
       // Dono atual de cada pendente, para o select já abrir no valor certo.
       const donos: Record<string, string> = {};
@@ -210,7 +221,7 @@ export const Stations = () => {
       // Limpa o rascunho para o valor recarregado do backend voltar a valer.
       setPendingEdits(prev => { const n = { ...prev }; delete n[c.charge_point_id]; return n; });
       toast.success(locationId ? 'Carregador salvo e associado!' : 'Informações salvas!');
-      void fetchData();
+      void fetchData(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
@@ -242,7 +253,7 @@ export const Stations = () => {
       // Nao fecha ainda: mostra a URL de conexao para o instalador copiar.
       setConnectionUrl(d?.data?.connectionUrl ?? null);
       setRegForm({ charge_point_id: '', description: '', model: '', vendor: '', connector_type: '', power_kw: '', num_connectors: '1', locationId: '' });
-      void fetchData();
+      void fetchData(true);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erro'); }
     finally { setRegistering(false); }
   };
@@ -262,7 +273,9 @@ export const Stations = () => {
       const d = await r.json().catch(() => null);
       if (!r.ok) throw new Error(d?.error || 'Erro ao excluir carregador');
       toast.success('Carregador excluído');
-      void fetchData();
+      // Some da lista na hora; a atualização em seguida só confirma.
+      setChargers(prev => prev.filter(c => c.charge_point_id !== chargerId));
+      void fetchData(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao excluir carregador');
     }
@@ -275,7 +288,8 @@ export const Stations = () => {
       const d = await r.json().catch(() => null);
       if (!r.ok) throw new Error(d?.error || 'Erro ao excluir local');
       toast.success('Local excluído');
-      void fetchData();
+      setLocations(prev => prev.filter(l => l.id !== locId));
+      void fetchData(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao excluir local');
     }
