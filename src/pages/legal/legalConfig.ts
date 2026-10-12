@@ -10,10 +10,30 @@ export const LEGAL_LAST_UPDATED = '1 de setembro de 2026';
 export const PLATFORM_NAME = 'NeoPower';
 
 /**
- * Contato de atendimento por marca (chave = clientId), mostrado em /<tenant>/suporte.
- * A App Store exige meio de contato na URL de suporte. O branding ainda não tem
- * campo de contato; quando tiver, isto passa a vir de lá.
+ * WhatsApp de suporte da NeoPower (a plataforma). É o atendimento da marca
+ * NeoPower e de toda marca sem contato próprio. O número fica só aqui; o app
+ * usa o mesmo (NeoPower/src/config/linksDaMarca.ts).
  */
-export const CONTATO_SUPORTE: Record<string, { email: string; whatsapp?: string }> = {
+export const WHATSAPP_SUPORTE_NEOPOWER = '+55 11 92578-5044';
+
+export interface ContatoDeSuporte {
+  email?: string;
+  whatsapp?: string;
+}
+
+/**
+ * Contato próprio de atendimento por marca (chave = clientId). O branding ainda
+ * não tem campo de contato; quando tiver, isto passa a vir de lá.
+ */
+export const CONTATO_SUPORTE: Record<string, ContatoDeSuporte> = {
   vipenergy: { email: 'vipenergyeletroposto@gmail.com' },
 };
+
+/**
+ * Contato mostrado em /<tenant>/suporte: o da própria marca ou, sem um, o
+ * WhatsApp de suporte da NeoPower. A App Store exige meio de contato na URL de
+ * suporte, então toda marca tem um.
+ */
+export function contatoDeSuporte(clientId: string): ContatoDeSuporte {
+  return CONTATO_SUPORTE[clientId.toLowerCase()] ?? { whatsapp: WHATSAPP_SUPORTE_NEOPOWER };
+}
