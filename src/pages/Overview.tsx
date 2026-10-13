@@ -104,11 +104,14 @@ export const Overview = () => {
 
   useEffect(() => { void fetchOverview(); }, [startDate, endDate, locationId]);
 
-  // Lista do seletor: os locais que este usuário pode ver.
+  // Lista do seletor: dos locais que este usuário pode ver, só os que já
+  // renderam alguma recarga. A lista inteira tem dezenas de cadastros antigos,
+  // de teste e de marca que ainda não opera — escolher um deles só abriria uma
+  // tela de zeros. Um local novo entra aqui sozinho na primeira recarga cobrada.
   useEffect(() => {
     void (async () => {
       try {
-        const res = await api.get('/locations/all');
+        const res = await api.get('/locations/all?comReceita=true');
         if (!res.ok) return;
         const corpo = await res.json();
         const lista = corpo.locations || corpo.data?.locations || corpo.data || corpo || [];
