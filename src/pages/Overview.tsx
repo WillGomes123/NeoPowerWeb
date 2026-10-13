@@ -25,6 +25,19 @@ interface LocalDaLista {
 interface OverviewData {
   /** Local a que estes números se referem; null = a rede toda. */
   locationId?: number | null;
+  /**
+   * Financeiro do local escolhido, pela regra do Relatório Financeiro por local.
+   * `taxaMp` e `liquidoNeoPower` só vêm para a plataforma.
+   */
+  financeiroDoLocal?: {
+    recargas: number;
+    receita: number;
+    comissaoPercent: number;
+    comissao: number;
+    repasse: number;
+    taxaMp?: number;
+    liquidoNeoPower?: number;
+  } | null;
   revenueToday: number;
   revenueMonth: number;
   revenueTotal: number;
@@ -79,7 +92,9 @@ export const Overview = () => {
     chargerCountRef.current = onlineCount;
   }, [chargerStatuses]);
 
-  const fetchOverview = async () => {
+  // `mesmoEscopo = false` quando o local ou o período mudou: comparar o local
+  // novo com os números da rede dava "-100%" num cartão que não caiu nada.
+  const fetchOverview = async (mesmoEscopo = true) => {
     setLoading(true);
     setError(null);
     try {
@@ -93,7 +108,7 @@ export const Overview = () => {
       const response = await api.get(endpoint);
       if (!response.ok) throw new Error('Falha ao buscar dados.');
       const overviewData = await response.json();
-      if (data) setPreviousData(data);
+      setPreviousData(mesmoEscopo && data ? data : null);
       setData(overviewData);
     } catch (err: any) {
       setError(err.message || 'Erro ao buscar dados.');
@@ -102,7 +117,7 @@ export const Overview = () => {
     }
   };
 
-  useEffect(() => { void fetchOverview(); }, [startDate, endDate, locationId]);
+  useEffect(() => { void fetchOverview(false); }, [startDate, endDate, locationId]);
 
   // Lista do seletor: dos locais que este usuário pode ver, só os que já
   // renderam alguma recarga. A lista inteira tem dezenas de cadastros antigos,
@@ -149,8 +164,20 @@ export const Overview = () => {
   // como depósito. Somar recargas + depósitos contava o mesmo real duas vezes.
   // Com depósitos (super admin), a receita é o depósito líquido; sem eles
   // (operador), fica a receita das recargas, como já era.
+  // Com um local escolhido não há depósito a mostrar (depósito é da carteira do
+  // cliente, não do local): o líquido do local é o repasse — a receita das
+  // recargas menos a comissão da NeoPower, a mesma conta do relatório por local.
   const receitaDe = (d: OverviewData | null) =>
-    isSuperAdmin ? d?.totalDepositsNet || 0 : d?.revenueTotal || 0;
+    d?.financeiroDoLocal
+      ? d.financeiroDoLocal.repasse
+      : d?.locationId != null
+        ? // Servidor ainda sem o financeiro do local: ao menos a receita das
+          // recargas dele, nunca o zero dos depósitos.
+          d?.revenueTotal || 0
+        : isSuperAdmin
+          ? d?.totalDepositsNet || 0
+          : d?.revenueTotal || 0;
+  const doLocal = data?.financeiroDoLocal ?? null;
   const netRevenue = receitaDe(data);
   const grossDeposits = data?.totalDepositsGross || 0;
   const depositQuota = grossDeposits > 0 ? Math.min((grossDeposits / (grossDeposits * 1.02)) * 100, 100) : 0;
@@ -267,8 +294,10 @@ export const Overview = () => {
             <div className="flex justify-between items-start mb-2">
               <div>
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
-                {/* A API não filtra este total por período */}
                 <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Todo o histórico'}</p>
+                {doLocal && (
+                  <p className="text-[10px] text-outline">Repasse ao dono ({100 - doLocal.comissaoPercent}%)</p>
+                )}
               </div>
               {revenueChange !== undefined && (
                 <div className={`flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${revenueChange >= 0 ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
@@ -282,13 +311,33 @@ export const Overview = () => {
               <span className="text-3xl font-headline font-bold text-foreground">{fmt(netRevenue)}</span>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
-            {/* Recargas à parte: consumo do saldo, não soma na receita */}
-            <span className="text-on-surface-variant">{isSuperAdmin ? 'Recargas (consumo)' : 'Transações'}</span>
-            <span className="font-semibold text-on-surface">
-              {isSuperAdmin ? `R$ ${fmt(data.revenueTotal || 0)}` : String(data.transactionsTotal || 0)}
-            </span>
-          </div>
+          {doLocal ? (
+            // De onde sai o número de cima: receita − comissão = repasse.
+            <div className="mt-4 pt-4 border-t border-outline-variant/10 space-y-1.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-on-surface-variant">Recargas ({doLocal.recargas})</span>
+                <span className="font-semibold text-on-surface">R$ {fmt(doLocal.receita)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-on-surface-variant">Comissão NeoPower ({doLocal.comissaoPercent}%)</span>
+                <span className="font-semibold text-on-surface">− R$ {fmt(doLocal.comissao)}</span>
+              </div>
+              {doLocal.liquidoNeoPower !== undefined && (
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface-variant">Líquido NeoPower</span>
+                  <span className="font-semibold text-primary">R$ {fmt(doLocal.liquidoNeoPower)}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+              {/* Recargas à parte: consumo do saldo, não soma na receita */}
+              <span className="text-on-surface-variant">{isSuperAdmin ? 'Recargas (consumo)' : 'Transações'}</span>
+              <span className="font-semibold text-on-surface">
+                {isSuperAdmin ? `R$ ${fmt(data.revenueTotal || 0)}` : String(data.transactionsTotal || 0)}
+              </span>
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
