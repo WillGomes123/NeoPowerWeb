@@ -158,6 +158,10 @@ export const Overview = () => {
   // A API devolve o período em revenueToday/kwhToday quando há filtro; o "Month"
   // é sempre o mês atual. Os cards mostram o período quando ele está filtrado.
   const filtrado = !!(startDate || endDate);
+  // Com período escolhido, todos os cartões falam da mesma janela (o servidor
+  // recorta tudo por ela). O rótulo diz qual é, para ninguém somar meses
+  // diferentes achando que são o mesmo número.
+  const rotuloDoPeriodo = `${startDate ? dataLocal(startDate).toLocaleDateString('pt-BR') : 'Início'} — ${endDate ? dataLocal(endDate).toLocaleDateString('pt-BR') : 'Hoje'}`;
   const nomeDoLocal = (l: LocalDaLista) => l.nomeDoLocal || l.location_name || `Local ${l.id}`;
   const localEscolhido = locais.find(l => String(l.id) === locationId);
   // A API devolve o escopo que de fato aplicou. Enquanto ela não estiver
@@ -261,7 +265,7 @@ export const Overview = () => {
               <div>
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
                 {/* A API não filtra este total por período */}
-                <p className="text-[10px] text-outline">Todo o histórico</p>
+                <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Todo o histórico'}</p>
               </div>
               {revenueChange !== undefined && (
                 <div className={`flex items-center text-xs font-bold px-2 py-0.5 rounded-full ${revenueChange >= 0 ? 'bg-primary/10 text-primary' : 'bg-error/10 text-error'}`}>
@@ -291,7 +295,7 @@ export const Overview = () => {
             <div className="flex justify-between items-start mb-2">
               <div>
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Operacional</span>
-                <p className="text-[10px] text-outline">{filtrado ? 'Período selecionado' : 'Mês atual'}</p>
+                <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Mês atual'}</p>
               </div>
               <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
                 <span className="material-symbols-outlined text-primary text-lg">calendar_month</span>
@@ -302,13 +306,15 @@ export const Overview = () => {
               <span className="text-3xl font-headline font-bold text-foreground">{fmt(filtrado ? data.revenueToday : data.revenueMonth)}</span>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant">{filtrado ? 'Mês atual' : 'Hoje'}</span>
-              {!filtrado && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+          {!filtrado && (
+            <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant">Hoje</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              </div>
+              <span className="font-semibold text-on-surface">R$ {fmt(data.revenueToday)}</span>
             </div>
-            <span className="font-semibold text-on-surface">R$ {fmt(filtrado ? data.revenueMonth : data.revenueToday)}</span>
-          </div>
+          )}
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
@@ -321,7 +327,7 @@ export const Overview = () => {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <span className="text-[10px] font-bold text-primary tracking-widest uppercase">Depósitos Brutos</span>
-                  <p className="text-[10px] text-outline">Todo o histórico</p>
+                  <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Todo o histórico'}</p>
                 </div>
                 <span className="px-2 py-0.5 bg-primary/15 text-primary text-[10px] font-extrabold rounded">
                   {data.depositsCount || 0} DEP.
@@ -356,7 +362,7 @@ export const Overview = () => {
             <div className="flex justify-between items-start mb-2">
               <div>
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Energia Consumida</span>
-                <p className="text-[10px] text-outline">{filtrado ? 'Período selecionado' : 'Mês atual'}</p>
+                <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Mês atual'}</p>
               </div>
               <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center">
                 <span className="material-symbols-outlined text-tertiary text-lg">bolt</span>
@@ -367,13 +373,15 @@ export const Overview = () => {
               <span className="text-on-surface-variant text-sm font-medium">kWh</span>
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-on-surface-variant">{filtrado ? 'Mês atual' : 'Hoje'}</span>
-              {!filtrado && <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />}
+          {!filtrado && (
+            <div className="mt-4 pt-4 border-t border-outline-variant/10 flex justify-between items-center text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant">Hoje</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" />
+              </div>
+              <span className="font-semibold text-on-surface">{fmt(data.kwhToday, 1)} kWh</span>
             </div>
-            <span className="font-semibold text-on-surface">{fmt(filtrado ? data.kwhMonth : data.kwhToday, 1)} kWh</span>
-          </div>
+          )}
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-tertiary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
       </div>
