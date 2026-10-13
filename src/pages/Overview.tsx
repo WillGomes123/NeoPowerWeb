@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { dataLocal } from '../components/ui/utils';
 import { DateRangePicker } from '../components/ui/date-range-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
@@ -14,7 +15,16 @@ interface ChartPoint {
   value: number;
 }
 
+interface LocalDaLista {
+  id: number;
+  nomeDoLocal?: string;
+  location_name?: string;
+  endereco?: string;
+}
+
 interface OverviewData {
+  /** Local a que estes números se referem; null = a rede toda. */
+  locationId?: number | null;
   revenueToday: number;
   revenueMonth: number;
   revenueTotal: number;
@@ -51,6 +61,9 @@ export const Overview = () => {
   const [error, setError] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // '' = a rede toda. Guardado como texto porque é o que o Select devolve.
+  const [locationId, setLocationId] = useState('');
+  const [locais, setLocais] = useState<LocalDaLista[]>([]);
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
   const { isConnected, chargerStatuses, lastUpdate } = useSocket();
@@ -74,6 +87,7 @@ export const Overview = () => {
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
+      if (locationId) params.append('locationId', locationId);
       if (params.toString()) endpoint += `?${params.toString()}`;
 
       const response = await api.get(endpoint);
@@ -88,7 +102,22 @@ export const Overview = () => {
     }
   };
 
-  useEffect(() => { void fetchOverview(); }, [startDate, endDate]);
+  useEffect(() => { void fetchOverview(); }, [startDate, endDate, locationId]);
+
+  // Lista do seletor: os locais que este usuário pode ver.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await api.get('/locations/all');
+        if (!res.ok) return;
+        const corpo = await res.json();
+        const lista = corpo.locations || corpo.data?.locations || corpo.data || corpo || [];
+        setLocais(Array.isArray(lista) ? lista : []);
+      } catch {
+        // Sem a lista o seletor não aparece; o resto da tela continua de pé.
+      }
+    })();
+  }, []);
 
   const handleClearFilters = () => { setStartDate(''); setEndDate(''); };
 
@@ -129,6 +158,12 @@ export const Overview = () => {
   // A API devolve o período em revenueToday/kwhToday quando há filtro; o "Month"
   // é sempre o mês atual. Os cards mostram o período quando ele está filtrado.
   const filtrado = !!(startDate || endDate);
+  const nomeDoLocal = (l: LocalDaLista) => l.nomeDoLocal || l.location_name || `Local ${l.id}`;
+  const localEscolhido = locais.find(l => String(l.id) === locationId);
+  // A API devolve o escopo que de fato aplicou. Enquanto ela não estiver
+  // atualizada, o número é da rede toda — e dizer "Local: X" em cima disso seria
+  // mentira. Melhor avisar do que mostrar um total que não é daquele posto.
+  const escopoConfirmado = !locationId || String(data?.locationId ?? '') === locationId;
 
   if (loading) {
     return (
@@ -160,6 +195,13 @@ export const Overview = () => {
                 ? `Período: ${startDate ? dataLocal(startDate).toLocaleDateString('pt-BR') : 'Início'} — ${endDate ? dataLocal(endDate).toLocaleDateString('pt-BR') : 'Hoje'}`
                 : `Período: ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
             </p>
+            <p className={`font-medium text-sm ${escopoConfirmado ? 'text-on-surface-variant' : 'text-amber-500'}`}>
+              {!localEscolhido
+                ? 'Todos os locais'
+                : escopoConfirmado
+                  ? `Local: ${nomeDoLocal(localEscolhido)}`
+                  : 'Servidor ainda não filtra por local — números da rede toda'}
+            </p>
             {/* Real-time indicator */}
             <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${
               isConnected
@@ -172,6 +214,27 @@ export const Overview = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {locais.length > 0 && (
+            <Select value={locationId || 'todos'} onValueChange={v => setLocationId(v === 'todos' ? '' : v)}>
+              <SelectTrigger className="min-w-[200px] bg-surface-container-low border-outline-variant/20 text-on-surface">
+                <SelectValue placeholder="Todos os locais" />
+              </SelectTrigger>
+              <SelectContent className="bg-surface-container border-outline-variant/20">
+                <SelectItem value="todos" className="text-on-surface focus:bg-surface-container-highest">
+                  Todos os locais
+                </SelectItem>
+                {locais.map(l => (
+                  <SelectItem
+                    key={l.id}
+                    value={String(l.id)}
+                    className="text-on-surface focus:bg-surface-container-highest"
+                  >
+                    {nomeDoLocal(l)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <DateRangePicker
             startDate={startDate}
             endDate={endDate}
@@ -190,7 +253,7 @@ export const Overview = () => {
       </div>
 
       {/* KPI Section: Bento Style (4 Consolidated Cards) */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin && !locationId ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
         {/* Card 1: Receita Líquida */}
         <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft relative overflow-hidden group flex flex-col justify-between min-h-[160px]">
           <div>
@@ -249,8 +312,10 @@ export const Overview = () => {
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
-        {/* Card 3: Depósitos & Taxas — só super admin (a API não manda depósitos do operador) */}
-        {isSuperAdmin && (
+        {/* Card 3: Depósitos & Taxas — só super admin (a API não manda depósitos do
+            operador) e só na visão da rede: depósito entra na carteira do cliente,
+            não num local, então ao lado dos números de um posto ele enganaria. */}
+        {isSuperAdmin && !locationId && (
           <div className="bg-card p-6 rounded-2xl border border-primary/20 shadow-soft relative overflow-hidden flex flex-col justify-between min-h-[160px]">
             <div className="relative z-10">
               <div className="flex justify-between items-start mb-2">
