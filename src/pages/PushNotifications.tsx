@@ -32,6 +32,8 @@ interface Campaign {
   profileId: number | null;
   sentCount: number;
   failedCount: number;
+  /** Clientes que receberam a campanha dentro do app (sino), com ou sem push. */
+  inAppCount?: number;
   scheduledAt: string | null;
   sentAt: string | null;
   createdAt: string;
@@ -262,7 +264,14 @@ export const PushNotifications = () => {
       }
 
       const data = await response.json();
-      toast.success(`Campanha enviada! ${data.sent} enviados, ${data.failed} falharam`);
+      // O push só chega a quem tem aparelho cadastrado; no app, chega a todo o
+      // público da marca. API antiga não manda o "inApp": fica a mensagem de antes.
+      toast.success(
+        typeof data.inApp === 'number'
+          ? `Campanha enviada! ${data.inApp} clientes no app, ${data.sent} por push` +
+              (data.failed ? `, ${data.failed} falharam` : '')
+          : `Campanha enviada! ${data.sent} enviados, ${data.failed} falharam`
+      );
       fetchData();
     } catch (error: any) {
       console.error('Erro ao enviar campanha:', error);
@@ -553,7 +562,7 @@ export const PushNotifications = () => {
                   {isSuperAdmin && <th className="px-6 py-4">Marca</th>}
                   <th className="px-6 py-4">Público</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Enviadas</th>
+                  <th className="px-6 py-4">Alcance</th>
                   <th className="px-6 py-4">Data</th>
                   <th className="px-6 py-4">Ações</th>
                 </tr>
@@ -584,10 +593,18 @@ export const PushNotifications = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className="text-primary font-bold">{campaign.sentCount}</span>
-                      {campaign.failedCount > 0 && (
-                        <span className="text-error ml-1">/ {campaign.failedCount} falhas</span>
-                      )}
+                      {campaign.inAppCount ? (
+                        <div className="text-primary font-bold">{campaign.inAppCount} no app</div>
+                      ) : null}
+                      <div className={campaign.inAppCount ? 'text-xs text-on-surface-variant' : ''}>
+                        <span className={campaign.inAppCount ? '' : 'text-primary font-bold'}>
+                          {campaign.sentCount}
+                        </span>{' '}
+                        por push
+                        {campaign.failedCount > 0 && (
+                          <span className="text-error ml-1">/ {campaign.failedCount} falhas</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-on-surface-variant">{formatDate(campaign.sentAt || campaign.createdAt)}</span>
