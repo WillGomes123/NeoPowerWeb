@@ -34,6 +34,8 @@ interface Campaign {
   failedCount: number;
   /** Clientes que receberam a campanha dentro do app (sino), com ou sem push. */
   inAppCount?: number;
+  /** Imagem do push e do sino (link https da versão leve no Cloudinary). */
+  imageUrl?: string | null;
   scheduledAt: string | null;
   sentAt: string | null;
   createdAt: string;
@@ -95,6 +97,10 @@ const audienceLabels = {
 const MARCA_PADRAO = 'neopower-default';
 const TODAS_AS_MARCAS = 'todas';
 
+// Imagem da campanha: os mesmos limites da API (POST /push/campaigns/imagem).
+const TIPOS_DE_IMAGEM = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANHO_MAXIMO_DA_IMAGEM = 5 * 1024 * 1024;
+
 export const PushNotifications = () => {
   const { user } = useAuth();
   // Admin da plataforma (sem marca) escolhe para qual marca vai a campanha.
@@ -116,6 +122,8 @@ export const PushNotifications = () => {
   const [targetAudience, setTargetAudience] = useState<string>('all_users');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedProfile, setSelectedProfile] = useState<string>('');
+  const [imagem, setImagem] = useState<string | null>(null);
+  const [enviandoImagem, setEnviandoImagem] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -185,6 +193,37 @@ export const PushNotifications = () => {
     }
   };
 
+  // A imagem sobe antes da campanha: a API guarda no Cloudinary e devolve o
+  // link de uma versão leve, que vai na criação da campanha.
+  const handleImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // deixa escolher o mesmo arquivo de novo
+    if (!file) return;
+    if (!TIPOS_DE_IMAGEM.includes(file.type)) {
+      toast.error('Use uma imagem JPG, PNG ou WebP');
+      return;
+    }
+    if (file.size > TAMANHO_MAXIMO_DA_IMAGEM) {
+      toast.error('A imagem deve ter no máximo 5 MB');
+      return;
+    }
+    setEnviandoImagem(true);
+    const fd = new FormData();
+    fd.append('imagem', file);
+    try {
+      const response = await api.post('/push/campaigns/imagem', fd);
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.error || 'Erro ao enviar a imagem');
+      }
+      setImagem(data.url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao enviar a imagem');
+    } finally {
+      setEnviandoImagem(false);
+    }
+  };
+
   const handleCreateCampaign = async () => {
     if (!title.trim() || !message.trim()) {
       toast.error('Preencha o título e a mensagem');
@@ -226,11 +265,15 @@ export const PushNotifications = () => {
       if (targetAudience === 'specific_profile' && selectedProfile) {
         payload.profileId = parseInt(selectedProfile);
       }
+      if (imagem) {
+        payload.imageUrl = imagem;
+      }
 
       const response = await api.post('/push/campaigns', payload);
 
       if (!response.ok) {
-        throw new Error('Erro ao criar campanha');
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Erro ao criar campanha');
       }
 
       toast.success('Campanha criada com sucesso!');
@@ -239,7 +282,7 @@ export const PushNotifications = () => {
       fetchData();
     } catch (error) {
       console.error('Erro ao criar campanha:', error);
-      toast.error('Erro ao criar campanha');
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar campanha');
     }
   };
 
@@ -306,6 +349,7 @@ export const PushNotifications = () => {
     setSelectedLocation('');
     setSelectedProfile('');
     setMarca(MARCA_PADRAO);
+    setImagem(null);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -376,6 +420,52 @@ export const PushNotifications = () => {
                     maxLength={500}
                   />
                   <p className="text-[10px] text-on-surface-variant">{message.length}/500 caracteres</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Imagem (opcional)
+                  </label>
+                  {imagem ? (
+                    <div className="relative">
+                      <img
+                        src={imagem}
+                        alt="Imagem da campanha"
+                        className="w-full max-h-48 object-cover rounded-lg border border-outline-variant/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImagem(null)}
+                        title="Tirar a imagem"
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container/90 text-on-surface flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-outline-variant/30 text-on-surface-variant text-sm transition-colors ${
+                        enviandoImagem ? 'opacity-60' : 'cursor-pointer hover:bg-surface-container-high'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {enviandoImagem ? 'hourglass_top' : 'add_photo_alternate'}
+                      </span>
+                      {enviandoImagem ? 'Enviando a imagem...' : 'Escolher imagem'}
+                      <input
+                        type="file"
+                        accept={TIPOS_DE_IMAGEM.join(',')}
+                        className="hidden"
+                        disabled={enviandoImagem}
+                        onChange={e => void handleImagem(e)}
+                      />
+                    </label>
+                  )}
+                  <p className="text-[10px] text-on-surface-variant">
+                    JPG, PNG ou WebP de até 5 MB. Imagem larga (2:1, como 1024×512) fica melhor. Aparece no
+                    push do Android e na lista de notificações do app. No push do iPhone, só a partir da
+                    próxima versão do app na App Store.
+                  </p>
                 </div>
 
                 {isSuperAdmin && (
@@ -507,6 +597,9 @@ export const PushNotifications = () => {
                       </p>
                     </div>
                   </div>
+                  {imagem && (
+                    <img src={imagem} alt="" className="mt-3 w-full max-h-40 object-cover rounded-md" />
+                  )}
                 </div>
               </div>
 
@@ -519,7 +612,8 @@ export const PushNotifications = () => {
                 </button>
                 <button
                   onClick={handleCreateCampaign}
-                  className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
+                  disabled={enviandoImagem}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
                 >
                   Criar Campanha
                 </button>
@@ -571,7 +665,16 @@ export const PushNotifications = () => {
                 {campaigns.map(campaign => (
                   <tr key={campaign.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                     <td className="px-6 py-4">
-                      <span className="text-sm font-semibold text-on-surface">{campaign.title}</span>
+                      <div className="flex items-center gap-3">
+                        {campaign.imageUrl && (
+                          <img
+                            src={campaign.imageUrl}
+                            alt=""
+                            className="w-10 h-10 rounded-md object-cover shrink-0"
+                          />
+                        )}
+                        <span className="text-sm font-semibold text-on-surface">{campaign.title}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 max-w-xs">
                       <span className="text-sm text-on-surface-variant truncate block">{campaign.message}</span>
