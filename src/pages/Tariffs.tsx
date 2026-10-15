@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import {
@@ -30,6 +30,7 @@ interface Tariff {
   connection_fee?: number | null;
   location_address: string | null;
   location_id?: number | null;
+  charge_point_id?: string | null;
   profileId?: number | null;
   profileName?: string | null;
   created_at: string;
@@ -49,200 +50,232 @@ interface ProfileOption {
   color?: string | null;
 }
 
-type FilterType = 'all' | 'global' | 'profile' | 'local';
+type FilterType = 'all' | 'global' | 'profile' | 'local' | 'charger';
 
-interface TariffCardProps {
-  type: 'global' | 'profile' | 'local';
-  title: string;
-  subtitle?: string | null;
-  price: number;
-  minPrice?: number | null;
-  connectionFee?: number | null;
-  updatedAt: string;
-  globalPrice?: number;
-  isEditing: boolean;
+const formatarMoeda = (valor: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
+const formatarDataCurta = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+
+const formatarDataCompleta = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+
+/** Mínimo por recarga e taxa de destrava, em texto corrido — só o que existe. */
+function extrasDaTarifa(minimo?: number | null, destrava?: number | null): string {
+  const partes: string[] = [];
+  if (minimo != null && Number(minimo) > 0) partes.push(`mín. ${formatarMoeda(Number(minimo))}/recarga`);
+  if (destrava != null && Number(destrava) > 0) partes.push(`destrava ${formatarMoeda(Number(destrava))}`);
+  return partes.join(' · ');
+}
+
+/** Tarifa de local "pura": de um local, sem perfil e sem carregador. */
+const ehDeLocal = (t: Tariff) =>
+  !t.profileId && !t.charge_point_id && (t.location_id != null || !!t.location_address);
+
+/** Global: sem local, sem endereço, sem perfil e sem carregador. */
+const ehGlobal = (t: Tariff) =>
+  !t.location_address && t.location_id == null && !t.profileId && !t.charge_point_id;
+
+/** Escopo da tarifa editada na lista — o mesmo que ela já tinha. */
+interface EscopoDaEdicao {
+  locationId?: number | null;
+  locationAddress?: string | null;
+  profileId?: number | null;
+  chargePointId?: string | null;
+}
+
+/** Colunas da lista (no celular: nome e preço; o resto na linha de baixo). */
+const COLUNAS =
+  'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2fr)_9rem_minmax(0,1.4fr)_5.5rem_6rem] items-center gap-x-4';
+
+interface LinhaDePrecoProps {
+  icone: string;
+  titulo: string;
+  subtitulo?: string | null;
+  /** Preço por kWh; null quando não há tarifa nenhuma para mostrar. */
+  preco: number | null;
+  /** Local sem preço próprio: mostra o preço da global, apagado. */
+  usaGlobal?: boolean;
+  minimo?: number | null;
+  destrava?: number | null;
+  atualizadoEm?: string | null;
+  editando: boolean;
   editPrice: string;
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
-  onStartEdit: () => void;
-  onCancelEdit: () => void;
-  onSave: () => Promise<void>;
-  submitting: boolean;
+  onEditar: () => void;
+  onCancelar: () => void;
+  onSalvar: () => Promise<void>;
+  salvando: boolean;
 }
 
-const TariffCard = ({
-  type,
-  title,
-  subtitle,
-  price,
-  minPrice,
-  connectionFee,
-  updatedAt,
-  globalPrice,
-  isEditing,
+/**
+ * Uma linha da lista de preços. O preço é o que salta aos olhos; mínimo,
+ * destrava e data ficam em texto discreto. Antes eram cartões com endereço,
+ * selos coloridos e "% vs global", e o preço se perdia no meio (15/10/2026).
+ */
+const LinhaDePreco = ({
+  icone,
+  titulo,
+  subtitulo,
+  preco,
+  usaGlobal = false,
+  minimo,
+  destrava,
+  atualizadoEm,
+  editando,
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
-  onStartEdit,
-  onCancelEdit,
-  onSave,
-  submitting,
-}: TariffCardProps) => {
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-
-  const config = {
-    global: {
-      border: 'border-primary/20',
-      text: 'text-primary',
-      icon: 'public',
-    },
-    profile: {
-      border: 'border-secondary/20',
-      text: 'text-secondary',
-      icon: 'badge',
-    },
-    local: {
-      border: 'border-tertiary/20',
-      text: 'text-tertiary',
-      icon: 'location_on',
-    },
-  }[type];
-
-  const showComparison = type !== 'global' && globalPrice !== undefined && price !== globalPrice;
+  onEditar,
+  onCancelar,
+  onSalvar,
+  salvando,
+}: LinhaDePrecoProps) => {
+  const extras = extrasDaTarifa(minimo, destrava);
+  const linhaDeBaixo = [extras, atualizadoEm ? `atualizado ${formatarDataCurta(atualizadoEm)}` : '']
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <div className={`glass-card rounded-xl border ${config.border} relative overflow-hidden p-6 hover:shadow-xl hover:border-primary/30 transition-all group flex flex-col justify-between min-h-[220px]`}>
-      <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-[60px] pointer-events-none" />
-      <div className="relative z-10 flex-1">
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`material-symbols-outlined ${config.text} text-base`} style={{ fontVariationSettings: "'FILL' 1" }}>
-            {config.icon}
-          </span>
-          <span className={`text-[10px] font-bold ${config.text} uppercase tracking-widest truncate max-w-[200px]`}>
-            {type === 'global' ? 'TARIFA GLOBAL' : title}
-          </span>
-        </div>
-
-        {subtitle && (
-          <p
-            className="text-[10px] text-on-surface-variant -mt-2 mb-2 truncate max-w-[220px]"
-            title={subtitle}
-          >
-            {subtitle}
+    <div
+      className={`${COLUNAS} gap-y-1 px-4 md:px-6 py-3 border-t border-outline-variant/10 first:border-t-0 hover:bg-surface-container-high/40 transition-colors`}
+    >
+      <div className="min-w-0 flex items-center gap-3">
+        <span className="material-symbols-outlined text-base text-on-surface-variant shrink-0">{icone}</span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-on-surface truncate" title={titulo}>
+            {titulo}
           </p>
-        )}
-
-        {isEditing ? (
-          <div className="space-y-2 mt-4">
-            <div className="flex items-center gap-1.5">
-              <span className="text-base font-headline font-bold text-on-surface">R$</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={editPrice}
-                onChange={e => setEditPrice(e.target.value)}
-                className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded px-2 py-1 text-base font-bold font-headline focus:outline-none focus:border-primary"
-                autoFocus
-              />
-              <span className="text-xs text-on-surface-variant">/kWh</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-on-surface-variant w-5">≥</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="mín/sessão (opc.)"
-                value={editMinPrice}
-                onChange={e => setEditMinPrice(e.target.value)}
-                className="w-28 bg-surface-container-low border border-outline-variant/30 text-on-surface-variant rounded px-2 py-1 text-xs font-headline focus:outline-none focus:border-primary"
-              />
-              <span className="text-[10px] text-on-surface-variant">mín/sessão</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-baseline gap-1 mb-1">
-              <span className="text-3xl font-headline font-bold text-on-surface tracking-tighter">
-                {formatCurrency(price)}
-              </span>
-              <span className="text-sm text-on-surface-variant">/kWh</span>
-            </div>
-            {minPrice != null && minPrice > 0 && (
-              <div className="mb-1">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <span className="material-symbols-outlined text-[12px]">bolt</span>
-                  Mín/sessão: {formatCurrency(minPrice)}
-                </span>
-              </div>
-            )}
-            {connectionFee != null && Number(connectionFee) > 0 && (
-              <div className="mb-1">
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                  <span className="material-symbols-outlined text-[12px]">lock_open</span>
-                  Destrava: {formatCurrency(Number(connectionFee))}
-                </span>
-              </div>
-            )}
-            <p className="text-[10px] text-on-surface-variant">
-              Atualizado em {formatDate(updatedAt)}
+          {subtitulo && (
+            <p className="text-xs text-on-surface-variant truncate" title={subtitulo}>
+              {subtitulo}
             </p>
-            {showComparison && globalPrice && (
-              <div className="mt-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  price > globalPrice
-                    ? 'bg-error/10 text-error'
-                    : 'bg-primary/10 text-primary'
-                }`}>
-                  {price > globalPrice ? '↑' : '↓'}{' '}
-                  {Math.abs(((price - globalPrice) / globalPrice) * 100).toFixed(0)}% vs global
-                </span>
-              </div>
-            )}
-          </>
-        )}
+          )}
+        </div>
       </div>
 
-      <div className="relative z-10 mt-4 pt-3 border-t border-outline-variant/5">
-        {isEditing ? (
+      {editando ? (
+        <div className="col-span-2 md:col-span-4 flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 md:pt-0 md:justify-end">
+          <label className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-on-surface">R$</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              aria-label="Preço por kWh"
+              value={editPrice}
+              onChange={e => setEditPrice(e.target.value)}
+              autoFocus
+              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-sm font-bold tabular-nums focus:outline-none focus:border-primary"
+            />
+            <span className="text-xs text-on-surface-variant">/kWh</span>
+          </label>
+          <label className="flex items-center gap-1.5">
+            <span className="text-xs text-on-surface-variant">mín.</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              inputMode="decimal"
+              aria-label="Mínimo por recarga"
+              placeholder="opcional"
+              value={editMinPrice}
+              onChange={e => setEditMinPrice(e.target.value)}
+              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
+            />
+            <span className="text-xs text-on-surface-variant">/recarga</span>
+          </label>
           <div className="flex gap-2">
             <button
-              onClick={onSave}
-              disabled={submitting}
-              className="flex-1 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+              onClick={() => void onSalvar()}
+              disabled={salvando}
+              className="px-4 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
             >
-              {submitting ? 'Salvando...' : 'Salvar'}
+              {salvando ? 'Salvando...' : 'Salvar'}
             </button>
             <button
-              onClick={onCancelEdit}
-              className="flex-1 py-1.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-xs hover:bg-surface-container-high active:scale-95 transition-all"
+              onClick={onCancelar}
+              className="px-4 py-1.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-xs hover:bg-surface-container-high active:scale-95 transition-all"
             >
               Cancelar
             </button>
           </div>
-        ) : (
-          <button
-            onClick={onStartEdit}
-            className="flex items-center gap-1.5 text-xs text-primary hover:underline font-bold"
+        </div>
+      ) : (
+        <>
+          <div className="text-right whitespace-nowrap">
+            <span
+              className={`text-lg md:text-xl font-headline font-bold tabular-nums ${usaGlobal ? 'text-on-surface-variant' : 'text-on-surface'}`}
+            >
+              {preco != null ? formatarMoeda(preco) : '—'}
+            </span>
+            {preco != null && <span className="text-xs text-on-surface-variant">/kWh</span>}
+            {usaGlobal && (
+              <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">tarifa global</p>
+            )}
+          </div>
+          {/* Celular: mínimo, destrava e data juntos, abaixo do nome. */}
+          <p className="md:hidden text-xs text-on-surface-variant truncate">{linhaDeBaixo || ' '}</p>
+          <p className="hidden md:block text-xs text-on-surface-variant truncate" title={extras || undefined}>
+            {extras || '—'}
+          </p>
+          <p
+            className="hidden md:block text-xs text-on-surface-variant tabular-nums"
+            title={atualizadoEm ? formatarDataCompleta(atualizadoEm) : undefined}
           >
-            <span className="material-symbols-outlined text-sm">edit</span>
-            Alterar Valor
-          </button>
-        )}
-      </div>
+            {atualizadoEm ? formatarDataCurta(atualizadoEm) : '—'}
+          </p>
+          <div className="text-right">
+            <button
+              onClick={onEditar}
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+            >
+              <span className="material-symbols-outlined text-sm">edit</span>
+              {usaGlobal ? 'Definir' : 'Alterar'}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };
+
+/** Um bloco da lista de preços: título, cabeçalho das colunas e as linhas. */
+const ListaDePrecos = ({
+  titulo,
+  descricao,
+  rotulo,
+  children,
+}: {
+  titulo: string;
+  descricao?: string;
+  rotulo: string;
+  children: ReactNode;
+}) => (
+  <section className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
+    <header className="px-4 md:px-6 py-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-outline-variant/10">
+      <h2 className="text-sm font-headline font-bold text-on-surface">{titulo}</h2>
+      {descricao && <span className="text-xs text-on-surface-variant">{descricao}</span>}
+    </header>
+    <div
+      className={`hidden md:grid ${COLUNAS.replace('grid ', '')} px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container/40`}
+    >
+      <span>{rotulo}</span>
+      <span className="text-right">Preço</span>
+      <span>Mínimo e destrava</span>
+      <span>Atualizado</span>
+      <span />
+    </div>
+    {children}
+  </section>
+);
 
 export const Tariffs = () => {
   // Quem não é admin da plataforma (admin da marca, operador) só precifica os
@@ -275,15 +308,12 @@ export const Tariffs = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [editingCard, setEditingCard] = useState<{
-    type: 'global' | 'profile' | 'local';
-    id?: number | null;
-    address?: string | null;
-    // Identidade do card de local por ID (não por endereço): dois locais na
-    // mesma rua compartilham `endereco`, então chavear a edição por endereço
-    // colocaria os dois em modo de edição ao mesmo tempo.
-    locId?: number | null;
-  } | null>(null);
+  // Linha em edição na lista de preços. `chave` identifica a linha (dois locais
+  // na mesma rua têm chaves diferentes); `escopo` é o que vai no POST, o mesmo
+  // da tarifa editada.
+  const [editando, setEditando] = useState<{ chave: string; escopo: EscopoDaEdicao } | null>(null);
+  const [busca, setBusca] = useState('');
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
@@ -499,12 +529,21 @@ export const Tariffs = () => {
     }
   };
 
-  const handleSaveInline = async (
-    type: 'global' | 'profile' | 'local',
-    id?: number | null,
-    address?: string | null,
-    locId?: number | null
-  ) => {
+  const editar = (chave: string, escopo: EscopoDaEdicao, preco: number | null, minimo: number | null) => {
+    setEditando({ chave, escopo });
+    setEditPrice(preco != null ? String(preco) : '');
+    setEditMinPrice(minimo ? String(minimo) : '');
+  };
+
+  const cancelarEdicao = () => {
+    setEditando(null);
+    setEditPrice('');
+    setEditMinPrice('');
+  };
+
+  /** Salva a linha em edição no MESMO escopo da tarifa (global, local, perfil, carregador). */
+  const handleSaveInline = async () => {
+    if (!editando) return;
     if (!editPrice || parseFloat(editPrice) <= 0) {
       toast.error('Informe um preço válido');
       return;
@@ -512,33 +551,31 @@ export const Tariffs = () => {
 
     setInlineSubmitting(true);
     try {
+      const { escopo } = editando;
       const payload: {
         newPrice: number;
         minPrice?: number;
         locationAddress?: string;
         locationId?: number;
         profileId?: number;
+        chargePointId?: string;
       } = {
         newPrice: parseFloat(editPrice),
       };
       if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
-      if (type === 'local') {
-        // Preferimos o id do local (distingue locais de mesma rua); caímos no
-        // endereço só como legado.
-        if (locId != null) payload.locationId = locId;
-        else if (address) payload.locationAddress = address;
-      } else if (type === 'profile' && id) {
-        payload.profileId = id;
-      }
+      if (escopo.chargePointId) payload.chargePointId = escopo.chargePointId;
+      // Preferimos o id do local (distingue locais de mesma rua); o endereço
+      // só como legado.
+      else if (escopo.locationId != null) payload.locationId = escopo.locationId;
+      else if (escopo.locationAddress) payload.locationAddress = escopo.locationAddress;
+      if (escopo.profileId) payload.profileId = escopo.profileId;
 
       const response = await api.post('/tariffs', payload);
 
       if (response.ok) {
         toast.success('Tarifa atualizada com sucesso!');
-        setEditingCard(null);
-        setEditPrice('');
-        setEditMinPrice('');
+        cancelarEdicao();
         void fetchData();
       } else {
         const errData = await response.json();
@@ -562,10 +599,14 @@ export const Tariffs = () => {
   /* ── Dados derivados ── */
   const currentTariffs = useMemo(() => allTariffs.filter(t => t.is_current), [allTariffs]);
 
-  // Rótulo do escopo de uma tarifa, para o seletor "copiar de existente".
+  // Rótulo do escopo de uma tarifa (seletor "copiar de existente" e histórico).
   // Com location_id, mostra o NOME do local — senão dois locais de mesmo
   // endereço ficariam com rótulo idêntico.
   const tariffScopeLabel = (t: Tariff) => {
+    if (t.charge_point_id) {
+      const perfil = t.profileId ? ` · ${t.profileName || `Perfil #${t.profileId}`}` : '';
+      return `Carregador ${t.charge_point_id}${perfil}`;
+    }
     if (t.location_id != null) {
       const loc = locations.find(l => l.id === t.location_id);
       return loc?.nomeDoLocal || t.location_address || `Local #${t.location_id}`;
@@ -576,40 +617,70 @@ export const Tariffs = () => {
         ? t.profileName || `Perfil #${t.profileId}`
         : 'Global (rede)';
   };
-  const globalTariff = currentTariffs.find(t => !t.location_address && !t.profileId);
-  const profileTariffs = useMemo(() => currentTariffs.filter(t => !!t.profileId), [currentTariffs]);
+  // Tarifa de carregador também não tem endereço: sem excluí-la, a mais recente
+  // delas virava a "global" (ver ehGlobal).
+  const globalTariff = currentTariffs.find(ehGlobal);
 
   const filtered = useMemo(() => {
-    if (filter === 'global') return allTariffs.filter(t => !t.location_address && !t.profileId);
+    if (filter === 'global') return allTariffs.filter(ehGlobal);
     if (filter === 'profile') return allTariffs.filter(t => !!t.profileId);
-    if (filter === 'local') return allTariffs.filter(t => !!t.location_address);
+    if (filter === 'local') return allTariffs.filter(ehDeLocal);
+    if (filter === 'charger') return allTariffs.filter(t => !!t.charge_point_id);
     return allTariffs;
   }, [allTariffs, filter]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const current = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Uma linha por LOCAL do operador (não deduplica por endereço). Cada local
-  // resolve sua tarifa atual primeiro por `location_id` (chave nova, distingue
-  // dois locais na mesma rua) e, se não houver, pelo `endereco` (tarifas
-  // antigas, ainda não migradas).
-  //
-  // Antes, a lista era montada a partir das tarifas deduplicadas por
-  // `location_address`: dois locais na mesma rua (mesmo `endereco`, ex.: dois
-  // condomínios na Avenida Alphaville) colapsavam num card só — um deles
-  // "sumia". Agora cada local aparece pelo NOME e, ao salvar, a tarifa vai por
-  // `location_id` — preços independentes mesmo com o mesmo endereço.
-  const locationRows = useMemo(() => {
-    return locations
-      .map(loc => {
-        const tariff =
-          currentTariffs.find(t => t.location_id === loc.id) ??
-          currentTariffs.find(t => t.location_id == null && t.location_address === loc.endereco) ??
-          null;
-        return { loc, tariff };
-      })
-      .filter((r): r is { loc: Location; tariff: Tariff } => !!r.tariff);
-  }, [locations, currentTariffs]);
+  // Uma linha por LOCAL — todos, inclusive os que usam a global — em ordem
+  // alfabética, para achar o local pelo nome. Cada local resolve a tarifa
+  // atual primeiro por `location_id` (distingue dois locais na mesma rua) e,
+  // se não houver, pelo `endereco` (tarifas antigas, ainda não migradas). Só
+  // tarifa de local: a de perfil ou de carregador naquele local tem lista própria.
+  const linhasDeLocal = useMemo(
+    () =>
+      locations
+        .map(loc => ({
+          loc,
+          tariff:
+            currentTariffs.find(t => ehDeLocal(t) && t.location_id === loc.id) ??
+            currentTariffs.find(
+              t => ehDeLocal(t) && t.location_id == null && t.location_address === loc.endereco
+            ) ??
+            null,
+        }))
+        .sort((a, b) =>
+          (a.loc.nomeDoLocal || a.loc.endereco || '').localeCompare(
+            b.loc.nomeDoLocal || b.loc.endereco || '',
+            'pt-BR'
+          )
+        ),
+    [locations, currentTariffs]
+  );
+  const tarifasDeCarregador = useMemo(
+    () =>
+      currentTariffs
+        .filter(t => !!t.charge_point_id)
+        .sort((a, b) => (a.charge_point_id || '').localeCompare(b.charge_point_id || '', 'pt-BR')),
+    [currentTariffs]
+  );
+  const tarifasDePerfil = useMemo(
+    () => currentTariffs.filter(t => !!t.profileId && !t.charge_point_id),
+    [currentTariffs]
+  );
+
+  // Busca por nome, endereço, carregador ou perfil, sem diferenciar acento.
+  const normalizar = (s: string) =>
+    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const termo = normalizar(busca.trim());
+  const casaBusca = (...textos: Array<string | null | undefined>) =>
+    !termo || textos.some(t => !!t && normalizar(t).includes(termo));
+  const locaisVisiveis = linhasDeLocal.filter(r => casaBusca(r.loc.nomeDoLocal, r.loc.endereco));
+  const carregadoresVisiveis = tarifasDeCarregador.filter(t => casaBusca(t.charge_point_id, t.profileName));
+  const perfisVisiveis = tarifasDePerfil.filter(t => casaBusca(t.profileName, tariffScopeLabel(t)));
+  const localDaTarifa = (t: Tariff) =>
+    (t.location_id != null ? locations.find(l => l.id === t.location_id)?.nomeDoLocal : null) ||
+    t.location_address;
 
   if (loading) {
     return (
@@ -921,129 +992,192 @@ export const Tariffs = () => {
 
       {pageTab === 'tarifas' && (
       <>
-      {/* Current Tariffs — Global + Per-Location Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Global Tariff Card — oculto para operador (tenant): a tarifa global é
-            da REDE (não é dele), ele não pode editá-la e só confundia. */}
-        {isOperator ? null : globalTariff ? (
-          <TariffCard
-            type="global"
-            title="TARIFA GLOBAL"
-            price={globalTariff.price_per_kwh}
-            minPrice={globalTariff.min_price}
-            connectionFee={globalTariff.connection_fee}
-            updatedAt={globalTariff.created_at}
-            isEditing={editingCard?.type === 'global'}
-            editPrice={editPrice}
-            setEditPrice={setEditPrice}
-            editMinPrice={editMinPrice}
-            setEditMinPrice={setEditMinPrice}
-            onStartEdit={() => {
-              setEditingCard({ type: 'global' });
-              setEditPrice(globalTariff.price_per_kwh.toString());
-              setEditMinPrice(globalTariff.min_price ? globalTariff.min_price.toString() : '');
-            }}
-            onCancelEdit={() => {
-              setEditingCard(null);
-              setEditPrice('');
-              setEditMinPrice('');
-            }}
-            onSave={() => handleSaveInline('global')}
-            submitting={inlineSubmitting}
-          />
-        ) : (
-          <div className="glass-card rounded-xl border border-primary/20 p-6 flex flex-col justify-center min-h-[220px]">
-            <p className="text-sm text-on-surface-variant">Nenhuma tarifa global configurada</p>
-          </div>
+      {/* Lista de preços: o valor de cada local à vista, com busca. */}
+      <div className="space-y-6">
+        {/* Tarifa global — oculta para operador (tenant): é da REDE, ele não a edita. */}
+        {!isOperator && (
+          <ListaDePrecos titulo="Tarifa global da rede" descricao="vale para os locais sem preço próprio" rotulo="Escopo">
+            {globalTariff ? (
+              <LinhaDePreco
+                icone="public"
+                titulo="Toda a rede"
+                preco={globalTariff.price_per_kwh}
+                minimo={globalTariff.min_price}
+                destrava={globalTariff.connection_fee}
+                atualizadoEm={globalTariff.created_at}
+                editando={editando?.chave === 'global'}
+                editPrice={editPrice}
+                setEditPrice={setEditPrice}
+                editMinPrice={editMinPrice}
+                setEditMinPrice={setEditMinPrice}
+                onEditar={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null)}
+                onCancelar={cancelarEdicao}
+                onSalvar={handleSaveInline}
+                salvando={inlineSubmitting}
+              />
+            ) : (
+              <p className="px-4 md:px-6 py-4 text-sm text-on-surface-variant">Nenhuma tarifa global configurada</p>
+            )}
+          </ListaDePrecos>
         )}
 
-        {/* Per-Profile Tariff Cards */}
-        {profileTariffs.map(tariff => {
-          const isCurrentEditing = editingCard?.type === 'profile' && editingCard.id === tariff.profileId;
-          return (
-            <TariffCard
-              key={`profile-${tariff.id}`}
-              type="profile"
-              title={tariff.profileName || `Perfil #${tariff.profileId}`}
-              price={tariff.price_per_kwh}
-              minPrice={tariff.min_price}
-              connectionFee={tariff.connection_fee}
-              updatedAt={tariff.created_at}
-              globalPrice={globalTariff?.price_per_kwh}
-              isEditing={isCurrentEditing}
-              editPrice={editPrice}
-              setEditPrice={setEditPrice}
-              editMinPrice={editMinPrice}
-              setEditMinPrice={setEditMinPrice}
-              onStartEdit={() => {
-                setEditingCard({ type: 'profile', id: tariff.profileId });
-                setEditPrice(tariff.price_per_kwh.toString());
-                setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
-              }}
-              onCancelEdit={() => {
-                setEditingCard(null);
-                setEditPrice('');
-                setEditMinPrice('');
-              }}
-              onSave={() => handleSaveInline('profile', tariff.profileId)}
-              submitting={inlineSubmitting}
-            />
-          );
-        })}
+        <div className="relative max-w-md">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant pointer-events-none">
+            search
+          </span>
+          <input
+            type="search"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar local, carregador ou perfil"
+            aria-label="Buscar tarifa"
+            className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
+          />
+        </div>
 
-        {/* Per-Location Tariff Cards */}
-        {locationRows.map(({ loc, tariff }) => {
-          const isCurrentEditing = editingCard?.type === 'local' && editingCard.locId === loc.id;
-          const enderecoLegivel = [loc.endereco, loc.numero].filter(Boolean).join(', ');
-          return (
-            <TariffCard
-              key={loc.id}
-              type="local"
-              title={loc.nomeDoLocal || loc.endereco}
-              subtitle={enderecoLegivel}
-              price={tariff.price_per_kwh}
-              minPrice={tariff.min_price}
-              connectionFee={tariff.connection_fee}
-              updatedAt={tariff.created_at}
-              globalPrice={globalTariff?.price_per_kwh}
-              isEditing={isCurrentEditing}
-              editPrice={editPrice}
-              setEditPrice={setEditPrice}
-              editMinPrice={editMinPrice}
-              setEditMinPrice={setEditMinPrice}
-              onStartEdit={() => {
-                setEditingCard({ type: 'local', locId: loc.id, address: loc.endereco });
-                setEditPrice(tariff.price_per_kwh.toString());
-                setEditMinPrice(tariff.min_price ? tariff.min_price.toString() : '');
-              }}
-              onCancelEdit={() => {
-                setEditingCard(null);
-                setEditPrice('');
-                setEditMinPrice('');
-              }}
-              onSave={() => handleSaveInline('local', null, loc.endereco, loc.id)}
-              submitting={inlineSubmitting}
-            />
-          );
-        })}
+        <ListaDePrecos
+          titulo="Preço por local"
+          descricao={termo ? `${locaisVisiveis.length} de ${linhasDeLocal.length} locais` : `${linhasDeLocal.length} locais`}
+          rotulo="Local"
+        >
+          {locaisVisiveis.length > 0 ? (
+            locaisVisiveis.map(({ loc, tariff }) => {
+              const chave = `loc:${loc.id}`;
+              // Sem preço próprio, vale a global: mostra o preço dela, apagado.
+              const vigente = tariff ?? globalTariff ?? null;
+              return (
+                <LinhaDePreco
+                  key={loc.id}
+                  icone="location_on"
+                  titulo={loc.nomeDoLocal || loc.endereco}
+                  subtitulo={[loc.endereco, loc.numero].filter(Boolean).join(', ')}
+                  preco={vigente?.price_per_kwh ?? null}
+                  usaGlobal={!tariff}
+                  minimo={vigente?.min_price}
+                  destrava={vigente?.connection_fee}
+                  atualizadoEm={tariff?.created_at ?? null}
+                  editando={editando?.chave === chave}
+                  editPrice={editPrice}
+                  setEditPrice={setEditPrice}
+                  editMinPrice={editMinPrice}
+                  setEditMinPrice={setEditMinPrice}
+                  onEditar={() =>
+                    editar(
+                      chave,
+                      { locationId: loc.id, locationAddress: loc.endereco },
+                      vigente?.price_per_kwh ?? null,
+                      tariff?.min_price ?? null
+                    )
+                  }
+                  onCancelar={cancelarEdicao}
+                  onSalvar={handleSaveInline}
+                  salvando={inlineSubmitting}
+                />
+              );
+            })
+          ) : (
+            <p className="px-4 md:px-6 py-6 text-sm text-on-surface-variant">
+              {termo ? 'Nenhum local encontrado.' : 'Nenhum local cadastrado.'}
+            </p>
+          )}
+        </ListaDePrecos>
 
-        {/* Empty state for local tariffs */}
-        {locationRows.length === 0 && (
-          <div className="glass-card rounded-xl border border-dashed border-outline-variant/20 p-6 flex flex-col items-center justify-center text-center">
-            <span className="material-symbols-outlined text-3xl text-outline mb-2">add_location</span>
-            <p className="text-xs text-on-surface-variant">Nenhuma tarifa por local</p>
-            <p className="text-[10px] text-outline mt-1">Crie tarifas específicas para cada local</p>
-          </div>
+        {carregadoresVisiveis.length > 0 && (
+          <ListaDePrecos
+            titulo="Preço por carregador"
+            descricao="vale só no carregador e passa na frente do preço do local"
+            rotulo="Carregador"
+          >
+            {carregadoresVisiveis.map(t => {
+              const chave = `cp:${t.charge_point_id}:${t.profileId ?? ''}`;
+              return (
+                <LinhaDePreco
+                  key={t.id}
+                  icone="ev_station"
+                  titulo={t.charge_point_id || ''}
+                  subtitulo={t.profileId ? `perfil ${t.profileName || `#${t.profileId}`}` : null}
+                  preco={t.price_per_kwh}
+                  minimo={t.min_price}
+                  destrava={t.connection_fee}
+                  atualizadoEm={t.created_at}
+                  editando={editando?.chave === chave}
+                  editPrice={editPrice}
+                  setEditPrice={setEditPrice}
+                  editMinPrice={editMinPrice}
+                  setEditMinPrice={setEditMinPrice}
+                  onEditar={() =>
+                    editar(
+                      chave,
+                      { chargePointId: t.charge_point_id, profileId: t.profileId },
+                      t.price_per_kwh,
+                      t.min_price ?? null
+                    )
+                  }
+                  onCancelar={cancelarEdicao}
+                  onSalvar={handleSaveInline}
+                  salvando={inlineSubmitting}
+                />
+              );
+            })}
+          </ListaDePrecos>
+        )}
+
+        {perfisVisiveis.length > 0 && (
+          <ListaDePrecos titulo="Preço por perfil de cliente" descricao="vale para os clientes do perfil" rotulo="Perfil">
+            {perfisVisiveis.map(t => {
+              const chave = `perfil:${t.id}`;
+              const local = localDaTarifa(t);
+              return (
+                <LinhaDePreco
+                  key={t.id}
+                  icone="badge"
+                  titulo={t.profileName || `Perfil #${t.profileId}`}
+                  subtitulo={local ? `em ${local}` : 'em toda a rede'}
+                  preco={t.price_per_kwh}
+                  minimo={t.min_price}
+                  destrava={t.connection_fee}
+                  atualizadoEm={t.created_at}
+                  editando={editando?.chave === chave}
+                  editPrice={editPrice}
+                  setEditPrice={setEditPrice}
+                  editMinPrice={editMinPrice}
+                  setEditMinPrice={setEditMinPrice}
+                  onEditar={() =>
+                    editar(
+                      chave,
+                      { profileId: t.profileId, locationId: t.location_id, locationAddress: t.location_address },
+                      t.price_per_kwh,
+                      t.min_price ?? null
+                    )
+                  }
+                  onCancelar={cancelarEdicao}
+                  onSalvar={handleSaveInline}
+                  salvando={inlineSubmitting}
+                />
+              );
+            })}
+          </ListaDePrecos>
         )}
       </div>
 
-      {/* Tariff History Table */}
+      {/* Histórico de alterações — recolhido: a lista acima já mostra o preço atual. */}
       <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-          <div className="flex items-center gap-2">
+        <div
+          className={`px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 ${mostrarHistorico ? 'border-b border-outline-variant/10' : ''}`}
+        >
+          <button
+            type="button"
+            onClick={() => setMostrarHistorico(v => !v)}
+            aria-expanded={mostrarHistorico}
+            className="flex items-center gap-2 text-left"
+          >
             <span className="material-symbols-outlined text-on-surface-variant">history</span>
-            <h3 className="text-lg font-headline font-bold text-on-surface">Histórico de Tarifas</h3>
-          </div>
+            <h3 className="text-base font-headline font-bold text-on-surface">Histórico de alterações</h3>
+            <span className="material-symbols-outlined text-on-surface-variant">
+              {mostrarHistorico ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+          {mostrarHistorico && (
           <div className="flex items-center gap-3">
             <Select value={filter} onValueChange={(v: FilterType) => { setFilter(v); setCurrentPage(1); }}>
               <SelectTrigger className="w-[150px] bg-surface-container-low border-outline-variant/20 text-on-surface text-xs h-9">
@@ -1054,12 +1188,14 @@ export const Tariffs = () => {
                 <SelectItem value="global" className="text-on-surface focus:bg-surface-container-highest">Global</SelectItem>
                 <SelectItem value="profile" className="text-on-surface focus:bg-surface-container-highest">Por Perfil</SelectItem>
                 <SelectItem value="local" className="text-on-surface focus:bg-surface-container-highest">Por Local</SelectItem>
+                <SelectItem value="charger" className="text-on-surface focus:bg-surface-container-highest">Por Carregador</SelectItem>
               </SelectContent>
             </Select>
             <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest whitespace-nowrap">{filtered.length} registros</span>
           </div>
+          )}
         </div>
-        {filtered.length > 0 ? (
+        {!mostrarHistorico ? null : filtered.length > 0 ? (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -1084,15 +1220,22 @@ export const Tariffs = () => {
                         {formatCurrency(tariff.price_per_kwh)}
                       </td>
                       <td className="px-6 py-4">
-                        {tariff.profileId ? (
+                        {/* Carregador antes de tudo: sem endereço, a tarifa de
+                            carregador aparecia aqui como "Global". */}
+                        {tariff.charge_point_id ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
+                            <span className="material-symbols-outlined text-sm text-tertiary">ev_station</span>
+                            {tariffScopeLabel(tariff)}
+                          </span>
+                        ) : tariff.profileId ? (
                           <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
                             <span className="material-symbols-outlined text-sm text-secondary">badge</span>
                             {tariff.profileName || `Perfil #${tariff.profileId}`}
                           </span>
-                        ) : tariff.location_address ? (
+                        ) : tariff.location_address || tariff.location_id != null ? (
                           <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
                             <span className="material-symbols-outlined text-sm text-tertiary">location_on</span>
-                            {tariff.location_address}
+                            {tariffScopeLabel(tariff)}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 text-sm text-on-surface-variant">
