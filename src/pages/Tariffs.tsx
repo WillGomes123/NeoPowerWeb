@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import {
@@ -63,14 +63,6 @@ const formatarDataCompleta = (iso: string) =>
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 
-/** Mínimo por recarga e taxa de destrava, em texto corrido — só o que existe. */
-function extrasDaTarifa(minimo?: number | null, destrava?: number | null): string {
-  const partes: string[] = [];
-  if (minimo != null && Number(minimo) > 0) partes.push(`mín. ${formatarMoeda(Number(minimo))}/recarga`);
-  if (destrava != null && Number(destrava) > 0) partes.push(`destrava ${formatarMoeda(Number(destrava))}`);
-  return partes.join(' · ');
-}
-
 /** Tarifa de local "pura": de um local, sem perfil e sem carregador. */
 const ehDeLocal = (t: Tariff) =>
   !t.profileId && !t.charge_point_id && (t.location_id != null || !!t.location_address);
@@ -79,7 +71,7 @@ const ehDeLocal = (t: Tariff) =>
 const ehGlobal = (t: Tariff) =>
   !t.location_address && t.location_id == null && !t.profileId && !t.charge_point_id;
 
-/** Escopo da tarifa editada na lista — o mesmo que ela já tinha. */
+/** Escopo da tarifa editada — o mesmo que ela já tinha. */
 interface EscopoDaEdicao {
   locationId?: number | null;
   locationAddress?: string | null;
@@ -87,194 +79,275 @@ interface EscopoDaEdicao {
   chargePointId?: string | null;
 }
 
-/** Colunas da lista (no celular: nome e preço; o resto na linha de baixo). */
-const COLUNAS =
-  'grid grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,2fr)_9rem_minmax(0,1.4fr)_5.5rem_6rem] items-center gap-x-4';
+/**
+ * Cor de cada tipo de preço. O dono acha a tarifa pela cor (15/10/2026): local
+ * em ciano, carregador em violeta, perfil na cor secundária, global em verde.
+ */
+type Destaque = 'global' | 'local' | 'carregador' | 'perfil';
+const CORES: Record<Destaque, { borda: string; texto: string; fundo: string; brilho: string }> = {
+  global: { borda: 'border-primary/30 hover:border-primary/60', texto: 'text-primary', fundo: 'bg-primary/10', brilho: 'bg-primary/10' },
+  local: { borda: 'border-tertiary/20 hover:border-tertiary/50', texto: 'text-tertiary', fundo: 'bg-tertiary/10', brilho: 'bg-tertiary/10' },
+  carregador: { borda: 'border-violet-400/20 hover:border-violet-400/50', texto: 'text-violet-300', fundo: 'bg-violet-400/10', brilho: 'bg-violet-400/10' },
+  perfil: { borda: 'border-secondary/20 hover:border-secondary/50', texto: 'text-secondary', fundo: 'bg-secondary/10', brilho: 'bg-secondary/10' },
+};
 
-interface LinhaDePrecoProps {
-  icone: string;
-  titulo: string;
-  subtitulo?: string | null;
-  /** Preço por kWh; null quando não há tarifa nenhuma para mostrar. */
-  preco: number | null;
-  /** Local sem preço próprio: mostra o preço da global, apagado. */
-  usaGlobal?: boolean;
-  minimo?: number | null;
-  destrava?: number | null;
-  atualizadoEm?: string | null;
-  editando: boolean;
+/** Mínimo por recarga e taxa de destrava, nos selos coloridos (só o que existe). */
+const SelosDaTarifa = ({ minimo, destrava }: { minimo?: number | null; destrava?: number | null }) => {
+  const temMinimo = minimo != null && Number(minimo) > 0;
+  const temDestrava = destrava != null && Number(destrava) > 0;
+  if (!temMinimo && !temDestrava) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {temMinimo && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span className="material-symbols-outlined text-[13px]">bolt</span>
+          mín. {formatarMoeda(Number(minimo))}
+        </span>
+      )}
+      {temDestrava && (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+          <span className="material-symbols-outlined text-[13px]">lock_open</span>
+          destrava {formatarMoeda(Number(destrava))}
+        </span>
+      )}
+    </div>
+  );
+};
+
+interface EdicaoDePreco {
   editPrice: string;
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
-  onEditar: () => void;
   onCancelar: () => void;
   onSalvar: () => Promise<void>;
   salvando: boolean;
 }
 
-/**
- * Uma linha da lista de preços. O preço é o que salta aos olhos; mínimo,
- * destrava e data ficam em texto discreto. Antes eram cartões com endereço,
- * selos coloridos e "% vs global", e o preço se perdia no meio (15/10/2026).
- */
-const LinhaDePreco = ({
-  icone,
-  titulo,
-  subtitulo,
-  preco,
-  usaGlobal = false,
-  minimo,
-  destrava,
-  atualizadoEm,
-  editando,
+/** Campos de preço e mínimo, com Salvar e Cancelar. */
+const EditorDePreco = ({
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
-  onEditar,
   onCancelar,
   onSalvar,
   salvando,
-}: LinhaDePrecoProps) => {
-  const extras = extrasDaTarifa(minimo, destrava);
-  const linhaDeBaixo = [extras, atualizadoEm ? `atualizado ${formatarDataCurta(atualizadoEm)}` : '']
-    .filter(Boolean)
-    .join(' · ');
+}: EdicaoDePreco) => (
+  <div className="space-y-2.5">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <label className="flex items-center gap-1.5">
+        <span className="text-sm font-bold text-on-surface">R$</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
+          aria-label="Preço por kWh"
+          value={editPrice}
+          onChange={e => setEditPrice(e.target.value)}
+          autoFocus
+          className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-base font-bold tabular-nums focus:outline-none focus:border-primary"
+        />
+        <span className="text-xs text-on-surface-variant">/kWh</span>
+      </label>
+      <label className="flex items-center gap-1.5">
+        <span className="text-xs text-on-surface-variant">mín.</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
+          aria-label="Mínimo por recarga"
+          placeholder="opcional"
+          value={editMinPrice}
+          onChange={e => setEditMinPrice(e.target.value)}
+          className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
+        />
+      </label>
+    </div>
+    <div className="flex gap-2">
+      <button
+        onClick={() => void onSalvar()}
+        disabled={salvando}
+        className="flex-1 px-4 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
+      >
+        {salvando ? 'Salvando...' : 'Salvar'}
+      </button>
+      <button
+        onClick={onCancelar}
+        className="flex-1 px-4 py-1.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-xs hover:bg-surface-container-high active:scale-95 transition-all"
+      >
+        Cancelar
+      </button>
+    </div>
+  </div>
+);
 
+interface CartaoDePrecoProps extends EdicaoDePreco {
+  destaque: Destaque;
+  icone: string;
+  titulo: string;
+  subtitulo?: string | null;
+  preco: number;
+  minimo?: number | null;
+  destrava?: number | null;
+  atualizadoEm?: string | null;
+  editando: boolean;
+  onEditar: () => void;
+}
+
+/**
+ * Cartão de um preço próprio. Nome legível em cima, o preço grande na cor do
+ * tipo, mínimo e destrava nos selos e, no rodapé, a data e o Alterar. Sem a
+ * hora e sem o "% vs global" dos cartões antigos: era o excesso de números
+ * que escondia o preço.
+ */
+const CartaoDePreco = ({
+  destaque,
+  icone,
+  titulo,
+  subtitulo,
+  preco,
+  minimo,
+  destrava,
+  atualizadoEm,
+  editando,
+  onEditar,
+  ...edicao
+}: CartaoDePrecoProps) => {
+  const cor = CORES[destaque];
   return (
     <div
-      className={`${COLUNAS} gap-y-1 px-4 md:px-6 py-3 border-t border-outline-variant/10 first:border-t-0 hover:bg-surface-container-high/40 transition-colors`}
+      className={`glass-card relative overflow-hidden rounded-2xl border ${cor.borda} p-5 flex flex-col gap-4 min-h-[190px] transition-colors`}
     >
-      <div className="min-w-0 flex items-center gap-3">
-        <span className="material-symbols-outlined text-base text-on-surface-variant shrink-0">{icone}</span>
+      <div className={`absolute -top-12 -right-12 w-36 h-36 rounded-full blur-3xl ${cor.brilho} pointer-events-none`} />
+      <div className="relative flex items-start gap-3">
+        <span
+          className={`material-symbols-outlined shrink-0 rounded-xl p-2 text-xl ${cor.fundo} ${cor.texto}`}
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          {icone}
+        </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-on-surface truncate" title={titulo}>
+          <p className="text-sm font-semibold text-on-surface leading-snug line-clamp-2" title={titulo}>
             {titulo}
           </p>
           {subtitulo && (
-            <p className="text-xs text-on-surface-variant truncate" title={subtitulo}>
+            <p className="text-xs text-on-surface-variant truncate mt-0.5" title={subtitulo}>
               {subtitulo}
             </p>
           )}
         </div>
       </div>
 
-      {editando ? (
-        <div className="col-span-2 md:col-span-4 flex flex-wrap items-center gap-x-3 gap-y-2 pt-2 md:pt-0 md:justify-end">
-          <label className="flex items-center gap-1.5">
-            <span className="text-sm font-bold text-on-surface">R$</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-              aria-label="Preço por kWh"
-              value={editPrice}
-              onChange={e => setEditPrice(e.target.value)}
-              autoFocus
-              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-sm font-bold tabular-nums focus:outline-none focus:border-primary"
-            />
-            <span className="text-xs text-on-surface-variant">/kWh</span>
-          </label>
-          <label className="flex items-center gap-1.5">
-            <span className="text-xs text-on-surface-variant">mín.</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-              aria-label="Mínimo por recarga"
-              placeholder="opcional"
-              value={editMinPrice}
-              onChange={e => setEditMinPrice(e.target.value)}
-              className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
-            />
-            <span className="text-xs text-on-surface-variant">/recarga</span>
-          </label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => void onSalvar()}
-              disabled={salvando}
-              className="px-4 py-1.5 rounded-full bg-primary text-on-primary font-bold text-xs active:scale-95 transition-all disabled:opacity-50"
-            >
-              {salvando ? 'Salvando...' : 'Salvar'}
-            </button>
-            <button
-              onClick={onCancelar}
-              className="px-4 py-1.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-xs hover:bg-surface-container-high active:scale-95 transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="text-right whitespace-nowrap">
-            <span
-              className={`text-lg md:text-xl font-headline font-bold tabular-nums ${usaGlobal ? 'text-on-surface-variant' : 'text-on-surface'}`}
-            >
-              {preco != null ? formatarMoeda(preco) : '—'}
-            </span>
-            {preco != null && <span className="text-xs text-on-surface-variant">/kWh</span>}
-            {usaGlobal && (
-              <p className="text-[10px] uppercase tracking-wider text-on-surface-variant">tarifa global</p>
-            )}
-          </div>
-          {/* Celular: mínimo, destrava e data juntos, abaixo do nome. */}
-          <p className="md:hidden text-xs text-on-surface-variant truncate">{linhaDeBaixo || ' '}</p>
-          <p className="hidden md:block text-xs text-on-surface-variant truncate" title={extras || undefined}>
-            {extras || '—'}
-          </p>
-          <p
-            className="hidden md:block text-xs text-on-surface-variant tabular-nums"
+      <div className="relative flex-1 flex flex-col justify-end gap-2">
+        {editando ? (
+          <EditorDePreco {...edicao} />
+        ) : (
+          <>
+            <p className="flex items-baseline gap-1">
+              <span className={`text-3xl font-headline font-bold tracking-tight tabular-nums ${cor.texto}`}>
+                {formatarMoeda(preco)}
+              </span>
+              <span className="text-sm text-on-surface-variant">/kWh</span>
+            </p>
+            <SelosDaTarifa minimo={minimo} destrava={destrava} />
+          </>
+        )}
+      </div>
+
+      {!editando && (
+        <div className="relative flex items-center justify-between pt-3 border-t border-outline-variant/10">
+          <span
+            className="text-[11px] text-on-surface-variant"
             title={atualizadoEm ? formatarDataCompleta(atualizadoEm) : undefined}
           >
-            {atualizadoEm ? formatarDataCurta(atualizadoEm) : '—'}
-          </p>
-          <div className="text-right">
-            <button
-              onClick={onEditar}
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-            >
-              <span className="material-symbols-outlined text-sm">edit</span>
-              {usaGlobal ? 'Definir' : 'Alterar'}
-            </button>
-          </div>
-        </>
+            {atualizadoEm ? `Atualizado em ${formatarDataCurta(atualizadoEm)}` : ''}
+          </span>
+          <button
+            onClick={onEditar}
+            className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+          >
+            <span className="material-symbols-outlined text-sm">edit</span>
+            Alterar
+          </button>
+        </div>
       )}
     </div>
   );
 };
 
-/** Um bloco da lista de preços: título, cabeçalho das colunas e as linhas. */
-const ListaDePrecos = ({
+/** Título de um grupo de cartões, com a cor do tipo e a quantidade. */
+const TituloDoGrupo = ({
+  destaque,
+  icone,
   titulo,
-  descricao,
-  rotulo,
-  children,
+  quantidade,
+  dica,
 }: {
+  destaque: Destaque;
+  icone: string;
   titulo: string;
-  descricao?: string;
-  rotulo: string;
-  children: ReactNode;
+  quantidade: number;
+  dica?: string;
 }) => (
-  <section className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-    <header className="px-4 md:px-6 py-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-outline-variant/10">
-      <h2 className="text-sm font-headline font-bold text-on-surface">{titulo}</h2>
-      {descricao && <span className="text-xs text-on-surface-variant">{descricao}</span>}
-    </header>
-    <div
-      className={`hidden md:grid ${COLUNAS.replace('grid ', '')} px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant bg-surface-container/40`}
-    >
-      <span>{rotulo}</span>
-      <span className="text-right">Preço</span>
-      <span>Mínimo e destrava</span>
-      <span>Atualizado</span>
-      <span />
+  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-3">
+    <span className={`material-symbols-outlined text-base ${CORES[destaque].texto}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+      {icone}
+    </span>
+    <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface">{titulo}</h2>
+    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
+      {quantidade}
+    </span>
+    {dica && <span className="text-xs text-on-surface-variant">· {dica}</span>}
+  </div>
+);
+
+/** Grade dos cartões: 1 coluna no celular, até 4 em tela larga. */
+const GRADE = 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4';
+
+/**
+ * Local que usa a tarifa global: só o nome e "Definir preço". O preço é o da
+ * global (está no topo), então não se repete em cada um.
+ */
+const LocalNaGlobal = ({
+  titulo,
+  subtitulo,
+  editando,
+  onEditar,
+  ...edicao
+}: EdicaoDePreco & { titulo: string; subtitulo?: string | null; editando: boolean; onEditar: () => void }) => (
+  <div
+    className={`rounded-xl border px-4 py-3 transition-colors ${editando ? 'border-tertiary/50 bg-surface-container' : 'border-outline-variant/10 bg-surface-container/40 hover:border-tertiary/30'}`}
+  >
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm text-on-surface truncate" title={titulo}>
+          {titulo}
+        </p>
+        {subtitulo && (
+          <p className="text-[11px] text-on-surface-variant truncate" title={subtitulo}>
+            {subtitulo}
+          </p>
+        )}
+      </div>
+      {!editando && (
+        <button
+          onClick={onEditar}
+          className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+        >
+          <span className="material-symbols-outlined text-sm">add</span>
+          Definir preço
+        </button>
+      )}
     </div>
-    {children}
-  </section>
+    {editando && (
+      <div className="mt-3">
+        <EditorDePreco {...edicao} />
+      </div>
+    )}
+  </div>
 );
 
 export const Tariffs = () => {
@@ -314,6 +387,7 @@ export const Tariffs = () => {
   const [editando, setEditando] = useState<{ chave: string; escopo: EscopoDaEdicao } | null>(null);
   const [busca, setBusca] = useState('');
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [mostrarGlobais, setMostrarGlobais] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
@@ -671,16 +745,35 @@ export const Tariffs = () => {
 
   // Busca por nome, endereço, carregador ou perfil, sem diferenciar acento.
   const normalizar = (s: string) =>
-    s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const termo = normalizar(busca.trim());
   const casaBusca = (...textos: Array<string | null | undefined>) =>
     !termo || textos.some(t => !!t && normalizar(t).includes(termo));
-  const locaisVisiveis = linhasDeLocal.filter(r => casaBusca(r.loc.nomeDoLocal, r.loc.endereco));
   const carregadoresVisiveis = tarifasDeCarregador.filter(t => casaBusca(t.charge_point_id, t.profileName));
   const perfisVisiveis = tarifasDePerfil.filter(t => casaBusca(t.profileName, tariffScopeLabel(t)));
   const localDaTarifa = (t: Tariff) =>
     (t.location_id != null ? locations.find(l => l.id === t.location_id)?.nomeDoLocal : null) ||
     t.location_address;
+
+  // Cartões só para quem tem preço próprio; os demais pagam a global e ficam
+  // recolhidos (eram 30 linhas iguais repetindo o mesmo preço).
+  const locaisComPreco = linhasDeLocal.filter(
+    (r): r is { loc: Location; tariff: Tariff } => !!r.tariff
+  );
+  const locaisNaGlobal = linhasDeLocal.filter(r => !r.tariff);
+  const locaisComPrecoVisiveis = locaisComPreco.filter(r => casaBusca(r.loc.nomeDoLocal, r.loc.endereco));
+  const locaisNaGlobalVisiveis = locaisNaGlobal.filter(r => casaBusca(r.loc.nomeDoLocal, r.loc.endereco));
+  // Buscando, o que foi achado entre os locais na global não fica escondido.
+  const abrirGlobais = mostrarGlobais || !!termo;
+  const edicaoComum = {
+    editPrice,
+    setEditPrice,
+    editMinPrice,
+    setEditMinPrice,
+    onCancelar: cancelarEdicao,
+    onSalvar: handleSaveInline,
+    salvando: inlineSubmitting,
+  };
 
   if (loading) {
     return (
@@ -992,34 +1085,58 @@ export const Tariffs = () => {
 
       {pageTab === 'tarifas' && (
       <>
-      {/* Lista de preços: o valor de cada local à vista, com busca. */}
-      <div className="space-y-6">
-        {/* Tarifa global — oculta para operador (tenant): é da REDE, ele não a edita. */}
-        {!isOperator && (
-          <ListaDePrecos titulo="Tarifa global da rede" descricao="vale para os locais sem preço próprio" rotulo="Escopo">
-            {globalTariff ? (
-              <LinhaDePreco
-                icone="public"
-                titulo="Toda a rede"
-                preco={globalTariff.price_per_kwh}
-                minimo={globalTariff.min_price}
-                destrava={globalTariff.connection_fee}
-                atualizadoEm={globalTariff.created_at}
-                editando={editando?.chave === 'global'}
-                editPrice={editPrice}
-                setEditPrice={setEditPrice}
-                editMinPrice={editMinPrice}
-                setEditMinPrice={setEditMinPrice}
-                onEditar={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null)}
-                onCancelar={cancelarEdicao}
-                onSalvar={handleSaveInline}
-                salvando={inlineSubmitting}
-              />
-            ) : (
-              <p className="px-4 md:px-6 py-4 text-sm text-on-surface-variant">Nenhuma tarifa global configurada</p>
-            )}
-          </ListaDePrecos>
-        )}
+      {/* Tarifas em cartões coloridos por tipo, com busca. */}
+      <div className="space-y-8">
+        {/* Tarifa global em destaque — oculta para operador (tenant): é da REDE. */}
+        {!isOperator &&
+          (globalTariff ? (
+            <section className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-surface-container-low to-surface-container-low p-5 md:p-6">
+              <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full blur-3xl bg-primary/10 pointer-events-none" />
+              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-5">
+                <div className="flex items-center gap-4">
+                  <span
+                    className="material-symbols-outlined rounded-2xl p-3 text-3xl bg-primary/15 text-primary"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    public
+                  </span>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary">Tarifa global da rede</p>
+                    <p className="flex items-baseline gap-1">
+                      <span className="text-4xl font-headline font-bold tracking-tight tabular-nums text-on-surface">
+                        {formatCurrency(globalTariff.price_per_kwh)}
+                      </span>
+                      <span className="text-sm text-on-surface-variant">/kWh</span>
+                    </p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      Vale para {locaisNaGlobal.length} {locaisNaGlobal.length === 1 ? 'local' : 'locais'} sem preço
+                      próprio · atualizada em {formatarDataCurta(globalTariff.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="md:min-w-[280px]">
+                  {editando?.chave === 'global' ? (
+                    <EditorDePreco {...edicaoComum} />
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                      <SelosDaTarifa minimo={globalTariff.min_price} destrava={globalTariff.connection_fee} />
+                      <button
+                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null)}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/30 text-primary font-bold text-xs hover:bg-primary/10 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                        Alterar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-primary/20 p-5 text-sm text-on-surface-variant">
+              Nenhuma tarifa global configurada
+            </section>
+          ))}
 
         <div className="relative max-w-md">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant pointer-events-none">
@@ -1031,132 +1148,184 @@ export const Tariffs = () => {
             onChange={e => setBusca(e.target.value)}
             placeholder="Buscar local, carregador ou perfil"
             aria-label="Buscar tarifa"
-            className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
+            className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-surface-container-low border border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary"
           />
         </div>
 
-        <ListaDePrecos
-          titulo="Preço por local"
-          descricao={termo ? `${locaisVisiveis.length} de ${linhasDeLocal.length} locais` : `${linhasDeLocal.length} locais`}
-          rotulo="Local"
-        >
-          {locaisVisiveis.length > 0 ? (
-            locaisVisiveis.map(({ loc, tariff }) => {
-              const chave = `loc:${loc.id}`;
-              // Sem preço próprio, vale a global: mostra o preço dela, apagado.
-              const vigente = tariff ?? globalTariff ?? null;
-              return (
-                <LinhaDePreco
-                  key={loc.id}
-                  icone="location_on"
-                  titulo={loc.nomeDoLocal || loc.endereco}
-                  subtitulo={[loc.endereco, loc.numero].filter(Boolean).join(', ')}
-                  preco={vigente?.price_per_kwh ?? null}
-                  usaGlobal={!tariff}
-                  minimo={vigente?.min_price}
-                  destrava={vigente?.connection_fee}
-                  atualizadoEm={tariff?.created_at ?? null}
-                  editando={editando?.chave === chave}
-                  editPrice={editPrice}
-                  setEditPrice={setEditPrice}
-                  editMinPrice={editMinPrice}
-                  setEditMinPrice={setEditMinPrice}
-                  onEditar={() =>
-                    editar(
-                      chave,
-                      { locationId: loc.id, locationAddress: loc.endereco },
-                      vigente?.price_per_kwh ?? null,
-                      tariff?.min_price ?? null
-                    )
-                  }
-                  onCancelar={cancelarEdicao}
-                  onSalvar={handleSaveInline}
-                  salvando={inlineSubmitting}
-                />
-              );
-            })
+        <section>
+          <TituloDoGrupo
+            destaque="local"
+            icone="location_on"
+            titulo="Locais com preço próprio"
+            quantidade={locaisComPrecoVisiveis.length}
+          />
+          {locaisComPrecoVisiveis.length > 0 ? (
+            <div className={GRADE}>
+              {locaisComPrecoVisiveis.map(({ loc, tariff }) => {
+                const chave = `loc:${loc.id}`;
+                return (
+                  <CartaoDePreco
+                    key={loc.id}
+                    destaque="local"
+                    icone="location_on"
+                    titulo={loc.nomeDoLocal || loc.endereco}
+                    subtitulo={[loc.endereco, loc.numero].filter(Boolean).join(', ')}
+                    preco={tariff.price_per_kwh}
+                    minimo={tariff.min_price}
+                    destrava={tariff.connection_fee}
+                    atualizadoEm={tariff.created_at}
+                    editando={editando?.chave === chave}
+                    onEditar={() =>
+                      editar(
+                        chave,
+                        { locationId: loc.id, locationAddress: loc.endereco },
+                        tariff.price_per_kwh,
+                        tariff.min_price ?? null
+                      )
+                    }
+                    {...edicaoComum}
+                  />
+                );
+              })}
+            </div>
           ) : (
-            <p className="px-4 md:px-6 py-6 text-sm text-on-surface-variant">
-              {termo ? 'Nenhum local encontrado.' : 'Nenhum local cadastrado.'}
+            <p className="text-sm text-on-surface-variant">
+              {termo ? 'Nenhum local com preço próprio encontrado.' : 'Nenhum local com preço próprio ainda.'}
             </p>
           )}
-        </ListaDePrecos>
+        </section>
 
         {carregadoresVisiveis.length > 0 && (
-          <ListaDePrecos
-            titulo="Preço por carregador"
-            descricao="vale só no carregador e passa na frente do preço do local"
-            rotulo="Carregador"
-          >
-            {carregadoresVisiveis.map(t => {
-              const chave = `cp:${t.charge_point_id}:${t.profileId ?? ''}`;
-              return (
-                <LinhaDePreco
-                  key={t.id}
-                  icone="ev_station"
-                  titulo={t.charge_point_id || ''}
-                  subtitulo={t.profileId ? `perfil ${t.profileName || `#${t.profileId}`}` : null}
-                  preco={t.price_per_kwh}
-                  minimo={t.min_price}
-                  destrava={t.connection_fee}
-                  atualizadoEm={t.created_at}
-                  editando={editando?.chave === chave}
-                  editPrice={editPrice}
-                  setEditPrice={setEditPrice}
-                  editMinPrice={editMinPrice}
-                  setEditMinPrice={setEditMinPrice}
-                  onEditar={() =>
-                    editar(
-                      chave,
-                      { chargePointId: t.charge_point_id, profileId: t.profileId },
-                      t.price_per_kwh,
-                      t.min_price ?? null
-                    )
-                  }
-                  onCancelar={cancelarEdicao}
-                  onSalvar={handleSaveInline}
-                  salvando={inlineSubmitting}
-                />
-              );
-            })}
-          </ListaDePrecos>
+          <section>
+            <TituloDoGrupo
+              destaque="carregador"
+              icone="ev_station"
+              titulo="Carregadores com preço próprio"
+              quantidade={carregadoresVisiveis.length}
+              dica="passam na frente do preço do local"
+            />
+            <div className={GRADE}>
+              {carregadoresVisiveis.map(t => {
+                const chave = `cp:${t.charge_point_id}:${t.profileId ?? ''}`;
+                return (
+                  <CartaoDePreco
+                    key={t.id}
+                    destaque="carregador"
+                    icone="ev_station"
+                    titulo={t.charge_point_id || ''}
+                    subtitulo={t.profileId ? `perfil ${t.profileName || `#${t.profileId}`}` : 'só neste carregador'}
+                    preco={t.price_per_kwh}
+                    minimo={t.min_price}
+                    destrava={t.connection_fee}
+                    atualizadoEm={t.created_at}
+                    editando={editando?.chave === chave}
+                    onEditar={() =>
+                      editar(
+                        chave,
+                        { chargePointId: t.charge_point_id, profileId: t.profileId },
+                        t.price_per_kwh,
+                        t.min_price ?? null
+                      )
+                    }
+                    {...edicaoComum}
+                  />
+                );
+              })}
+            </div>
+          </section>
         )}
 
         {perfisVisiveis.length > 0 && (
-          <ListaDePrecos titulo="Preço por perfil de cliente" descricao="vale para os clientes do perfil" rotulo="Perfil">
-            {perfisVisiveis.map(t => {
-              const chave = `perfil:${t.id}`;
-              const local = localDaTarifa(t);
-              return (
-                <LinhaDePreco
-                  key={t.id}
-                  icone="badge"
-                  titulo={t.profileName || `Perfil #${t.profileId}`}
-                  subtitulo={local ? `em ${local}` : 'em toda a rede'}
-                  preco={t.price_per_kwh}
-                  minimo={t.min_price}
-                  destrava={t.connection_fee}
-                  atualizadoEm={t.created_at}
-                  editando={editando?.chave === chave}
-                  editPrice={editPrice}
-                  setEditPrice={setEditPrice}
-                  editMinPrice={editMinPrice}
-                  setEditMinPrice={setEditMinPrice}
-                  onEditar={() =>
-                    editar(
-                      chave,
-                      { profileId: t.profileId, locationId: t.location_id, locationAddress: t.location_address },
-                      t.price_per_kwh,
-                      t.min_price ?? null
-                    )
-                  }
-                  onCancelar={cancelarEdicao}
-                  onSalvar={handleSaveInline}
-                  salvando={inlineSubmitting}
-                />
-              );
-            })}
-          </ListaDePrecos>
+          <section>
+            <TituloDoGrupo
+              destaque="perfil"
+              icone="badge"
+              titulo="Perfis de cliente"
+              quantidade={perfisVisiveis.length}
+              dica="preço para os clientes do perfil"
+            />
+            <div className={GRADE}>
+              {perfisVisiveis.map(t => {
+                const chave = `perfil:${t.id}`;
+                const local = localDaTarifa(t);
+                return (
+                  <CartaoDePreco
+                    key={t.id}
+                    destaque="perfil"
+                    icone="badge"
+                    titulo={t.profileName || `Perfil #${t.profileId}`}
+                    subtitulo={local ? `em ${local}` : 'em toda a rede'}
+                    preco={t.price_per_kwh}
+                    minimo={t.min_price}
+                    destrava={t.connection_fee}
+                    atualizadoEm={t.created_at}
+                    editando={editando?.chave === chave}
+                    onEditar={() =>
+                      editar(
+                        chave,
+                        { profileId: t.profileId, locationId: t.location_id, locationAddress: t.location_address },
+                        t.price_per_kwh,
+                        t.min_price ?? null
+                      )
+                    }
+                    {...edicaoComum}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Locais sem preço próprio: recolhidos, só o nome e "Definir preço". */}
+        {locaisNaGlobalVisiveis.length > 0 && (
+          <section className="rounded-2xl border border-outline-variant/10 bg-surface-container-low/60">
+            <button
+              type="button"
+              onClick={() => setMostrarGlobais(v => !v)}
+              aria-expanded={abrirGlobais}
+              className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left"
+            >
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="material-symbols-outlined text-base text-on-surface-variant">public</span>
+                <span className="text-xs font-bold uppercase tracking-[0.15em] text-on-surface">Locais na tarifa global</span>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant">
+                  {locaisNaGlobalVisiveis.length}
+                </span>
+                {globalTariff && (
+                  <span className="text-xs text-on-surface-variant">
+                    · pagam {formatCurrency(globalTariff.price_per_kwh)}/kWh
+                  </span>
+                )}
+              </span>
+              <span className="material-symbols-outlined text-on-surface-variant">
+                {abrirGlobais ? 'expand_less' : 'expand_more'}
+              </span>
+            </button>
+            {abrirGlobais && (
+              <div className="px-5 pb-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+                {locaisNaGlobalVisiveis.map(({ loc }) => {
+                  const chave = `loc:${loc.id}`;
+                  return (
+                    <LocalNaGlobal
+                      key={loc.id}
+                      titulo={loc.nomeDoLocal || loc.endereco}
+                      subtitulo={[loc.endereco, loc.numero].filter(Boolean).join(', ')}
+                      editando={editando?.chave === chave}
+                      onEditar={() =>
+                        editar(
+                          chave,
+                          { locationId: loc.id, locationAddress: loc.endereco },
+                          globalTariff?.price_per_kwh ?? null,
+                          null
+                        )
+                      }
+                      {...edicaoComum}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
       </div>
 
