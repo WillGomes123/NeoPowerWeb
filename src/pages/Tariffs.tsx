@@ -33,8 +33,41 @@ interface Tariff {
   charge_point_id?: string | null;
   profileId?: number | null;
   profileName?: string | null;
+  /** Preço por horário (sub-rotina): faixas no fuso do local. */
+  faixas_horarias?: FaixaHoraria[] | null;
   created_at: string;
   is_current: boolean;
+}
+
+/** Faixa de preço por horário, no fuso do local. O fim conta o minuto inteiro. */
+interface FaixaHoraria {
+  inicio: string;
+  fim: string;
+  preco: number;
+  /** 0 = domingo … 6 = sábado; ausente = todos os dias. */
+  dias?: number[];
+  rotulo?: string | null;
+}
+
+/** Faixa em edição: o preço fica em texto, como digitado; dias [] = todos. */
+interface FaixaEmEdicao {
+  inicio: string;
+  fim: string;
+  preco: string;
+  dias: number[];
+}
+
+const DIAS_DA_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+const rotuloDosDias = (dias?: number[]) =>
+  !dias || dias.length === 0 || dias.length === 7 ? '' : ` · ${dias.map(d => DIAS_DA_SEMANA[d]).join(', ')}`;
+
+/** Liga/desliga um dia da faixa. [] = todos; nunca fica sem dia nenhum. */
+function alternarDia(dias: number[], dia: number): number[] {
+  const atual = dias.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : dias;
+  const nova = atual.includes(dia) ? atual.filter(d => d !== dia) : [...atual, dia].sort((a, b) => a - b);
+  if (nova.length === 0) return dias;
+  return nova.length === 7 ? [] : nova;
 }
 
 interface Location {
@@ -91,13 +124,33 @@ const CORES: Record<Destaque, { borda: string; texto: string; fundo: string; bri
   perfil: { borda: 'border-secondary/20 hover:border-secondary/50', texto: 'text-secondary', fundo: 'bg-secondary/10', brilho: 'bg-secondary/10' },
 };
 
-/** Mínimo por recarga e taxa de destrava, nos selos coloridos (só o que existe). */
-const SelosDaTarifa = ({ minimo, destrava }: { minimo?: number | null; destrava?: number | null }) => {
+/** Mínimo, destrava e faixas de horário, nos selos coloridos (só o que existe). */
+const SelosDaTarifa = ({
+  minimo,
+  destrava,
+  faixas,
+}: {
+  minimo?: number | null;
+  destrava?: number | null;
+  faixas?: FaixaHoraria[] | null;
+}) => {
   const temMinimo = minimo != null && Number(minimo) > 0;
   const temDestrava = destrava != null && Number(destrava) > 0;
-  if (!temMinimo && !temDestrava) return null;
+  const comFaixas = faixas ?? [];
+  if (!temMinimo && !temDestrava && comFaixas.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5">
+      {comFaixas.map(f => (
+        <span
+          key={`${f.inicio}-${f.fim}-${(f.dias ?? []).join('')}`}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/20"
+          title="Preço por horário: no horário do local, o fim conta o minuto inteiro"
+        >
+          <span className="material-symbols-outlined text-[13px]">schedule</span>
+          {f.inicio}–{f.fim} · {formatarMoeda(Number(f.preco))}
+          {rotuloDosDias(f.dias)}
+        </span>
+      ))}
       {temMinimo && (
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
           <span className="material-symbols-outlined text-[13px]">bolt</span>
@@ -119,17 +172,120 @@ interface EdicaoDePreco {
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
+  /** Faixas de preço por horário em edição. */
+  faixasEmEdicao: FaixaEmEdicao[];
+  setFaixasEmEdicao: (f: FaixaEmEdicao[]) => void;
   onCancelar: () => void;
   onSalvar: () => Promise<void>;
   salvando: boolean;
 }
 
-/** Campos de preço e mínimo, com Salvar e Cancelar. */
+const CAMPO_DA_FAIXA =
+  'bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-1.5 py-1 text-xs tabular-nums focus:outline-none focus:border-primary [color-scheme:dark]';
+
+/**
+ * Preço por horário — a "sub-rotina" da tarifa que o operador programa: em
+ * cada faixa, um preço próprio (ex.: ponta das 18:00 às 20:59 a R$ 2,99). A
+ * recarga paga o preço do horário em que a energia entrou.
+ */
+const EditorDeFaixas = ({
+  faixasEmEdicao: faixas,
+  setFaixasEmEdicao: setFaixas,
+}: Pick<EdicaoDePreco, 'faixasEmEdicao' | 'setFaixasEmEdicao'>) => {
+  const mudar = (i: number, parcial: Partial<FaixaEmEdicao>) =>
+    setFaixas(faixas.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
+  return (
+    <div className="space-y-2 rounded-lg border border-outline-variant/15 bg-surface-container-low/40 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+          <span className="material-symbols-outlined text-[14px] text-rose-400">schedule</span>
+          Preço por horário
+        </span>
+        <button
+          type="button"
+          onClick={() => setFaixas([...faixas, { inicio: '18:00', fim: '20:59', preco: '', dias: [] }])}
+          className="text-[11px] font-bold text-primary hover:underline"
+        >
+          + faixa
+        </button>
+      </div>
+      {faixas.length === 0 ? (
+        <p className="text-[11px] text-on-surface-variant">Sem faixas: o preço acima vale o dia todo.</p>
+      ) : (
+        faixas.map((f, i) => (
+          <div key={i} className="space-y-1.5 border-t border-outline-variant/10 pt-2 first:border-t-0 first:pt-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="time"
+                aria-label="Início da faixa"
+                value={f.inicio}
+                onChange={e => mudar(i, { inicio: e.target.value })}
+                className={CAMPO_DA_FAIXA}
+              />
+              <span className="text-[11px] text-on-surface-variant">até</span>
+              <input
+                type="time"
+                aria-label="Fim da faixa"
+                value={f.fim}
+                onChange={e => mudar(i, { fim: e.target.value })}
+                className={CAMPO_DA_FAIXA}
+              />
+              <span className="text-xs font-bold text-on-surface">R$</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                inputMode="decimal"
+                aria-label="Preço da faixa por kWh"
+                placeholder="0,00"
+                value={f.preco}
+                onChange={e => mudar(i, { preco: e.target.value })}
+                className={`w-20 ${CAMPO_DA_FAIXA}`}
+              />
+              <button
+                type="button"
+                aria-label="Remover faixa"
+                onClick={() => setFaixas(faixas.filter((_, j) => j !== i))}
+                className="material-symbols-outlined text-[16px] text-on-surface-variant hover:text-error"
+              >
+                delete
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {DIAS_DA_SEMANA.map((dia, n) => {
+                const ativo = f.dias.length === 0 || f.dias.includes(n);
+                return (
+                  <button
+                    key={dia}
+                    type="button"
+                    aria-pressed={ativo}
+                    onClick={() => mudar(i, { dias: alternarDia(f.dias, n) })}
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${ativo ? 'bg-rose-500/15 text-rose-300' : 'bg-surface-container-high text-on-surface-variant/60'}`}
+                  >
+                    {dia}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))
+      )}
+      <p className="text-[10px] text-on-surface-variant">
+        Horário do local; o fim conta o minuto inteiro (20:59 vai até 20:59:59). Fora das faixas vale o
+        preço acima.
+      </p>
+    </div>
+  );
+};
+
+/** Campos de preço, mínimo e faixas de horário, com Salvar e Cancelar. */
 const EditorDePreco = ({
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
+  faixasEmEdicao,
+  setFaixasEmEdicao,
   onCancelar,
   onSalvar,
   salvando,
@@ -166,6 +322,7 @@ const EditorDePreco = ({
         />
       </label>
     </div>
+    <EditorDeFaixas faixasEmEdicao={faixasEmEdicao} setFaixasEmEdicao={setFaixasEmEdicao} />
     <div className="flex gap-2">
       <button
         onClick={() => void onSalvar()}
@@ -192,6 +349,7 @@ interface CartaoDePrecoProps extends EdicaoDePreco {
   preco: number;
   minimo?: number | null;
   destrava?: number | null;
+  faixas?: FaixaHoraria[] | null;
   atualizadoEm?: string | null;
   editando: boolean;
   onEditar: () => void;
@@ -211,6 +369,7 @@ const CartaoDePreco = ({
   preco,
   minimo,
   destrava,
+  faixas,
   atualizadoEm,
   editando,
   onEditar,
@@ -252,7 +411,7 @@ const CartaoDePreco = ({
               </span>
               <span className="text-sm text-on-surface-variant">/kWh</span>
             </p>
-            <SelosDaTarifa minimo={minimo} destrava={destrava} />
+            <SelosDaTarifa minimo={minimo} destrava={destrava} faixas={faixas} />
           </>
         )}
       </div>
@@ -390,6 +549,7 @@ export const Tariffs = () => {
   const [mostrarGlobais, setMostrarGlobais] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
+  const [editFaixas, setEditFaixas] = useState<FaixaEmEdicao[]>([]);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -603,16 +763,26 @@ export const Tariffs = () => {
     }
   };
 
-  const editar = (chave: string, escopo: EscopoDaEdicao, preco: number | null, minimo: number | null) => {
+  const editar = (
+    chave: string,
+    escopo: EscopoDaEdicao,
+    preco: number | null,
+    minimo: number | null,
+    faixas?: FaixaHoraria[] | null
+  ) => {
     setEditando({ chave, escopo });
     setEditPrice(preco != null ? String(preco) : '');
     setEditMinPrice(minimo ? String(minimo) : '');
+    setEditFaixas(
+      (faixas ?? []).map(f => ({ inicio: f.inicio, fim: f.fim, preco: String(f.preco), dias: f.dias ?? [] }))
+    );
   };
 
   const cancelarEdicao = () => {
     setEditando(null);
     setEditPrice('');
     setEditMinPrice('');
+    setEditFaixas([]);
   };
 
   /** Salva a linha em edição no MESMO escopo da tarifa (global, local, perfil, carregador). */
@@ -621,6 +791,16 @@ export const Tariffs = () => {
     if (!editPrice || parseFloat(editPrice) <= 0) {
       toast.error('Informe um preço válido');
       return;
+    }
+    // Faixas de horário: vão sempre, como estão no editor (lista vazia apaga).
+    const faixasHorarias: FaixaHoraria[] = [];
+    for (const f of editFaixas) {
+      const preco = Math.round(parseFloat(f.preco.replace(',', '.')) * 100) / 100;
+      if (!/^\d{2}:\d{2}$/.test(f.inicio) || !/^\d{2}:\d{2}$/.test(f.fim) || !(preco > 0)) {
+        toast.error('Preencha início, fim e preço de cada faixa de horário.');
+        return;
+      }
+      faixasHorarias.push({ inicio: f.inicio, fim: f.fim, preco, ...(f.dias.length ? { dias: f.dias } : {}) });
     }
 
     setInlineSubmitting(true);
@@ -633,8 +813,10 @@ export const Tariffs = () => {
         locationId?: number;
         profileId?: number;
         chargePointId?: string;
+        faixasHorarias: FaixaHoraria[];
       } = {
         newPrice: parseFloat(editPrice),
+        faixasHorarias,
       };
       if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
@@ -770,6 +952,8 @@ export const Tariffs = () => {
     setEditPrice,
     editMinPrice,
     setEditMinPrice,
+    faixasEmEdicao: editFaixas,
+    setFaixasEmEdicao: setEditFaixas,
     onCancelar: cancelarEdicao,
     onSalvar: handleSaveInline,
     salvando: inlineSubmitting,
@@ -1119,9 +1303,13 @@ export const Tariffs = () => {
                     <EditorDePreco {...edicaoComum} />
                   ) : (
                     <div className="flex flex-wrap items-center gap-3 md:justify-end">
-                      <SelosDaTarifa minimo={globalTariff.min_price} destrava={globalTariff.connection_fee} />
+                      <SelosDaTarifa
+                        minimo={globalTariff.min_price}
+                        destrava={globalTariff.connection_fee}
+                        faixas={globalTariff.faixas_horarias}
+                      />
                       <button
-                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null)}
+                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/30 text-primary font-bold text-xs hover:bg-primary/10 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
@@ -1173,6 +1361,7 @@ export const Tariffs = () => {
                     preco={tariff.price_per_kwh}
                     minimo={tariff.min_price}
                     destrava={tariff.connection_fee}
+                    faixas={tariff.faixas_horarias}
                     atualizadoEm={tariff.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1180,7 +1369,8 @@ export const Tariffs = () => {
                         chave,
                         { locationId: loc.id, locationAddress: loc.endereco },
                         tariff.price_per_kwh,
-                        tariff.min_price ?? null
+                        tariff.min_price ?? null,
+                        tariff.faixas_horarias
                       )
                     }
                     {...edicaoComum}
@@ -1217,6 +1407,7 @@ export const Tariffs = () => {
                     preco={t.price_per_kwh}
                     minimo={t.min_price}
                     destrava={t.connection_fee}
+                    faixas={t.faixas_horarias}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1224,7 +1415,8 @@ export const Tariffs = () => {
                         chave,
                         { chargePointId: t.charge_point_id, profileId: t.profileId },
                         t.price_per_kwh,
-                        t.min_price ?? null
+                        t.min_price ?? null,
+                        t.faixas_horarias
                       )
                     }
                     {...edicaoComum}
@@ -1258,6 +1450,7 @@ export const Tariffs = () => {
                     preco={t.price_per_kwh}
                     minimo={t.min_price}
                     destrava={t.connection_fee}
+                    faixas={t.faixas_horarias}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1265,7 +1458,8 @@ export const Tariffs = () => {
                         chave,
                         { profileId: t.profileId, locationId: t.location_id, locationAddress: t.location_address },
                         t.price_per_kwh,
-                        t.min_price ?? null
+                        t.min_price ?? null,
+                        t.faixas_horarias
                       )
                     }
                     {...edicaoComum}
