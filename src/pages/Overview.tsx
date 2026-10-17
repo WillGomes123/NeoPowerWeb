@@ -61,8 +61,42 @@ interface OverviewData {
   activeVouchers?: number;
 }
 
+/** Recarga em andamento (GET /transactions/active), com o consumo do medidor. */
+interface RecargaAgora {
+  transactionId: number;
+  chargerId: string;
+  startTimestamp: string;
+  energyKwh?: number;
+  powerKw?: number | null;
+  estimatedCost?: number;
+  userName?: string | null;
+  locationId?: number | null;
+}
+
+/**
+ * De quanto em quanto tempo a tela se atualiza sozinha. As recargas em
+ * andamento acompanham o medidor (uma leitura por minuto); os totais, que só
+ * mudam quando uma recarga é cobrada, vão mais devagar. Com a aba em segundo
+ * plano, nada é pedido.
+ */
+const INTERVALO_DO_AGORA_MS = 15_000;
+const INTERVALO_DOS_TOTAIS_MS = 60_000;
+
 const fmt = (v: number, decimals = 2) =>
   v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+
+/** Um número do bloco "Agora". */
+function NumeroDoAgora({ icone, rotulo, valor, destaque }: { icone: string; rotulo: string; valor: string; destaque?: boolean }) {
+  return (
+    <div className={`rounded-xl px-4 py-3 border ${destaque ? 'bg-primary/5 border-primary/20' : 'bg-surface-container-low border-outline-variant/10'}`}>
+      <div className="flex items-center gap-1.5 text-on-surface-variant">
+        <span className={`material-symbols-outlined text-base ${destaque ? 'text-primary' : ''}`}>{icone}</span>
+        <span className="text-[10px] font-bold tracking-widest uppercase">{rotulo}</span>
+      </div>
+      <p className="mt-1 text-xl font-headline font-bold text-on-surface tabular-nums">{valor}</p>
+    </div>
+  );
+}
 
 export const Overview = () => {
   const { user } = useAuth();
@@ -87,16 +121,21 @@ export const Overview = () => {
       s => s.status !== 'Offline' && s.status !== 'Unavailable'
     ).length;
     if (chargerCountRef.current !== onlineCount && chargerCountRef.current !== 0) {
-      void fetchOverview();
+      void fetchOverview(true, true);
     }
     chargerCountRef.current = onlineCount;
   }, [chargerStatuses]);
 
   // `mesmoEscopo = false` quando o local ou o período mudou: comparar o local
   // novo com os números da rede dava "-100%" num cartão que não caiu nada.
-  const fetchOverview = async (mesmoEscopo = true) => {
-    setLoading(true);
-    setError(null);
+  // `silencioso`: atualização automática — sem o carregando, que apagava a
+  // tela inteira, sem mexer na comparação e sem trocar os números por um erro
+  // passageiro (tenta de novo no próximo ciclo).
+  const fetchOverview = async (mesmoEscopo = true, silencioso = false) => {
+    if (!silencioso) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       let endpoint = '/overview-stats';
       const params = new URLSearchParams();
@@ -108,16 +147,50 @@ export const Overview = () => {
       const response = await api.get(endpoint);
       if (!response.ok) throw new Error('Falha ao buscar dados.');
       const overviewData = await response.json();
-      setPreviousData(mesmoEscopo && data ? data : null);
+      if (!silencioso) setPreviousData(mesmoEscopo && data ? data : null);
       setData(overviewData);
     } catch (err: any) {
-      setError(err.message || 'Erro ao buscar dados.');
+      if (!silencioso) setError(err.message || 'Erro ao buscar dados.');
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   };
 
   useEffect(() => { void fetchOverview(false); }, [startDate, endDate, locationId]);
+
+  // Os totais se atualizam sozinhos: uma recarga cobrada entra na receita e no
+  // kWh sem precisar recarregar a página.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void fetchOverview(true, true);
+    }, INTERVALO_DOS_TOTAIS_MS);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, locationId]);
+
+  // Recargas em andamento, com o consumo do medidor. Os totais acima só contam
+  // a recarga depois de cobrada; aqui o operador vê o que está entrando agora.
+  const [agora, setAgora] = useState<RecargaAgora[] | null>(null);
+  useEffect(() => {
+    const buscar = async () => {
+      try {
+        const res = await api.get('/transactions/active');
+        if (!res.ok) return;
+        const corpo = await res.json();
+        const lista = Array.isArray(corpo) ? corpo : (corpo?.data ?? []);
+        setAgora(Array.isArray(lista) ? lista : []);
+      } catch {
+        /* falha de rede: fica o último retrato e tenta no próximo ciclo */
+      }
+    };
+    void buscar();
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      void buscar();
+    }, INTERVALO_DO_AGORA_MS);
+    return () => clearInterval(t);
+  }, []);
 
   // Lista do seletor: dos locais que este usuário pode ver, só os que já
   // renderam alguma recarga. A lista inteira tem dezenas de cadastros antigos,
@@ -198,6 +271,22 @@ export const Overview = () => {
   // atualizada, o número é da rede toda — e dizer "Local: X" em cima disso seria
   // mentira. Melhor avisar do que mostrar um total que não é daquele posto.
   const escopoConfirmado = !locationId || String(data?.locationId ?? '') === locationId;
+
+  // Recargas em andamento no escopo da tela. O local de cada uma vem da API;
+  // a que ainda não o manda fica com a rede toda, em vez de esconder tudo.
+  const agoraTemLocal = (agora ?? []).some(r => r.locationId !== undefined);
+  const agoraNoEscopo = (agora ?? []).filter(
+    r => !locationId || !agoraTemLocal || String(r.locationId ?? '') === locationId
+  );
+  const somaAgora = agoraNoEscopo.reduce(
+    (s, r) => ({
+      kwh: s.kwh + (r.energyKwh || 0),
+      kw: s.kw + (r.powerKw || 0),
+      valor: s.valor + (r.estimatedCost || 0),
+    }),
+    { kwh: 0, kw: 0, valor: 0 }
+  );
+  const LINHAS_DO_AGORA = 8;
 
   if (loading) {
     return (
@@ -285,6 +374,54 @@ export const Overview = () => {
           </button>
         </div>
       </div>
+
+      {/* Agora: recargas em andamento, pelo medidor */}
+      {agora !== null && (
+        <div className="bg-card p-6 rounded-2xl border border-neutral-200 shadow-soft">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className={`w-2 h-2 rounded-full ${agoraNoEscopo.length ? 'bg-tertiary animate-pulse' : 'bg-outline'}`} />
+            <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Agora</span>
+            <span className="text-[10px] text-outline">· recargas em andamento, atualiza a cada 15 s</span>
+            {locationId && !agoraTemLocal && (
+              <span className="text-[10px] text-amber-500">· servidor ainda não separa por local — rede toda</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <NumeroDoAgora icone="ev_station" rotulo="Em andamento" valor={String(agoraNoEscopo.length)} />
+            <NumeroDoAgora icone="bolt" rotulo="Energia até agora" valor={`${fmt(somaAgora.kwh, 1)} kWh`} destaque />
+            <NumeroDoAgora icone="speed" rotulo="Potência agora" valor={`${fmt(somaAgora.kw, 1)} kW`} />
+            <NumeroDoAgora icone="payments" rotulo="Valor estimado" valor={`R$ ${fmt(somaAgora.valor)}`} />
+          </div>
+          {agoraNoEscopo.length > 0 && (
+            <div className="mt-5 divide-y divide-outline-variant/10 border-t border-outline-variant/10">
+              {agoraNoEscopo.slice(0, LINHAS_DO_AGORA).map(r => (
+                <div key={r.transactionId} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-sm">
+                  <span className="font-semibold text-on-surface min-w-[120px]">{r.chargerId}</span>
+                  <span className="text-on-surface-variant basis-full sm:basis-auto sm:flex-1 min-w-0 truncate">
+                    {r.userName || `#${r.transactionId}`}
+                    <span className="text-outline">
+                      {' · desde '}
+                      {new Date(r.startTimestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </span>
+                  <span className="text-on-surface tabular-nums">{fmt(r.energyKwh || 0, 2)} kWh</span>
+                  <span className="text-on-surface-variant tabular-nums w-[72px] text-right">
+                    {r.powerKw != null ? `${fmt(r.powerKw, 1)} kW` : '—'}
+                  </span>
+                  <span className="font-semibold text-tertiary tabular-nums w-[90px] text-right">
+                    R$ {fmt(r.estimatedCost || 0)}
+                  </span>
+                </div>
+              ))}
+              {agoraNoEscopo.length > LINHAS_DO_AGORA && (
+                <p className="pt-2.5 text-xs text-outline">
+                  + {agoraNoEscopo.length - LINHAS_DO_AGORA} em Transações
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPI Section: Bento Style (4 Consolidated Cards) */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${isSuperAdmin && !locationId ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>

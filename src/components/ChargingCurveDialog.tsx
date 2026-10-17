@@ -41,6 +41,8 @@ export interface ResumoRecarga {
   medidorFinalWh: number | null;
   custo: number;
   emAndamento: boolean;
+  /** Em andamento: potência de agora, do ao vivo (kW). */
+  potenciaKw?: number | null;
 }
 
 interface Props {
@@ -155,10 +157,22 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   const tensaoMedia = tensoes.length ? tensoes.reduce((a, b) => a + b, 0) / tensoes.length : 0;
 
   // Energia: a da transação (medidor do início e do fim) é a oficial; sem ela,
-  // a última leitura da curva.
-  const energia = resumo?.energiaKwh ?? (data.length ? data[data.length - 1].energy_kwh : 0);
+  // a última leitura da curva. Em andamento a transação ainda não tem o medidor
+  // final: vale a maior entre o ao vivo e a curva. Antes, sem o ao vivo, o
+  // cartão dizia 0,000 kWh com a curva em 14 kWh (3BB7942C, #685, 16/10).
+  const ultimaLeitura = data.length ? data[data.length - 1] : null;
+  const energiaDaCurva = ultimaLeitura?.energy_kwh || 0;
+  const energia = emAndamento
+    ? Math.max(resumo?.energiaKwh ?? 0, energiaDaCurva)
+    : (resumo?.energiaKwh ?? energiaDaCurva);
   const dur = resumo ? duracao(resumo.inicio, resumo.fim) : null;
   const potenciaMedia = dur && dur.minutos > 0 ? energia / (dur.minutos / 60) : 0;
+  // Em andamento, a potência que interessa é a de agora (a do ao vivo; sem ele,
+  // a da última leitura).
+  const potenciaAgora = resumo?.potenciaKw ?? ultimaLeitura?.power_kw ?? null;
+  const medidorAgoraWh =
+    resumo?.medidorFinalWh ??
+    (emAndamento && resumo?.medidorInicialWh != null && energia > 0 ? resumo.medidorInicialWh + energia * 1000 : null);
 
   const tooltipStyle = {
     contentStyle: { backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', padding: '12px' },
@@ -188,13 +202,26 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-5 sm:px-8 pt-5 sm:pt-6">
           <MiniKPI icon="bolt" label="Energia entregue" value={`${num(energia, 3)} kWh`} color="text-primary" destaque />
           {dur && <MiniKPI icon="schedule" label="Duração" value={dur.texto} color="text-secondary" />}
-          {dur && <MiniKPI icon="avg_pace" label="Potência média" value={potenciaMedia > 0 ? `${num(potenciaMedia, 1)} kW` : '—'} color="text-secondary" />}
-          {resumo && <MiniKPI icon="payments" label={resumo.emAndamento ? 'Custo parcial' : 'Custo'} value={`R$ ${num(resumo.custo)}`} color="text-tertiary" />}
+          {dur && emAndamento ? (
+            <MiniKPI icon="avg_pace" label="Potência agora" value={potenciaAgora != null ? `${num(potenciaAgora, 1)} kW` : '—'} color="text-secondary" />
+          ) : dur ? (
+            <MiniKPI icon="avg_pace" label="Potência média" value={potenciaMedia > 0 ? `${num(potenciaMedia, 1)} kW` : '—'} color="text-secondary" />
+          ) : null}
+          {resumo && (
+            <MiniKPI
+              icon="payments"
+              label={resumo.emAndamento ? 'Custo parcial' : 'Custo'}
+              // Em andamento com energia e sem custo: o ao vivo não respondeu.
+              // "—" diz que não se sabe; R$ 0,00 dizia que não custou nada.
+              value={resumo.emAndamento && resumo.custo === 0 && energia > 0 ? '—' : `R$ ${num(resumo.custo)}`}
+              color="text-tertiary"
+            />
+          )}
           {resumo && resumo.medidorInicialWh != null && (
             <MiniKPI
               icon="speed"
               label="Medidor (kWh)"
-              value={`${num(resumo.medidorInicialWh / 1000, 3)} → ${resumo.medidorFinalWh != null ? num(resumo.medidorFinalWh / 1000, 3) : '…'}`}
+              value={`${num(resumo.medidorInicialWh / 1000, 3)} → ${medidorAgoraWh != null ? num(medidorAgoraWh / 1000, 3) : '…'}`}
               color="text-on-surface-variant"
               pequeno
             />
