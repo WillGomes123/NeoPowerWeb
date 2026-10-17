@@ -354,6 +354,13 @@ export const Transactions = () => {
     aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
   const kwhDe = (tx: Transaction) => aoVivo(tx)?.energyKwh ?? energiaApurada(tx);
 
+  // A apuração aberta segue a linha mais nova da lista (atualizada a cada
+  // ciclo): a recarga que termina com a janela aberta passa a "encerrada", com
+  // o medidor final, sem precisar fechar e abrir de novo.
+  const txDaCurva = curveTransaction
+    ? (transactions.find(t => t.id === curveTransaction.id) ?? curveTransaction)
+    : null;
+
   const totalRevenue = useMemo(
     () => filtered.reduce((s, tx) => s + custoDe(tx), 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -867,18 +874,19 @@ export const Transactions = () => {
       )}
 
       {/* Charging Curve Dialog */}
-      {curveTransaction && (
+      {txDaCurva && (
         <ChargingCurveDialog
-          transactionId={curveTransaction.transaction_id}
-          chargerId={curveTransaction.charge_point_id}
+          transactionId={txDaCurva.transaction_id}
+          chargerId={txDaCurva.charge_point_id}
           resumo={{
-            inicio: curveTransaction.start_timestamp,
-            fim: curveTransaction.stop_timestamp,
-            energiaKwh: aoVivo(curveTransaction)?.energyKwh ?? energiaApurada(curveTransaction),
-            medidorInicialWh: curveTransaction.meter_start ?? null,
-            medidorFinalWh: curveTransaction.meter_stop ?? null,
-            custo: custoDe(curveTransaction),
-            emAndamento: !curveTransaction.stop_timestamp,
+            inicio: txDaCurva.start_timestamp,
+            fim: txDaCurva.stop_timestamp,
+            energiaKwh: kwhDe(txDaCurva),
+            medidorInicialWh: txDaCurva.meter_start ?? null,
+            medidorFinalWh: txDaCurva.meter_stop ?? null,
+            custo: custoDe(txDaCurva),
+            emAndamento: !txDaCurva.stop_timestamp,
+            potenciaKw: aoVivo(txDaCurva)?.powerKw ?? null,
           }}
           open={curveOpen}
           onClose={() => { setCurveOpen(false); setCurveTransaction(null); }}
