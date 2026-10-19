@@ -15,10 +15,53 @@ import { User, UserRole } from '../types';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const ACTIVITY_CHECK_INTERVAL_MS = 60 * 1000; // Verificar a cada 1 minuto
 const LAST_ACTIVITY_KEY = 'lastActivity';
+const USER_DATA_KEY = 'userData';
+/**
+ * "Manter Sessão Ativa" do login. Marcado, o painel não sai por inatividade e
+ * a sessão sobrevive a outra aba e ao navegador fechado: os dados do usuário
+ * ficam também no localStorage, e o token se renova pelo refresh token (7 dias
+ * desde o último uso). Desmarcado, é como sempre foi: 30 min sem mexer e sai,
+ * e fechar o navegador encerra. Antes a caixa estava só desenhada, sem efeito.
+ * Fica guardado depois do logout para o login lembrar a última escolha.
+ */
+export const MANTER_SESSAO_KEY = 'manterSessao';
+
+const manterSessao = (): boolean => {
+  try {
+    return localStorage.getItem(MANTER_SESSAO_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+/** Dados do usuário na aba e, com "Manter Sessão Ativa", também no navegador. */
+export const guardarDadosDoUsuario = (dados: object): void => {
+  const json = JSON.stringify(dados);
+  sessionStorage.setItem(USER_DATA_KEY, json);
+  if (manterSessao()) localStorage.setItem(USER_DATA_KEY, json);
+  else localStorage.removeItem(USER_DATA_KEY);
+};
+
+const lerDadosDoUsuario = (): string | null =>
+  sessionStorage.getItem(USER_DATA_KEY) ?? (manterSessao() ? localStorage.getItem(USER_DATA_KEY) : null);
+
+/** Apaga a sessão (token, refresh, papel e dados); a escolha do login fica. */
+const limparSessao = (): void => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('userRole');
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
+  localStorage.removeItem(USER_DATA_KEY);
+  sessionStorage.removeItem(USER_DATA_KEY);
+};
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password: string,
+    manterSessaoAtiva?: boolean
+  ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   switchRole: (role: UserRole) => void;
@@ -52,6 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Verificar se a sessão expirou
   const checkSessionTimeout = useCallback(() => {
+    // "Manter Sessão Ativa": não sai por inatividade.
+    if (manterSessao()) return false;
     const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
     if (!lastActivity) return false;
 
@@ -64,11 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Logout por inatividade
   const handleInactivityLogout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem(LAST_ACTIVITY_KEY);
-    sessionStorage.removeItem('userData');
+    limparSessao();
     setUser(null);
     // Redirecionar para login com mensagem preservando o tenant
     if (typeof window !== 'undefined') {
@@ -122,24 +163,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const token = localStorage.getItem('token');
     const storedRole = normalizeRole(localStorage.getItem('userRole'));
 
-    // Verificar se a sessão expirou antes de restaurar
+    // Verificar se a sessão expirou antes de restaurar (sem "Manter Sessão Ativa")
     const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
-    if (lastActivity) {
+    if (lastActivity && !manterSessao()) {
       const lastActivityTime = parseInt(lastActivity, 10);
       const now = Date.now();
       if (now - lastActivityTime > SESSION_TIMEOUT_MS) {
         // Sessão expirada, limpar dados
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem(LAST_ACTIVITY_KEY);
-        sessionStorage.removeItem('userData');
+        limparSessao();
         return;
       }
     }
 
-    // Tentar recuperar dados do sessionStorage (mais seguro que localStorage)
-    const sessionData = sessionStorage.getItem('userData');
+    // Dados do usuário: os da aba; com "Manter Sessão Ativa", também os do
+    // navegador (outra aba, navegador reaberto).
+    const sessionData = lerDadosDoUsuario();
 
     if (token && sessionData) {
       try {
@@ -147,6 +185,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!userData.id || !userData.email) {
           throw new Error('Dados de sessão incompletos');
         }
+        // Vindo do navegador, passa a valer também para esta aba.
+        guardarDadosDoUsuario(userData);
         setUser({
           id: userData.id,
           name: userData.name || 'User',
@@ -159,11 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
       } catch {
         // Se falhar ao parsear, fazer logout
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem(LAST_ACTIVITY_KEY);
-        sessionStorage.removeItem('userData');
+        limparSessao();
       }
     } else {
       // No default application here, components will handle it
@@ -174,7 +210,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Branding and role changes are handled by useAppTheme in components
   }, [user?.role, user?.branding]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+    manterSessaoAtiva = false
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       // OCPP_API: endpoint /users/login com campos email e password
       const response = await fetch(`${API_BASE_URL}/users/login`, {
@@ -227,17 +267,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userName = payload.user.name || payload.user.username || 'User';
       const userEmail = payload.user.email || email;
 
-      // Armazenar dados do usuário no sessionStorage (limpo ao fechar navegador)
-      sessionStorage.setItem(
-        'userData',
-        JSON.stringify({
-          id: payload.user.id,
-          name: userName,
-          email: userEmail,
-          clientId: payload.user.clientId ?? null,
-          branding: payload.user.branding || null,
-        })
-      );
+      // A escolha do "Manter Sessão Ativa" vale antes de guardar os dados.
+      if (manterSessaoAtiva) localStorage.setItem(MANTER_SESSAO_KEY, '1');
+      else localStorage.removeItem(MANTER_SESSAO_KEY);
+
+      // Dados do usuário na aba (limpos ao fechar o navegador) e, com "Manter
+      // Sessão Ativa", também no navegador.
+      guardarDadosDoUsuario({
+        id: payload.user.id,
+        name: userName,
+        email: userEmail,
+        clientId: payload.user.clientId ?? null,
+        branding: payload.user.branding || null,
+      });
 
       setUser({
         id: payload.user.id,
@@ -263,11 +305,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem(LAST_ACTIVITY_KEY);
-    sessionStorage.removeItem('userData');
+    limparSessao();
     setUser(null);
   };
 
@@ -318,17 +356,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const normalizedRole = normalizeRole(payload.user.role);
       localStorage.setItem('userRole', normalizedRole);
 
-      // Armazenar dados do usuário no sessionStorage
-      sessionStorage.setItem(
-        'userData',
-        JSON.stringify({
-          id: payload.user.id,
-          name: payload.user.name,
-          email: payload.user.email,
-          clientId: payload.user.clientId ?? null,
-          branding: payload.user.branding || null,
-        })
-      );
+      // Armazenar dados do usuário (na aba; com "Manter Sessão Ativa", também no navegador)
+      guardarDadosDoUsuario({
+        id: payload.user.id,
+        name: payload.user.name,
+        email: payload.user.email,
+        clientId: payload.user.clientId ?? null,
+        branding: payload.user.branding || null,
+      });
 
       setUser({
         id: payload.user.id,

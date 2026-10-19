@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../lib/auth';
+import { useAuth, guardarDadosDoUsuario } from '../lib/auth';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { Input } from '../components/ui/input';
@@ -198,7 +198,8 @@ export const Branding = () => {
           try {
             const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
             userData.branding = { ...formData };
-            sessionStorage.setItem('userData', JSON.stringify(userData));
+            // Na aba e, com "Manter Sessão Ativa", também no navegador.
+            guardarDadosDoUsuario(userData);
 
             // Força a atualização do tema local para refletir a escolha do Branco/Escuro
             if (formData.theme) {

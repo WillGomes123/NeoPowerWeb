@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../lib/auth';
+import { useAuth, MANTER_SESSAO_KEY } from '../lib/auth';
 import { toast } from 'sonner';
 import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
@@ -9,6 +9,14 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  // A caixa lembra a última escolha neste navegador.
+  const [manterSessao, setManterSessao] = useState(() => {
+    try {
+      return localStorage.getItem(MANTER_SESSAO_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -31,7 +39,7 @@ export const Login = () => {
 
     // Email é case-insensitive — normaliza antes de enviar
     const normalizedEmail = email.trim().toLowerCase();
-    const result = await login(normalizedEmail, password);
+    const result = await login(normalizedEmail, password, manterSessao);
     setLoading(false);
 
     if (result.success) {
@@ -180,8 +188,16 @@ export const Login = () => {
 
               {/* Options Row */}
               <div className="flex justify-between items-center">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input type="checkbox" className="rounded border-outline-variant bg-surface-container-highest text-primary focus:ring-primary focus:ring-offset-background h-4 w-4" />
+                <label
+                  className="flex items-center gap-2 cursor-pointer group"
+                  title="Continua conectado ao fechar o navegador e não sai por inatividade (até 7 dias sem abrir o painel). Não marque em computador compartilhado."
+                >
+                  <input
+                    type="checkbox"
+                    checked={manterSessao}
+                    onChange={e => setManterSessao(e.target.checked)}
+                    className="rounded border-outline-variant bg-surface-container-highest text-primary focus:ring-primary focus:ring-offset-background h-4 w-4"
+                  />
                   <span className="text-xs text-on-surface-variant group-hover:text-white transition-colors">Manter Sessão Ativa</span>
                 </label>
               </div>
