@@ -598,7 +598,7 @@ export const Branding = () => {
                     value="crm"
                     className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
                   >
-                    CRM (HubSpot)
+                    Integração
                   </TabsTrigger>
                 </TabsList>
 
