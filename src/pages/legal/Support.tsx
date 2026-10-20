@@ -1,11 +1,12 @@
 import { useTenant } from '../../contexts/TenantContext';
 import { LegalLayout, useBrandName, type LegalSection } from './LegalLayout';
-import { CONTATO_SUPORTE, LEGAL_LAST_UPDATED } from './legalConfig';
+import { contatoDeSuporte, LEGAL_LAST_UPDATED } from './legalConfig';
 
 /**
  * Página pública de suporte — é a "URL de suporte" exigida pela App Store
  * (`/<tenant>/suporte`). A Apple pede que ela traga um meio de contato, então o
- * card do topo usa o contato configurado para a marca em CONTATO_SUPORTE.
+ * card do topo usa o contato da marca (CONTATO_SUPORTE) ou, para a NeoPower e
+ * para a marca sem contato próprio, o WhatsApp de suporte da NeoPower.
  */
 
 const PASSOS_RECARGA = [
@@ -20,12 +21,16 @@ const PASSOS_RECARGA = [
 export const Support = () => {
   const brand = useBrandName();
   const { tenantSlug, tenantBranding } = useTenant();
-  const chave = String(tenantBranding?.clientId || tenantSlug || '').toLowerCase();
-  const contato = CONTATO_SUPORTE[chave];
+  const chave = String(tenantBranding?.clientId || tenantSlug || '');
+  const contato = contatoDeSuporte(chave);
 
-  const whatsappLink = contato?.whatsapp
-    ? `https://wa.me/${contato.whatsapp.replace(/\D/g, '')}`
+  // A conversa já abre dizendo de qual aplicativo é o pedido: o WhatsApp da
+  // NeoPower atende mais de uma marca.
+  const whatsappLink = contato.whatsapp
+    ? `https://wa.me/${contato.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá! Preciso de ajuda com o app ${brand}.`)}`
     : null;
+  const estiloPrincipal = 'bg-primary text-on-primary';
+  const estiloSecundario = 'border border-primary text-primary';
 
   const intro = (
     <div
@@ -36,38 +41,33 @@ export const Support = () => {
       }}
     >
       <p className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold mb-3">Fale com o atendimento</p>
-      {contato ? (
-        <>
-          <p className="text-[15px] leading-relaxed mb-4">
-            Dúvidas, problemas com uma recarga ou com a sua conta? Escreva para a equipe {brand} e informe, se
-            possível, o nome da estação, a data e o horário.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href={`mailto:${contato.email}?subject=${encodeURIComponent(`Suporte ${brand}`)}`}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold text-sm bg-primary text-on-primary"
-            >
-              <span className="material-symbols-outlined text-lg leading-none">mail</span>
-              {contato.email}
-            </a>
-            {whatsappLink && (
-              <a
-                href={whatsappLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold text-sm border border-primary text-primary"
-              >
-                <span className="material-symbols-outlined text-lg leading-none">chat</span>
-                WhatsApp
-              </a>
-            )}
-          </div>
-        </>
-      ) : (
-        <p className="text-[15px] leading-relaxed">
-          Entre em contato pelos canais indicados na página do aplicativo {brand} na loja (Google Play / App Store).
-        </p>
-      )}
+      <p className="text-[15px] leading-relaxed mb-4">
+        Dúvidas, problemas com uma recarga ou com a sua conta?{' '}
+        {contato.email ? `Escreva para a equipe ${brand}` : 'Chame o atendimento no WhatsApp'} e informe, se
+        possível, o nome da estação, a data e o horário.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {contato.email && (
+          <a
+            href={`mailto:${contato.email}?subject=${encodeURIComponent(`Suporte ${brand}`)}`}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold text-sm ${estiloPrincipal}`}
+          >
+            <span className="material-symbols-outlined text-lg leading-none">mail</span>
+            {contato.email}
+          </a>
+        )}
+        {whatsappLink && (
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2.5 font-semibold text-sm ${contato.email ? estiloSecundario : estiloPrincipal}`}
+          >
+            <span className="material-symbols-outlined text-lg leading-none">chat</span>
+            WhatsApp {contato.whatsapp}
+          </a>
+        )}
+      </div>
     </div>
   );
 
