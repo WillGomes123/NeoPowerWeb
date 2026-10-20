@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import {
@@ -32,6 +33,10 @@ interface Campaign {
   profileId: number | null;
   sentCount: number;
   failedCount: number;
+  /** Clientes que receberam a campanha dentro do app (sino), com ou sem push. */
+  inAppCount?: number;
+  /** Imagem do push e do sino (link https da versão leve no Cloudinary). */
+  imageUrl?: string | null;
   scheduledAt: string | null;
   sentAt: string | null;
   createdAt: string;
@@ -93,6 +98,20 @@ const audienceLabels = {
 const MARCA_PADRAO = 'neopower-default';
 const TODAS_AS_MARCAS = 'todas';
 
+/** Ids de usuário digitados ou vindos do link (separados por vírgula, espaço ou linha). */
+const idsDosUsuarios = (texto: string): number[] => [
+  ...new Set(
+    texto
+      .split(/[\s,;]+/)
+      .map(Number)
+      .filter(n => Number.isInteger(n) && n > 0)
+  ),
+];
+
+// Imagem da campanha: os mesmos limites da API (POST /push/campaigns/imagem).
+const TIPOS_DE_IMAGEM = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANHO_MAXIMO_DA_IMAGEM = 5 * 1024 * 1024;
+
 export const PushNotifications = () => {
   const { user } = useAuth();
   // Admin da plataforma (sem marca) escolhe para qual marca vai a campanha.
@@ -114,10 +133,47 @@ export const PushNotifications = () => {
   const [targetAudience, setTargetAudience] = useState<string>('all_users');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
   const [selectedProfile, setSelectedProfile] = useState<string>('');
+  const [imagem, setImagem] = useState<string | null>(null);
+  const [enviandoImagem, setEnviandoImagem] = useState(false);
+  // Público "Usuários Específicos": os ids, e o nome de cada um para conferir.
+  const [usuariosEscolhidos, setUsuariosEscolhidos] = useState('');
+  const [nomeDoUsuario, setNomeDoUsuario] = useState<Record<number, string>>({});
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Campanha preenchida pelo link (?publico=specific_users&usuarios=1,2,3&titulo=…
+  // &mensagem=…&marca=…): abre a criação já pronta, para só conferir e criar.
+  useEffect(() => {
+    if (searchParams.get('publico') !== 'specific_users') return;
+    setTargetAudience('specific_users');
+    setUsuariosEscolhidos(searchParams.get('usuarios') ?? '');
+    setTitle(searchParams.get('titulo') ?? '');
+    setMessage(searchParams.get('mensagem') ?? '');
+    const marcaDoLink = searchParams.get('marca');
+    if (marcaDoLink) setMarca(marcaDoLink);
+    setDialogOpen(true);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Nomes das contas escolhidas, para conferir antes de criar.
+  useEffect(() => {
+    if (targetAudience !== 'specific_users' || Object.keys(nomeDoUsuario).length > 0) return;
+    void (async () => {
+      try {
+        const r = await api.get('/admin/users');
+        if (!r.ok) return;
+        const lista: Array<{ id: number; name?: string; email?: string }> = await r.json();
+        if (!Array.isArray(lista)) return;
+        setNomeDoUsuario(Object.fromEntries(lista.map(u => [u.id, u.name || u.email || `#${u.id}`])));
+      } catch {
+        // Sem a lista, a tela mostra só os números.
+      }
+    })();
+  }, [targetAudience, nomeDoUsuario]);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -183,6 +239,37 @@ export const PushNotifications = () => {
     }
   };
 
+  // A imagem sobe antes da campanha: a API guarda no Cloudinary e devolve o
+  // link de uma versão leve, que vai na criação da campanha.
+  const handleImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // deixa escolher o mesmo arquivo de novo
+    if (!file) return;
+    if (!TIPOS_DE_IMAGEM.includes(file.type)) {
+      toast.error('Use uma imagem JPG, PNG ou WebP');
+      return;
+    }
+    if (file.size > TAMANHO_MAXIMO_DA_IMAGEM) {
+      toast.error('A imagem deve ter no máximo 5 MB');
+      return;
+    }
+    setEnviandoImagem(true);
+    const fd = new FormData();
+    fd.append('imagem', file);
+    try {
+      const response = await api.post('/push/campaigns/imagem', fd);
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.error || 'Erro ao enviar a imagem');
+      }
+      setImagem(data.url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao enviar a imagem');
+    } finally {
+      setEnviandoImagem(false);
+    }
+  };
+
   const handleCreateCampaign = async () => {
     if (!title.trim() || !message.trim()) {
       toast.error('Preencha o título e a mensagem');
@@ -195,6 +282,10 @@ export const PushNotifications = () => {
     }
     if (targetAudience === 'specific_profile' && !selectedProfile) {
       toast.error('Selecione um perfil');
+      return;
+    }
+    if (targetAudience === 'specific_users' && idsDosUsuarios(usuariosEscolhidos).length === 0) {
+      toast.error('Informe os ids dos usuários');
       return;
     }
 
@@ -224,11 +315,18 @@ export const PushNotifications = () => {
       if (targetAudience === 'specific_profile' && selectedProfile) {
         payload.profileId = parseInt(selectedProfile);
       }
+      if (targetAudience === 'specific_users') {
+        payload.userIds = idsDosUsuarios(usuariosEscolhidos);
+      }
+      if (imagem) {
+        payload.imageUrl = imagem;
+      }
 
       const response = await api.post('/push/campaigns', payload);
 
       if (!response.ok) {
-        throw new Error('Erro ao criar campanha');
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || 'Erro ao criar campanha');
       }
 
       toast.success('Campanha criada com sucesso!');
@@ -237,7 +335,7 @@ export const PushNotifications = () => {
       fetchData();
     } catch (error) {
       console.error('Erro ao criar campanha:', error);
-      toast.error('Erro ao criar campanha');
+      toast.error(error instanceof Error ? error.message : 'Erro ao criar campanha');
     }
   };
 
@@ -262,7 +360,14 @@ export const PushNotifications = () => {
       }
 
       const data = await response.json();
-      toast.success(`Campanha enviada! ${data.sent} enviados, ${data.failed} falharam`);
+      // O push só chega a quem tem aparelho cadastrado; no app, chega a todo o
+      // público da marca. API antiga não manda o "inApp": fica a mensagem de antes.
+      toast.success(
+        typeof data.inApp === 'number'
+          ? `Campanha enviada! ${data.inApp} clientes no app, ${data.sent} por push` +
+              (data.failed ? `, ${data.failed} falharam` : '')
+          : `Campanha enviada! ${data.sent} enviados, ${data.failed} falharam`
+      );
       fetchData();
     } catch (error: any) {
       console.error('Erro ao enviar campanha:', error);
@@ -296,7 +401,9 @@ export const PushNotifications = () => {
     setTargetAudience('all_users');
     setSelectedLocation('');
     setSelectedProfile('');
+    setUsuariosEscolhidos('');
     setMarca(MARCA_PADRAO);
+    setImagem(null);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -369,6 +476,52 @@ export const PushNotifications = () => {
                   <p className="text-[10px] text-on-surface-variant">{message.length}/500 caracteres</p>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                    Imagem (opcional)
+                  </label>
+                  {imagem ? (
+                    <div className="relative">
+                      <img
+                        src={imagem}
+                        alt="Imagem da campanha"
+                        className="w-full max-h-48 object-cover rounded-lg border border-outline-variant/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImagem(null)}
+                        title="Tirar a imagem"
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-surface-container/90 text-on-surface flex items-center justify-center hover:bg-surface-container-highest transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <label
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-outline-variant/30 text-on-surface-variant text-sm transition-colors ${
+                        enviandoImagem ? 'opacity-60' : 'cursor-pointer hover:bg-surface-container-high'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">
+                        {enviandoImagem ? 'hourglass_top' : 'add_photo_alternate'}
+                      </span>
+                      {enviandoImagem ? 'Enviando a imagem...' : 'Escolher imagem'}
+                      <input
+                        type="file"
+                        accept={TIPOS_DE_IMAGEM.join(',')}
+                        className="hidden"
+                        disabled={enviandoImagem}
+                        onChange={e => void handleImagem(e)}
+                      />
+                    </label>
+                  )}
+                  <p className="text-[10px] text-on-surface-variant">
+                    JPG, PNG ou WebP de até 5 MB. Imagem larga (2:1, como 1024×512) fica melhor. Aparece no
+                    push do Android e na lista de notificações do app. No push do iPhone, só a partir da
+                    próxima versão do app na App Store.
+                  </p>
+                </div>
+
                 {isSuperAdmin && (
                   <div className="space-y-2">
                     <label className="text-on-surface-variant text-xs uppercase tracking-widest">
@@ -431,6 +584,12 @@ export const PushNotifications = () => {
                           Perfil Específico
                         </div>
                       </SelectItem>
+                      <SelectItem value="specific_users" className="text-on-surface focus:bg-surface-container-highest">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">person_search</span>
+                          Usuários Específicos
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -482,6 +641,28 @@ export const PushNotifications = () => {
                   </div>
                 )}
 
+                {targetAudience === 'specific_users' && (
+                  <div className="space-y-2">
+                    <label className="text-on-surface-variant text-xs uppercase tracking-widest">Ids dos usuários</label>
+                    <Input
+                      value={usuariosEscolhidos}
+                      onChange={e => setUsuariosEscolhidos(e.target.value)}
+                      placeholder="Ex.: 1375, 1359, 1364"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                    {idsDosUsuarios(usuariosEscolhidos).length > 0 && (
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        <span className="font-bold text-on-surface">
+                          {idsDosUsuarios(usuariosEscolhidos).length} conta(s):
+                        </span>{' '}
+                        {idsDosUsuarios(usuariosEscolhidos)
+                          .map(id => nomeDoUsuario[id] ?? `#${id}`)
+                          .join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Preview */}
                 <div className="glass-panel rounded-lg border border-outline-variant/10 p-4 mt-4">
                   <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-3">Preview da Notificação</p>
@@ -498,6 +679,9 @@ export const PushNotifications = () => {
                       </p>
                     </div>
                   </div>
+                  {imagem && (
+                    <img src={imagem} alt="" className="mt-3 w-full max-h-40 object-cover rounded-md" />
+                  )}
                 </div>
               </div>
 
@@ -510,7 +694,8 @@ export const PushNotifications = () => {
                 </button>
                 <button
                   onClick={handleCreateCampaign}
-                  className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
+                  disabled={enviandoImagem}
+                  className="px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:hover:scale-100"
                 >
                   Criar Campanha
                 </button>
@@ -553,7 +738,7 @@ export const PushNotifications = () => {
                   {isSuperAdmin && <th className="px-6 py-4">Marca</th>}
                   <th className="px-6 py-4">Público</th>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Enviadas</th>
+                  <th className="px-6 py-4">Alcance</th>
                   <th className="px-6 py-4">Data</th>
                   <th className="px-6 py-4">Ações</th>
                 </tr>
@@ -562,7 +747,16 @@ export const PushNotifications = () => {
                 {campaigns.map(campaign => (
                   <tr key={campaign.id} className="hover:bg-surface-container-highest/30 transition-colors group">
                     <td className="px-6 py-4">
-                      <span className="text-sm font-semibold text-on-surface">{campaign.title}</span>
+                      <div className="flex items-center gap-3">
+                        {campaign.imageUrl && (
+                          <img
+                            src={campaign.imageUrl}
+                            alt=""
+                            className="w-10 h-10 rounded-md object-cover shrink-0"
+                          />
+                        )}
+                        <span className="text-sm font-semibold text-on-surface">{campaign.title}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 max-w-xs">
                       <span className="text-sm text-on-surface-variant truncate block">{campaign.message}</span>
@@ -584,10 +778,18 @@ export const PushNotifications = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className="text-primary font-bold">{campaign.sentCount}</span>
-                      {campaign.failedCount > 0 && (
-                        <span className="text-error ml-1">/ {campaign.failedCount} falhas</span>
-                      )}
+                      {campaign.inAppCount ? (
+                        <div className="text-primary font-bold">{campaign.inAppCount} no app</div>
+                      ) : null}
+                      <div className={campaign.inAppCount ? 'text-xs text-on-surface-variant' : ''}>
+                        <span className={campaign.inAppCount ? '' : 'text-primary font-bold'}>
+                          {campaign.sentCount}
+                        </span>{' '}
+                        por push
+                        {campaign.failedCount > 0 && (
+                          <span className="text-error ml-1">/ {campaign.failedCount} falhas</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-on-surface-variant">{formatDate(campaign.sentAt || campaign.createdAt)}</span>

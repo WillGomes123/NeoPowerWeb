@@ -54,6 +54,7 @@ import {
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { api } from '../lib/api';
+import { ehTagDeCliente, mensagemDoInicioRemoto } from '../lib/inicioRemoto';
 import { useSocket } from '../lib/hooks/useSocket';
 import { useEnviosDiagnostico, type NovoEnvio } from '../lib/hooks/useEnviosDiagnostico';
 import {
@@ -100,6 +101,9 @@ function kwParaAmperes(kw: number, potenciaCarregadorKw?: number | string | null
 }
 
 const formatarKw = (kw: number) => kw.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+/** Valor do item "Nenhum" no propósito do ClearChargingProfile (o Select não aceita ""). */
+const PROPOSITO_NENHUM = 'nenhum';
 const minimoKw = (fases: number) => formatarKw(Math.ceil((CORRENTE_MINIMA_A * TENSAO_FASE_V * fases) / 100) / 10);
 
 interface Location {
@@ -208,7 +212,9 @@ export const Operations = () => {
   const [selectedChargePoints, setSelectedChargePoints] = useState<string[]>([]);
   const [selectedOperation, setSelectedOperation] = useState<string | null>(null);
   const [showCommandDialog, setShowCommandDialog] = useState(false);
-  const [commandParams, setCommandParams] = useState<Record<string, string>>({ idTag: 'USER001' });
+  // Sem tag padrão: com 'USER001' já preenchido, o início pelo painel saía sem
+  // usuário e a recarga não era cobrada (transação 177, 24,54 kWh, R$ 0,00).
+  const [commandParams, setCommandParams] = useState<Record<string, string>>({});
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
@@ -459,7 +465,11 @@ export const Operations = () => {
         resultId,
         recusado
           ? { status: 'error', response: result, message: `O carregador respondeu ${statusOcpp}.` }
-          : { status: 'success', response: result, message: 'Executado com sucesso' }
+          : {
+              status: 'success',
+              response: result,
+              message: mensagemDoInicioRemoto(result?.data ?? result) ?? 'Executado com sucesso',
+            }
       );
       return result;
     } catch (err) {
@@ -499,7 +509,7 @@ export const Operations = () => {
       );
     }
 
-    setCommandParams({ idTag: 'USER001' });
+    setCommandParams({});
     setShowCommandDialog(true);
   };
 
@@ -508,6 +518,29 @@ export const Operations = () => {
     if (!selectedOperation) return;
     if (selectedOperation === 'getDiagnostics' && destinoDiag === 'propria' && !commandParams.location?.trim()) {
       toast.error('Informe a URL do seu servidor FTP/HTTP.');
+      return;
+    }
+    if (selectedOperation === 'remoteStartTransaction' && !commandParams.idTag?.trim()) {
+      toast.error('Informe o e-mail do cliente (ou a ID Tag).');
+      return;
+    }
+    if (selectedOperation === 'reserveNow' && !commandParams.idTag?.trim()) {
+      toast.error('Informe a ID Tag. Para cobrar um cliente, use USER_<id do cliente>.');
+      return;
+    }
+    // Tag que não é de cliente inicia uma recarga que ninguém paga. Quem está
+    // no painel precisa escolher isso, e não cair nisso por descuido.
+    if (
+      selectedOperation === 'remoteStartTransaction' &&
+      !ehTagDeCliente(commandParams.idTag) &&
+      !window.confirm(
+        [
+          `A tag "${commandParams.idTag?.trim()}" não é de um cliente.`,
+          'A recarga NÃO será cobrada de ninguém. Para cobrar, informe o e-mail do cliente.',
+          'Iniciar mesmo assim?',
+        ].join('\n\n')
+      )
+    ) {
       return;
     }
     setExecuting(true);
@@ -803,7 +836,7 @@ export const Operations = () => {
 
     setShowCommandDialog(false);
     setSelectedOperation(null);
-    setCommandParams({ idTag: 'USER001' });
+    setCommandParams({});
 
     if (novosEnvios.length > 0) {
       adicionarEnviosDiag(novosEnvios);
@@ -920,8 +953,11 @@ export const Operations = () => {
         return (
           <>
             <div className="space-y-2">
-              <Label>ID Tag (RFID) *</Label>
-              <Input className={inputClass} placeholder="Ex: TAG001" value={commandParams.idTag || ''} onChange={e => setCommandParams({ ...commandParams, idTag: e.target.value })} />
+              <Label>E-mail do cliente (ou ID Tag) *</Label>
+              <Input className={inputClass} placeholder="cliente@email.com" value={commandParams.idTag || ''} onChange={e => setCommandParams({ ...commandParams, idTag: e.target.value })} />
+              <p className="text-xs text-on-surface-variant">
+                Para cobrar um cliente, informe o <span className="font-semibold">e-mail do cadastro</span> dele (também vale <span className="font-mono font-semibold">USER_&lt;id&gt;</span>). Uma tag de cartão, que não seja de cliente, inicia uma recarga que não é cobrada.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Connector ID (opcional)</Label>
@@ -1068,10 +1104,17 @@ export const Operations = () => {
             </div>
             <div className="space-y-2">
               <Label>Purpose (opcional)</Label>
-              <Select value={commandParams.purpose || ''} onValueChange={v => setCommandParams({ ...commandParams, purpose: v })}>
+              {/* O Select do Radix não aceita item com value="" (derrubava a página
+                  inteira ao abrir "Limpar perfil de carga"). "Nenhum" usa um valor
+                  próprio e volta a ser vazio no estado, que o envio trata como
+                  "sem filtro de propósito". */}
+              <Select
+                value={commandParams.purpose || PROPOSITO_NENHUM}
+                onValueChange={v => setCommandParams({ ...commandParams, purpose: v === PROPOSITO_NENHUM ? '' : v })}
+              >
                 <SelectTrigger className={inputClass}><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum</SelectItem>
+                  <SelectItem value={PROPOSITO_NENHUM}>Nenhum</SelectItem>
                   <SelectItem value="ChargePointMaxProfile">ChargePoint Max Profile</SelectItem>
                   <SelectItem value="TxDefaultProfile">Tx Default Profile</SelectItem>
                   <SelectItem value="TxProfile">Tx Profile</SelectItem>

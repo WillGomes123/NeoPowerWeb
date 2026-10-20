@@ -72,6 +72,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { path: '/atendimento', label: 'Atendimento', icon: 'support_agent', roles: ['admin'], somentePlataforma: true },
     { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
     { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
+    { path: '/erros-do-app', label: 'Erros do app', icon: 'bug_report', roles: ['admin'], somentePlataforma: true },
   ];
 
   const navigationGroups = [
@@ -113,6 +114,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
         { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
         { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
+        // Relatos de erro dos apps de todas as marcas: só a NeoPower vê.
+        { path: '/erros-do-app', label: 'Erros do app', icon: 'bug_report', roles: ['admin'], somentePlataforma: true, novo: true },
       ],
     },
   ];
@@ -122,7 +125,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return {
       gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes', '/atendimento'].some(p => path === p || path.startsWith(p + '/')),
       financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/branding', '/email'].some(p => path === p || path.startsWith(p + '/')),
+      configuracoes: ['/usuarios', '/carteiras', '/branding', '/email', '/erros-do-app'].some(p => path === p || path.startsWith(p + '/')),
     };
   });
 

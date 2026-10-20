@@ -37,6 +37,22 @@ interface Voucher {
   used_quantity?: number;
   location_id?: number | null;
   charger_id?: string | null;
+  /** Cortesia do QR avulso: vale no /pay do visitante, some da lista do app. */
+  somente_visitante?: boolean;
+}
+
+/**
+ * Endereço que vai dentro do QR de cortesia.
+ *
+ * A página do visitante é servida pela própria API (mesma origem das rotas
+ * públicas), então o link sai da base da API sem o sufixo /api.
+ */
+function linkDoQr(v: Voucher): string {
+  const base = String(import.meta.env?.VITE_API_URL ?? window.location.origin).replace(
+    /\/api\/?$/,
+    ''
+  );
+  return base + '/pay/' + encodeURIComponent(v.charger_id ?? '') + '?cortesia=' + encodeURIComponent(v.code);
 }
 
 interface Location {
@@ -140,6 +156,7 @@ export const Vouchers = () => {
       total_quantity: null,
       location_id: null,
       charger_id: null,
+      somente_visitante: false,
     });
     setIsEditing(true);
   };
@@ -193,6 +210,7 @@ export const Vouchers = () => {
         end_date: editingVoucher.end_date || null,
         location_id: editingVoucher.location_id || null,
         charger_id: editingVoucher.charger_id || null,
+        somente_visitante: !!editingVoucher.somente_visitante,
       });
 
       if (!response.ok) {
@@ -462,6 +480,67 @@ export const Vouchers = () => {
               </p>
             </div>
 
+            {/*
+              Cortesia é outro bicho: não é desconto no app, é um QR impresso que
+              libera uma recarga inteira sem pagamento. Por isso fica separado, e
+              por isso o aviso de restringir o carregador.
+            */}
+            <div className="space-y-2">
+              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-primary">qr_code_2</span>
+                  Cortesia por QR (teste avulso)
+                </div>
+              </Label>
+              <div className="flex items-center space-x-2 mt-2">
+                <Switch
+                  checked={!!editingVoucher.somente_visitante}
+                  onCheckedChange={(checked: boolean) =>
+                    setEditingVoucher({ ...editingVoucher, somente_visitante: checked })
+                  }
+                />
+                <span className="text-sm text-on-surface">
+                  Libera recarga gratuita pelo QR, sem cadastro
+                </span>
+              </div>
+              {editingVoucher.somente_visitante && (
+                <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/10 space-y-2">
+                  <p className="text-xs text-on-surface-variant">
+                    Não aparece como cupom no aplicativo. Quem tiver o QR abaixo começa a recarga
+                    sem pagar, até o limite do valor. Use tipo <b>Valor Fixo</b> (teto em R$) ou{' '}
+                    <b>kWh</b> — percentual não vale aqui, porque não há pagamento sobre o que
+                    descontar.
+                  </p>
+                  {!editingVoucher.charger_id && !editingVoucher.location_id && (
+                    <p className="text-xs text-amber-500 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm">warning</span>
+                      Sem restringir carregador ou local, este código vale em qualquer ponto.
+                    </p>
+                  )}
+                  {editingVoucher.charger_id && editingVoucher.code && (
+                    <div className="space-y-1">
+                      <p className="text-[11px] text-on-surface-variant uppercase tracking-widest">
+                        Endereço do QR
+                      </p>
+                      <code className="block text-xs text-on-surface break-all">
+                        {linkDoQr(editingVoucher)}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(linkDoQr(editingVoucher));
+                          toast.success('Link copiado. Gere o QR com ele.');
+                        }}
+                        className="text-xs font-bold text-primary hover:underline"
+                      >
+                        Copiar link
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="is_active" className="text-on-surface-variant text-xs uppercase tracking-widest">
                 Ativar Voucher
@@ -657,8 +736,20 @@ export const Vouchers = () => {
 
                       {/* Restriction */}
                       <td className="px-6 py-4">
+                        {/*
+                          Cortesia precisa ser visivel NA LISTA. Sem isto, o unico
+                          jeito de saber se um codigo libera recarga de graca era
+                          abrir a edicao um por um -- e foi assim que uma cortesia
+                          desligada por engano passou despercebida.
+                        */}
+                        {voucher.somente_visitante && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 mr-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
+                            <span className="material-symbols-outlined text-xs">qr_code_2</span>
+                            Cortesia
+                          </span>
+                        )}
                         {voucher.location_id || voucher.charger_id ? (
-                          <div className="flex items-center gap-2">
+                          <div className="inline-flex items-center gap-2">
                             {voucher.location_id && (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold">
                                 <span className="material-symbols-outlined text-xs">location_on</span>
@@ -672,6 +763,11 @@ export const Vouchers = () => {
                               </span>
                             )}
                           </div>
+                        ) : voucher.somente_visitante ? (
+                          <span className="inline-flex items-center gap-1 text-amber-500 text-xs font-medium">
+                            <span className="material-symbols-outlined text-sm">warning</span>
+                            Vale em qualquer carregador
+                          </span>
                         ) : (
                           <span className="text-on-surface-variant text-xs">Sem restrição</span>
                         )}

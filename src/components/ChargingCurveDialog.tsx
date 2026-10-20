@@ -12,7 +12,25 @@ interface MeterPoint {
   soc_percent: number | null;
   /** Energia da recarga até esta leitura (a API já desconta o medidor inicial). */
   energy_kwh: number;
+  /** Corrente de cada fase. Nulo = o carregador não informa a fase. */
+  corrente_l1?: number | null;
+  corrente_l2?: number | null;
+  corrente_l3?: number | null;
 }
+
+/**
+ * As fases, na ordem em que o carregador as reporta.
+ *
+ * Nos carregadores que não mandam SoC — os da Vip, entre eles — esta é a
+ * informação mais útil da curva: mostra se o carro está puxando de uma fase ou
+ * das três, que é metade do diagnóstico de potência baixa. As classes do
+ * Tailwind ficam escritas por extenso porque o JIT lê o código-fonte.
+ */
+const FASES = [
+  { chave: 'corrente_l1', nome: 'L1', cor: '#ef4444', classe: 'bg-[#ef4444]' },
+  { chave: 'corrente_l2', nome: 'L2', cor: '#eab308', classe: 'bg-[#eab308]' },
+  { chave: 'corrente_l3', nome: 'L3', cor: '#8b5cf6', classe: 'bg-[#8b5cf6]' },
+] as const;
 
 /** Números da própria transação: valem mesmo sem leituras intermediárias. */
 export interface ResumoRecarga {
@@ -23,6 +41,8 @@ export interface ResumoRecarga {
   medidorFinalWh: number | null;
   custo: number;
   emAndamento: boolean;
+  /** Em andamento: potência de agora, do ao vivo (kW). */
+  potenciaKw?: number | null;
 }
 
 interface Props {
@@ -59,30 +79,50 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   // tela desenhava uma curva INVENTADA — 60 min a 7,4 kW, tensão aleatória e
   // SoC fictício — e o operador via "Energia total" de uma recarga que não
   // tinha dado nenhum.
-  const buscarLeituras = useCallback(async () => {
-    setLoading(true);
-    setErro(false);
-    try {
-      const res = await api.get(`/chargers/${encodeURIComponent(chargerId)}/transactions/${transactionId}/meter-values`);
-      if (!res.ok) {
-        setErro(true);
-        setData([]);
-        return;
+  // `silencioso`: atualização automática, sem spinner e sem apagar a curva já
+  // na tela por causa de um erro passageiro.
+  const buscarLeituras = useCallback(
+    async (silencioso = false) => {
+      if (!silencioso) setLoading(true);
+      try {
+        const res = await api.get(`/chargers/${encodeURIComponent(chargerId)}/transactions/${transactionId}/meter-values`);
+        if (!res.ok) {
+          if (!silencioso) {
+            setErro(true);
+            setData([]);
+          }
+          return;
+        }
+        const raw: unknown = await res.json();
+        setErro(false);
+        setData(Array.isArray(raw) ? (raw as MeterPoint[]) : []);
+      } catch {
+        if (!silencioso) {
+          setErro(true);
+          setData([]);
+        }
+      } finally {
+        if (!silencioso) setLoading(false);
       }
-      const raw: unknown = await res.json();
-      setData(Array.isArray(raw) ? (raw as MeterPoint[]) : []);
-    } catch {
-      setErro(true);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [chargerId, transactionId]);
+    },
+    [chargerId, transactionId]
+  );
 
   useEffect(() => {
     if (!open) return;
     void buscarLeituras();
   }, [open, buscarLeituras]);
+
+  // Recarga em andamento: o carregador manda uma leitura por minuto, então a
+  // janela se atualiza sozinha. Antes ficava parada no que havia ao abrir, e
+  // logo no início (uma leitura só) dizia que o carregador não tinha enviado
+  // medições (240500559, transação #90, 01/10).
+  const emAndamento = !!resumo?.emAndamento;
+  useEffect(() => {
+    if (!open || !emAndamento) return;
+    const id = setInterval(() => void buscarLeituras(true), 30000);
+    return () => clearInterval(id);
+  }, [open, emAndamento, buscarLeituras]);
 
   if (!open) return null;
 
@@ -90,14 +130,49 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
   const hasSoc = data.some(d => d.soc_percent != null && d.soc_percent > 0);
   const picoPotencia = temCurva ? Math.max(...data.map(d => d.power_kw || 0)) : 0;
   const picoCorrente = temCurva ? Math.max(...data.map(d => d.current_a || 0)) : 0;
+  // Leituras chegando, mas todas sem corrente: o carregador liberou e o carro
+  // não puxa (SuspendedEV). É o que o operador precisa saber, não "sem leituras".
+  const semCorrente = temCurva && picoCorrente === 0 && picoPotencia === 0;
+  const aguardando = !erro && emAndamento;
+  const porFase = FASES.map(f => ({
+    ...f,
+    // Medida != com corrente: uma fase lida em 0 A diz que o carro não a usa,
+    // e isso é um dado, não uma ausência de dado.
+    medida: data.some(d => d[f.chave] != null),
+    pico: Math.max(0, ...data.map(d => d[f.chave] ?? 0)),
+  }));
+  const fasesMedidas = porFase.filter(f => f.medida);
+  const fasesComCorrente = porFase.filter(f => f.pico > 0);
+  const temFases = temCurva && fasesMedidas.length > 0;
+  const resumoFases =
+    fasesComCorrente.length === 0
+      ? null
+      : fasesComCorrente.length === 1
+        ? `Monofásico — o carro usou só a ${fasesComCorrente[0].nome}`
+        : fasesComCorrente.length === 3
+          ? 'Trifásico — o carro usou as três fases'
+          : `Duas fases — ${fasesComCorrente.map(f => f.nome).join(' e ')}`;
+
   const tensoes = data.map(d => d.voltage_v).filter(v => v > 0);
   const tensaoMedia = tensoes.length ? tensoes.reduce((a, b) => a + b, 0) / tensoes.length : 0;
 
   // Energia: a da transação (medidor do início e do fim) é a oficial; sem ela,
-  // a última leitura da curva.
-  const energia = resumo?.energiaKwh ?? (data.length ? data[data.length - 1].energy_kwh : 0);
+  // a última leitura da curva. Em andamento a transação ainda não tem o medidor
+  // final: vale a maior entre o ao vivo e a curva. Antes, sem o ao vivo, o
+  // cartão dizia 0,000 kWh com a curva em 14 kWh (3BB7942C, #685, 16/10).
+  const ultimaLeitura = data.length ? data[data.length - 1] : null;
+  const energiaDaCurva = ultimaLeitura?.energy_kwh || 0;
+  const energia = emAndamento
+    ? Math.max(resumo?.energiaKwh ?? 0, energiaDaCurva)
+    : (resumo?.energiaKwh ?? energiaDaCurva);
   const dur = resumo ? duracao(resumo.inicio, resumo.fim) : null;
   const potenciaMedia = dur && dur.minutos > 0 ? energia / (dur.minutos / 60) : 0;
+  // Em andamento, a potência que interessa é a de agora (a do ao vivo; sem ele,
+  // a da última leitura).
+  const potenciaAgora = resumo?.potenciaKw ?? ultimaLeitura?.power_kw ?? null;
+  const medidorAgoraWh =
+    resumo?.medidorFinalWh ??
+    (emAndamento && resumo?.medidorInicialWh != null && energia > 0 ? resumo.medidorInicialWh + energia * 1000 : null);
 
   const tooltipStyle = {
     contentStyle: { backgroundColor: '#1a1919', border: '1px solid #494847', borderRadius: '8px', padding: '12px' },
@@ -127,13 +202,26 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 px-5 sm:px-8 pt-5 sm:pt-6">
           <MiniKPI icon="bolt" label="Energia entregue" value={`${num(energia, 3)} kWh`} color="text-primary" destaque />
           {dur && <MiniKPI icon="schedule" label="Duração" value={dur.texto} color="text-secondary" />}
-          {dur && <MiniKPI icon="avg_pace" label="Potência média" value={potenciaMedia > 0 ? `${num(potenciaMedia, 1)} kW` : '—'} color="text-secondary" />}
-          {resumo && <MiniKPI icon="payments" label={resumo.emAndamento ? 'Custo parcial' : 'Custo'} value={`R$ ${num(resumo.custo)}`} color="text-tertiary" />}
+          {dur && emAndamento ? (
+            <MiniKPI icon="avg_pace" label="Potência agora" value={potenciaAgora != null ? `${num(potenciaAgora, 1)} kW` : '—'} color="text-secondary" />
+          ) : dur ? (
+            <MiniKPI icon="avg_pace" label="Potência média" value={potenciaMedia > 0 ? `${num(potenciaMedia, 1)} kW` : '—'} color="text-secondary" />
+          ) : null}
+          {resumo && (
+            <MiniKPI
+              icon="payments"
+              label={resumo.emAndamento ? 'Custo parcial' : 'Custo'}
+              // Em andamento com energia e sem custo: o ao vivo não respondeu.
+              // "—" diz que não se sabe; R$ 0,00 dizia que não custou nada.
+              value={resumo.emAndamento && resumo.custo === 0 && energia > 0 ? '—' : `R$ ${num(resumo.custo)}`}
+              color="text-tertiary"
+            />
+          )}
           {resumo && resumo.medidorInicialWh != null && (
             <MiniKPI
               icon="speed"
               label="Medidor (kWh)"
-              value={`${num(resumo.medidorInicialWh / 1000, 3)} → ${resumo.medidorFinalWh != null ? num(resumo.medidorFinalWh / 1000, 3) : '…'}`}
+              value={`${num(resumo.medidorInicialWh / 1000, 3)} → ${medidorAgoraWh != null ? num(medidorAgoraWh / 1000, 3) : '…'}`}
               color="text-on-surface-variant"
               pequeno
             />
@@ -151,16 +239,28 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
               <div className="h-[200px] flex flex-col items-center justify-center text-center gap-2 px-4">
                 <span className="material-symbols-outlined text-3xl text-outline">{erro ? 'cloud_off' : 'show_chart'}</span>
                 <p className="text-sm font-medium text-on-surface">
-                  {erro ? 'Não foi possível carregar as leituras agora' : 'Sem leituras do medidor durante esta recarga'}
+                  {erro
+                    ? 'Não foi possível carregar as leituras agora'
+                    : aguardando
+                      ? 'Aguardando as leituras do carregador'
+                      : 'Sem leituras do medidor durante esta recarga'}
                 </p>
                 <p className="text-xs text-on-surface-variant max-w-md">
                   {erro
                     ? 'Tente abrir de novo em instantes.'
-                    : 'O carregador não enviou medições intermediárias. A energia acima vem das leituras do medidor no início e no fim da recarga.'}
+                    : aguardando
+                      ? `O carregador manda uma medição por minuto, e a curva aparece a partir da segunda.${data.length === 1 ? ' A primeira já chegou.' : ''} Esta janela se atualiza sozinha.`
+                      : 'O carregador não enviou medições intermediárias. A energia acima vem das leituras do medidor no início e no fim da recarga.'}
                 </p>
               </div>
             ) : (
               <>
+                {semCorrente && (
+                  <div className="mb-4 rounded-lg border border-tertiary/30 bg-tertiary/10 px-4 py-3 text-xs text-on-surface leading-relaxed">
+                    <strong>Nenhuma corrente nas {data.length} leituras.</strong> O carregador liberou a energia, mas o
+                    carro não está puxando: pode estar com recarga agendada, com a bateria cheia ou recusando a carga.
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
                   <ChartLegend color="bg-[#22c55e]" label="Potência (kW)" />
                   {hasSoc && <ChartLegend color="bg-[#3b82f6]" label="SoC (%)" dashed />}
@@ -201,6 +301,42 @@ export const ChargingCurveDialog = ({ transactionId, chargerId, resumo, open, on
                     <Line yAxisId="energia" type="monotone" dataKey="energy_kwh" stroke="#f59e0b" strokeWidth={1.5} dot={false} opacity={0.8} />
                   </ComposedChart>
                 </ResponsiveContainer>
+
+                {temFases && (
+                  <div className="mt-6 pt-5 border-t border-outline-variant/10">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-3">
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                        Corrente por fase
+                      </span>
+                      {fasesMedidas.map(f => (
+                        <ChartLegend key={f.nome} color={f.classe} label={`${f.nome} — pico ${num(f.pico, 1)} A`} />
+                      ))}
+                      {resumoFases && (
+                        <span className="text-[10px] text-on-surface uppercase tracking-widest sm:ml-auto">
+                          {resumoFases}
+                        </span>
+                      )}
+                    </div>
+                    <ResponsiveContainer width="100%" height={150}>
+                      <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#494847" strokeOpacity={0.3} vertical={false} />
+                        <XAxis dataKey="timestamp" stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} tickFormatter={hora} axisLine={false} tickLine={false} minTickGap={24} />
+                        <YAxis stroke="#777575" tick={{ fill: '#adaaaa', fontSize: 10 }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => `${v} A`} />
+                        <Tooltip
+                          {...tooltipStyle}
+                          labelFormatter={(label: string) => `Horário: ${hora(label)}`}
+                          formatter={(value: number, name: string) => [
+                            `${num(value, 1)} A`,
+                            FASES.find(f => f.chave === name)?.nome ?? name,
+                          ]}
+                        />
+                        {fasesMedidas.map(f => (
+                          <Line key={f.nome} type="monotone" dataKey={f.chave} stroke={f.cor} strokeWidth={1.8} dot={false} connectNulls />
+                        ))}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </>
             )}
           </div>

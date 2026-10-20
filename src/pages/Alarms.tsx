@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import type { AlarmSeverity } from '../types';
@@ -51,13 +51,36 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
 type FilterSeverity = 'all' | AlarmSeverity;
 type FilterStatus = 'all' | 'active' | 'acknowledged' | 'resolved';
 
+/**
+ * A coluna "Mensagem" é estreita (max-w-[240px] + truncate) para a tabela não
+ * estourar. Acima deste tamanho a mensagem com certeza é cortada na tela, então
+ * a linha ganha o botão de expandir — abaixo dele o texto cabe e o botão só
+ * seria ruído. É um limite por caracteres porque o corte real é por pixel, que
+ * não dá para medir antes de renderizar.
+ */
+export const MESSAGE_PREVIEW_LIMIT = 60;
+
+export const isMensagemLonga = (mensagem: string | null | undefined): boolean =>
+  (mensagem ?? '').trim().length > MESSAGE_PREVIEW_LIMIT;
+
 export const Alarms = () => {
   const [alarms, setAlarms] = useState<AlarmEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>('all');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  // Alarmes com a mensagem aberta na linha de detalhe.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const itemsPerPage = 12;
+
+  const toggleExpanded = (alarmId: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(alarmId)) next.delete(alarmId);
+      else next.add(alarmId);
+      return next;
+    });
+  };
 
   useEffect(() => { void fetchAlarms(); }, []);
 
@@ -255,8 +278,12 @@ export const Alarms = () => {
               ) : current.map(alarm => {
                 const sev = SEVERITY_CONFIG[alarm.severity];
                 const st = STATUS_CONFIG[alarm.status] || STATUS_CONFIG.active;
+                const longa = isMensagemLonga(alarm.message);
+                const aberta = expandedIds.has(alarm.id);
+                const detalheId = `alarme-mensagem-${alarm.id}`;
                 return (
-                  <tr key={alarm.id} className="hover:bg-surface-container-highest/30 transition-colors">
+                  <Fragment key={alarm.id}>
+                  <tr className="hover:bg-surface-container-highest/30 transition-colors">
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${sev.bg} ${sev.color} ${sev.border}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
@@ -268,7 +295,30 @@ export const Alarms = () => {
                     <td className="px-6 py-4">
                       <span className="text-xs font-mono text-on-surface-variant bg-surface-container px-2 py-1 rounded">{alarm.error_code}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant max-w-[240px] truncate">{alarm.message}</td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                      <div className="flex items-start gap-1.5">
+                        {/* title serve de atalho no hover; o botão abaixo é o
+                            caminho que funciona no toque e no teclado. */}
+                        <span className="max-w-[240px] truncate" title={alarm.message}>{alarm.message}</span>
+                        {longa && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(alarm.id)}
+                            aria-expanded={aberta}
+                            aria-controls={detalheId}
+                            title={aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
+                            className="shrink-0 w-6 h-6 rounded-md bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                          >
+                            <span className="sr-only">
+                              {aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
+                            </span>
+                            <span className={`material-symbols-outlined text-base transition-transform ${aberta ? 'rotate-180' : ''}`} aria-hidden="true">
+                              expand_more
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{alarm.location_name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(alarm.timestamp)}</td>
                     <td className="px-6 py-4">
@@ -291,6 +341,21 @@ export const Alarms = () => {
                       </div>
                     </td>
                   </tr>
+                  {/* Linha de detalhe — a mensagem ganha a largura inteira da
+                      tabela, em vez dos 240px da coluna. */}
+                  {longa && aberta && (
+                    <tr className="bg-surface-container/40">
+                      <td id={detalheId} colSpan={9} className="px-6 py-4">
+                        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] mb-2">
+                          Mensagem completa
+                        </p>
+                        <p className="text-sm text-on-surface whitespace-pre-wrap break-words">
+                          {alarm.message}
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>

@@ -23,6 +23,12 @@ interface Transaction {
   total_cost: number | null;
   address: string | null;
   status: string;
+  /** Nome do local ("CONDOMÍNIO MORADA DOS PRÍNCIPES"). */
+  nomeDoLocal?: string | null;
+  /** Nome que o operador deu ao equipamento ("Morada dos Principes 02"). */
+  nomeDoCarregador?: string | null;
+  /** Posição desta recarga dentro do local — o #id é da rede inteira. */
+  sequenciaNoLocal?: number | null;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
 }
@@ -92,14 +98,30 @@ interface SessaoAtiva {
 const INTERVALO_AO_VIVO_MS = 10_000;
 
 const exportColumns: ExportColumn[] = [
-  { key: 'transaction_id', header: 'ID', format: 'number' },
-  { key: 'charge_point_id', header: 'Carregador', format: 'text' },
+  { key: 'sequenciaNoLocal', header: 'No. no local', format: 'number' },
+  { key: 'nomeDoLocal', header: 'Local', format: 'text' },
+  { key: 'nomeDoCarregador', header: 'Carregador', format: 'text' },
+  { key: 'charge_point_id', header: 'ID do carregador', format: 'text' },
   { key: 'start_timestamp', header: 'Inicio', format: 'date' },
   { key: 'stop_timestamp', header: 'Fim', format: 'date' },
   { key: 'consumed_kwh', header: 'Energia (kWh)', format: 'number' },
   { key: 'total_cost', header: 'Custo (R$)', format: 'currency' },
   { key: 'address', header: 'Endereco', format: 'text' },
   { key: 'status', header: 'Status', format: 'text' },
+  // O id interno fecha a planilha: nao ocupa espaco na tela e e por ele que o
+  // suporte acha a linha no banco.
+  { key: 'transaction_id', header: 'ID interno', format: 'number' },
+];
+
+const exportDepositColumns: ExportColumn[] = [
+  { key: 'cliente', header: 'Cliente', format: 'text' },
+  { key: 'email', header: 'Email', format: 'text' },
+  { key: 'data', header: 'Data', format: 'date' },
+  { key: 'valor', header: 'Valor (R$)', format: 'currency' },
+  { key: 'saldoApos', header: 'Saldo apos (R$)', format: 'currency' },
+  { key: 'metodo', header: 'Metodo', format: 'text' },
+  { key: 'referencia', header: 'Referencia', format: 'text' },
+  { key: 'id', header: 'ID interno', format: 'number' },
 ];
 
 /**
@@ -289,8 +311,13 @@ export const Transactions = () => {
   }, [transactions, ativas, startDate, endDate, searchQuery]);
 
   // Exporta o que está na tela (período + busca), não o histórico inteiro.
+  const ehSaldo = txTab === 'saldo';
+
   const exportData = filtered.map(tx => ({
     transaction_id: tx.transaction_id,
+    sequenciaNoLocal: tx.sequenciaNoLocal ?? '',
+    nomeDoLocal: tx.nomeDoLocal ?? '',
+    nomeDoCarregador: tx.nomeDoCarregador ?? tx.charge_point_id,
     charge_point_id: tx.charge_point_id,
     start_timestamp: tx.start_timestamp,
     stop_timestamp: tx.stop_timestamp,
@@ -326,6 +353,13 @@ export const Transactions = () => {
   const custoDe = (tx: Transaction) =>
     aoVivo(tx)?.estimatedCost ?? (tx.total_cost ? parseFloat(tx.total_cost.toString()) : 0);
   const kwhDe = (tx: Transaction) => aoVivo(tx)?.energyKwh ?? energiaApurada(tx);
+
+  // A apuração aberta segue a linha mais nova da lista (atualizada a cada
+  // ciclo): a recarga que termina com a janela aberta passa a "encerrada", com
+  // o medidor final, sem precisar fechar e abrir de novo.
+  const txDaCurva = curveTransaction
+    ? (transactions.find(t => t.id === curveTransaction.id) ?? curveTransaction)
+    : null;
 
   const totalRevenue = useMemo(
     () => filtered.reduce((s, tx) => s + custoDe(tx), 0),
@@ -367,6 +401,18 @@ export const Transactions = () => {
 
     return list;
   }, [walletTxs, startDate, endDate, searchQuery]);
+
+  // Exporta o que esta na tela, igual a aba de recargas.
+  const exportDeposits = filteredDeposits.map(dep => ({
+    cliente: dep.userName,
+    email: dep.userEmail,
+    data: dep.createdAt,
+    valor: dep.amount,
+    saldoApos: dep.balanceAfter,
+    metodo: metodoDeposito(dep).label,
+    referencia: dep.referenceId || '',
+    id: dep.id,
+  }));
 
   const totalDeposits = useMemo(() => filteredDeposits.reduce((s, wt) => s + wt.amount, 0), [filteredDeposits]);
   const avgDeposit = filteredDeposits.length > 0 ? totalDeposits / filteredDeposits.length : 0;
@@ -428,12 +474,16 @@ export const Transactions = () => {
             <span className="material-symbols-outlined text-sm">refresh</span>
             <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
           </button>
+          {/*
+            Na aba de Saldo o botao baixava as RECARGAS, nao os depositos, e
+            ficava habilitado pela contagem da outra aba.
+          */}
           <ExportButton
-            data={exportData}
-            columns={exportColumns}
-            filename="transacoes_neopower"
-            title="Historico de Transacoes - NeoPower"
-            disabled={transactions.length === 0}
+            data={ehSaldo ? exportDeposits : exportData}
+            columns={ehSaldo ? exportDepositColumns : exportColumns}
+            filename={ehSaldo ? 'recargas_de_saldo_neopower' : 'transacoes_neopower'}
+            title={ehSaldo ? 'Recargas de Saldo - NeoPower' : 'Historico de Transacoes - NeoPower'}
+            disabled={(ehSaldo ? filteredDeposits : filtered).length === 0}
           />
         </div>
       </div>
@@ -451,10 +501,12 @@ export const Transactions = () => {
           >
             <span className="material-symbols-outlined text-base">bolt</span>
             Recargas (Eletroposto)
+            {/* A contagem e a do periodo filtrado. Antes era o total da base:
+                com o filtro em um unico dia a aba dizia 61 e a tabela listava 4. */}
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               txTab === 'recargas' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
             }`}>
-              {transactions.length}
+              {filtered.length}
             </span>
           </button>
           <button
@@ -470,7 +522,7 @@ export const Transactions = () => {
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               txTab === 'saldo' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
             }`}>
-              {walletTxs.length}
+              {filteredDeposits.length}
             </span>
           </button>
         </div>
@@ -562,8 +614,8 @@ export const Transactions = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                <th className="px-6 py-4">ID</th>
-                <th className="px-6 py-4">Carregador</th>
+                <th className="px-6 py-4">Nº</th>
+                <th className="px-6 py-4">Local e carregador</th>
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
                 <th className="px-6 py-4">Energia</th>
@@ -585,21 +637,38 @@ export const Transactions = () => {
                 const st = statusStyle(tx);
                 const vivo = aoVivo(tx);
                 return (
-                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction(tx); setCurveOpen(true); }} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
+                  <tr key={tx.transaction_id} onClick={() => { setCurveTransaction(tx); setCurveOpen(true); }} title={`Transação #${tx.transaction_id}`} className="hover:bg-surface-container-highest/30 transition-colors group cursor-pointer">
+                    {/*
+                      O #id da transação é sequencial na rede inteira e serve ao
+                      back end, não a quem lê a tela: ele fica no tooltip da linha,
+                      no topo da janela da curva e na exportação. Aqui vai o número
+                      da recarga DENTRO do local, que é o que o condomínio confere.
+                    */}
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
-                        #{tx.transaction_id}
-                      </span>
+                      {tx.sequenciaNoLocal != null ? (
+                        <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
+                          {tx.sequenciaNoLocal}ª
+                        </span>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant/50">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 font-medium text-sm">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span>{tx.charge_point_id}</span>
+                        {/* O nome do local é o que a pessoa reconhece; o id do
+                            equipamento, sozinho, não diz nada a ninguém. */}
+                        <span>{tx.nomeDoLocal || tx.nomeDoCarregador || tx.charge_point_id}</span>
                         {tx.recargaCruzada && (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20" title={`Recarga Cruzada - Rede do cliente: ${tx.redeDoCliente || 'Outra rede'}`}>
                             Cliente {tx.redeDoCliente || 'outra rede'}
                           </span>
                         )}
                       </div>
+                      {tx.nomeDoLocal && (
+                        <span className="block mt-0.5 text-[11px] font-normal text-on-surface-variant">
+                          {tx.nomeDoCarregador || tx.charge_point_id}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
@@ -701,7 +770,6 @@ export const Transactions = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                      <th className="px-6 py-4">ID</th>
                       <th className="px-6 py-4">Cliente</th>
                       <th className="px-6 py-4">Data</th>
                       <th className="px-6 py-4">Valor</th>
@@ -714,7 +782,7 @@ export const Transactions = () => {
                   <tbody className="divide-y divide-outline-variant/5">
                     {currentDeposits.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-6 py-16 text-center">
+                        <td colSpan={7} className="px-6 py-16 text-center">
                           <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
                           <p className="text-sm text-on-surface-variant">Nenhum depósito encontrado</p>
                         </td>
@@ -722,13 +790,10 @@ export const Transactions = () => {
                     ) : currentDeposits.map(dep => {
                       const isMpPayment = dep.referenceId && /^[0-9]+$/.test(dep.referenceId);
                       const metodo = metodoDeposito(dep);
+                      // Sem coluna de id: ele e do back end. Fica no tooltip da
+                      // linha e na exportacao.
                       return (
-                        <tr key={dep.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                          <td className="px-6 py-4">
-                            <span className="px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-bold">
-                              #{dep.id}
-                            </span>
-                          </td>
+                        <tr key={dep.id} title={`Depósito #${dep.id}`} className="hover:bg-surface-container-highest/30 transition-colors group">
                           <td className="px-6 py-4">
                             <p className="text-sm font-medium text-foreground">{dep.userName}</p>
                             <p className="text-[11px] text-on-surface-variant">{dep.userEmail}</p>
@@ -809,18 +874,19 @@ export const Transactions = () => {
       )}
 
       {/* Charging Curve Dialog */}
-      {curveTransaction && (
+      {txDaCurva && (
         <ChargingCurveDialog
-          transactionId={curveTransaction.transaction_id}
-          chargerId={curveTransaction.charge_point_id}
+          transactionId={txDaCurva.transaction_id}
+          chargerId={txDaCurva.charge_point_id}
           resumo={{
-            inicio: curveTransaction.start_timestamp,
-            fim: curveTransaction.stop_timestamp,
-            energiaKwh: aoVivo(curveTransaction)?.energyKwh ?? energiaApurada(curveTransaction),
-            medidorInicialWh: curveTransaction.meter_start ?? null,
-            medidorFinalWh: curveTransaction.meter_stop ?? null,
-            custo: custoDe(curveTransaction),
-            emAndamento: !curveTransaction.stop_timestamp,
+            inicio: txDaCurva.start_timestamp,
+            fim: txDaCurva.stop_timestamp,
+            energiaKwh: kwhDe(txDaCurva),
+            medidorInicialWh: txDaCurva.meter_start ?? null,
+            medidorFinalWh: txDaCurva.meter_stop ?? null,
+            custo: custoDe(txDaCurva),
+            emAndamento: !txDaCurva.stop_timestamp,
+            potenciaKw: aoVivo(txDaCurva)?.powerKw ?? null,
           }}
           open={curveOpen}
           onClose={() => { setCurveOpen(false); setCurveTransaction(null); }}
