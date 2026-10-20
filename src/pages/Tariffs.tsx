@@ -28,6 +28,8 @@ interface Tariff {
   min_price?: number;
   /** Taxa de destrava (R$ por recarga). */
   connection_fee?: number | null;
+  /** Saldo mínimo na carteira para INICIAR (R$); não muda o que é cobrado. */
+  saldo_minimo_inicio?: number | null;
   location_address: string | null;
   location_id?: number | null;
   charge_point_id?: string | null;
@@ -124,20 +126,23 @@ const CORES: Record<Destaque, { borda: string; texto: string; fundo: string; bri
   perfil: { borda: 'border-secondary/20 hover:border-secondary/50', texto: 'text-secondary', fundo: 'bg-secondary/10', brilho: 'bg-secondary/10' },
 };
 
-/** Mínimo, destrava e faixas de horário, nos selos coloridos (só o que existe). */
+/** Mínimo, destrava, saldo para iniciar e faixas de horário, nos selos coloridos (só o que existe). */
 const SelosDaTarifa = ({
   minimo,
   destrava,
+  saldoInicio,
   faixas,
 }: {
   minimo?: number | null;
   destrava?: number | null;
+  saldoInicio?: number | null;
   faixas?: FaixaHoraria[] | null;
 }) => {
   const temMinimo = minimo != null && Number(minimo) > 0;
   const temDestrava = destrava != null && Number(destrava) > 0;
+  const temSaldoInicio = saldoInicio != null && Number(saldoInicio) > 0;
   const comFaixas = faixas ?? [];
-  if (!temMinimo && !temDestrava && comFaixas.length === 0) return null;
+  if (!temMinimo && !temDestrava && !temSaldoInicio && comFaixas.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1.5">
       {comFaixas.map(f => (
@@ -152,7 +157,10 @@ const SelosDaTarifa = ({
         </span>
       ))}
       {temMinimo && (
-        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        <span
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20"
+          title="Mínimo cobrado por recarga com energia"
+        >
           <span className="material-symbols-outlined text-[13px]">bolt</span>
           mín. {formatarMoeda(Number(minimo))}
         </span>
@@ -161,6 +169,15 @@ const SelosDaTarifa = ({
         <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
           <span className="material-symbols-outlined text-[13px]">lock_open</span>
           destrava {formatarMoeda(Number(destrava))}
+        </span>
+      )}
+      {temSaldoInicio && (
+        <span
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+          title="Saldo que o cliente precisa ter na carteira para começar; não muda o que é cobrado"
+        >
+          <span className="material-symbols-outlined text-[13px]">account_balance_wallet</span>
+          saldo p/ iniciar {formatarMoeda(Number(saldoInicio))}
         </span>
       )}
     </div>
@@ -172,6 +189,9 @@ interface EdicaoDePreco {
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
+  /** Saldo mínimo para iniciar em edição (vazio = sem). */
+  editSaldoInicio: string;
+  setEditSaldoInicio: (v: string) => void;
   /** Faixas de preço por horário em edição. */
   faixasEmEdicao: FaixaEmEdicao[];
   setFaixasEmEdicao: (f: FaixaEmEdicao[]) => void;
@@ -278,12 +298,14 @@ const EditorDeFaixas = ({
   );
 };
 
-/** Campos de preço, mínimo e faixas de horário, com Salvar e Cancelar. */
+/** Campos de preço, mínimo, saldo para iniciar e faixas de horário, com Salvar e Cancelar. */
 const EditorDePreco = ({
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
+  editSaldoInicio,
+  setEditSaldoInicio,
   faixasEmEdicao,
   setFaixasEmEdicao,
   onCancelar,
@@ -321,6 +343,23 @@ const EditorDePreco = ({
           className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
         />
       </label>
+      <label
+        className="flex items-center gap-1.5"
+        title="Saldo que o cliente precisa ter na carteira para começar; não muda o que é cobrado"
+      >
+        <span className="text-xs text-on-surface-variant">saldo p/ iniciar</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
+          aria-label="Saldo mínimo para iniciar"
+          placeholder="opcional"
+          value={editSaldoInicio}
+          onChange={e => setEditSaldoInicio(e.target.value)}
+          className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
+        />
+      </label>
     </div>
     <EditorDeFaixas faixasEmEdicao={faixasEmEdicao} setFaixasEmEdicao={setFaixasEmEdicao} />
     <div className="flex gap-2">
@@ -349,6 +388,7 @@ interface CartaoDePrecoProps extends EdicaoDePreco {
   preco: number;
   minimo?: number | null;
   destrava?: number | null;
+  saldoInicio?: number | null;
   faixas?: FaixaHoraria[] | null;
   atualizadoEm?: string | null;
   editando: boolean;
@@ -369,6 +409,7 @@ const CartaoDePreco = ({
   preco,
   minimo,
   destrava,
+  saldoInicio,
   faixas,
   atualizadoEm,
   editando,
@@ -411,7 +452,7 @@ const CartaoDePreco = ({
               </span>
               <span className="text-sm text-on-surface-variant">/kWh</span>
             </p>
-            <SelosDaTarifa minimo={minimo} destrava={destrava} faixas={faixas} />
+            <SelosDaTarifa minimo={minimo} destrava={destrava} saldoInicio={saldoInicio} faixas={faixas} />
           </>
         )}
       </div>
@@ -525,6 +566,7 @@ export const Tariffs = () => {
   const [newFloorKwh, setNewFloorKwh] = useState('');
   const [newMaxPrice, setNewMaxPrice] = useState('');
   const [newConnectionFee, setNewConnectionFee] = useState('');
+  const [newSaldoInicio, setNewSaldoInicio] = useState('');
   // Copiar o preço de uma tarifa já existente (reaproveitar em vez de redigitar).
   const [copyFromId, setCopyFromId] = useState<string>('');
   // Local e Perfil são independentes e combináveis. 'all' = sem filtro
@@ -549,6 +591,7 @@ export const Tariffs = () => {
   const [mostrarGlobais, setMostrarGlobais] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
+  const [editSaldoInicio, setEditSaldoInicio] = useState('');
   const [editFaixas, setEditFaixas] = useState<FaixaEmEdicao[]>([]);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
 
@@ -596,6 +639,8 @@ export const Tariffs = () => {
                 price_per_kwh: Number(t.price_per_kwh),
                 min_price: t.min_price != null ? Number(t.min_price) : t.min_price,
                 connection_fee: t.connection_fee != null ? Number(t.connection_fee) : t.connection_fee,
+                saldo_minimo_inicio:
+                  t.saldo_minimo_inicio != null ? Number(t.saldo_minimo_inicio) : t.saldo_minimo_inicio,
               })),
             );
             usedNewEndpoint = true;
@@ -692,13 +737,19 @@ export const Tariffs = () => {
         floorPerKwh?: number;
         maxPrice?: number;
         connectionFee?: number;
+        saldoMinimoInicio?: number;
         locationAddress?: string;
         locationId?: number;
         chargePointId?: string;
         profileId?: number;
       };
       const base: TariffPayload = { newPrice: parseFloat(newPrice) };
-      if (newMinPrice && parseFloat(newMinPrice) > 0) base.minPrice = parseFloat(newMinPrice);
+      // Mínimo e saldo para iniciar aceitam 0 explícito (para tirar); vazio =
+      // herda o atual. Antes só ia mínimo > 0: não dava para tirar um mínimo.
+      if (newMinPrice.trim() !== '' && parseFloat(newMinPrice) >= 0) base.minPrice = parseFloat(newMinPrice);
+      if (newSaldoInicio.trim() !== '' && parseFloat(newSaldoInicio) >= 0) {
+        base.saldoMinimoInicio = parseFloat(newSaldoInicio);
+      }
       if (newFloorKwh && parseFloat(newFloorKwh) > 0) base.floorPerKwh = parseFloat(newFloorKwh);
       if (newMaxPrice && parseFloat(newMaxPrice) > 0) base.maxPrice = parseFloat(newMaxPrice);
       // Taxa aceita 0 explícito (para tirar a taxa); vazio = herda a atual.
@@ -741,6 +792,7 @@ export const Tariffs = () => {
         setNewFloorKwh('');
         setNewMaxPrice('');
         setNewConnectionFee('');
+        setNewSaldoInicio('');
         setCopyFromId('');
         setSelectedLocation('all');
         setSelectedProfile('all');
@@ -768,11 +820,13 @@ export const Tariffs = () => {
     escopo: EscopoDaEdicao,
     preco: number | null,
     minimo: number | null,
-    faixas?: FaixaHoraria[] | null
+    faixas?: FaixaHoraria[] | null,
+    saldoInicio?: number | null
   ) => {
     setEditando({ chave, escopo });
     setEditPrice(preco != null ? String(preco) : '');
     setEditMinPrice(minimo ? String(minimo) : '');
+    setEditSaldoInicio(saldoInicio ? String(saldoInicio) : '');
     setEditFaixas(
       (faixas ?? []).map(f => ({ inicio: f.inicio, fim: f.fim, preco: String(f.preco), dias: f.dias ?? [] }))
     );
@@ -782,6 +836,7 @@ export const Tariffs = () => {
     setEditando(null);
     setEditPrice('');
     setEditMinPrice('');
+    setEditSaldoInicio('');
     setEditFaixas([]);
   };
 
@@ -808,7 +863,8 @@ export const Tariffs = () => {
       const { escopo } = editando;
       const payload: {
         newPrice: number;
-        minPrice?: number;
+        minPrice: number;
+        saldoMinimoInicio: number;
         locationAddress?: string;
         locationId?: number;
         profileId?: number;
@@ -816,9 +872,13 @@ export const Tariffs = () => {
         faixasHorarias: FaixaHoraria[];
       } = {
         newPrice: parseFloat(editPrice),
+        // O editor já abre com os valores atuais: o que está no campo é o que
+        // vale, e campo vazio tira (antes vazio herdava e não dava para tirar
+        // o mínimo).
+        minPrice: Math.max(0, parseFloat(editMinPrice) || 0),
+        saldoMinimoInicio: Math.max(0, parseFloat(editSaldoInicio) || 0),
         faixasHorarias,
       };
-      if (editMinPrice && parseFloat(editMinPrice) > 0) payload.minPrice = parseFloat(editMinPrice);
 
       if (escopo.chargePointId) payload.chargePointId = escopo.chargePointId;
       // Preferimos o id do local (distingue locais de mesma rua); o endereço
@@ -952,6 +1012,8 @@ export const Tariffs = () => {
     setEditPrice,
     editMinPrice,
     setEditMinPrice,
+    editSaldoInicio,
+    setEditSaldoInicio,
     faixasEmEdicao: editFaixas,
     setFaixasEmEdicao: setEditFaixas,
     onCancelar: cancelarEdicao,
@@ -1016,6 +1078,9 @@ export const Tariffs = () => {
                           setNewPrice(String(t.price_per_kwh));
                           setNewMinPrice(t.min_price != null && Number(t.min_price) > 0 ? String(t.min_price) : '');
                           setNewConnectionFee(t.connection_fee != null && Number(t.connection_fee) > 0 ? String(t.connection_fee) : '');
+                          setNewSaldoInicio(
+                            t.saldo_minimo_inicio != null && Number(t.saldo_minimo_inicio) > 0 ? String(t.saldo_minimo_inicio) : ''
+                          );
                         }
                       }}
                     >
@@ -1092,7 +1157,7 @@ export const Tariffs = () => {
                   className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline w-fit"
                 >
                   <span className="material-symbols-outlined text-base">{showAdvanced ? 'expand_less' : 'tune'}</span>
-                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, teto, taxa de destrava, carregador, perfil)'}
+                  {showAdvanced ? 'Ocultar opções avançadas' : 'Opções avançadas (mínimo, saldo para iniciar, teto, taxa de destrava, carregador, perfil)'}
                 </button>
 
                 <div className={showAdvanced ? 'space-y-4 rounded-xl border border-outline-variant/10 bg-surface-container-low/40 p-4' : 'hidden'}>
@@ -1161,9 +1226,26 @@ export const Tariffs = () => {
                       className="bg-surface-container-low border-outline-variant/20 text-on-surface"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest flex items-center gap-1">
+                      Saldo mínimo para iniciar (R$)
+                      <span className="normal-case tracking-normal text-outline font-normal">opcional</span>
+                    </Label>
+                    <Input
+                      id="saldoMinimoInicio"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={newSaldoInicio}
+                      onChange={e => setNewSaldoInicio(e.target.value)}
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                  </div>
                 </div>
                 <p className="text-[11px] text-on-surface-variant leading-relaxed -mt-2">
-                  <b>Mínimo por sessão</b>: nenhuma recarga com energia custa menos que isso — cobre o custo de conexão de sessões curtas (sessão de 0 kWh não é cobrada).<br />
+                  <b>Mínimo por sessão</b>: nenhuma recarga com energia custa menos que isso — cobre o custo de conexão de sessões curtas (sessão de 0 kWh não é cobrada). Vazio mantém o atual; 0 remove.<br />
+                  <b>Saldo mínimo para iniciar</b>: o cliente só começa a recarga com pelo menos esse saldo na carteira. Não muda o que é cobrado (para cobrar um mínimo, use o mínimo por sessão). Vazio mantém o atual; 0 remove.<br />
                   <b>Piso por kWh</b>: a cobrança nunca fica abaixo desse custo por kWh — protege de vender energia no prejuízo. Normalmente vem preenchido pela aba <b>Conta de Energia</b> do local.<br />
                   <b>Teto por sessão</b>: nenhuma recarga custa mais que isso — sanidade contra sessão disparada (0 ou vazio = sem teto).<br />
                   <b>Taxa de destrava</b>: valor fixo por recarga, somado à energia assim que a recarga entrega energia (o mínimo vale sobre a soma). Vazio mantém a taxa atual; 0 remove.
@@ -1306,10 +1388,11 @@ export const Tariffs = () => {
                       <SelosDaTarifa
                         minimo={globalTariff.min_price}
                         destrava={globalTariff.connection_fee}
+                        saldoInicio={globalTariff.saldo_minimo_inicio}
                         faixas={globalTariff.faixas_horarias}
                       />
                       <button
-                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias)}
+                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias, globalTariff.saldo_minimo_inicio)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/30 text-primary font-bold text-xs hover:bg-primary/10 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
@@ -1361,6 +1444,7 @@ export const Tariffs = () => {
                     preco={tariff.price_per_kwh}
                     minimo={tariff.min_price}
                     destrava={tariff.connection_fee}
+                    saldoInicio={tariff.saldo_minimo_inicio}
                     faixas={tariff.faixas_horarias}
                     atualizadoEm={tariff.created_at}
                     editando={editando?.chave === chave}
@@ -1370,7 +1454,8 @@ export const Tariffs = () => {
                         { locationId: loc.id, locationAddress: loc.endereco },
                         tariff.price_per_kwh,
                         tariff.min_price ?? null,
-                        tariff.faixas_horarias
+                        tariff.faixas_horarias,
+                        tariff.saldo_minimo_inicio
                       )
                     }
                     {...edicaoComum}
@@ -1407,6 +1492,7 @@ export const Tariffs = () => {
                     preco={t.price_per_kwh}
                     minimo={t.min_price}
                     destrava={t.connection_fee}
+                    saldoInicio={t.saldo_minimo_inicio}
                     faixas={t.faixas_horarias}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
@@ -1416,7 +1502,8 @@ export const Tariffs = () => {
                         { chargePointId: t.charge_point_id, profileId: t.profileId },
                         t.price_per_kwh,
                         t.min_price ?? null,
-                        t.faixas_horarias
+                        t.faixas_horarias,
+                        t.saldo_minimo_inicio
                       )
                     }
                     {...edicaoComum}
@@ -1450,6 +1537,7 @@ export const Tariffs = () => {
                     preco={t.price_per_kwh}
                     minimo={t.min_price}
                     destrava={t.connection_fee}
+                    saldoInicio={t.saldo_minimo_inicio}
                     faixas={t.faixas_horarias}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
@@ -1459,7 +1547,8 @@ export const Tariffs = () => {
                         { profileId: t.profileId, locationId: t.location_id, locationAddress: t.location_address },
                         t.price_per_kwh,
                         t.min_price ?? null,
-                        t.faixas_horarias
+                        t.faixas_horarias,
+                        t.saldo_minimo_inicio
                       )
                     }
                     {...edicaoComum}
