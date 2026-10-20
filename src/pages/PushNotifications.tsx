@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import {
@@ -97,6 +98,16 @@ const audienceLabels = {
 const MARCA_PADRAO = 'neopower-default';
 const TODAS_AS_MARCAS = 'todas';
 
+/** Ids de usuário digitados ou vindos do link (separados por vírgula, espaço ou linha). */
+const idsDosUsuarios = (texto: string): number[] => [
+  ...new Set(
+    texto
+      .split(/[\s,;]+/)
+      .map(Number)
+      .filter(n => Number.isInteger(n) && n > 0)
+  ),
+];
+
 // Imagem da campanha: os mesmos limites da API (POST /push/campaigns/imagem).
 const TIPOS_DE_IMAGEM = ['image/jpeg', 'image/png', 'image/webp'];
 const TAMANHO_MAXIMO_DA_IMAGEM = 5 * 1024 * 1024;
@@ -124,10 +135,45 @@ export const PushNotifications = () => {
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [imagem, setImagem] = useState<string | null>(null);
   const [enviandoImagem, setEnviandoImagem] = useState(false);
+  // Público "Usuários Específicos": os ids, e o nome de cada um para conferir.
+  const [usuariosEscolhidos, setUsuariosEscolhidos] = useState('');
+  const [nomeDoUsuario, setNomeDoUsuario] = useState<Record<number, string>>({});
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Campanha preenchida pelo link (?publico=specific_users&usuarios=1,2,3&titulo=…
+  // &mensagem=…&marca=…): abre a criação já pronta, para só conferir e criar.
+  useEffect(() => {
+    if (searchParams.get('publico') !== 'specific_users') return;
+    setTargetAudience('specific_users');
+    setUsuariosEscolhidos(searchParams.get('usuarios') ?? '');
+    setTitle(searchParams.get('titulo') ?? '');
+    setMessage(searchParams.get('mensagem') ?? '');
+    const marcaDoLink = searchParams.get('marca');
+    if (marcaDoLink) setMarca(marcaDoLink);
+    setDialogOpen(true);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Nomes das contas escolhidas, para conferir antes de criar.
+  useEffect(() => {
+    if (targetAudience !== 'specific_users' || Object.keys(nomeDoUsuario).length > 0) return;
+    void (async () => {
+      try {
+        const r = await api.get('/admin/users');
+        if (!r.ok) return;
+        const lista: Array<{ id: number; name?: string; email?: string }> = await r.json();
+        if (!Array.isArray(lista)) return;
+        setNomeDoUsuario(Object.fromEntries(lista.map(u => [u.id, u.name || u.email || `#${u.id}`])));
+      } catch {
+        // Sem a lista, a tela mostra só os números.
+      }
+    })();
+  }, [targetAudience, nomeDoUsuario]);
 
   useEffect(() => {
     if (!isSuperAdmin) return;
@@ -238,6 +284,10 @@ export const PushNotifications = () => {
       toast.error('Selecione um perfil');
       return;
     }
+    if (targetAudience === 'specific_users' && idsDosUsuarios(usuariosEscolhidos).length === 0) {
+      toast.error('Informe os ids dos usuários');
+      return;
+    }
 
     if (
       isSuperAdmin &&
@@ -264,6 +314,9 @@ export const PushNotifications = () => {
       }
       if (targetAudience === 'specific_profile' && selectedProfile) {
         payload.profileId = parseInt(selectedProfile);
+      }
+      if (targetAudience === 'specific_users') {
+        payload.userIds = idsDosUsuarios(usuariosEscolhidos);
       }
       if (imagem) {
         payload.imageUrl = imagem;
@@ -348,6 +401,7 @@ export const PushNotifications = () => {
     setTargetAudience('all_users');
     setSelectedLocation('');
     setSelectedProfile('');
+    setUsuariosEscolhidos('');
     setMarca(MARCA_PADRAO);
     setImagem(null);
   };
@@ -530,6 +584,12 @@ export const PushNotifications = () => {
                           Perfil Específico
                         </div>
                       </SelectItem>
+                      <SelectItem value="specific_users" className="text-on-surface focus:bg-surface-container-highest">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm">person_search</span>
+                          Usuários Específicos
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -578,6 +638,28 @@ export const PushNotifications = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {targetAudience === 'specific_users' && (
+                  <div className="space-y-2">
+                    <label className="text-on-surface-variant text-xs uppercase tracking-widest">Ids dos usuários</label>
+                    <Input
+                      value={usuariosEscolhidos}
+                      onChange={e => setUsuariosEscolhidos(e.target.value)}
+                      placeholder="Ex.: 1375, 1359, 1364"
+                      className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+                    />
+                    {idsDosUsuarios(usuariosEscolhidos).length > 0 && (
+                      <p className="text-xs text-on-surface-variant leading-relaxed">
+                        <span className="font-bold text-on-surface">
+                          {idsDosUsuarios(usuariosEscolhidos).length} conta(s):
+                        </span>{' '}
+                        {idsDosUsuarios(usuariosEscolhidos)
+                          .map(id => nomeDoUsuario[id] ?? `#${id}`)
+                          .join(', ')}
+                      </p>
+                    )}
                   </div>
                 )}
 
