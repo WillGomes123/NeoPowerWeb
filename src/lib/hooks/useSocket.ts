@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { enderecoDoSocket } from '../enderecoDoSocket';
 
 // Types for charger events
 interface ChargerStatusEvent {
@@ -57,10 +58,7 @@ export function useSocket(): UseSocketReturn {
     const token = localStorage.getItem('token');
 
     // Determine the Socket.IO URL based on the API base URL
-    const apiUrl = import.meta.env?.VITE_API_URL || '';
-    const wsUrl = apiUrl.startsWith('http')
-      ? apiUrl.replace('/api', '')
-      : window.location.origin;
+    const wsUrl = enderecoDoSocket(import.meta.env?.VITE_API_URL, window.location.origin);
 
     // Connect to Socket.IO server
     const socket = io(wsUrl, {
