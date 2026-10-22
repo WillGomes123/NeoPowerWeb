@@ -13,7 +13,8 @@ import {
   Building2,
   Trash2,
   FileKey,
-  Receipt
+  Receipt,
+  Gauge
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ import { LocationMonitoringTab } from '@/components/location-details/LocationMon
 import { LocationPermissionsTab } from '@/components/location-details/LocationPermissionsTab';
 import { LocationCertificadoTab } from '@/components/location-details/LocationCertificadoTab';
 import { LocationNfseTab } from '@/components/location-details/LocationNfseTab';
+import { LocationBalanceamentoTab } from '@/components/location-details/LocationBalanceamentoTab';
 interface LocationData {
   id: number;
   nomeDoLocal: string;
@@ -61,7 +63,7 @@ interface UserPermissions {
   nfse: boolean;
 }
 
-type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado' | 'nfse';
+type TabId = 'info' | 'transactions' | 'performance' | 'financial' | 'monitoring' | 'permissions' | 'certificado' | 'nfse' | 'balanceamento';
 
 interface Tab {
   id: TabId;
@@ -79,6 +81,9 @@ const tabs: Tab[] = [
   { id: 'permissions', label: 'Permissões', icon: Users, permissionKey: 'permissions' },
   { id: 'nfse', label: 'NFS-e', icon: Receipt, permissionKey: 'info' }, // Usa permissão de 'info' ou admin
   { id: 'certificado', label: 'Certificado Digital', icon: FileKey, permissionKey: 'info' }, // Usa permissão de 'info' ou admin
+  // Medidor do QGBT e balanceamento dinâmico de carga: admin ou operador da marca
+  // (a API confere; ligar o modo ativo e mudar limites é só do admin da plataforma).
+  { id: 'balanceamento', label: 'Balanceamento de carga', icon: Gauge, permissionKey: 'info' },
 ];
 
 export function LocationDetails() {
@@ -170,7 +175,8 @@ export function LocationDetails() {
     ? tabs.filter(
         tab =>
           permissions[tab.permissionKey] &&
-          (podeGerirLocal || (tab.id !== 'nfse' && tab.id !== 'certificado'))
+          (podeGerirLocal ||
+            (tab.id !== 'nfse' && tab.id !== 'certificado' && tab.id !== 'balanceamento'))
       )
     : [];
 
@@ -324,6 +330,9 @@ export function LocationDetails() {
         )}
         {activeTab === 'certificado' && podeGerirLocal && (
           <LocationCertificadoTab locationId={parseInt(id!)} />
+        )}
+        {activeTab === 'balanceamento' && podeGerirLocal && (
+          <LocationBalanceamentoTab locationId={parseInt(id!)} />
         )}
       </div>
     </div>
