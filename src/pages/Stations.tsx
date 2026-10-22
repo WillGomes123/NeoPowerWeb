@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
+import { COR_DO_ESTADO, ROTULO_DO_ESTADO, estadoDoCarregador, type EstadoDoCarregador } from '../lib/estadoDoCarregador';
 import { QrCodeTemplate, type MarcaDoAdesivo } from '../components/QrCodeTemplate';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -41,6 +42,8 @@ interface Charger {
   connector_type?: string;
   locationId: number | null;
   isConnected: boolean;
+  last_seen?: string | null;
+  ocpp_status?: string | null;
   status?: string;
   clientId?: string | null;
   connection_url?: string;
@@ -51,6 +54,13 @@ interface Location {
   nomeDoLocal: string;
   endereco: string;
 }
+
+const estadoDe = (c: Charger) =>
+  estadoDoCarregador({ isConnected: c.isConnected, last_seen: c.last_seen, ocppStatus: c.ocpp_status });
+
+// Estados que ganham etiqueta ao lado do nome (ativo, em uso e offline já se
+// leem pela bolinha).
+const COM_ETIQUETA: EstadoDoCarregador[] = ['instalacao', 'indisponivel', 'falha'];
 
 /** Valor do select para "carregador da plataforma" — o Radix não aceita "". */
 const SEM_OPERADOR = '__plataforma__';
@@ -87,6 +97,8 @@ export const Stations = () => {
   const [qrPages, setQrPages] = useState<{ chargePointId: string; connectorIndex: number; totalConnectors: number; description?: string; model?: string; vendor?: string; powerKw?: number; connectorType?: string; marca?: MarcaDoAdesivo | null }[]>([]);
   const { chargerStatuses } = useSocket();
   const [kwhToday, setKwhToday] = useState(0);
+  // null = API sem o campo (antes do deploy): mostra "—".
+  const [quedas, setQuedas] = useState<{ hoje: number; mes: number } | null>(null);
 
   const [regForm, setRegForm] = useState({
     charge_point_id: '', description: '', model: '', vendor: '',
@@ -98,7 +110,14 @@ export const Stations = () => {
     return chargers.map(c => {
       const s = chargerStatuses.get(c.charge_point_id);
       if (!s) return c;
-      return { ...c, isConnected: s.status !== 'Offline' && s.status !== 'Unavailable' };
+      // 'Offline' vem da desconexão; os outros status vêm do próprio
+      // carregador, conectado (Unavailable = fora de serviço).
+      return {
+        ...c,
+        isConnected: s.status !== 'Offline',
+        ocpp_status: s.status || c.ocpp_status,
+        last_seen: c.last_seen ?? s.timestamp,
+      };
     });
   }, [chargers, chargerStatuses]);
 
@@ -125,6 +144,7 @@ export const Stations = () => {
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setKwhToday(statsData.kwhToday || 0);
+        setQuedas(statsData.quedasDeConexao ?? null);
       }
 
       const init: Record<string, string> = {};
@@ -400,6 +420,8 @@ export const Stations = () => {
   const pendingChargers = mergedChargers.filter(c => !c.locationId);
   const assignedChargers = mergedChargers.filter(c => c.locationId);
   const onlineCount = mergedChargers.filter(c => c.isConnected).length;
+  // Percentual sobre os instalados: o cadastrado que nunca ligou não derruba a conta.
+  const instaladosCount = mergedChargers.filter(c => estadoDe(c) !== 'instalacao').length;
 
   const { topChargerName, topChargerKwh } = useMemo(() => {
     if (mergedChargers.length === 0) return { topChargerName: '—', topChargerKwh: 0 };
@@ -425,19 +447,6 @@ export const Stations = () => {
       })
       .reduce((acc, c) => acc + (c.power_kw || 0), 0);
   }, [mergedChargers, chargerStatuses]);
-
-  const dropsToday = useMemo(() => {
-    const offlineCount = mergedChargers.filter(c => !c.isConnected).length;
-    const daySeed = new Date().getDate();
-    const baseDrops = (daySeed % 3) + 1; // 1, 2, ou 3
-    return offlineCount + baseDrops;
-  }, [mergedChargers]);
-
-  const dropsMonth = useMemo(() => {
-    const daySeed = new Date().getDate();
-    const baseDropsMonth = 12 + (daySeed % 7); // 12 a 18
-    return baseDropsMonth;
-  }, []);
 
   const chargersByLocation = useMemo(() => {
     const groups: Record<number | string, Charger[]> = {};
@@ -532,7 +541,7 @@ export const Stations = () => {
               <div>
                 <span className="inline-block px-2.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-widest uppercase mb-2">Desempenho da Rede</span>
                 <h4 className="font-headline text-2xl font-bold text-on-surface">Network Health</h4>
-                <p className="text-on-surface-variant text-xs mt-1">Uptime e status técnico geral de todos os carregadores ativos.</p>
+                <p className="text-on-surface-variant text-xs mt-1">Conexão e status técnico dos carregadores instalados.</p>
               </div>
               <div className="grid grid-cols-3 gap-4 pt-2">
                 <div>
@@ -544,9 +553,10 @@ export const Stations = () => {
                   <p className="text-2xl font-headline font-bold text-primary">{onlineCount}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">Uptime</p>
+                  {/* Era "Uptime", mas é a foto de agora: conectados sobre instalados. */}
+                  <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">Conectados</p>
                   <p className="text-2xl font-headline font-bold text-foreground">
-                    {mergedChargers.length > 0 ? ((onlineCount / mergedChargers.length) * 100).toFixed(1) : '0'}%
+                    {instaladosCount > 0 ? ((onlineCount / instaladosCount) * 100).toFixed(1) : '0'}%
                   </p>
                 </div>
               </div>
@@ -578,11 +588,12 @@ export const Stations = () => {
               {/* Charger Drops */}
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase block">Quedas de Conexão</span>
+                {/* Desconexões registradas pelo servidor (connection_events); antes era um número inventado. */}
                 <p className="text-xl font-headline font-bold text-error">
-                  {dropsToday} <span className="text-xs font-normal text-on-surface-variant">hoje</span>
+                  {quedas ? quedas.hoje : '—'} <span className="text-xs font-normal text-on-surface-variant">hoje</span>
                 </p>
                 <p className="text-[10px] text-on-surface-variant">
-                  {dropsMonth} no mês
+                  {quedas ? quedas.mes : '—'} no mês
                 </p>
               </div>
             </div>
@@ -746,7 +757,8 @@ export const Stations = () => {
               .map(({ loc }) => {
                 const locChargers = chargersByLocation[loc.id] || [];
                 const locOnlineCount = locChargers.filter(c => c.isConnected).length;
-                const locOfflineCount = locChargers.length - locOnlineCount;
+                const locOfflineCount = locChargers.filter(c => estadoDe(c) === 'offline').length;
+                const locInstalacaoCount = locChargers.filter(c => estadoDe(c) === 'instalacao').length;
 
                 return (
                   <AccordionItem 
@@ -776,6 +788,12 @@ export const Stations = () => {
                               {locOfflineCount} Offline
                             </span>
                           )}
+                          {locInstalacaoCount > 0 && (
+                            <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COR_DO_ESTADO.instalacao }} />
+                              {locInstalacaoCount} Em instalação
+                            </span>
+                          )}
                         </div>
                       </div>
                     </AccordionTrigger>
@@ -784,6 +802,7 @@ export const Stations = () => {
                       <div className="space-y-2">
                         {locChargers.map(c => {
                           const isOnline = c.isConnected;
+                          const estado = estadoDe(c);
                           return (
                             <div 
                               key={c.charge_point_id} 
@@ -795,11 +814,12 @@ export const Stations = () => {
                             >
                               {/* Left side: Status dot + Name + Details */}
                               <div className="flex items-center gap-3.5 min-w-0">
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : 'bg-error'}`} />
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : estado === 'instalacao' ? '' : 'bg-error'}`} style={estado === 'instalacao' ? { backgroundColor: COR_DO_ESTADO.instalacao } : undefined} />
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="font-headline font-bold text-sm text-on-surface truncate">{c.description || c.charge_point_id}</span>
                                     {c.description && <span className="text-[10px] text-on-surface-variant font-mono bg-surface-container px-1.5 py-0.5 rounded">{c.charge_point_id}</span>}
+                                    {COM_ETIQUETA.includes(estado) && <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded shrink-0">{ROTULO_DO_ESTADO[estado]}</span>}
                                   </div>
                                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant">
                                     {c.model && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">build</span>{c.vendor ? `${c.vendor} ` : ''}{c.model}</span>}
@@ -905,6 +925,7 @@ export const Stations = () => {
                     <div className="space-y-2">
                       {unknownChargers.map(c => {
                         const isOnline = c.isConnected;
+                        const estado = estadoDe(c);
                         return (
                           <div 
                             key={c.charge_point_id} 
@@ -916,11 +937,12 @@ export const Stations = () => {
                           >
                             {/* Left side: Status dot + Name + Details */}
                             <div className="flex items-center gap-3.5 min-w-0">
-                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : 'bg-error'}`} />
+                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : estado === 'instalacao' ? '' : 'bg-error'}`} style={estado === 'instalacao' ? { backgroundColor: COR_DO_ESTADO.instalacao } : undefined} />
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="font-headline font-bold text-sm text-on-surface truncate">{c.description || c.charge_point_id}</span>
                                   {c.description && <span className="text-[10px] text-on-surface-variant font-mono bg-surface-container px-1.5 py-0.5 rounded">{c.charge_point_id}</span>}
+                                  {COM_ETIQUETA.includes(estado) && <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded shrink-0">{ROTULO_DO_ESTADO[estado]}</span>}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant">
                                   {c.model && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">build</span>{c.vendor ? `${c.vendor} ` : ''}{c.model}</span>}

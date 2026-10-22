@@ -8,6 +8,13 @@ import { useSocket } from '../lib/hooks/useSocket';
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DynamicMap, TileLayer, Marker, Popup, L, useMap } from '../components/DynamicMap';
+import {
+  COR_DO_ESTADO,
+  ROTULO_DO_ESTADO,
+  estadoDoCarregador,
+  estadoDoLocal,
+  type EstadoDoCarregador,
+} from '../lib/estadoDoCarregador';
 
 interface Location {
   id: number;
@@ -30,9 +37,13 @@ interface Charger {
   latitude: number;
   longitude: number;
   isConnected: boolean;
+  last_seen?: string | null;
   locationId?: number;
   ocppStatus?: string; // Available, Charging, Faulted, Preparing, etc.
 }
+
+// Ordem da legenda do mapa.
+const ESTADOS_DA_LEGENDA: EstadoDoCarregador[] = ['ativo', 'emUso', 'falha', 'indisponivel', 'offline', 'instalacao'];
 
 // Enquadra o mapa exatamente nos locais do operador (white label), em vez de um
 // centro/zoom fixo apontado para o Brasil inteiro. Assim o operador cai direto
@@ -74,8 +85,11 @@ export const Locations = () => {
       if (!socketStatus) return charger;
       return {
         ...charger,
-        isConnected: socketStatus.status !== 'Offline' && socketStatus.status !== 'Unavailable',
-        ocppStatus: socketStatus.status || 'Offline',
+        // 'Offline' vem da desconexão; os outros status vêm do próprio
+        // carregador, conectado (Unavailable = fora de serviço).
+        isConnected: socketStatus.status !== 'Offline',
+        ocppStatus: socketStatus.status || charger.ocppStatus,
+        last_seen: charger.last_seen ?? socketStatus.timestamp,
       };
     });
   }, [chargers, chargerStatuses]);
@@ -85,7 +99,16 @@ export const Locations = () => {
     try {
       const [locRes, chRes] = await Promise.all([api.get('/locations/all'), api.get('/chargers')]);
       if (locRes.ok) { const d = await locRes.json(); setLocations(d.locations || []); }
-      if (chRes.ok) { const d = await chRes.json(); setChargers(Array.isArray(d) ? d : []); }
+      if (chRes.ok) {
+        const d = await chRes.json();
+        // O GET /chargers manda o status em ocpp_status; a tela só lia o do
+        // socket e, sem evento, todo local aparecia Offline.
+        setChargers(
+          Array.isArray(d)
+            ? d.map((c: Charger & { ocpp_status?: string | null }) => ({ ...c, ocppStatus: c.ocppStatus ?? c.ocpp_status ?? undefined }))
+            : []
+        );
+      }
     } catch { toast.error('Erro ao carregar dados'); }
     finally { setLoading(false); }
   }, []);
@@ -93,13 +116,13 @@ export const Locations = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const getStats = useCallback((loc: Location) => {
-    const locChargers = mergedChargers.filter(c => c.locationId === loc.id);
-    const total = loc.chargePoints?.length || locChargers.length;
-    const available = locChargers.filter(c => c.ocppStatus === 'Available').length;
-    const charging = locChargers.filter(c => c.ocppStatus === 'Charging').length;
-    const faulted = locChargers.filter(c => c.ocppStatus === 'Faulted' || c.ocppStatus === 'Unavailable').length;
-    const offline = total - available - charging - faulted;
-    return { total, available, charging, faulted, offline };
+    const estados = mergedChargers.filter(c => c.locationId === loc.id).map(estadoDoCarregador);
+    const total = loc.chargePoints?.length || estados.length;
+    const ativos = estados.filter(e => e === 'ativo').length;
+    // Disponibilidade sobre os já instalados: o cadastrado que nunca ligou não
+    // é carregador fora do ar.
+    const instalados = estados.filter(e => e !== 'instalacao').length;
+    return { total, ativos, instalados, estado: estadoDoLocal(estados) };
   }, [mergedChargers]);
 
   const filtered = useMemo(() => {
@@ -141,15 +164,10 @@ export const Locations = () => {
   );
 
   // Status-colored marker icons
-  const getMarkerIcon = useCallback((status: 'available' | 'charging' | 'faulted' | 'offline') => {
+  const getMarkerIcon = useCallback((estado: EstadoDoCarregador) => {
     if (typeof L === 'undefined') return undefined;
-    const colors = {
-      available: { bg: '#8eff71', glow: 'rgba(142,255,113,0.6)' },
-      charging: { bg: '#88f6ff', glow: 'rgba(136,246,255,0.6)' },
-      faulted: { bg: '#ff7351', glow: 'rgba(255,115,81,0.6)' },
-      offline: { bg: '#777575', glow: 'rgba(119,117,117,0.3)' },
-    };
-    const c = colors[status];
+    const cor = COR_DO_ESTADO[estado];
+    const c = { bg: cor, glow: `${cor}99` };
     return L.divIcon({
       className: '',
       html: `<div style="width:26px;height:26px;background:${c.bg};border-radius:50%;border:3px solid #1a1919;box-shadow:0 0 10px ${c.glow};display:flex;align-items:center;justify-content:center">
@@ -161,14 +179,11 @@ export const Locations = () => {
   }, []);
 
   // Determine dominant status for a location's marker on the main map
-  const getLocationMarkerStatus = useCallback((loc: Location): 'available' | 'charging' | 'faulted' | 'offline' => {
-    const locChargers = mergedChargers.filter(c => c.locationId === loc.id);
-    if (locChargers.length === 0) return 'offline';
-    if (locChargers.some(c => c.ocppStatus === 'Charging')) return 'charging';
-    if (locChargers.some(c => c.ocppStatus === 'Faulted')) return 'faulted';
-    if (locChargers.some(c => c.isConnected)) return 'available';
-    return 'offline';
-  }, [mergedChargers]);
+  const getLocationMarkerStatus = useCallback(
+    (loc: Location): EstadoDoCarregador =>
+      estadoDoLocal(mergedChargers.filter(c => c.locationId === loc.id).map(estadoDoCarregador)),
+    [mergedChargers]
+  );
 
   const handleDeleteLocation = async (e: React.MouseEvent, id: number, name: string) => {
     e.stopPropagation();
@@ -294,12 +309,7 @@ export const Locations = () => {
               {/* Legend Card */}
               <div className="glass-card rounded-lg px-4 py-3 border border-zinc-800 bg-zinc-950/90 backdrop-blur-md shadow-2xl">
                 <div className="flex flex-col gap-2">
-                  {[
-                    { color: '#8eff71', label: 'Disponível' },
-                    { color: '#88f6ff', label: 'Carregando' },
-                    { color: '#ff7351', label: 'Problema' },
-                    { color: '#777575', label: 'Offline' },
-                  ].map(item => (
+                  {ESTADOS_DA_LEGENDA.map(e => ({ color: COR_DO_ESTADO[e], label: ROTULO_DO_ESTADO[e] })).map(item => (
                     <div key={item.label} className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color, boxShadow: `0 0 6px ${item.color}40` }} />
                       <span className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">{item.label}</span>
@@ -376,7 +386,7 @@ export const Locations = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filtered.map(loc => {
                   const stats = getStats(loc);
-                  const occupancy = stats.total > 0 ? Math.round((stats.available / stats.total) * 100) : 0;
+                  const disponibilidade = stats.instalados > 0 ? Math.round((stats.ativos / stats.instalados) * 100) : null;
                   return (
                     <div
                       key={loc.id}
@@ -393,13 +403,13 @@ export const Locations = () => {
                           </div>
                         )}
                         <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-surface-container-highest/80 backdrop-blur-md border border-outline-variant/20 text-[10px] font-bold uppercase">
-                          {stats.available > 0 ? (
-                            <span className="text-primary flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />Active
-                            </span>
-                          ) : (
-                            <span className="text-on-surface-variant">Offline</span>
-                          )}
+                          <span className={`flex items-center gap-1 ${stats.estado === 'ativo' ? 'text-primary' : 'text-on-surface'}`}>
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${stats.estado === 'ativo' || stats.estado === 'emUso' ? 'animate-pulse' : ''}`}
+                              style={{ backgroundColor: COR_DO_ESTADO[stats.estado] }}
+                            />
+                            {ROTULO_DO_ESTADO[stats.estado]}
+                          </span>
                         </div>
                       </div>
 
@@ -417,10 +427,12 @@ export const Locations = () => {
                             <span className="text-xl font-headline font-bold">{String(stats.total).padStart(2, '0')}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] uppercase text-on-surface-variant block mb-1">Ocupação</span>
+                            {/* Era "Ocupação", mas a conta sempre foi a dos livres. */}
+                            <span className="text-[10px] uppercase text-on-surface-variant block mb-1">Disponibilidade</span>
                             <span className={`text-xl font-headline font-bold ${
-                              occupancy >= 80 ? 'text-primary' : occupancy >= 40 ? 'text-secondary' : occupancy > 0 ? 'text-error' : 'text-on-surface-variant'
-                            }`}>{occupancy}%</span>
+                              disponibilidade === null ? 'text-on-surface-variant'
+                                : disponibilidade >= 80 ? 'text-primary' : disponibilidade >= 40 ? 'text-secondary' : disponibilidade > 0 ? 'text-error' : 'text-on-surface-variant'
+                            }`}>{disponibilidade === null ? '—' : `${disponibilidade}%`}</span>
                           </div>
                         </div>
 
