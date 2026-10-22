@@ -57,6 +57,8 @@ interface OverviewData {
     online: number;
     offline: number;
     charging: number;
+    /** Cadastrados que nunca se conectaram (API nova); fora do offline. */
+    emInstalacao?: number;
   };
   activeVouchers?: number;
 }
@@ -218,12 +220,18 @@ export const Overview = () => {
   };
 
   const statusCounts = useMemo(() => {
-    if (!data?.chargers) return { online: 0, offline: 0, charging: 0 };
-    return { online: data.chargers.online, offline: data.chargers.offline, charging: data.chargers.charging };
+    if (!data?.chargers) return { online: 0, offline: 0, charging: 0, emInstalacao: 0 };
+    return {
+      online: data.chargers.online,
+      offline: data.chargers.offline,
+      charging: data.chargers.charging,
+      emInstalacao: data.chargers.emInstalacao ?? 0,
+    };
   }, [data]);
 
   // Os três estados são disjuntos (a API desconta os carregando dos online) e
-  // somam o total de carregadores.
+  // somam os carregadores instalados. O cadastrado que nunca ligou fica à parte
+  // (emInstalacao): contado como offline, metade da rede parecia fora do ar.
   const statusTotal = statusCounts.online + statusCounts.charging + statusCounts.offline;
   const statusConectados = statusCounts.online + statusCounts.charging;
   const statusPct = (n: number) => (statusTotal > 0 ? Math.round((n / statusTotal) * 100) : 0);
@@ -706,7 +714,7 @@ export const Overview = () => {
                 ))}
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className={`grid gap-3 ${statusCounts.emInstalacao > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
                 {statusItens.map(d => (
                   <div key={d.label} className="min-w-0 rounded-xl border border-outline-variant/20 bg-background/50 p-3">
                     <div className="flex flex-col items-start gap-1">
@@ -717,6 +725,16 @@ export const Overview = () => {
                     <p className="text-[11px] text-on-surface-variant">{statusPct(d.value)}% da rede</p>
                   </div>
                 ))}
+                {statusCounts.emInstalacao > 0 && (
+                  <div className="min-w-0 rounded-xl border border-dashed border-outline-variant/40 bg-background/50 p-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="material-symbols-outlined text-lg leading-none text-on-surface-variant">construction</span>
+                      <span className="w-full truncate text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Em instalação</span>
+                    </div>
+                    <p className="text-2xl font-headline font-bold mt-2">{statusCounts.emInstalacao}</p>
+                    <p className="text-[11px] text-on-surface-variant">ainda não ligado{statusCounts.emInstalacao === 1 ? '' : 's'}</p>
+                  </div>
+                )}
               </div>
 
               {statusCounts.offline > 0 && (
