@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import { enderecoDoSocket } from '../lib/enderecoDoSocket';
 import {
   Dialog,
   DialogContent,
@@ -331,8 +332,7 @@ export const Atendimento = () => {
   // Tempo real (socket) com uma consulta de reserva a cada 30 s.
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const apiUrl: string = import.meta.env?.VITE_API_URL || '';
-    const wsUrl = apiUrl.startsWith('http') ? apiUrl.replace('/api', '') : window.location.origin;
+    const wsUrl = enderecoDoSocket(import.meta.env?.VITE_API_URL, window.location.origin);
     const socket = io(wsUrl, { auth: { token }, transports: ['websocket', 'polling'] });
     socket.on('suporte:atualizacao', (e: { conversaId?: number }) => {
       void carregarLista();
