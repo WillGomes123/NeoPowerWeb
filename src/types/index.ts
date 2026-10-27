@@ -30,6 +30,14 @@ export interface CustomerProfile {
   createdAt?: string;
 }
 
+/** Cores dos selos de status do app (cada uma #RRGGBB; ausente = padrão). */
+export interface CoresDeStatus {
+  available?: string | null;
+  charging?: string | null;
+  busy?: string | null;
+  offline?: string | null;
+}
+
 export interface BrandingConfig {
   clientId: string;
   companyName?: string;
@@ -39,6 +47,22 @@ export interface BrandingConfig {
   logoUriDark?: string;
   primaryColor: string;
   theme?: 'dark' | 'light';
+  // Marca completa (todos opcionais; sem eles a marca fica como antes).
+  /** Fundo do botão principal; sempre com accentTextColor por cima. */
+  accentColor?: string | null;
+  accentTextColor?: string | null;
+  /** Fundo do cabeçalho; sobre ele vai sempre o logoUriDark. */
+  headerColor?: string | null;
+  statusColors?: CoresDeStatus | null;
+  /** Só o símbolo (PNG transparente): pin do mapa e favicon. */
+  symbolUri?: string | null;
+  /** Família do Google Fonts (ex.: Rubik). */
+  fontFamily?: string | null;
+  /** Só dígitos, com DDI (ex.: 5592999999999). */
+  supportWhatsapp?: string | null;
+  supportEmail?: string | null;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
 }
 
 export interface Location {

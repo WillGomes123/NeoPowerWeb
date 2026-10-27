@@ -1,17 +1,25 @@
-import { LegalLayout, useBrandName, type LegalSection } from './LegalLayout';
-import { LEGAL_LAST_UPDATED, PLATFORM_NAME } from './legalConfig';
+import { useTenant } from '../../contexts/TenantContext';
+import { DocumentoDaMarca, LegalLayout, useBrandName, type LegalSection } from './LegalLayout';
+import { documentoDaMarca, LEGAL_LAST_UPDATED, PLATFORM_NAME } from './legalConfig';
 
 /**
  * Política de Privacidade pública, por tenant.
  *
  * O texto é o mesmo exibido dentro do app (i18n `legal.privacyContent`),
  * revisado e com a marca parametrizada: a operadora (tenant) é quem oferece o
- * serviço ao usuário; a NeoPower aparece como desenvolvedora/operadora da
- * plataforma tecnológica.
+ * serviço ao usuário; a plataforma aparece como desenvolvedora/operadora da
+ * plataforma tecnológica, sem o nome NeoPower. A marca com política própria
+ * (privacyUrl no White Label) é levada para ela.
  */
 export const PrivacyPolicy = () => {
   const brand = useBrandName();
+  const { tenantBranding } = useTenant();
+  const politicaDaMarca = documentoDaMarca(tenantBranding?.privacyUrl);
   const isPlatform = brand === PLATFORM_NAME;
+
+  if (politicaDaMarca) {
+    return <DocumentoDaMarca title="Política de Privacidade" url={politicaDaMarca} />;
+  }
 
   const sections: LegalSection[] = [
     {
@@ -19,7 +27,7 @@ export const PrivacyPolicy = () => {
       body: [
         isPlatform
           ? `A ${brand} ("nós") valoriza a sua privacidade. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos as suas informações pessoais quando você utiliza o aplicativo ${brand} e os serviços de recarga de veículos elétricos a ele associados.`
-          : `A ${brand} ("nós") valoriza a sua privacidade. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos as suas informações pessoais quando você utiliza o aplicativo ${brand} e os serviços de recarga de veículos elétricos a ele associados. O aplicativo é operado pela ${brand} sobre a plataforma tecnológica ${PLATFORM_NAME}, responsável pelo desenvolvimento e pela hospedagem do sistema.`,
+          : `A ${brand} ("nós") valoriza a sua privacidade. Esta Política de Privacidade descreve como coletamos, usamos, armazenamos e protegemos as suas informações pessoais quando você utiliza o aplicativo ${brand} e os serviços de recarga de veículos elétricos a ele associados. O aplicativo é operado pela ${brand} sobre uma plataforma tecnológica licenciada, cuja operadora é responsável pelo desenvolvimento e pela hospedagem do sistema.`,
         'Ao criar uma conta ou utilizar o aplicativo, você declara ter lido e compreendido esta Política.',
       ],
     },
@@ -62,7 +70,9 @@ export const PrivacyPolicy = () => {
           'Provedores de pagamento (ex.: Mercado Pago), para processar depósitos e cobranças.',
           'Provedores de infraestrutura em nuvem, para hospedagem e armazenamento seguro das informações.',
           'Sistemas de emissão de nota fiscal eletrônica das prefeituras, quando aplicável.',
-          ...(isPlatform ? [] : [`${PLATFORM_NAME}, operadora da plataforma tecnológica que sustenta o aplicativo.`]),
+          ...(isPlatform
+            ? []
+            : ['A operadora da plataforma tecnológica que sustenta o aplicativo.']),
           'Autoridades públicas, quando exigido por lei, regulamento ou ordem judicial.',
         ],
       ],
