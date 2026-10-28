@@ -189,6 +189,9 @@ interface EdicaoDePreco {
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
+  /** Taxa de destrava em edição (vazio = sem). */
+  editDestrava: string;
+  setEditDestrava: (v: string) => void;
   /** Saldo mínimo para iniciar em edição (vazio = sem). */
   editSaldoInicio: string;
   setEditSaldoInicio: (v: string) => void;
@@ -298,12 +301,14 @@ const EditorDeFaixas = ({
   );
 };
 
-/** Campos de preço, mínimo, saldo para iniciar e faixas de horário, com Salvar e Cancelar. */
+/** Campos de preço, mínimo, destrava, saldo para iniciar e faixas de horário, com Salvar e Cancelar. */
 const EditorDePreco = ({
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
+  editDestrava,
+  setEditDestrava,
   editSaldoInicio,
   setEditSaldoInicio,
   faixasEmEdicao,
@@ -340,6 +345,23 @@ const EditorDePreco = ({
           placeholder="opcional"
           value={editMinPrice}
           onChange={e => setEditMinPrice(e.target.value)}
+          className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
+        />
+      </label>
+      <label
+        className="flex items-center gap-1.5"
+        title="Valor fixo cobrado em cada recarga, somado à energia assim que a recarga entrega energia"
+      >
+        <span className="text-xs text-on-surface-variant">destrava</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
+          aria-label="Taxa de destrava"
+          placeholder="opcional"
+          value={editDestrava}
+          onChange={e => setEditDestrava(e.target.value)}
           className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
         />
       </label>
@@ -591,6 +613,7 @@ export const Tariffs = () => {
   const [mostrarGlobais, setMostrarGlobais] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
+  const [editDestrava, setEditDestrava] = useState('');
   const [editSaldoInicio, setEditSaldoInicio] = useState('');
   const [editFaixas, setEditFaixas] = useState<FaixaEmEdicao[]>([]);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
@@ -821,11 +844,13 @@ export const Tariffs = () => {
     preco: number | null,
     minimo: number | null,
     faixas?: FaixaHoraria[] | null,
-    saldoInicio?: number | null
+    saldoInicio?: number | null,
+    destrava?: number | null
   ) => {
     setEditando({ chave, escopo });
     setEditPrice(preco != null ? String(preco) : '');
     setEditMinPrice(minimo ? String(minimo) : '');
+    setEditDestrava(destrava ? String(destrava) : '');
     setEditSaldoInicio(saldoInicio ? String(saldoInicio) : '');
     setEditFaixas(
       (faixas ?? []).map(f => ({ inicio: f.inicio, fim: f.fim, preco: String(f.preco), dias: f.dias ?? [] }))
@@ -836,6 +861,7 @@ export const Tariffs = () => {
     setEditando(null);
     setEditPrice('');
     setEditMinPrice('');
+    setEditDestrava('');
     setEditSaldoInicio('');
     setEditFaixas([]);
   };
@@ -864,6 +890,7 @@ export const Tariffs = () => {
       const payload: {
         newPrice: number;
         minPrice: number;
+        connectionFee: number;
         saldoMinimoInicio: number;
         locationAddress?: string;
         locationId?: number;
@@ -876,6 +903,7 @@ export const Tariffs = () => {
         // vale, e campo vazio tira (antes vazio herdava e não dava para tirar
         // o mínimo).
         minPrice: Math.max(0, parseFloat(editMinPrice) || 0),
+        connectionFee: Math.max(0, parseFloat(editDestrava) || 0),
         saldoMinimoInicio: Math.max(0, parseFloat(editSaldoInicio) || 0),
         faixasHorarias,
       };
@@ -1012,6 +1040,8 @@ export const Tariffs = () => {
     setEditPrice,
     editMinPrice,
     setEditMinPrice,
+    editDestrava,
+    setEditDestrava,
     editSaldoInicio,
     setEditSaldoInicio,
     faixasEmEdicao: editFaixas,
@@ -1392,7 +1422,7 @@ export const Tariffs = () => {
                         faixas={globalTariff.faixas_horarias}
                       />
                       <button
-                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias, globalTariff.saldo_minimo_inicio)}
+                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias, globalTariff.saldo_minimo_inicio, globalTariff.connection_fee)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/30 text-primary font-bold text-xs hover:bg-primary/10 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
@@ -1455,7 +1485,8 @@ export const Tariffs = () => {
                         tariff.price_per_kwh,
                         tariff.min_price ?? null,
                         tariff.faixas_horarias,
-                        tariff.saldo_minimo_inicio
+                        tariff.saldo_minimo_inicio,
+                        tariff.connection_fee
                       )
                     }
                     {...edicaoComum}
@@ -1503,7 +1534,8 @@ export const Tariffs = () => {
                         t.price_per_kwh,
                         t.min_price ?? null,
                         t.faixas_horarias,
-                        t.saldo_minimo_inicio
+                        t.saldo_minimo_inicio,
+                        t.connection_fee
                       )
                     }
                     {...edicaoComum}
@@ -1548,7 +1580,8 @@ export const Tariffs = () => {
                         t.price_per_kwh,
                         t.min_price ?? null,
                         t.faixas_horarias,
-                        t.saldo_minimo_inicio
+                        t.saldo_minimo_inicio,
+                        t.connection_fee
                       )
                     }
                     {...edicaoComum}
