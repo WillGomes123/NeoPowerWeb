@@ -1,13 +1,22 @@
-import { LegalLayout, useBrandName, type LegalSection } from './LegalLayout';
-import { LEGAL_LAST_UPDATED, PLATFORM_NAME } from './legalConfig';
+import { useTenant } from '../../contexts/TenantContext';
+import { DocumentoDaMarca, LegalLayout, useBrandName, type LegalSection } from './LegalLayout';
+import { documentoDaMarca, LEGAL_LAST_UPDATED, PLATFORM_NAME } from './legalConfig';
 
 /**
  * Termos de Uso públicos, por tenant. Mesmo conteúdo do app (i18n
- * `legal.termsContent`), revisado e com a marca parametrizada.
+ * `legal.termsContent`), revisado e com a marca parametrizada. A marca com
+ * termos próprios (termsUrl no White Label) é levada para eles.
+ *
+ * Para outra marca o texto não cita a NeoPower: a plataforma aparece só como
+ * "plataforma tecnológica".
  */
 export const TermsOfUse = () => {
   const brand = useBrandName();
+  const { tenantBranding } = useTenant();
+  const termosDaMarca = documentoDaMarca(tenantBranding?.termsUrl);
   const isPlatform = brand === PLATFORM_NAME;
+
+  if (termosDaMarca) return <DocumentoDaMarca title="Termos de Uso" url={termosDaMarca} />;
 
   const sections: LegalSection[] = [
     {
@@ -21,7 +30,7 @@ export const TermsOfUse = () => {
       body: [
         isPlatform
           ? `O ${brand} é uma plataforma de recarga de veículos elétricos que permite localizar estações de recarga, iniciar e monitorar sessões de carregamento, fazer reservas e gerenciar pagamentos por meio de uma carteira digital.`
-          : `O Aplicativo ${brand} permite localizar as estações de recarga da rede ${brand}, iniciar e monitorar sessões de carregamento, fazer reservas e gerenciar pagamentos por meio de uma carteira digital. O Aplicativo é operado pela ${brand} sobre a plataforma tecnológica ${PLATFORM_NAME}.`,
+          : `O Aplicativo ${brand} permite localizar as estações de recarga da rede ${brand}, iniciar e monitorar sessões de carregamento, fazer reservas e gerenciar pagamentos por meio de uma carteira digital. O Aplicativo é operado pela ${brand} sobre uma plataforma tecnológica licenciada.`,
       ],
     },
     {
@@ -78,7 +87,7 @@ export const TermsOfUse = () => {
       body: [
         isPlatform
           ? `Todo o conteúdo do Aplicativo — incluindo logotipos, textos, gráficos e software — é de propriedade da ${brand} e está protegido pelas leis de propriedade intelectual.`
-          : `A marca, os logotipos e os conteúdos da ${brand} são de sua propriedade. O software e a plataforma tecnológica são de propriedade da ${PLATFORM_NAME}. Todo o conteúdo está protegido pelas leis de propriedade intelectual e não pode ser copiado ou reproduzido sem autorização.`,
+          : `A marca, os logotipos e os conteúdos da ${brand} são de sua propriedade. O software e a plataforma tecnológica são de propriedade de quem os desenvolve e os licencia à ${brand}. Todo o conteúdo está protegido pelas leis de propriedade intelectual e não pode ser copiado ou reproduzido sem autorização.`,
       ],
     },
     {

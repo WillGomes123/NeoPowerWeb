@@ -28,6 +28,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isDark, toggleTheme, tenantBranding } = useTenant();
   
   const activeBranding = user?.branding || tenantBranding;
+  // Logo do tema: o de fundo escuro no menu escuro, o de fundo claro no claro.
+  // É o logo horizontal, que já traz o nome da marca.
+  const logoDoTema = isDark ? activeBranding?.logoUriDark : activeBranding?.logoUriLight;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -190,13 +193,19 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
         {/* Logo */}
         <div className="px-2 mb-3">
-          {activeBranding?.logoType === 'image' ? (
+          {activeBranding?.logoType === 'image' && logoDoTema ? (
+            // Vai largo, sem a caixa branca do ícone e sem repetir o nome.
+            <div className="flex items-center h-12 px-2">
+              <img
+                src={logoDoTema}
+                alt={activeBranding.companyName || 'Logo'}
+                className="max-h-10 max-w-full object-contain"
+              />
+            </div>
+          ) : activeBranding?.logoType === 'image' ? (
             <div className={activeBranding?.companyName ? "flex items-center gap-3" : "flex items-center justify-center w-full"}>
               <img
-                src={isDark 
-                  ? (activeBranding.logoUriDark || activeBranding.logoUri || NeoPowerLogo) 
-                  : (activeBranding.logoUriLight || activeBranding.logoUri || NeoPowerLogo)
-                }
+                src={activeBranding.logoUri || NeoPowerLogo}
                 alt="Logo"
                 className={activeBranding?.companyName 
                   ? "w-8 h-8 rounded-lg object-contain shrink-0 bg-white" 

@@ -28,6 +28,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
 import { QrCodeTemplate, type MarcaDoAdesivo } from '../components/QrCodeTemplate';
+import { carregarFonteDaMarca } from '../lib/fonteDaMarca';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -312,15 +313,25 @@ export const Stations = () => {
           if (r.ok) {
             const d = (await r.json()).data;
             if (d) {
+              // O fundo do adesivo é escuro (ou o headerColor da marca): logo
+              // e cor da versão para fundo escuro.
               marca = {
                 companyName: d.companyName,
-                logoUri: d.logoUriDark || d.logoUri || null,
+                logoUri: d.logoUri || null,
+                logoUriDark: d.logoUriDark || null,
                 primaryColor: d.primaryColorDark || d.primaryColor || null,
+                accentColor: d.accentColor || null,
+                accentTextColor: d.accentTextColor || null,
+                headerColor: d.headerColor || null,
+                fontFamily: d.fontFamily || null,
               };
             }
           }
         } catch { /* sem a marca do operador, usa a do usuário */ }
       }
+
+      // A fonte da marca baixa enquanto o adesivo monta; a captura espera por ela.
+      const fonteDaMarca = carregarFonteDaMarca((marca ?? user?.branding)?.fontFamily);
 
       // Build pages data
       const pages = Array.from({ length: numConn }, (_, i) => ({
@@ -338,6 +349,10 @@ export const Stations = () => {
 
       // Wait for render
       await new Promise(resolve => setTimeout(resolve, 800));
+      // O html2canvas desenha o texto com as fontes já carregadas no documento:
+      // sem esperar, o PDF sai na fonte reserva.
+      await fonteDaMarca;
+      await document.fonts?.ready;
 
       const root = document.getElementById('qrcode-report-root');
       if (!root) throw new Error('Template não encontrado');
@@ -358,11 +373,13 @@ export const Stations = () => {
       for (let i = 0; i < pageElements.length; i++) {
         if (i > 0) pdf.addPage();
 
-        const canvas = await html2canvas(pageElements[i] as HTMLElement, {
+        const pagina = pageElements[i] as HTMLElement;
+        const canvas = await html2canvas(pagina, {
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#111114',
+          // Mesmo fundo da página (o headerColor da marca, ou o grafite).
+          backgroundColor: pagina.style.backgroundColor || '#111114',
           windowWidth: 794,
           onclone: (doc) => {
             const allEls = doc.getElementsByTagName('*');

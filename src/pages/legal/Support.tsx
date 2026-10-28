@@ -5,8 +5,9 @@ import { contatoDeSuporte, LEGAL_LAST_UPDATED } from './legalConfig';
 /**
  * Página pública de suporte — é a "URL de suporte" exigida pela App Store
  * (`/<tenant>/suporte`). A Apple pede que ela traga um meio de contato, então o
- * card do topo usa o contato da marca (CONTATO_SUPORTE) ou, para a NeoPower e
- * para a marca sem contato próprio, o WhatsApp de suporte da NeoPower.
+ * card do topo usa o contato da marca (supportWhatsapp/supportEmail do
+ * branding, ou CONTATO_SUPORTE) ou, para a NeoPower e para a marca sem contato
+ * próprio, o WhatsApp de suporte da NeoPower.
  */
 
 const PASSOS_RECARGA = [
@@ -22,7 +23,7 @@ export const Support = () => {
   const brand = useBrandName();
   const { tenantSlug, tenantBranding } = useTenant();
   const chave = String(tenantBranding?.clientId || tenantSlug || '');
-  const contato = contatoDeSuporte(chave);
+  const contato = contatoDeSuporte(chave, tenantBranding);
 
   // A conversa já abre dizendo de qual aplicativo é o pedido: o WhatsApp da
   // NeoPower atende mais de uma marca.

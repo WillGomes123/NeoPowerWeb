@@ -22,7 +22,12 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { tenantBranding, isDark } = useTenant();
+  const { tenantBranding } = useTenant();
+  // O logo do topo fica numa caixa branca: vai a versão de fundo claro. O logo
+  // da NeoPower só entra no login da NeoPower; outra marca sem logo fica com o nome.
+  const ehNeoPower = !tenantBranding?.companyName || tenantBranding.companyName === 'NeoPower';
+  const logoDoTopo =
+    tenantBranding?.logoUriLight || tenantBranding?.logoUri || (ehNeoPower ? NeoPowerLogo : null);
 
   const sessionExpired = searchParams.get('expired') === 'true';
 
@@ -59,18 +64,19 @@ export const Login = () => {
       <header className="fixed top-0 w-full z-50 px-4 sm:px-8 py-4 sm:py-6">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-2xl shadow-white/10">
-            <img 
-              src={isDark 
-                ? (tenantBranding?.logoUriDark || tenantBranding?.logoUri || NeoPowerLogo) 
-                : (tenantBranding?.logoUriLight || tenantBranding?.logoUri || NeoPowerLogo)}
-              alt={tenantBranding?.companyName || 'NeoPower'}
-              className="h-8 w-auto object-contain" 
-            />
-            {tenantBranding?.companyName && tenantBranding?.logoType !== 'image' && (
-              <span className="ml-2 font-headline font-bold text-lg text-black">
-                {tenantBranding.companyName}
-              </span>
+            {logoDoTopo && (
+              <img
+                src={logoDoTopo}
+                alt={tenantBranding?.companyName || 'NeoPower'}
+                className="h-8 w-auto object-contain"
+              />
             )}
+            {tenantBranding?.companyName &&
+              (tenantBranding?.logoType !== 'image' || !logoDoTopo) && (
+                <span className="ml-2 font-headline font-bold text-lg text-black">
+                  {tenantBranding.companyName}
+                </span>
+              )}
           </div>
         </div>
       </header>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTenant } from '../../contexts/TenantContext';
 import NeoPowerLogo from '../../assets/NeoPower.png';
+import { navegacao, PLATFORM_NAME } from './legalConfig';
 
 /**
  * Layout das páginas legais públicas (Privacidade, Termos, Exclusão de conta).
@@ -25,7 +26,8 @@ export interface LegalSection {
 interface LegalLayoutProps {
   title: string;
   subtitle?: string;
-  lastUpdated: string;
+  /** Sem ela (documento que fica no site da marca), a linha não aparece. */
+  lastUpdated?: string;
   sections: LegalSection[];
   /** Conteúdo extra renderizado antes das seções (ex.: passo a passo). */
   intro?: React.ReactNode;
@@ -43,16 +45,22 @@ const LEGAL_LINKS = [
 /** Nome da marca do tenant atual (com fallback para a plataforma). */
 export function useBrandName(): string {
   const { tenantBranding } = useTenant();
-  return tenantBranding?.companyName?.trim() || 'NeoPower';
+  return tenantBranding?.companyName?.trim() || PLATFORM_NAME;
 }
 
 export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro, etiqueta = 'Documento legal' }: LegalLayoutProps) => {
-  const { tenantBranding, isDark } = useTenant();
+  const { tenantBranding } = useTenant();
   const brand = useBrandName();
 
-  const logoSrc = isDark
-    ? tenantBranding?.logoUriDark || tenantBranding?.logoUri || NeoPowerLogo
-    : tenantBranding?.logoUriLight || tenantBranding?.logoUri || NeoPowerLogo;
+  // O logo fica numa caixa branca: vai a versão de fundo claro. O logo da
+  // NeoPower só aparece nas páginas da NeoPower; outra marca sem logo fica
+  // só com o nome.
+  const logoSrc =
+    tenantBranding?.logoUriLight ||
+    tenantBranding?.logoUri ||
+    (brand === PLATFORM_NAME ? NeoPowerLogo : null);
+  // O logo horizontal já escreve o nome da marca.
+  const mostrarNome = !tenantBranding?.logoUriLight;
 
   useEffect(() => {
     const previous = document.title;
@@ -68,10 +76,14 @@ export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro, eti
       <header className="w-full px-6 py-5 border-b border-border/10">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-lg shadow-white/5">
-              <img src={logoSrc} alt={brand} className="h-8 w-auto object-contain" />
-            </div>
-            <span className="font-headline font-bold text-lg tracking-tight">{brand}</span>
+            {logoSrc && (
+              <div className="flex items-center gap-2 bg-white/95 rounded-lg p-2 shadow-lg shadow-white/5">
+                <img src={logoSrc} alt={brand} className="h-8 w-auto object-contain" />
+              </div>
+            )}
+            {mostrarNome && (
+              <span className="font-headline font-bold text-lg tracking-tight">{brand}</span>
+            )}
           </div>
           <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold hidden sm:inline">
             {etiqueta}
@@ -83,7 +95,11 @@ export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro, eti
         <article className="max-w-3xl mx-auto">
           <h1 className="font-headline text-3xl sm:text-4xl font-black tracking-tight mb-2">{title}</h1>
           {subtitle && <p className="text-on-surface-variant text-base mb-2">{subtitle}</p>}
-          <p className="text-on-surface-variant text-sm mb-8">Última atualização: {lastUpdated}</p>
+          {lastUpdated && (
+            <p className="text-on-surface-variant text-sm mb-8">
+              Última atualização: {lastUpdated}
+            </p>
+          )}
 
           {intro && <div className="mb-8">{intro}</div>}
 
@@ -132,5 +148,34 @@ export const LegalLayout = ({ title, subtitle, lastUpdated, sections, intro, eti
         </div>
       </footer>
     </div>
+  );
+};
+
+/**
+ * Termos ou Privacidade quando a marca tem o documento no próprio site
+ * (termsUrl/privacyUrl do branding): a página leva direto para ele e, se o
+ * navegador não sair daqui, mostra o link.
+ */
+export const DocumentoDaMarca = ({ title, url }: { title: string; url: string }) => {
+  const brand = useBrandName();
+
+  useEffect(() => {
+    navegacao.substituir(url);
+  }, [url]);
+
+  return (
+    <LegalLayout
+      title={title}
+      sections={[]}
+      intro={
+        <p className="text-[15px] leading-relaxed">
+          {`A ${brand} publica este documento no próprio site. Se a página não abrir sozinha, `}
+          <a href={url} className="text-primary font-semibold underline underline-offset-2 break-all">
+            acesse {url}
+          </a>
+          .
+        </p>
+      }
+    />
   );
 };

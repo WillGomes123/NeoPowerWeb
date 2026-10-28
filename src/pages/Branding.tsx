@@ -17,6 +17,8 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { PagamentosDaMarca } from '../components/branding/PagamentosDaMarca';
 import { PromotionsDialog } from '../components/PromotionsDialog';
+import { camposDaMarcaCompleta, COR_HEX, STATUS_DA_MARCA } from '../lib/marcaCompleta';
+import type { CoresDeStatus } from '../types';
 
 interface BrandingConfig {
   clientId: string;
@@ -37,6 +39,17 @@ interface BrandingConfig {
   cashbackEnabled?: boolean;
   cashbackPercentage?: number;
   appStoreAppId?: string | null;
+  // Marca completa (opcionais; ver lib/marcaCompleta.ts)
+  accentColor?: string | null;
+  accentTextColor?: string | null;
+  headerColor?: string | null;
+  statusColors?: CoresDeStatus | null;
+  symbolUri?: string | null;
+  fontFamily?: string | null;
+  supportWhatsapp?: string | null;
+  supportEmail?: string | null;
+  termsUrl?: string | null;
+  privacyUrl?: string | null;
   updatedAt?: string;
 }
 
@@ -133,6 +146,14 @@ export const Branding = () => {
       return;
     }
 
+    // Paleta, fonte, suporte e documentos: vazio vai como null (padrão da
+    // plataforma); formato errado para aqui, com a mensagem do campo.
+    const { campos: marcaCompleta, erro: erroDaMarca } = camposDaMarcaCompleta(formData);
+    if (erroDaMarca) {
+      toast.error(erroDaMarca);
+      return;
+    }
+
     console.log('Enviando Branding (isEdit?):', !!formData.updatedAt, formData);
     setSubmitting(true);
     try {
@@ -140,6 +161,7 @@ export const Branding = () => {
       const { updatedAt, ...baseDataToSave } = formData;
       const dataToSave = {
         ...baseDataToSave,
+        ...marcaCompleta,
         primaryColorLight: useSameColors
           ? null
           : baseDataToSave.primaryColorLight || baseDataToSave.primaryColor,
@@ -244,7 +266,7 @@ export const Branding = () => {
 
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
-    target: 'logoUri' | 'logoUriLight' | 'logoUriDark' = 'logoUri'
+    target: 'logoUri' | 'logoUriLight' | 'logoUriDark' | 'symbolUri' = 'logoUri'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -740,6 +762,89 @@ export const Branding = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Suporte e documentos da própria marca. Vazio = o contato e os
+                      textos padrão da plataforma (páginas /<marca>/suporte etc.). */}
+                  <div className="space-y-3 pt-2">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Suporte e documentos
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="supportWhatsapp"
+                          className="text-on-surface-variant text-xs uppercase tracking-widest"
+                        >
+                          WhatsApp de suporte
+                        </Label>
+                        <Input
+                          id="supportWhatsapp"
+                          inputMode="numeric"
+                          placeholder="ex.: 5592999999999"
+                          value={formData.supportWhatsapp ?? ''}
+                          onChange={e =>
+                            setFormData({
+                              ...formData,
+                              supportWhatsapp: e.target.value.replace(/\D/g, ''),
+                            })
+                          }
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm font-mono"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="supportEmail"
+                          className="text-on-surface-variant text-xs uppercase tracking-widest"
+                        >
+                          E-mail de suporte
+                        </Label>
+                        <Input
+                          id="supportEmail"
+                          type="email"
+                          placeholder="suporte@marca.com.br"
+                          value={formData.supportEmail ?? ''}
+                          onChange={e => setFormData({ ...formData, supportEmail: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="termsUrl"
+                          className="text-on-surface-variant text-xs uppercase tracking-widest"
+                        >
+                          Termos de uso (URL)
+                        </Label>
+                        <Input
+                          id="termsUrl"
+                          placeholder="https://"
+                          value={formData.termsUrl ?? ''}
+                          onChange={e => setFormData({ ...formData, termsUrl: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label
+                          htmlFor="privacyUrl"
+                          className="text-on-surface-variant text-xs uppercase tracking-widest"
+                        >
+                          Política de privacidade (URL)
+                        </Label>
+                        <Input
+                          id="privacyUrl"
+                          placeholder="https://"
+                          value={formData.privacyUrl ?? ''}
+                          onChange={e => setFormData({ ...formData, privacyUrl: e.target.value })}
+                          className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-on-surface-variant text-xs leading-relaxed">
+                      WhatsApp só com números, com DDI e DDD. O e-mail também vira o endereço de
+                      resposta dos e-mails da marca. Com os links preenchidos, as páginas de Termos
+                      e Privacidade da marca levam para eles. Em branco, valem o contato e os textos
+                      padrão.
+                    </p>
+                  </div>
                 </TabsContent>
 
                 <TabsContent
@@ -934,6 +1039,73 @@ export const Branding = () => {
                             </div>
                           )}
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Símbolo: só a marca, sem o nome (PNG transparente). Vira o pin
+                      do mapa e o favicon; vazio = o ícone padrão. */}
+                  <div className="space-y-3 pt-2 border-t border-outline-variant/10">
+                    <Label
+                      htmlFor="symbolUri"
+                      className="text-on-surface-variant text-xs uppercase tracking-widest font-bold mt-4 block"
+                    >
+                      Símbolo: pin do mapa e favicon
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="symbolUri"
+                        placeholder="URL do símbolo (PNG transparente) ou faça upload"
+                        value={formData.symbolUri ?? ''}
+                        onChange={e => setFormData({ ...formData, symbolUri: e.target.value })}
+                        className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm flex-1"
+                      />
+                      <div className="relative">
+                        <input
+                          type="file"
+                          id="symbol-upload"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={e => void handleFileUpload(e, 'symbolUri')}
+                          disabled={uploadingLogo}
+                        />
+                        <button
+                          type="button"
+                          className="h-10 px-4 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary/10 hover:text-primary transition-colors flex items-center justify-center"
+                          onClick={() => document.getElementById('symbol-upload')?.click()}
+                          disabled={uploadingLogo}
+                        >
+                          {uploadingLogo ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+                          ) : (
+                            <span className="material-symbols-outlined text-lg">upload</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    {formData.symbolUri && (
+                      <div className="flex items-center gap-4 p-3 bg-surface-container-low rounded-xl border border-outline-variant/10">
+                        {/* Sobre a cor da marca, como no pin do mapa */}
+                        <div
+                          className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: formData.primaryColor || '#00FF88' }}
+                        >
+                          <img
+                            src={formData.symbolUri}
+                            alt="Símbolo"
+                            className="w-7 h-7 object-contain"
+                          />
+                        </div>
+                        <span className="text-sm text-on-surface-variant truncate flex-1">
+                          {formData.symbolUri}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, symbolUri: '' })}
+                          className="w-8 h-8 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
                       </div>
                     )}
                   </div>
@@ -1225,6 +1397,89 @@ export const Branding = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Paleta completa: botão principal, cabeçalho e selos de status.
+                      Em branco, o app segue com a cor primária em tudo, como antes. */}
+                  <div className="space-y-4 pt-2 border-t border-outline-variant/10">
+                    <div className="mt-4">
+                      <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                        Paleta completa (opcional)
+                      </p>
+                      <p className="text-on-surface-variant text-xs leading-relaxed mt-1">
+                        O destaque aparece só como fundo (botão principal, progresso da recarga,
+                        ícone ativo), sempre com o texto sobre o destaque por cima. Sobre o
+                        cabeçalho vai o logo escuro.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6 bg-surface-container-low p-5 rounded-xl border border-outline-variant/10">
+                      <CorOpcional
+                        id="accentColor"
+                        rotulo="Cor de destaque: botão principal"
+                        valor={formData.accentColor ?? ''}
+                        onChange={v => setFormData(prev => ({ ...prev, accentColor: v }))}
+                      />
+                      <CorOpcional
+                        id="accentTextColor"
+                        rotulo="Texto sobre o destaque"
+                        valor={formData.accentTextColor ?? ''}
+                        onChange={v => setFormData(prev => ({ ...prev, accentTextColor: v }))}
+                      />
+                      <CorOpcional
+                        id="headerColor"
+                        rotulo="Cabeçalho"
+                        valor={formData.headerColor ?? ''}
+                        onChange={v => setFormData(prev => ({ ...prev, headerColor: v }))}
+                      />
+                    </div>
+
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold">
+                      Selos de status
+                    </p>
+                    <div className="grid grid-cols-2 gap-6 bg-surface-container-low p-5 rounded-xl border border-outline-variant/10">
+                      {STATUS_DA_MARCA.map(({ chave, rotulo }) => (
+                        <CorOpcional
+                          key={chave}
+                          id={`status-${chave}`}
+                          rotulo={rotulo}
+                          valor={formData.statusColors?.[chave] ?? ''}
+                          onChange={v =>
+                            setFormData(prev => ({
+                              ...prev,
+                              statusColors: { ...prev.statusColors, [chave]: v },
+                            }))
+                          }
+                        />
+                      ))}
+                    </div>
+
+                    <PreviaDaPaleta marca={formData} />
+                  </div>
+
+                  {/* Fonte das páginas HTML da marca (Pix, e-mail, QR, app web) */}
+                  <div className="space-y-3 pt-2 border-t border-outline-variant/10">
+                    <p className="text-on-surface-variant text-xs uppercase tracking-widest font-bold mt-4">
+                      Fonte
+                    </p>
+                    <div className="space-y-1.5 max-w-[320px]">
+                      <Label
+                        htmlFor="fontFamily"
+                        className="text-on-surface-variant text-xs uppercase tracking-widest"
+                      >
+                        Família
+                      </Label>
+                      <Input
+                        id="fontFamily"
+                        placeholder="ex.: Rubik"
+                        value={formData.fontFamily ?? ''}
+                        onChange={e => setFormData({ ...formData, fontFamily: e.target.value })}
+                        className="bg-surface-container-low border-outline-variant/20 text-on-surface h-10 text-sm"
+                      />
+                      <p className="text-on-surface-variant text-xs leading-relaxed">
+                        Nome do Google Fonts, ex.: Rubik. Vale para a página do Pix, os e-mails, o
+                        adesivo do QR e o app web. Em branco, a fonte padrão.
+                      </p>
+                    </div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent
@@ -1998,6 +2253,142 @@ export const Branding = () => {
     </div>
   );
 };
+
+/** Cor opcional da paleta: seletor + hex, com o X que volta ao padrão (vazio). */
+function CorOpcional({
+  id,
+  rotulo,
+  valor,
+  onChange,
+}: {
+  id: string;
+  rotulo: string;
+  valor: string;
+  onChange: (valor: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label
+        htmlFor={id}
+        className="text-on-surface-variant text-xs font-bold uppercase tracking-widest"
+      >
+        {rotulo}
+      </Label>
+      <div className="flex gap-3">
+        <input
+          type="color"
+          aria-label={`${rotulo} (seletor)`}
+          value={COR_HEX.test(valor) ? valor : '#000000'}
+          onChange={e => onChange(e.target.value)}
+          className="w-12 h-10 rounded-lg border border-outline-variant/20 bg-surface-container cursor-pointer shrink-0"
+          style={{ padding: '2px' }}
+        />
+        <Input
+          id={id}
+          placeholder="Padrão"
+          value={valor}
+          onChange={e => onChange(e.target.value)}
+          className="bg-surface-container border-outline-variant/20 text-on-surface font-mono h-10 text-sm uppercase"
+        />
+        {valor && (
+          <button
+            type="button"
+            title="Voltar ao padrão"
+            onClick={() => onChange('')}
+            className="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-error/10 hover:text-error transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Preto ou branco, o que lê melhor sobre a cor. */
+const tintaSobre = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  const luz = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return luz > 0.5 ? '#000000' : '#FFFFFF';
+};
+
+/**
+ * Prévia de como o app usa a paleta: cabeçalho com o logo escuro, título na
+ * cor da marca, botão principal no destaque e o secundário só com contorno.
+ */
+function PreviaDaPaleta({ marca }: { marca: Partial<BrandingConfig> }) {
+  const valida = (cor?: string | null) => (cor && COR_HEX.test(cor) ? cor : null);
+  const claro = marca.theme === 'light';
+  const primaria = valida(marca.primaryColor) || '#00FF88';
+  const cabecalho = valida(marca.headerColor);
+  const destaque = valida(marca.accentColor) || primaria;
+  const sobreDestaque = valida(marca.accentTextColor) || tintaSobre(destaque);
+  const fundoDoCabecalho = cabecalho || (claro ? '#FFFFFF' : '#0E0E0E');
+  // Sobre o cabeçalho colorido vai sempre o logo de fundo escuro.
+  const logo =
+    (cabecalho || !claro ? marca.logoUriDark : marca.logoUriLight) || marca.logoUri || null;
+  const status = STATUS_DA_MARCA.filter(s => valida(marca.statusColors?.[s.chave]));
+
+  return (
+    <div className="space-y-2">
+      <p className="text-on-surface-variant text-[10px] uppercase tracking-widest font-bold">
+        Prévia
+      </p>
+      <div
+        className="w-[260px] rounded-2xl overflow-hidden border border-outline-variant/20"
+        style={{ backgroundColor: claro ? '#F2F2F2' : '#131313' }}
+      >
+        <div
+          data-testid="previa-cabecalho"
+          className="h-12 px-4 flex items-center"
+          style={{ backgroundColor: fundoDoCabecalho }}
+        >
+          {logo ? (
+            <img src={logo} alt="" className="h-6 max-w-[160px] object-contain" />
+          ) : (
+            <span className="font-bold text-sm" style={{ color: tintaSobre(fundoDoCabecalho) }}>
+              {marca.companyName || 'Marca'}
+            </span>
+          )}
+        </div>
+        <div className="p-4 space-y-3">
+          <p className="font-bold text-sm" style={{ color: primaria }}>
+            Estação 01
+          </p>
+          {status.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {status.map(s => {
+                const cor = marca.statusColors?.[s.chave] as string;
+                return (
+                  <span
+                    key={s.chave}
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                    style={{ backgroundColor: cor, color: tintaSobre(cor) }}
+                  >
+                    {s.rotulo}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <div
+            data-testid="previa-botao-principal"
+            className="h-9 rounded-lg flex items-center justify-center text-xs font-bold"
+            style={{ backgroundColor: destaque, color: sobreDestaque }}
+          >
+            Iniciar recarga
+          </div>
+          <div
+            className="h-9 rounded-lg flex items-center justify-center text-xs font-bold border"
+            style={{ borderColor: primaria, color: primaria }}
+          >
+            Criar conta
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function SummaryCard({
   icon,
