@@ -746,7 +746,7 @@ export const FinancialReport = () => {
             ]
           : []),
         temSplit
-          ? `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. Com o split, o crédito que o cliente coloca cai direto na conta do dono, já sem a comissão; a NeoPower repassa só as recargas pagas com saldo de antes do split e as de clientes de outras redes.`
+          ? `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. Com o split, o crédito que o cliente coloca cai direto na conta do dono, já sem a comissão; a NeoPower repassa só as recargas pagas com saldo que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).`
           : `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. As taxas do Mercado Pago saem dos ${pct(comissaoPercent)}% da NeoPower.`,
       ],
     };
@@ -792,6 +792,7 @@ export const FinancialReport = () => {
       aRepassar: 0,
       revenueCruzadas: 0,
       repasseCruzadas: 0,
+      aRepassarCruzadas: 0,
     };
     for (const row of reportData) {
       const v = valoresDaLinha(row);
@@ -805,6 +806,7 @@ export const FinancialReport = () => {
       if (row.recargaCruzada) {
         c.revenueCruzadas += Math.round(v.receita * 100);
         c.repasseCruzadas += Math.round(v.repasse * 100);
+        c.aRepassarCruzadas += Math.round(v.aRepassar * 100);
       }
     }
     return {
@@ -818,6 +820,9 @@ export const FinancialReport = () => {
       liquidoNeoPower: (c.comissao - c.taxaMp) / 100,
       revenueCruzadas: c.revenueCruzadas / 100,
       repasseCruzadas: c.repasseCruzadas / 100,
+      // Cliente do app NeoPower numa rede que recebe o depósito dele direto
+      // (Power Link): essa parte a rede já recebeu.
+      aRepassarCruzadas: c.aRepassarCruzadas / 100,
     };
   })();
   const qtdCruzadas = reportData.filter(r => r.recargaCruzada).length;
@@ -1672,7 +1677,7 @@ export const FinancialReport = () => {
               <>
                 Com o split{splitDesde ? ` (desde ${splitDesde})` : ''}, o crédito que o cliente coloca cai direto
                 na conta Mercado Pago do dono, já sem a comissão: a NeoPower repassa só as recargas pagas com saldo
-                de antes do split e as de clientes de outras redes.
+                que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).
               </>
             ) : (
               <>As taxas do Mercado Pago saem dos {pct(comissaoPercent)}% da NeoPower.</>
@@ -1727,7 +1732,9 @@ export const FinancialReport = () => {
               <>
                 {temSplit ? `${pct(percentCliente)}% do consumido` : `Valor a pagar: ${pct(percentCliente)}% do consumido`}
                 {qtdCruzadas > 0 && (
-                  <span className="block">Inclui R$ {fmt(totals.repasseCruzadas)} de clientes de outras redes (acerto manual)</span>
+                  <span className="block">
+                    Inclui R$ {fmt(totals.repasseCruzadas)} de clientes de outras redes{temSplit ? '' : ' (acerto manual)'}
+                  </span>
                 )}
               </>
             }
@@ -1748,8 +1755,9 @@ export const FinancialReport = () => {
               destaque
               detalhe={
                 <>
-                  Valor a pagar: recargas pagas com saldo de antes do split
-                  {qtdCruzadas > 0 && ` e de clientes de outras redes (R$ ${fmt(totals.repasseCruzadas)})`}
+                  Valor a pagar: recargas pagas com saldo que ficou na conta da NeoPower
+                  {totals.aRepassarCruzadas > 0 &&
+                    `, R$ ${fmt(totals.aRepassarCruzadas)} delas de clientes de outras redes`}
                 </>
               }
             />
