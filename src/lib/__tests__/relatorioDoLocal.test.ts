@@ -7,6 +7,7 @@ import {
   montarRelatorioDoLocal,
   nomeDoArquivoDoLocal,
   fimDaRecarga,
+  conferenciaComProblema,
 } from '../relatorioDoLocal';
 import { crc32, letraDaColuna } from '../xlsx';
 
@@ -229,6 +230,16 @@ describe('montarRelatorioDoLocal', () => {
     expect(rel.notas).toContain(
       'Atenção: 1 recarga sem débito na carteira ou com diferença (coluna Conferência). Confira antes de pagar o repasse.'
     );
+  });
+
+  it('recarga da Spott (histórico importado) não é pendência: vira nota própria', () => {
+    const e = entrada();
+    e.linhas[0] = { ...e.linhas[0], debitoCarteira: null, conferencia: 'Spott' };
+    const rel = montarRelatorioDoLocal(e);
+    expect(rel.notas.some(n => n.startsWith('Atenção'))).toBe(false);
+    expect(rel.notas.some(n => n.startsWith('Spott: 1 recarga do histórico'))).toBe(true);
+    expect(conferenciaComProblema({ conferencia: 'Spott' })).toBe(false);
+    expect(conferenciaComProblema({ conferencia: 'Sem débito' })).toBe(true);
   });
 
   it('sem período escolhido, usa as datas das recargas', () => {
