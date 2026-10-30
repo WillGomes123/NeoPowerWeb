@@ -15,7 +15,12 @@ import { AbaXlsx, CelulaXlsx, EstiloXlsx, gerarXlsx, letraDaColuna } from './xls
 
 // ─── Dados (formato da API) ──────────────────────────────────────────────────
 
-export type ConferenciaDaRecarga = 'OK' | 'Sem débito' | 'Diferença';
+/** 'Spott': recarga do histórico importado da Spott, paga lá; não há débito na carteira daqui. */
+export type ConferenciaDaRecarga = 'OK' | 'Sem débito' | 'Diferença' | 'Spott';
+
+/** Conferência que pede atenção antes do repasse (a da Spott não). */
+export const conferenciaComProblema = (l: { conferencia: ConferenciaDaRecarga }) =>
+  l.conferencia !== 'OK' && l.conferencia !== 'Spott';
 
 export interface LinhaDoLocal {
   numero: number;
@@ -471,10 +476,16 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
       }. Entram no total; o subtotal "Só clientes" mostra o repasse sem elas.`
     );
   }
-  const pendentes = linhas.filter(l => l.conferencia !== 'OK').length;
+  const pendentes = linhas.filter(conferenciaComProblema).length;
   if (pendentes > 0) {
     notas.push(
       `Atenção: ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Conferência). Confira antes de pagar o repasse.`
+    );
+  }
+  const daSpott = linhas.filter(l => l.conferencia === 'Spott').length;
+  if (daSpott > 0) {
+    notas.push(
+      `Spott: ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total e no repasse; não passaram pela carteira daqui.`
     );
   }
   const estornado = linhas.reduce((t, l) => t + (l.valorEstornado ?? 0), 0);
@@ -706,7 +717,7 @@ export function gerarPdfDoLocal(rel: RelatorioDoLocal): jsPDF {
 
   const linhas: LinhaDaTabela[] = rel.linhas.map(l => {
     const cores: Array<Cor | undefined> = [];
-    if (l.conferencia !== 'OK') cores[iConferencia] = VERMELHO;
+    if (conferenciaComProblema(l)) cores[iConferencia] = VERMELHO;
     return {
       celulas: rel.colunas.map(c => c.texto(l)),
       fundo: l.contaInterna ? LARANJA_CLARO : undefined,
@@ -856,7 +867,7 @@ export function gerarXlsxDoLocal(rel: RelatorioDoLocal): Uint8Array<ArrayBuffer>
           fundo,
           alinhar: c.alinhar,
           formato: c.formato,
-          ...(c.chave === 'conferencia' && l.conferencia !== 'OK'
+          ...(c.chave === 'conferencia' && conferenciaComProblema(l)
             ? { cor: 'C00000', negrito: true }
             : {}),
         })

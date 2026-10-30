@@ -16,6 +16,7 @@ import {
   SubtotaisDoLocal,
   TIPO_XLSX,
   baixarArquivo,
+  conferenciaComProblema,
   gerarPdfDoLocal,
   gerarXlsxDoLocal,
   montarRelatorioDoLocal,
@@ -1602,7 +1603,7 @@ export const FinancialReport = () => {
                           <td
                             key={c.chave}
                             className={`py-2 px-3 text-sm whitespace-nowrap ${ALINHAR[c.alinhar]} ${
-                              c.chave === 'conferencia' && l.conferencia !== 'OK'
+                              c.chave === 'conferencia' && conferenciaComProblema(l)
                                 ? 'text-red-600 dark:text-red-400 font-semibold'
                                 : 'text-foreground'
                             }`}
