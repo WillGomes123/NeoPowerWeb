@@ -62,3 +62,35 @@ describe('logo do login por marca', () => {
     ).toBeNull();
   });
 });
+
+describe('texto do cartão de login, que é escuro em qualquer tema', () => {
+  const cartao = (isDark: boolean) => {
+    tenant.atual = { tenantBranding: fulgo, isDark };
+    const { container } = render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>
+    );
+    const rotulo = container.querySelector('label[for="command-id"]')!;
+    const selo = Array.from(container.querySelectorAll('span')).find(
+      e => e.textContent === 'Acesso Seguro'
+    )!;
+    return { rotulo: rotulo.className, selo: selo.className, html: container.innerHTML };
+  };
+
+  it('tema claro: rótulo e selo claros, sem a cor do tema nem a primária escura', () => {
+    const { rotulo, selo } = cartao(false);
+    expect(rotulo).toContain('text-white/70');
+    expect(rotulo).not.toContain('text-on-surface-variant');
+    expect(selo).toContain('text-white/80');
+    expect(selo).not.toContain('text-primary');
+  });
+
+  it('tema escuro: o selo continua na cor da marca', () => {
+    expect(cartao(true).selo).toContain('text-primary');
+  });
+
+  it('nenhuma classe de cor ficou inválida depois da troca', () => {
+    expect(cartao(false).html).not.toContain('text-white/70/');
+  });
+});
