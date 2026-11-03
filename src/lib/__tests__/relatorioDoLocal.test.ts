@@ -2,11 +2,19 @@ import { describe, it, expect } from 'vitest';
 import {
   LinhaDoLocal,
   EntradaDoRelatorioDoLocal,
-  gerarPdfDoLocal,
+  carregadoresDoRelatorio,
   gerarXlsxDoLocal,
+  marcaDaLinha,
   montarRelatorioDoLocal,
+  nomeApresentavel,
   nomeDoArquivoDoLocal,
+  nomeDoCarregador,
+  notasDoValor,
+  relatorioDaApi,
+  somarLinhas,
+  temSplitNoRelatorio,
   fimDaRecarga,
+  conferenciaComProblema,
 } from '../relatorioDoLocal';
 import { crc32, letraDaColuna } from '../xlsx';
 
@@ -231,6 +239,16 @@ describe('montarRelatorioDoLocal', () => {
     );
   });
 
+  it('recarga da Spott (histórico importado) não é pendência: vira nota própria', () => {
+    const e = entrada();
+    e.linhas[0] = { ...e.linhas[0], debitoCarteira: null, conferencia: 'Spott' };
+    const rel = montarRelatorioDoLocal(e);
+    expect(rel.notas.some(n => n.startsWith('Atenção'))).toBe(false);
+    expect(rel.notas.some(n => n.startsWith('Spott: 1 recarga do histórico'))).toBe(true);
+    expect(conferenciaComProblema({ conferencia: 'Spott' })).toBe(false);
+    expect(conferenciaComProblema({ conferencia: 'Sem débito' })).toBe(true);
+  });
+
   it('sem período escolhido, usa as datas das recargas', () => {
     const rel = montarRelatorioDoLocal(entrada({ inicio: null, fim: null }));
     expect(rel.periodo).toEqual({ de: '01/10/2026', ate: '05/10/2026', escolhido: false });
@@ -240,6 +258,155 @@ describe('montarRelatorioDoLocal', () => {
 
   it('fim no mesmo dia não repete a data', () => {
     expect(fimDaRecarga(linha(1))).toBe('10:26');
+  });
+});
+
+describe('nomes no relatório', () => {
+  it('nome todo em maiúsculas fica legível; o resto é respeitado', () => {
+    expect(nomeApresentavel('CONDOMÍNIO MORADA DOS PRÍNCIPES')).toBe('Condomínio Morada dos Príncipes');
+    expect(nomeApresentavel('POSTO BR 01')).toBe('Posto BR 01');
+    expect(nomeApresentavel('ArtVille 01')).toBe('ArtVille 01');
+    expect(nomeApresentavel('  Cantina   do Papai ')).toBe('Cantina do Papai');
+  });
+
+  it('carregador: tira "Carregador" da frente e, sem descrição, usa o ID', () => {
+    expect(nomeDoCarregador('X', 'Carregador DIAMOND 04')).toBe('Diamond 04');
+    expect(nomeDoCarregador('X', 'CARPE DIEM 02')).toBe('Carpe Diem 02');
+    expect(nomeDoCarregador('CTPP352', 'Carregador')).toBe('CTPP352');
+    expect(nomeDoCarregador('CTPP352', null)).toBe('CTPP352');
+  });
+
+  it('o arquivo sai com o nome legível do local', () => {
+    const e = entrada();
+    e.local.nome = 'CONDOMÍNIO DIAMOND';
+    const rel = montarRelatorioDoLocal(e);
+    expect(rel.nomeDoLocal).toBe('Condomínio Diamond');
+    expect(rel.nomeDoArquivo).toBe('Relatorio_Condominio_Diamond_01-10_a_07-10-2026');
+  });
+});
+
+describe('por carregador', () => {
+  const comDois = () => {
+    const e = entrada();
+    e.local.carregadores = [
+      { id: 'B', descricao: 'Carregador DIAMOND 10', modelo: null, potenciaKw: 22 },
+      { id: 'A', descricao: 'DIAMOND 02', modelo: null, potenciaKw: 22 },
+      { id: 'VAZIO', descricao: 'DIAMOND 03', modelo: null, potenciaKw: 22 },
+    ];
+    e.linhas = [
+      linha(1, { carregador: 'B' }),
+      linha(2, { carregador: 'A', receita: 10, comissao: 0.5, repasse: 9.5, recebidoNoSplit: 4, aRepassar: 5.5 }),
+      linha(3, { carregador: 'A', receita: 20.01, comissao: 1, repasse: 19.01 }),
+      linha(4, { carregador: 'SAIU' }),
+    ];
+    return montarRelatorioDoLocal(e);
+  };
+
+  it('ordena pelo número do nome e cada recarga fica em um carregador só', () => {
+    const lista = carregadoresDoRelatorio(comDois());
+    expect(lista.map(c => c.nome)).toEqual(['Diamond 02', 'Diamond 03', 'Diamond 10', 'SAIU']);
+    expect(lista.map(c => c.linhas.length)).toEqual([2, 0, 1, 1]);
+  });
+
+  it('soma as linhas; sem split, a NeoPower repassa tudo', () => {
+    const a = carregadoresDoRelatorio(comDois())[0];
+    expect(somarLinhas(a.linhas)).toMatchObject({
+      quantidade: 2,
+      receita: 30.01,
+      comissao: 1.5,
+      repasse: 28.51,
+      recebidoNoSplit: 4,
+      aRepassar: 24.51,
+    });
+  });
+});
+
+describe('marca da linha (por que o valor não é kWh × tarifa)', () => {
+  const m = (extra: Partial<LinhaDoLocal>) =>
+    marcaDaLinha(linha(1, { energiaKwh: 10, tarifaKwh: 1.5, taxaDeDestrava: 3, ...extra }));
+
+  it('conta exata não tem marca', () => {
+    expect(m({ valorCobrado: 18 })).toBe('');
+    expect(m({ valorCobrado: 18.05 })).toBe('');
+  });
+  it('S: energia sem cobrança; 0 kWh sem cobrança não tem marca', () => {
+    expect(m({ valorCobrado: 0 })).toBe('S');
+    expect(m({ valorCobrado: 0, energiaKwh: 0 })).toBe('');
+  });
+  it('C: continuação, sem a destrava', () => {
+    expect(m({ valorCobrado: 15 })).toBe('C');
+  });
+  it('M: valor redondo acima da conta (mínimo por recarga)', () => {
+    expect(m({ energiaKwh: 0.5, valorCobrado: 30 })).toBe('M');
+  });
+  it('P: preço diferente do mostrado na tarifa', () => {
+    expect(m({ valorCobrado: 25.37 })).toBe('P');
+  });
+  it('sem tarifa (histórico da Spott) não há o que comparar', () => {
+    expect(m({ tarifaKwh: null, valorCobrado: 40 })).toBe('');
+  });
+});
+
+describe('notas do PDF', () => {
+  it('só explica o que aparece nas recargas do arquivo', () => {
+    const rel = montarRelatorioDoLocal(entrada());
+    const simples = notasDoValor(rel, [linha(1, { valorCobrado: 52.53 })], null);
+    expect(simples.join(' ')).not.toMatch(/\*\*(M|P|C|S):\*\*/);
+    expect(simples.join(' ')).not.toContain('Já no split');
+    const comMarcas = notasDoValor(
+      rel,
+      [linha(1, { energiaKwh: 0.5, tarifaKwh: 1.5, valorCobrado: 30 }), linha(2, { valorCobrado: 0 })],
+      null
+    );
+    expect(comMarcas.some(n => n.startsWith('**M:**'))).toBe(true);
+    expect(comMarcas.some(n => n.startsWith('**S:**'))).toBe(true);
+    expect(comMarcas.some(n => n.startsWith('**P:**'))).toBe(false);
+  });
+
+  it('com split ativo, diz de quem é a conta e desde quando', () => {
+    const rel = montarRelatorioDoLocal(entrada({ split: { ativo: true, desde: '2026-10-29T15:06:00Z' } }));
+    expect(temSplitNoRelatorio(rel)).toBe(true);
+    const nota = notasDoValor(rel, rel.linhas, 'Vip Energy').find(n => n.startsWith('**Já no split'));
+    expect(nota).toContain('conta Mercado Pago da Vip Energy (split ativo desde 29/10/2026)');
+  });
+
+  it('contas internas, pendência e Spott continuam avisados', () => {
+    const rel = montarRelatorioDoLocal(entrada());
+    const notas = notasDoValor(
+      rel,
+      [
+        linha(1, { contaInterna: true }),
+        linha(2, { debitoCarteira: null, conferencia: 'Sem débito' }),
+        linha(3, { conferencia: 'Spott' }),
+      ],
+      null
+    );
+    expect(notas.some(n => n.includes('Contas internas NeoPower (linhas em laranja)'))).toBe(true);
+    expect(notas.some(n => n.startsWith('**Atenção:** 1 recarga sem débito'))).toBe(true);
+    expect(notas.some(n => n.startsWith('**Spott:** 1 recarga'))).toBe(true);
+  });
+});
+
+describe('relatorioDaApi', () => {
+  it('sem o local na resposta (API antiga), não há relatório', () => {
+    expect(relatorioDaApi({ items: [] }, null, null)).toBeNull();
+  });
+  it('fica só com as linhas de recarga e guarda o split', () => {
+    const e = entrada();
+    const rel = relatorioDaApi(
+      {
+        items: [...e.linhas, { Estação: 'sem número' }],
+        local: e.local,
+        porTipoDeConta: e.subtotais,
+        comissaoPercent: 5,
+        repasse: { repassePercent: 95, split: { ativo: true, desde: null } },
+      },
+      '2026-10-01',
+      '2026-10-07'
+    );
+    expect(rel?.linhas).toHaveLength(4);
+    expect(rel?.split).toEqual({ ativo: true, desde: null });
+    expect(rel?.periodo.escolhido).toBe(true);
   });
 });
 
@@ -260,14 +427,6 @@ describe('arquivos', () => {
     );
     // Linha interna com fundo laranja.
     expect(texto).toContain('<fgColor rgb="FFFCE4D6"/>');
-  });
-
-  it('PDF: tabela e notas numa página, resumo na outra', () => {
-    const doc = gerarPdfDoLocal(montarRelatorioDoLocal(entrada()));
-    expect(doc.getNumberOfPages()).toBe(2);
-    const pdf = doc.output();
-    expect(pdf).toContain('Cantina do Papai');
-    expect(pdf).toContain('TOTAL');
   });
 
   it('zip: CRC-32 e letras de coluna', () => {

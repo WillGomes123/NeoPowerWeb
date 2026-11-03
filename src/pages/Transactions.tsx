@@ -31,6 +31,8 @@ interface Transaction {
   sequenciaNoLocal?: number | null;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
+  /** 'spott' = histórico importado da plataforma anterior (até 11/10/2026), pago lá. */
+  origem?: string | null;
 }
 
 interface WalletTx {
@@ -425,6 +427,7 @@ export const Transactions = () => {
   };
 
   const statusStyle = (tx: Transaction) => {
+    if (tx.origem === 'spott') return { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', dot: 'bg-blue-500', label: 'Spott' };
     const s = (tx.status || '').toLowerCase();
     if (s === 'refunded') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estornado' };
     if (s === 'partialrefund') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', dot: 'bg-amber-500', label: 'Estorno Parcial' };

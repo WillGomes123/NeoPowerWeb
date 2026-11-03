@@ -37,6 +37,8 @@ interface Tariff {
   profileName?: string | null;
   /** Preço por horário (sub-rotina): faixas no fuso do local. */
   faixas_horarias?: FaixaHoraria[] | null;
+  /** Preço por faixa de energia: por trecho da recarga. */
+  faixas_energia?: FaixaDeEnergia[] | null;
   created_at: string;
   is_current: boolean;
 }
@@ -49,6 +51,18 @@ interface FaixaHoraria {
   /** 0 = domingo … 6 = sábado; ausente = todos os dias. */
   dias?: number[];
   rotulo?: string | null;
+}
+
+/** Faixa de preço por energia da recarga; ateKwh null = última, sem limite. */
+interface FaixaDeEnergia {
+  ateKwh: number | null;
+  preco: number;
+}
+
+/** Faixa de energia em edição, como digitada; a última não tem limite. */
+interface FaixaDeEnergiaEmEdicao {
+  ateKwh: string;
+  preco: string;
 }
 
 /** Faixa em edição: o preço fica em texto, como digitado; dias [] = todos. */
@@ -126,25 +140,41 @@ const CORES: Record<Destaque, { borda: string; texto: string; fundo: string; bri
   perfil: { borda: 'border-secondary/20 hover:border-secondary/50', texto: 'text-secondary', fundo: 'bg-secondary/10', brilho: 'bg-secondary/10' },
 };
 
-/** Mínimo, destrava, saldo para iniciar e faixas de horário, nos selos coloridos (só o que existe). */
+/** Mínimo, destrava, saldo para iniciar e faixas de preço, nos selos coloridos (só o que existe). */
 const SelosDaTarifa = ({
   minimo,
   destrava,
   saldoInicio,
   faixas,
+  faixasEnergia,
 }: {
   minimo?: number | null;
   destrava?: number | null;
   saldoInicio?: number | null;
   faixas?: FaixaHoraria[] | null;
+  faixasEnergia?: FaixaDeEnergia[] | null;
 }) => {
   const temMinimo = minimo != null && Number(minimo) > 0;
   const temDestrava = destrava != null && Number(destrava) > 0;
   const temSaldoInicio = saldoInicio != null && Number(saldoInicio) > 0;
   const comFaixas = faixas ?? [];
-  if (!temMinimo && !temDestrava && !temSaldoInicio && comFaixas.length === 0) return null;
+  const porEnergia = faixasEnergia ?? [];
+  if (!temMinimo && !temDestrava && !temSaldoInicio && comFaixas.length === 0 && porEnergia.length === 0) {
+    return null;
+  }
   return (
     <div className="flex flex-wrap gap-1.5">
+      {porEnergia.map((f, i) => (
+        <span
+          key={f.ateKwh ?? 'acima'}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400"
+          title="Preço por energia: cada trecho da recarga paga o preço da sua faixa"
+        >
+          <span className="material-symbols-outlined text-[13px]">battery_charging_full</span>
+          {f.ateKwh != null ? `até ${f.ateKwh} kWh` : `acima de ${porEnergia[i - 1]?.ateKwh ?? 0} kWh`} ·{' '}
+          {formatarMoeda(Number(f.preco))}
+        </span>
+      ))}
       {comFaixas.map(f => (
         <span
           key={`${f.inicio}-${f.fim}-${(f.dias ?? []).join('')}`}
@@ -189,12 +219,18 @@ interface EdicaoDePreco {
   setEditPrice: (v: string) => void;
   editMinPrice: string;
   setEditMinPrice: (v: string) => void;
+  /** Taxa de destrava em edição (vazio = sem). */
+  editDestrava: string;
+  setEditDestrava: (v: string) => void;
   /** Saldo mínimo para iniciar em edição (vazio = sem). */
   editSaldoInicio: string;
   setEditSaldoInicio: (v: string) => void;
   /** Faixas de preço por horário em edição. */
   faixasEmEdicao: FaixaEmEdicao[];
   setFaixasEmEdicao: (f: FaixaEmEdicao[]) => void;
+  /** Faixas de preço por energia em edição. */
+  faixasDeEnergiaEmEdicao: FaixaDeEnergiaEmEdicao[];
+  setFaixasDeEnergiaEmEdicao: (f: FaixaDeEnergiaEmEdicao[]) => void;
   onCancelar: () => void;
   onSalvar: () => Promise<void>;
   salvando: boolean;
@@ -298,16 +334,112 @@ const EditorDeFaixas = ({
   );
 };
 
-/** Campos de preço, mínimo, saldo para iniciar e faixas de horário, com Salvar e Cancelar. */
+/**
+ * Preço por energia: o kWh muda conforme a recarga avança, por trecho (os
+ * primeiros 10 kWh a R$ 1,29, até 15 kWh a R$ 1,19 e o resto a R$ 0,99). A última
+ * faixa não tem limite. O preço por kWh da tarifa passa a ser o da primeira faixa.
+ */
+const EditorDeFaixasDeEnergia = ({
+  faixasDeEnergiaEmEdicao: faixas,
+  setFaixasDeEnergiaEmEdicao: setFaixas,
+}: Pick<EdicaoDePreco, 'faixasDeEnergiaEmEdicao' | 'setFaixasDeEnergiaEmEdicao'>) => {
+  const mudar = (i: number, parcial: Partial<FaixaDeEnergiaEmEdicao>) =>
+    setFaixas(faixas.map((f, j) => (j === i ? { ...f, ...parcial } : f)));
+  const adicionar = () =>
+    setFaixas(
+      faixas.length === 0
+        ? [
+            { ateKwh: '10', preco: '' },
+            { ateKwh: '', preco: '' },
+          ]
+        : [...faixas.slice(0, -1), { ateKwh: '', preco: '' }, faixas[faixas.length - 1]]
+    );
+  return (
+    <div className="space-y-2 rounded-lg border border-outline-variant/15 bg-surface-container-low/40 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+          <span className="material-symbols-outlined text-[14px] text-violet-400">battery_charging_full</span>
+          Preço por energia
+        </span>
+        <button type="button" onClick={adicionar} className="text-[11px] font-bold text-primary hover:underline">
+          + faixa
+        </button>
+      </div>
+      {faixas.length === 0 ? (
+        <p className="text-[11px] text-on-surface-variant">Sem faixas: o mesmo preço vale para toda a recarga.</p>
+      ) : (
+        faixas.map((f, i) => {
+          const ultima = i === faixas.length - 1;
+          return (
+            <div key={i} className="flex flex-wrap items-center gap-1.5 text-xs text-on-surface-variant">
+              {ultima ? (
+                <span>acima de {faixas[i - 1]?.ateKwh || '…'} kWh</span>
+              ) : (
+                <label className="flex items-center gap-1.5">
+                  até
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    inputMode="decimal"
+                    aria-label="Limite da faixa em kWh"
+                    value={f.ateKwh}
+                    onChange={e => mudar(i, { ateKwh: e.target.value })}
+                    className={`w-16 ${CAMPO_DA_FAIXA}`}
+                  />
+                  kWh
+                </label>
+              )}
+              <label className="flex items-center gap-1.5">
+                a R$
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  aria-label="Preço da faixa por kWh"
+                  value={f.preco}
+                  onChange={e => mudar(i, { preco: e.target.value })}
+                  className={`w-20 ${CAMPO_DA_FAIXA}`}
+                />
+              </label>
+              <button
+                type="button"
+                aria-label="Remover faixa"
+                onClick={() => {
+                  const resto = faixas.filter((_, j) => j !== i);
+                  setFaixas(resto.length < 2 ? [] : resto);
+                }}
+                className="text-on-surface-variant hover:text-error"
+              >
+                <span className="material-symbols-outlined text-[16px]">close</span>
+              </button>
+            </div>
+          );
+        })
+      )}
+      <p className="text-[10px] text-on-surface-variant">
+        Por trecho: quem passa de uma faixa paga o preço dela só no que passou. Com faixas, o preço por kWh da
+        tarifa é o da primeira, e o preço por horário fica desligado.
+      </p>
+    </div>
+  );
+};
+
+/** Campos de preço, mínimo, destrava, saldo para iniciar e faixas de preço, com Salvar e Cancelar. */
 const EditorDePreco = ({
   editPrice,
   setEditPrice,
   editMinPrice,
   setEditMinPrice,
+  editDestrava,
+  setEditDestrava,
   editSaldoInicio,
   setEditSaldoInicio,
   faixasEmEdicao,
   setFaixasEmEdicao,
+  faixasDeEnergiaEmEdicao,
+  setFaixasDeEnergiaEmEdicao,
   onCancelar,
   onSalvar,
   salvando,
@@ -322,8 +454,9 @@ const EditorDePreco = ({
           min="0"
           inputMode="decimal"
           aria-label="Preço por kWh"
-          value={editPrice}
+          value={faixasDeEnergiaEmEdicao[0]?.preco ?? editPrice}
           onChange={e => setEditPrice(e.target.value)}
+          disabled={faixasDeEnergiaEmEdicao.length > 0}
           autoFocus
           className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-base font-bold tabular-nums focus:outline-none focus:border-primary"
         />
@@ -345,6 +478,23 @@ const EditorDePreco = ({
       </label>
       <label
         className="flex items-center gap-1.5"
+        title="Valor fixo cobrado em cada recarga, somado à energia assim que a recarga entrega energia"
+      >
+        <span className="text-xs text-on-surface-variant">destrava</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
+          aria-label="Taxa de destrava"
+          placeholder="opcional"
+          value={editDestrava}
+          onChange={e => setEditDestrava(e.target.value)}
+          className="w-24 bg-surface-container-low border border-outline-variant/30 text-on-surface rounded-md px-2 py-1.5 text-xs tabular-nums focus:outline-none focus:border-primary"
+        />
+      </label>
+      <label
+        className="flex items-center gap-1.5"
         title="Saldo que o cliente precisa ter na carteira para começar; não muda o que é cobrado"
       >
         <span className="text-xs text-on-surface-variant">saldo p/ iniciar</span>
@@ -361,7 +511,15 @@ const EditorDePreco = ({
         />
       </label>
     </div>
-    <EditorDeFaixas faixasEmEdicao={faixasEmEdicao} setFaixasEmEdicao={setFaixasEmEdicao} />
+    {faixasDeEnergiaEmEdicao.length === 0 && (
+      <EditorDeFaixas faixasEmEdicao={faixasEmEdicao} setFaixasEmEdicao={setFaixasEmEdicao} />
+    )}
+    {faixasEmEdicao.length === 0 && (
+      <EditorDeFaixasDeEnergia
+        faixasDeEnergiaEmEdicao={faixasDeEnergiaEmEdicao}
+        setFaixasDeEnergiaEmEdicao={setFaixasDeEnergiaEmEdicao}
+      />
+    )}
     <div className="flex gap-2">
       <button
         onClick={() => void onSalvar()}
@@ -390,6 +548,7 @@ interface CartaoDePrecoProps extends EdicaoDePreco {
   destrava?: number | null;
   saldoInicio?: number | null;
   faixas?: FaixaHoraria[] | null;
+  faixasEnergia?: FaixaDeEnergia[] | null;
   atualizadoEm?: string | null;
   editando: boolean;
   onEditar: () => void;
@@ -411,6 +570,7 @@ const CartaoDePreco = ({
   destrava,
   saldoInicio,
   faixas,
+  faixasEnergia,
   atualizadoEm,
   editando,
   onEditar,
@@ -452,7 +612,13 @@ const CartaoDePreco = ({
               </span>
               <span className="text-sm text-on-surface-variant">/kWh</span>
             </p>
-            <SelosDaTarifa minimo={minimo} destrava={destrava} saldoInicio={saldoInicio} faixas={faixas} />
+            <SelosDaTarifa
+              minimo={minimo}
+              destrava={destrava}
+              saldoInicio={saldoInicio}
+              faixas={faixas}
+              faixasEnergia={faixasEnergia}
+            />
           </>
         )}
       </div>
@@ -591,8 +757,10 @@ export const Tariffs = () => {
   const [mostrarGlobais, setMostrarGlobais] = useState(false);
   const [editPrice, setEditPrice] = useState('');
   const [editMinPrice, setEditMinPrice] = useState('');
+  const [editDestrava, setEditDestrava] = useState('');
   const [editSaldoInicio, setEditSaldoInicio] = useState('');
   const [editFaixas, setEditFaixas] = useState<FaixaEmEdicao[]>([]);
+  const [editFaixasDeEnergia, setEditFaixasDeEnergia] = useState<FaixaDeEnergiaEmEdicao[]>([]);
   const [inlineSubmitting, setInlineSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -821,14 +989,20 @@ export const Tariffs = () => {
     preco: number | null,
     minimo: number | null,
     faixas?: FaixaHoraria[] | null,
-    saldoInicio?: number | null
+    saldoInicio?: number | null,
+    destrava?: number | null,
+    faixasEnergia?: FaixaDeEnergia[] | null
   ) => {
     setEditando({ chave, escopo });
     setEditPrice(preco != null ? String(preco) : '');
     setEditMinPrice(minimo ? String(minimo) : '');
+    setEditDestrava(destrava ? String(destrava) : '');
     setEditSaldoInicio(saldoInicio ? String(saldoInicio) : '');
     setEditFaixas(
       (faixas ?? []).map(f => ({ inicio: f.inicio, fim: f.fim, preco: String(f.preco), dias: f.dias ?? [] }))
+    );
+    setEditFaixasDeEnergia(
+      (faixasEnergia ?? []).map(f => ({ ateKwh: f.ateKwh != null ? String(f.ateKwh) : '', preco: String(f.preco) }))
     );
   };
 
@@ -836,14 +1010,35 @@ export const Tariffs = () => {
     setEditando(null);
     setEditPrice('');
     setEditMinPrice('');
+    setEditDestrava('');
     setEditSaldoInicio('');
     setEditFaixas([]);
+    setEditFaixasDeEnergia([]);
   };
 
   /** Salva a linha em edição no MESMO escopo da tarifa (global, local, perfil, carregador). */
   const handleSaveInline = async () => {
     if (!editando) return;
-    if (!editPrice || parseFloat(editPrice) <= 0) {
+    // Faixas de energia: vão sempre, como estão no editor (lista vazia apaga). O
+    // preço da tarifa é o da primeira, e a última não tem limite.
+    const faixasEnergia: FaixaDeEnergia[] = [];
+    for (const [i, f] of editFaixasDeEnergia.entries()) {
+      const preco = Math.round(parseFloat(f.preco.replace(',', '.')) * 100) / 100;
+      const ultima = i === editFaixasDeEnergia.length - 1;
+      const ateKwh = ultima ? null : parseFloat(f.ateKwh.replace(',', '.'));
+      if (!(preco > 0) || (ateKwh !== null && !(ateKwh > 0))) {
+        toast.error('Preencha o limite de kWh e o preço de cada faixa de energia.');
+        return;
+      }
+      const anterior = faixasEnergia[i - 1]?.ateKwh;
+      if (ateKwh !== null && anterior != null && ateKwh <= anterior) {
+        toast.error('Os limites das faixas de energia precisam ser crescentes.');
+        return;
+      }
+      faixasEnergia.push({ ateKwh, preco });
+    }
+    const precoDaTarifa = faixasEnergia[0]?.preco ?? parseFloat(editPrice);
+    if (!(precoDaTarifa > 0)) {
       toast.error('Informe um preço válido');
       return;
     }
@@ -864,20 +1059,24 @@ export const Tariffs = () => {
       const payload: {
         newPrice: number;
         minPrice: number;
+        connectionFee: number;
         saldoMinimoInicio: number;
         locationAddress?: string;
         locationId?: number;
         profileId?: number;
         chargePointId?: string;
         faixasHorarias: FaixaHoraria[];
+        faixasEnergia: FaixaDeEnergia[];
       } = {
-        newPrice: parseFloat(editPrice),
+        newPrice: precoDaTarifa,
         // O editor já abre com os valores atuais: o que está no campo é o que
         // vale, e campo vazio tira (antes vazio herdava e não dava para tirar
         // o mínimo).
         minPrice: Math.max(0, parseFloat(editMinPrice) || 0),
+        connectionFee: Math.max(0, parseFloat(editDestrava) || 0),
         saldoMinimoInicio: Math.max(0, parseFloat(editSaldoInicio) || 0),
         faixasHorarias,
+        faixasEnergia,
       };
 
       if (escopo.chargePointId) payload.chargePointId = escopo.chargePointId;
@@ -1012,10 +1211,14 @@ export const Tariffs = () => {
     setEditPrice,
     editMinPrice,
     setEditMinPrice,
+    editDestrava,
+    setEditDestrava,
     editSaldoInicio,
     setEditSaldoInicio,
     faixasEmEdicao: editFaixas,
     setFaixasEmEdicao: setEditFaixas,
+    faixasDeEnergiaEmEdicao: editFaixasDeEnergia,
+    setFaixasDeEnergiaEmEdicao: setEditFaixasDeEnergia,
     onCancelar: cancelarEdicao,
     onSalvar: handleSaveInline,
     salvando: inlineSubmitting,
@@ -1390,9 +1593,10 @@ export const Tariffs = () => {
                         destrava={globalTariff.connection_fee}
                         saldoInicio={globalTariff.saldo_minimo_inicio}
                         faixas={globalTariff.faixas_horarias}
+                        faixasEnergia={globalTariff.faixas_energia}
                       />
                       <button
-                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias, globalTariff.saldo_minimo_inicio)}
+                        onClick={() => editar('global', {}, globalTariff.price_per_kwh, globalTariff.min_price ?? null, globalTariff.faixas_horarias, globalTariff.saldo_minimo_inicio, globalTariff.connection_fee, globalTariff.faixas_energia)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-primary/30 text-primary font-bold text-xs hover:bg-primary/10 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">edit</span>
@@ -1446,6 +1650,7 @@ export const Tariffs = () => {
                     destrava={tariff.connection_fee}
                     saldoInicio={tariff.saldo_minimo_inicio}
                     faixas={tariff.faixas_horarias}
+                    faixasEnergia={tariff.faixas_energia}
                     atualizadoEm={tariff.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1455,7 +1660,9 @@ export const Tariffs = () => {
                         tariff.price_per_kwh,
                         tariff.min_price ?? null,
                         tariff.faixas_horarias,
-                        tariff.saldo_minimo_inicio
+                        tariff.saldo_minimo_inicio,
+                        tariff.connection_fee,
+                        tariff.faixas_energia
                       )
                     }
                     {...edicaoComum}
@@ -1494,6 +1701,7 @@ export const Tariffs = () => {
                     destrava={t.connection_fee}
                     saldoInicio={t.saldo_minimo_inicio}
                     faixas={t.faixas_horarias}
+                    faixasEnergia={t.faixas_energia}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1503,7 +1711,9 @@ export const Tariffs = () => {
                         t.price_per_kwh,
                         t.min_price ?? null,
                         t.faixas_horarias,
-                        t.saldo_minimo_inicio
+                        t.saldo_minimo_inicio,
+                        t.connection_fee,
+                        t.faixas_energia
                       )
                     }
                     {...edicaoComum}
@@ -1539,6 +1749,7 @@ export const Tariffs = () => {
                     destrava={t.connection_fee}
                     saldoInicio={t.saldo_minimo_inicio}
                     faixas={t.faixas_horarias}
+                    faixasEnergia={t.faixas_energia}
                     atualizadoEm={t.created_at}
                     editando={editando?.chave === chave}
                     onEditar={() =>
@@ -1548,7 +1759,9 @@ export const Tariffs = () => {
                         t.price_per_kwh,
                         t.min_price ?? null,
                         t.faixas_horarias,
-                        t.saldo_minimo_inicio
+                        t.saldo_minimo_inicio,
+                        t.connection_fee,
+                        t.faixas_energia
                       )
                     }
                     {...edicaoComum}

@@ -16,7 +16,8 @@ import {
   SubtotaisDoLocal,
   TIPO_XLSX,
   baixarArquivo,
-  gerarPdfDoLocal,
+  carregadoresDoRelatorio,
+  conferenciaComProblema,
   gerarXlsxDoLocal,
   montarRelatorioDoLocal,
   reaisOuTraco,
@@ -91,6 +92,12 @@ interface FinancialReportItem extends Partial<LinhaDoLocal> {
   'Taxa Mercado Pago (%)'?: string;
   'Taxa Mercado Pago (R$)'?: string;
   'Líquido NeoPower (R$)'?: string;
+  // Split: parte do repasse que o dono já recebeu direto na conta dele e o
+  // que a NeoPower ainda repassa. A API antiga não manda (tudo a repassar).
+  'Já Recebido no Split (R$)'?: string;
+  'A Repassar (R$)'?: string;
+  recebidoNoSplit?: number;
+  aRepassar?: number;
   Status: string;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
@@ -126,6 +133,14 @@ interface ResumoRepasse {
   recargas: ValoresDoRepasse;
   proprias: ValoresDoRepasse;
   cruzadas: ValoresDoRepasse;
+  /**
+   * Split: com a conta do Mercado Pago conectada, o depósito do cliente cai
+   * direto na conta do dono. A parte das recargas paga com esse dinheiro ele
+   * já recebeu; a NeoPower repassa o resto (`aRepassar`).
+   */
+  split?: { ativo: boolean; desde: string | null };
+  recebidoNoSplit?: ValoresDoRepasse;
+  aRepassar?: number;
   /** Só para quem gerencia a marca. */
   entrada: {
     depositos: number;
@@ -314,7 +329,8 @@ export const FinancialReport = () => {
   const [localDoRelatorio, setLocalDoRelatorio] = useState<LocalDoRelatorio | null>(null);
   const [subtotaisDoLocal, setSubtotaisDoLocal] = useState<SubtotaisDoLocal | null>(null);
   const [criterioContaInterna, setCriterioContaInterna] = useState<string | null>(null);
-  const [exportandoLocal, setExportandoLocal] = useState<'pdf' | 'xlsx' | null>(null);
+  // 'pdf', 'xlsx', 'zip' ou o id do carregador cujo PDF está saindo.
+  const [exportandoLocal, setExportandoLocal] = useState<string | null>(null);
 
   // Locais do seletor: /locations/all já vem no escopo da conta (o super
   // admin vê todos, inclusive os da plataforma; o operador, os da marca).
@@ -556,21 +572,39 @@ export const FinancialReport = () => {
       comissaoPercent,
       repassePercent: resumo?.repassePercent,
       criterioContaInterna,
+      split: resumo?.split ?? null,
       inicio: startDate || null,
       fim: endDate || null,
     });
   }, [localId, localDoRelatorio, subtotaisDoLocal, reportData, comissaoPercent, resumo, criterioContaInterna, startDate, endDate]);
+  const carregadoresDoLocal = React.useMemo(
+    () => (relatorioDoLocal ? carregadoresDoRelatorio(relatorioDoLocal) : []),
+    [relatorioDoLocal]
+  );
 
-  const exportarDoLocal = (formato: 'pdf' | 'xlsx') => {
+  const exportarDoLocal = async (formato: 'pdf' | 'xlsx' | 'zip' | { carregador: string }) => {
     if (!relatorioDoLocal) return;
-    setExportandoLocal(formato);
+    const chave = typeof formato === 'string' ? formato : formato.carregador;
+    setExportandoLocal(chave);
     try {
-      if (formato === 'pdf') {
-        gerarPdfDoLocal(relatorioDoLocal).save(`${relatorioDoLocal.nomeDoArquivo}.pdf`);
-      } else {
+      if (formato === 'xlsx') {
         baixarArquivo(gerarXlsxDoLocal(relatorioDoLocal), `${relatorioDoLocal.nomeDoArquivo}.xlsx`, TIPO_XLSX);
+        toast.success('Relatório do local exportado (Excel)');
+        return;
       }
-      toast.success(`Relatório do local exportado (${formato === 'pdf' ? 'PDF' : 'Excel'})`);
+      // As fontes do PDF só carregam quando alguém pede um.
+      const pdf = await import('../lib/pdfDoLocal');
+      const visual = await pdf.visualDaMarca(relatorioDoLocal.local.marca);
+      if (formato === 'pdf') {
+        pdf.gerarPdfDoLocal(relatorioDoLocal, visual).save(`${relatorioDoLocal.nomeDoArquivo}.pdf`);
+      } else if (formato === 'zip') {
+        baixarArquivo(pdf.gerarZipDosCarregadores(relatorioDoLocal, visual), `${relatorioDoLocal.nomeDoArquivo}_por_carregador.zip`, 'application/zip');
+      } else {
+        const carregador = carregadoresDoLocal.find(c => c.id === formato.carregador);
+        if (!carregador) return;
+        pdf.gerarPdfDoCarregador(relatorioDoLocal, carregador, visual).save(pdf.nomeDoArquivoDoCarregador(relatorioDoLocal, carregador));
+      }
+      toast.success('Relatório do local exportado (PDF)');
     } catch (error) {
       console.error('Erro ao gerar o relatório do local:', error);
       toast.error('Erro ao gerar o relatório do local');
@@ -670,6 +704,12 @@ export const FinancialReport = () => {
         'Receita (R$)': valor(v.receita),
         'Comissão (R$)': valor(v.comissao),
         'Repasse ao dono (R$)': valor(v.repasse),
+        ...(temSplit
+          ? {
+              'Já recebido no split (R$)': valor(v.recebidoNoSplit),
+              'A repassar (R$)': valor(v.aRepassar),
+            }
+          : {}),
         ...(veCustoDaPlataforma
           ? {
               'Taxa MP (R$)': valor(v.taxaMp),
@@ -690,6 +730,12 @@ export const FinancialReport = () => {
       { key: 'Receita (R$)', header: 'Consumido (R$)', format: numerico },
       { key: 'Comissão (R$)', header: `Comissão NeoPower ${pct(comissaoPercent)}% (R$)`, format: numerico },
       { key: 'Repasse ao dono (R$)', header: `Repasse ao dono ${pct(percentCliente)}% (R$)`, format: numerico },
+      ...(temSplit
+        ? [
+            { key: 'Já recebido no split (R$)', header: 'Já recebido pelo dono no split (R$)', format: numerico },
+            { key: 'A repassar (R$)', header: 'A NeoPower repassa (R$)', format: numerico },
+          ]
+        : []),
       ...(veCustoDaPlataforma
         ? [
             { key: 'Taxa MP (R$)', header: 'Custo da plataforma: taxa Mercado Pago absorvida (R$)', format: numerico },
@@ -709,12 +755,19 @@ export const FinancialReport = () => {
       rodape: [
         `Período: ${periodLabel}`,
         `Consumido em recargas: R$ ${fmt(totals.revenue)} | Comissão NeoPower ${pct(comissaoPercent)}%: R$ ${fmt(totals.comissao)} | Repasse ao dono ${pct(percentCliente)}%: R$ ${fmt(totals.repasse)}`,
+        ...(temSplit
+          ? [
+              `Split: já recebido pelo dono direto na conta dele R$ ${fmt(totals.recebidoNoSplit)} | A NeoPower repassa R$ ${fmt(totals.aRepassar)}`,
+            ]
+          : []),
         ...(veCustoDaPlataforma
           ? [
               `Custo da plataforma: taxa Mercado Pago absorvida R$ ${fmt(totals.taxaMp)} (efetiva ${pct(taxaMpPercent)}%, ${textoDaFonteDaTaxa}) | Líquido NeoPower: R$ ${fmt(totals.liquidoNeoPower)}`,
             ]
           : []),
-        `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. As taxas do Mercado Pago saem dos ${pct(comissaoPercent)}% da NeoPower.`,
+        temSplit
+          ? `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. Com o split, o crédito que o cliente coloca cai direto na conta do dono, já sem a comissão; a NeoPower repassa só as recargas pagas com saldo que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).`
+          : `Regra: o repasse ao dono é ${pct(percentCliente)}% do consumido em recargas. As taxas do Mercado Pago saem dos ${pct(comissaoPercent)}% da NeoPower.`,
       ],
     };
 
@@ -741,7 +794,10 @@ export const FinancialReport = () => {
         ? n(row['Comissão NeoPower (R$)'])
         : n(row['Valor Total de Taxas (R$)']);
     const repasse = n(row['Repasse ao Dono (R$)'] ?? row['Valor Pago ao Cliente (R$)']);
-    return { receita, taxaMp, comissao, repasse, liquidoNeoPower: comissao - taxaMp };
+    // Sem os campos do split (API antiga), a NeoPower repassa tudo.
+    const recebidoNoSplit = row.recebidoNoSplit ?? 0;
+    const aRepassar = row.aRepassar ?? repasse;
+    return { receita, taxaMp, comissao, repasse, recebidoNoSplit, aRepassar, liquidoNeoPower: comissao - taxaMp };
   };
 
   // Somas em centavos: as linhas já vêm repartidas ao centavo pela API.
@@ -752,8 +808,11 @@ export const FinancialReport = () => {
       taxaMp: 0,
       comissao: 0,
       repasse: 0,
+      recebidoNoSplit: 0,
+      aRepassar: 0,
       revenueCruzadas: 0,
       repasseCruzadas: 0,
+      aRepassarCruzadas: 0,
     };
     for (const row of reportData) {
       const v = valoresDaLinha(row);
@@ -762,9 +821,12 @@ export const FinancialReport = () => {
       c.taxaMp += Math.round(v.taxaMp * 100);
       c.comissao += Math.round(v.comissao * 100);
       c.repasse += Math.round(v.repasse * 100);
+      c.recebidoNoSplit += Math.round(v.recebidoNoSplit * 100);
+      c.aRepassar += Math.round(v.aRepassar * 100);
       if (row.recargaCruzada) {
         c.revenueCruzadas += Math.round(v.receita * 100);
         c.repasseCruzadas += Math.round(v.repasse * 100);
+        c.aRepassarCruzadas += Math.round(v.aRepassar * 100);
       }
     }
     return {
@@ -773,12 +835,20 @@ export const FinancialReport = () => {
       taxaMp: c.taxaMp / 100,
       comissao: c.comissao / 100,
       repasse: c.repasse / 100,
+      recebidoNoSplit: c.recebidoNoSplit / 100,
+      aRepassar: c.aRepassar / 100,
       liquidoNeoPower: (c.comissao - c.taxaMp) / 100,
       revenueCruzadas: c.revenueCruzadas / 100,
       repasseCruzadas: c.repasseCruzadas / 100,
+      // Cliente do app NeoPower numa rede que recebe o depósito dele direto
+      // (Power Link): essa parte a rede já recebeu.
+      aRepassarCruzadas: c.aRepassarCruzadas / 100,
     };
   })();
   const qtdCruzadas = reportData.filter(r => r.recargaCruzada).length;
+  // Split ligado (ou recargas pagas com dinheiro que já caiu na conta do dono).
+  const temSplit = !!resumo?.split?.ativo || totals.recebidoNoSplit > 0;
+  const splitDesde = resumo?.split?.desde ? new Date(resumo.split.desde).toLocaleDateString('pt-BR') : null;
 
   // Custo da plataforma (taxa do Mercado Pago absorvida e líquido NeoPower):
   // a API só manda para a NeoPower. Sem o resumo (API antiga), só o super
@@ -1525,6 +1595,35 @@ export const FinancialReport = () => {
                 </button>
               </div>
             </div>
+            {carregadoresDoLocal.length > 1 && (
+              <div className="px-6 py-3 border-b border-outline-variant/15 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-on-surface-variant mr-1">PDF por carregador</span>
+                {carregadoresDoLocal.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => exportarDoLocal({ carregador: c.id })}
+                    disabled={exportandoLocal != null || c.linhas.length === 0}
+                    title={c.linhas.length === 0 ? 'Sem recargas no período' : `${c.id}: ${c.linhas.length} recarga${c.linhas.length === 1 ? '' : 's'}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className={`material-symbols-outlined text-base ${exportandoLocal === c.id ? 'animate-spin' : ''}`}>
+                      {exportandoLocal === c.id ? 'refresh' : 'picture_as_pdf'}
+                    </span>
+                    {c.nome}
+                  </button>
+                ))}
+                <button
+                  onClick={() => exportarDoLocal('zip')}
+                  disabled={exportandoLocal != null || rel.linhas.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className={`material-symbols-outlined text-base ${exportandoLocal === 'zip' ? 'animate-spin' : ''}`}>
+                    {exportandoLocal === 'zip' ? 'refresh' : 'folder_zip'}
+                  </span>
+                  Todos (.zip)
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -1552,7 +1651,7 @@ export const FinancialReport = () => {
                           <td
                             key={c.chave}
                             className={`py-2 px-3 text-sm whitespace-nowrap ${ALINHAR[c.alinhar]} ${
-                              c.chave === 'conferencia' && l.conferencia !== 'OK'
+                              c.chave === 'conferencia' && conferenciaComProblema(l)
                                 ? 'text-red-600 dark:text-red-400 font-semibold'
                                 : 'text-foreground'
                             }`}
@@ -1622,8 +1721,16 @@ export const FinancialReport = () => {
           </h2>
           <p className="text-sm text-on-surface-variant mt-1 max-w-3xl">
             O repasse ao dono é <strong>{pct(percentCliente)}% do que foi consumido em recargas</strong>: o
-            saldo parado na carteira é do cliente até ele usar. As taxas do Mercado Pago saem dos{' '}
-            {pct(comissaoPercent)}% da NeoPower.
+            saldo parado na carteira é do cliente até ele usar.{' '}
+            {temSplit ? (
+              <>
+                Com o split{splitDesde ? ` (desde ${splitDesde})` : ''}, o crédito que o cliente coloca cai direto
+                na conta Mercado Pago do dono, já sem a comissão: a NeoPower repassa só as recargas pagas com saldo
+                que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).
+              </>
+            ) : (
+              <>As taxas do Mercado Pago saem dos {pct(comissaoPercent)}% da NeoPower.</>
+            )}
             {(submittedFilter || localId != null) && mostraCaixa && ' Com o filtro de estação ou de local, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
           </p>
         </div>
@@ -1669,16 +1776,41 @@ export const FinancialReport = () => {
             icone="handshake"
             titulo="Repasse ao dono"
             valor={`R$ ${fmt(repasseAoDono)}`}
-            destaque
+            destaque={!temSplit}
             detalhe={
               <>
-                Valor a pagar: {pct(percentCliente)}% do consumido
+                {temSplit ? `${pct(percentCliente)}% do consumido` : `Valor a pagar: ${pct(percentCliente)}% do consumido`}
                 {qtdCruzadas > 0 && (
-                  <span className="block">Inclui R$ {fmt(totals.repasseCruzadas)} de clientes de outras redes (acerto manual)</span>
+                  <span className="block">
+                    Inclui R$ {fmt(totals.repasseCruzadas)} de clientes de outras redes{temSplit ? '' : ' (acerto manual)'}
+                  </span>
                 )}
               </>
             }
           />
+          {temSplit && (
+            <CartaoDoRepasse
+              icone="call_split"
+              titulo="Já recebido no split"
+              valor={`R$ ${fmt(totals.recebidoNoSplit)}`}
+              detalhe="Recargas pagas com crédito que caiu direto na conta Mercado Pago do dono. Não entra no repasse."
+            />
+          )}
+          {temSplit && (
+            <CartaoDoRepasse
+              icone="send_money"
+              titulo="A NeoPower repassa"
+              valor={`R$ ${fmt(totals.aRepassar)}`}
+              destaque
+              detalhe={
+                <>
+                  Valor a pagar: recargas pagas com saldo que ficou na conta da NeoPower
+                  {totals.aRepassarCruzadas > 0 &&
+                    `, R$ ${fmt(totals.aRepassarCruzadas)} delas de clientes de outras redes`}
+                </>
+              }
+            />
+          )}
           {mostraCaixa && (
             <CartaoDoRepasse
               icone="account_balance_wallet"
@@ -2270,6 +2402,9 @@ export const FinancialReport = () => {
               <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
                 <p className="text-xs text-on-surface-variant mb-1">Repasse ao dono ({pct(percentCliente)}%)</p>
                 <p className="text-lg font-bold text-primary">R$ {fmt(totals.repasse)}</p>
+                {temSplit && (
+                  <p className="text-[11px] text-on-surface-variant mt-1">A NeoPower repassa R$ {fmt(totals.aRepassar)}</p>
+                )}
               </div>
               {veCustoDaPlataforma && (
                 <>

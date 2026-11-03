@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 /**
@@ -108,7 +108,25 @@ const RELATORIO = {
   },
 };
 
+// A resposta que o teste quer ver; muda só no teste de dois carregadores.
+let relatorioAtual: unknown = RELATORIO;
+
 const resposta = (corpo: unknown) => ({ ok: true, json: async () => corpo }) as Response;
+
+const pdf = vi.hoisted(() => {
+  const save = vi.fn();
+  const documento = { save };
+  return {
+    save,
+    visualDaMarca: vi.fn(async () => ({ nome: 'Vip Energy', cor: '#2b00ff', logo: null })),
+    gerarPdfDoLocal: vi.fn((..._a: unknown[]) => documento),
+    gerarPdfDoCarregador: vi.fn((..._a: unknown[]) => documento),
+    gerarZipDosCarregadores: vi.fn((..._a: unknown[]) => new Uint8Array([1, 2, 3])),
+    nomeDoArquivoDoCarregador: vi.fn((_r: unknown, c: { nome: string }) => `Relatorio_${c.nome}.pdf`),
+  };
+});
+
+vi.mock('../../lib/pdfDoLocal', () => pdf);
 
 vi.mock('../../lib/api', () => ({
   api: {
@@ -128,7 +146,7 @@ vi.mock('../../lib/api', () => ({
           total: 1,
         });
       }
-      if (endpoint.startsWith('/reports/financial')) return resposta(RELATORIO);
+      if (endpoint.startsWith('/reports/financial')) return resposta(relatorioAtual);
       return resposta([]);
     }),
   },
@@ -161,9 +179,50 @@ describe('Relatório financeiro por local', () => {
     expect(screen.getByText('2 de 2 OK')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /PDF do local/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Excel do local/ })).toBeInTheDocument();
+    // Um carregador só: o PDF do local já é o dele.
+    expect(screen.queryByText('PDF por carregador')).not.toBeInTheDocument();
     // O seletor mostra o local escolhido.
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: 'Local' })).toHaveTextContent('Cantina do Papai')
     );
+  });
+
+  it('com mais de um carregador, oferece um PDF para cada e todos num .zip', async () => {
+    relatorioAtual = {
+      ...RELATORIO,
+      items: [linha(95, { carregador: 'A' }), linha(96, { carregador: 'B' })],
+      local: {
+        ...RELATORIO.local,
+        marca: 'vipenergy',
+        carregadores: [
+          { id: 'A', descricao: 'DIAMOND 01', modelo: null, potenciaKw: 22 },
+          { id: 'B', descricao: 'Carregador DIAMOND 02', modelo: null, potenciaKw: 22 },
+          { id: 'C', descricao: 'DIAMOND 03', modelo: null, potenciaKw: 22 },
+        ],
+      },
+    };
+    render(
+      <MemoryRouter initialEntries={['/financeiro?locationId=21']}>
+        <FinancialReport />
+      </MemoryRouter>
+    );
+
+    const botao = await screen.findByRole('button', { name: /Diamond 02/ });
+    expect(screen.getByText('PDF por carregador')).toBeInTheDocument();
+    // Sem recarga no período não há o que baixar.
+    expect(screen.getByRole('button', { name: /Diamond 03/ })).toBeDisabled();
+
+    fireEvent.click(botao);
+    await waitFor(() => expect(pdf.gerarPdfDoCarregador).toHaveBeenCalled());
+    expect(pdf.visualDaMarca).toHaveBeenCalledWith('vipenergy');
+    const [, carregador] = pdf.gerarPdfDoCarregador.mock.calls[0] as [unknown, { id: string; linhas: unknown[] }];
+    expect(carregador.id).toBe('B');
+    expect(carregador.linhas).toHaveLength(1);
+    await waitFor(() => expect(pdf.save).toHaveBeenCalledWith('Relatorio_Diamond 02.pdf'));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /PDF do local/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /PDF do local/ }));
+    await waitFor(() => expect(pdf.gerarPdfDoLocal).toHaveBeenCalled());
+    relatorioAtual = RELATORIO;
   });
 });
