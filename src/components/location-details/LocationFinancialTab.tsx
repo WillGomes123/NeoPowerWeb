@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
-import { exportToCSV, exportToExcel, exportToPDF } from '@/lib/export';
+import { exportToCSV, exportToExcel } from '@/lib/export';
+import { relatorioDaApi } from '@/lib/relatorioDoLocal';
 
 // Lazy load Recharts
 import {
@@ -47,6 +48,7 @@ export function LocationFinancialTab({ locationId }: Props) {
   const [data, setData] = useState<FinancialData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<Period>('30d');
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -67,7 +69,35 @@ export function LocationFinancialTab({ locationId }: Props) {
     fetchData();
   }, [fetchData]);
 
-  const handleExport = (format: 'csv' | 'excel' | 'pdf') => {
+  // O PDF do local é o mesmo do Relatório Financeiro, com o período desta aba.
+  const exportarPdf = async () => {
+    setGerandoPdf(true);
+    try {
+      const dias = { '7d': 7, '30d': 30, '90d': 90 }[period];
+      const dia = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const hoje = new Date();
+      const inicio = dia(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - dias));
+      const fim = dia(hoje);
+      const resposta = await api.get(
+        `/reports/financial?locationId=${locationId}&startDate=${inicio}&endDate=${fim}`
+      );
+      if (!resposta.ok) throw new Error('Erro ao buscar o relatório do local');
+      const rel = relatorioDaApi(await resposta.json(), inicio, fim);
+      if (!rel) throw new Error('A API não mandou o relatório do local');
+      const pdf = await import('@/lib/pdfDoLocal');
+      const visual = await pdf.visualDaMarca(rel.local.marca);
+      pdf.gerarPdfDoLocal(rel, visual).save(`${rel.nomeDoArquivo}.pdf`);
+      toast.success('Relatório PDF gerado');
+    } catch (error) {
+      console.error('Erro ao gerar o PDF do local:', error);
+      toast.error('Erro ao gerar o PDF do local');
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
+
+  const handleExport = (format: 'csv' | 'excel') => {
     if (!data) return;
 
     const exportData = data.revenueByCharger.map(c => ({
@@ -99,10 +129,6 @@ export function LocationFinancialTab({ locationId }: Props) {
       case 'excel':
         exportToExcel(options);
         toast.success('Relatório Excel exportado');
-        break;
-      case 'pdf':
-        exportToPDF(options);
-        toast.success('Relatório PDF gerado');
         break;
     }
   };
@@ -361,11 +387,12 @@ export function LocationFinancialTab({ locationId }: Props) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleExport('pdf')}
+                onClick={() => void exportarPdf()}
+                disabled={gerandoPdf}
                 className="border-border text-foreground/70"
               >
                 <Download className="w-4 h-4 mr-2" />
-                PDF
+                {gerandoPdf ? 'Gerando...' : 'PDF'}
               </Button>
             </div>
           </div>
