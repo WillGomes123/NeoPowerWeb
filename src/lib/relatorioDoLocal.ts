@@ -9,8 +9,9 @@
  *
  * A taxa do Mercado Pago não entra no arquivo para ninguém: ele vai para o
  * dono do local, e a taxa é custo interno da NeoPower (sai dos 5% dela).
+ *
+ * O PDF é desenhado em pdfDoLocal.ts, a partir do que é montado aqui.
  */
-import { jsPDF } from 'jspdf';
 import { AbaXlsx, CelulaXlsx, EstiloXlsx, gerarXlsx, letraDaColuna } from './xlsx';
 
 // ─── Dados (formato da API) ──────────────────────────────────────────────────
@@ -44,6 +45,13 @@ export interface LinhaDoLocal {
   comissao: number;
   repasse: number;
   situacao: string;
+  /** Valor cobrado menos o estorno: a base do repasse. */
+  receita?: number;
+  /** Parte do repasse que o dono já recebeu pelo split, e o que falta. */
+  recebidoNoSplit?: number;
+  aRepassar?: number;
+  recargaCruzada?: boolean;
+  redeDoCliente?: string | null;
 }
 
 export interface SubtotalDoLocal {
@@ -90,6 +98,7 @@ export interface EntradaDoRelatorioDoLocal {
   comissaoPercent: number;
   repassePercent?: number;
   criterioContaInterna?: string | null;
+  split?: { ativo: boolean; desde: string | null } | null;
   /** Período escolhido na tela, AAAA-MM-DD. */
   inicio?: string | null;
   fim?: string | null;
@@ -373,6 +382,14 @@ export interface RelatorioDoLocal {
   notasDoResumo: string[];
   nomeDoArquivo: string;
   periodo: PeriodoDoRelatorio;
+  local: LocalDoRelatorio;
+  /** O nome do local, sem o caixa alta do cadastro. */
+  nomeDoLocal: string;
+  comissaoPercent: number;
+  repassePercent: number;
+  criterioContaInterna: string | null;
+  split: { ativo: boolean; desde: string | null } | null;
+  geradoEm: Date;
 }
 
 /** Faixas de tarifa na ordem das recargas: "R$ 2,35/kWh de 01/10 a 02/10". */
@@ -526,295 +543,249 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
       `Comissão da NeoPower: ${pct(comissao)}%. Repasse ao local = valor cobrado - comissão.`,
       'Valores por recarga efetivamente feita (não por crédito colocado na carteira).',
     ],
-    nomeDoArquivo: nomeDoArquivoDoLocal(local.nome, periodo.de, periodo.ate),
+    nomeDoArquivo: nomeDoArquivoDoLocal(nomeApresentavel(local.nome), periodo.de, periodo.ate),
     periodo,
+    local,
+    nomeDoLocal: nomeApresentavel(local.nome),
+    comissaoPercent: comissao,
+    repassePercent,
+    criterioContaInterna: e.criterioContaInterna ?? null,
+    split: e.split ?? null,
+    geradoEm,
   };
 }
 
-// ─── PDF ─────────────────────────────────────────────────────────────────────
-
-type Cor = [number, number, number];
-const VERDE_ESCURO: Cor = [31, 78, 61];
-const LARANJA_CLARO: Cor = [252, 228, 214];
-const VERDE_CLARO: Cor = [226, 239, 218];
-const CINZA_LINHA: Cor = [191, 191, 191];
-const TEXTO: Cor = [33, 33, 33];
-const TEXTO_SUAVE: Cor = [90, 90, 90];
-const VERMELHO: Cor = [192, 0, 0];
-
-interface LinhaDaTabela {
-  celulas: string[];
-  fundo?: Cor;
-  negrito?: boolean;
-  /** Cor do texto por coluna. */
-  cores?: Array<Cor | undefined>;
-  /** Mescla as N primeiras colunas (rótulo dos totais). */
-  mesclar?: number;
+/** Monta o relatório a partir da resposta de GET /reports/financial?locationId=. */
+export function relatorioDaApi(
+  data: {
+    items?: unknown[];
+    local?: LocalDoRelatorio | null;
+    porTipoDeConta?: SubtotaisDoLocal | null;
+    comissaoPercent?: number;
+    criterioContaInterna?: string | null;
+    repasse?: { repassePercent?: number; split?: RelatorioDoLocal['split'] } | null;
+  },
+  inicio: string | null,
+  fim: string | null
+): RelatorioDoLocal | null {
+  if (!data?.local || !data.porTipoDeConta) return null;
+  return montarRelatorioDoLocal({
+    local: data.local,
+    linhas: (data.items ?? []).filter(
+      (r): r is LinhaDoLocal => typeof (r as LinhaDoLocal)?.numero === 'number'
+    ),
+    subtotais: data.porTipoDeConta,
+    comissaoPercent: data.comissaoPercent ?? 5,
+    repassePercent: data.repasse?.repassePercent,
+    criterioContaInterna: data.criterioContaInterna,
+    split: data.repasse?.split ?? null,
+    inicio,
+    fim,
+  });
 }
 
-/** Texto que cabe na largura, cortado com "..." quando não cabe. */
-function caber(doc: jsPDF, texto: string, largura: number): string {
-  if (doc.getTextWidth(texto) <= largura) return texto;
-  let t = texto;
-  while (t.length > 1 && doc.getTextWidth(`${t}...`) > largura) t = t.slice(0, -1);
-  return `${t}...`;
+// ─── Por carregador ──────────────────────────────────────────────────────────
+
+const PARTICULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
+
+/**
+ * Nome todo em maiúsculas no cadastro ("CONDOMÍNIO ART VILLE") vira "Condomínio
+ * Art Ville". Sigla curta (BR, SC, II) fica como está, e nome já com minúsculas
+ * é respeitado.
+ */
+export function nomeApresentavel(nome: string): string {
+  const t = nome.trim().replace(/\s+/g, ' ');
+  if (!t || t !== t.toUpperCase() || t === t.toLowerCase()) return t;
+  return t
+    .split(' ')
+    .map((palavra, i) => {
+      const minuscula = palavra.toLowerCase();
+      if (i > 0 && PARTICULAS.has(minuscula)) return minuscula;
+      if (palavra.length <= 2 || minuscula === palavra) return palavra;
+      return minuscula.charAt(0).toUpperCase() + minuscula.slice(1);
+    })
+    .join(' ');
 }
 
-function desenharTabela(
-  doc: jsPDF,
-  o: {
-    x: number;
-    y: number;
-    larguras: number[];
-    alinhamentos: Array<'left' | 'center' | 'right'>;
-    cabecalho: string[];
-    linhas: LinhaDaTabela[];
-    fonte: number;
-    alturaLinha: number;
-    topo: number;
-    limite: number;
+/** "Carregador DIAMOND 04" → "Diamond 04"; sem descrição que sirva, o ID. */
+export function nomeDoCarregador(id: string, descricao: string | null | undefined): string {
+  const sem = (descricao ?? '').trim().replace(/^carregador\b\s*/i, '');
+  return sem ? nomeApresentavel(sem) : id;
+}
+
+export interface CarregadorDoRelatorio {
+  id: string;
+  nome: string;
+  potenciaKw: number | null;
+  linhas: LinhaDoLocal[];
+}
+
+/** Os carregadores do local, por nome (01, 02...), com as recargas de cada um. */
+export function carregadoresDoRelatorio(rel: RelatorioDoLocal): CarregadorDoRelatorio[] {
+  const porId = new Map<string, CarregadorDoRelatorio>(
+    rel.local.carregadores.map(c => [
+      c.id,
+      { id: c.id, nome: nomeDoCarregador(c.id, c.descricao), potenciaKw: c.potenciaKw, linhas: [] },
+    ])
+  );
+  for (const l of rel.linhas) {
+    const id = l.carregador ?? '-';
+    // Carregador que saiu do local depois da recarga continua no relatório.
+    if (!porId.has(id)) porId.set(id, { id, nome: id, potenciaKw: null, linhas: [] });
+    porId.get(id)!.linhas.push(l);
   }
-): number {
-  const mm = o.fonte * 0.3528;
-  const larguraTotal = o.larguras.reduce((s, w) => s + w, 0);
-  const desenharCabecalho = (y: number) => {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(o.fonte);
-    const quebrados = o.cabecalho.map(
-      (t, i) => doc.splitTextToSize(t, o.larguras[i] - 2) as string[]
+  return [...porId.values()].sort((a, b) =>
+    a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true, sensitivity: 'base' })
+  );
+}
+
+export interface TotaisDasLinhas {
+  quantidade: number;
+  energiaKwh: number;
+  valorCobrado: number;
+  valorEstornado: number;
+  receita: number;
+  comissao: number;
+  repasse: number;
+  recebidoNoSplit: number;
+  aRepassar: number;
+}
+
+export function somarLinhas(linhas: LinhaDoLocal[]): TotaisDasLinhas {
+  const soma = (valor: (l: LinhaDoLocal) => number | null | undefined) =>
+    Math.round(linhas.reduce((t, l) => t + (valor(l) ?? 0), 0) * 100) / 100;
+  return {
+    quantidade: linhas.length,
+    energiaKwh: soma(l => l.energiaKwh),
+    valorCobrado: soma(l => l.valorCobrado),
+    valorEstornado: soma(l => l.valorEstornado),
+    receita: soma(l => l.receita),
+    comissao: soma(l => l.comissao),
+    repasse: soma(l => l.repasse),
+    recebidoNoSplit: soma(l => l.recebidoNoSplit),
+    aRepassar: soma(l => l.aRepassar ?? l.repasse),
+  };
+}
+
+export const temSplitNoRelatorio = (rel: RelatorioDoLocal) =>
+  !!rel.split?.ativo || rel.linhas.some(l => (l.recebidoNoSplit ?? 0) > 0);
+
+export type MarcaDaLinha = '' | 'M' | 'P' | 'C' | 'S';
+
+/**
+ * Por que o valor não é kWh × tarifa + destrava. O mínimo mudou com o tempo e
+ * o cadastro só guarda o de hoje, então ele é reconhecido pelo valor redondo
+ * acima da conta.
+ */
+export function marcaDaLinha(l: LinhaDoLocal): MarcaDaLinha {
+  const kwh = l.energiaKwh || 0;
+  const tarifa = l.tarifaKwh || 0;
+  const destrava = l.taxaDeDestrava || 0;
+  const cobrado = l.valorCobrado || 0;
+  if (cobrado <= 0) return kwh >= 0.05 ? 'S' : '';
+  if (!tarifa) return '';
+  const esperado = kwh * tarifa + destrava;
+  if (Math.abs(esperado - cobrado) <= 0.06) return '';
+  if (cobrado < esperado && Math.abs(esperado - destrava - cobrado) <= 0.06) return 'C';
+  if (cobrado > esperado && Number.isInteger(cobrado)) return 'M';
+  return 'P';
+}
+
+/** Notas do PDF, só com o que aparece nestas recargas. "# " abre um título; **negrito**. */
+export function notasDoValor(
+  rel: RelatorioDoLocal,
+  linhas: LinhaDoLocal[],
+  nomeDaMarca: string | null
+): string[] {
+  const com = pct(rel.comissaoPercent);
+  const rep = pct(rel.repassePercent);
+  const notas = [
+    '# Como ler',
+    '**Cobrado:** valor debitado do cliente. **Estorno:** o que foi devolvido a ele. **Consumido:** cobrado menos estorno; é a base do repasse.',
+    `**Comissão:** ${com}% do consumido, arredondada recarga a recarga. **Repasse:** o restante (${rep}%). As taxas do Mercado Pago saem da comissão da NeoPower.`,
+  ];
+  if (temSplitNoRelatorio(rel)) {
+    const desde = rel.split?.desde ? new Date(rel.split.desde).toLocaleDateString('pt-BR') : null;
+    notas.push(
+      `**Já no split:** parte do repasse paga com crédito que caiu direto na conta Mercado Pago ${
+        nomeDaMarca ? `da ${nomeDaMarca}` : 'do dono'
+      }${desde ? ` (split ativo desde ${desde})` : ''}. **Via NeoPower:** o restante do repasse.`
     );
-    const linhasMax = Math.max(...quebrados.map(q => q.length));
-    const h = Math.max(o.alturaLinha, linhasMax * mm * 1.25 + 2.4);
-    doc.setFillColor(...VERDE_ESCURO);
-    doc.setDrawColor(...CINZA_LINHA);
-    doc.setLineWidth(0.1);
-    doc.rect(o.x, y, larguraTotal, h, 'FD');
-    doc.setTextColor(255, 255, 255);
-    let x = o.x;
-    quebrados.forEach((q, i) => {
-      const w = o.larguras[i];
-      const altura = q.length * mm * 1.25;
-      let ty = y + (h - altura) / 2 + mm * 0.95;
-      for (const parte of q) {
-        doc.text(parte, x + w / 2, ty, { align: 'center' });
-        ty += mm * 1.25;
-      }
-      x += w;
-    });
-    return y + h;
-  };
-
-  let y = desenharCabecalho(o.y);
-  for (const linha of o.linhas) {
-    if (y + o.alturaLinha > o.limite) {
-      doc.addPage();
-      y = desenharCabecalho(o.topo);
-    }
-    doc.setFont('helvetica', linha.negrito ? 'bold' : 'normal');
-    doc.setFontSize(o.fonte);
-    doc.setDrawColor(...CINZA_LINHA);
-    doc.setLineWidth(0.1);
-    const base = y + o.alturaLinha / 2 + mm * 0.35;
-    let x = o.x;
-    let i = 0;
-    while (i < o.larguras.length) {
-      const mescla = i === 0 && linha.mesclar ? linha.mesclar : 1;
-      const w = o.larguras.slice(i, i + mescla).reduce((s, v) => s + v, 0);
-      // A cor do texto é a mesma "cor de preenchimento" do PDF: o fundo é
-      // refeito a cada célula, senão a célula seguinte sai pintada da cor do
-      // texto anterior.
-      if (linha.fundo) doc.setFillColor(...linha.fundo);
-      doc.rect(x, y, w, o.alturaLinha, linha.fundo ? 'FD' : 'S');
-      const texto = linha.celulas[i] ?? '';
-      if (texto) {
-        doc.setTextColor(...(linha.cores?.[i] ?? TEXTO));
-        const alinhar = mescla > 1 ? 'left' : o.alinhamentos[i];
-        const t = caber(doc, texto, w - 2);
-        const tx = alinhar === 'left' ? x + 1 : alinhar === 'right' ? x + w - 1 : x + w / 2;
-        doc.text(t, tx, base, { align: alinhar });
-      }
-      x += w;
-      i += mescla;
-    }
-    y += o.alturaLinha;
   }
-  return y;
-}
+  notas.push(
+    '**Este relatório não desconta repasses já pagos:** ele lista o que cada recarga gerou. O acerto é feito por mês.',
+    `**Horários** de ${rel.local.fusoRotulo}${
+      rel.local.fusoOrigem === 'padrao' ? ' (o local não tem estado cadastrado)' : ''
+    }. Recargas ainda em andamento não entram. Clientes identificados só pelo primeiro nome e inicial do sobrenome (LGPD).`
+  );
 
-function escreverNotas(
-  doc: jsPDF,
-  titulo: string,
-  notas: string[],
-  y: number,
-  margem: number,
-  largura: number,
-  limite: number
-): number {
-  const mm = 7.5 * 0.3528;
-  if (y + 12 > limite) {
-    doc.addPage();
-    y = margem + 4;
+  const marcas = new Set(linhas.map(marcaDaLinha));
+  const destravas = [...new Set(linhas.map(l => l.taxaDeDestrava ?? 0).filter(v => v > 0))];
+  const tarifas = faixasDeTarifa(linhas);
+  notas.push('# Tarifa e valor cobrado');
+  if (tarifas) notas.push(`**${tarifas.replace(': ', ':** ')}`);
+  if (destravas.length) {
+    notas.push(
+      `**Taxa de destrava:** ${destravas.map(v => `R$ ${numero(v)}`).join(' / ')} por recarga com consumo, já somada ao valor cobrado.`
+    );
   }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...TEXTO);
-  doc.text(titulo, margem, y);
-  y += 4.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(...TEXTO_SUAVE);
-  for (const nota of notas) {
-    const partes = doc.splitTextToSize(`• ${nota}`, largura) as string[];
-    if (y + partes.length * mm * 1.3 > limite) {
-      doc.addPage();
-      y = margem + 4;
-    }
-    for (const p of partes) {
-      doc.text(p, margem, y);
-      y += mm * 1.3;
-    }
-    y += 0.8;
+  if (marcas.has('M')) {
+    notas.push(
+      '**M:** valor mínimo por recarga vigente na época. Se depois houve devolução da diferença, ela aparece em Estorno.'
+    );
   }
-  return y;
-}
-
-export function gerarPdfDoLocal(rel: RelatorioDoLocal): jsPDF {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const largura = doc.internal.pageSize.getWidth();
-  const altura = doc.internal.pageSize.getHeight();
-  const margem = 10;
-  const util = largura - 2 * margem;
-  const limite = altura - margem - 6; // espaço do rodapé
-
-  let y = margem + 4;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(...TEXTO);
-  doc.text(rel.titulo, margem, y);
-  y += 5.5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...TEXTO_SUAVE);
-  for (const linha of [...rel.cabecalho, ...rel.explicacoes]) {
-    for (const parte of doc.splitTextToSize(linha, util) as string[]) {
-      doc.text(parte, margem, y);
-      y += 4;
-    }
+  if (marcas.has('P')) {
+    notas.push(
+      '**P:** preço do kWh diferente do mostrado na tarifa (faixa de horário do local, ou tarifa alterada depois da recarga).'
+    );
   }
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...TEXTO);
-  doc.text('Comissão:', margem, y);
-  doc.setFont('helvetica', 'normal');
-  doc.text(rel.regraDoRepasse, margem + 16, y);
-  y += 4;
-
-  // Larguras ajustadas à página.
-  const soma = rel.colunas.reduce((s, c) => s + c.larguraPdf, 0);
-  const larguras = rel.colunas.map(c => (c.larguraPdf * util) / soma);
-  const indice = (chave: string) => rel.colunas.findIndex(c => c.chave === chave);
-  const iConferencia = indice('conferencia');
-  const mesclarTotais = indice('energia');
-
-  const linhas: LinhaDaTabela[] = rel.linhas.map(l => {
-    const cores: Array<Cor | undefined> = [];
-    if (conferenciaComProblema(l)) cores[iConferencia] = VERMELHO;
-    return {
-      celulas: rel.colunas.map(c => c.texto(l)),
-      fundo: l.contaInterna ? LARANJA_CLARO : undefined,
-      cores,
-    };
-  });
-  for (const st of rel.subtotais) {
-    const celulas = rel.colunas.map(() => '');
-    celulas[0] = st.rotulo;
-    const por = (chave: string, texto: string) => {
-      const i = indice(chave);
-      if (i >= 0) celulas[i] = texto;
-    };
-    por('energia', numero(st.valores.energiaKwh));
-    por('cobrado', reaisOuTraco(st.valores.valorCobrado));
-    por('debito', reaisOuTraco(st.valores.debitoCarteira));
-    por('conferencia', st.conferencia);
-    por('comissao', reaisOuTraco(st.valores.comissao));
-    por('repasse', reaisOuTraco(st.valores.repasse));
-    linhas.push({ celulas, fundo: VERDE_CLARO, negrito: true, mesclar: mesclarTotais });
+  if (marcas.has('C')) {
+    notas.push('**C:** continuação de uma recarga anterior, sem nova taxa de destrava.');
+  }
+  if (marcas.has('S')) {
+    notas.push(
+      '**S:** energia registrada sem valor cobrado nesta plataforma (por exemplo, valor devolvido ao visitante). Não gera comissão nem repasse.'
+    );
   }
 
-  y = desenharTabela(doc, {
-    x: margem,
-    y: y + 1,
-    larguras,
-    alinhamentos: rel.colunas.map(c => c.alinhar),
-    cabecalho: rel.colunas.map(c => c.titulo),
-    linhas,
-    fonte: 6.8,
-    alturaLinha: 4.4,
-    topo: margem + 4,
-    limite,
-  });
-
-  escreverNotas(doc, 'Notas', rel.notas, y + 6, margem, util, limite);
-
-  // Resumo (página própria, como no modelo).
-  doc.addPage();
-  y = margem + 6;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...TEXTO);
-  doc.text(rel.tituloDoResumo, margem, y);
-  const larguraResumo = [70, 25, 30, 35, 40, 40];
-  y = desenharTabela(doc, {
-    x: margem,
-    y: y + 5,
-    larguras: larguraResumo,
-    alinhamentos: ['left', 'right', 'right', 'right', 'right', 'right'],
-    cabecalho: [
-      '',
-      'Recargas',
-      'Energia (kWh)',
-      'Valor cobrado (R$)',
-      'Comissão NeoPower (R$)',
-      'Repasse ao local (R$)',
-    ],
-    linhas: rel.subtotais.map((st, i) => ({
-      celulas: [
-        i === 0 ? 'Todas as recargas' : st.rotulo,
-        String(st.valores.quantidade),
-        numero(st.valores.energiaKwh),
-        reaisOuTraco(st.valores.valorCobrado),
-        reaisOuTraco(st.valores.comissao),
-        reaisOuTraco(st.valores.repasse),
-      ],
-      negrito: i === 0,
-      fundo: i === 0 ? VERDE_CLARO : undefined,
-    })),
-    fonte: 9,
-    alturaLinha: 6.5,
-    topo: margem + 4,
-    limite,
-  });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(...TEXTO_SUAVE);
-  y += 7;
-  for (const nota of rel.notasDoResumo) {
-    doc.text(nota, margem, y);
-    y += 4.5;
+  const cruzadas = linhas.filter(l => l.recargaCruzada);
+  if (cruzadas.length) {
+    const redes = [...new Set(cruzadas.map(l => l.redeDoCliente).filter(Boolean))].join(', ');
+    notas.push(
+      `**Clientes de outra rede:** ${cruzadas.length} ${cruzadas.length === 1 ? 'recarga' : 'das ' + linhas.length + ' recargas'} de quem usa outro app${
+        redes ? ` (${redes})` : ''
+      } neste local; ${cruzadas.length === 1 ? 'entra' : 'entram'} no repasse da mesma forma.`
+    );
   }
-
-  // Rodapé com a paginação.
-  const paginas = doc.getNumberOfPages();
-  for (let p = 1; p <= paginas; p++) {
-    doc.setPage(p);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(...TEXTO_SUAVE);
-    doc.text(rel.titulo, margem, altura - margem + 2);
-    doc.text(`Página ${p} de ${paginas}`, largura - margem, altura - margem + 2, {
-      align: 'right',
-    });
+  if (linhas.some(l => l.contaInterna)) {
+    notas.push(
+      `**Contas internas NeoPower (linhas em laranja):** recargas da equipe, pagas com saldo da carteira${
+        rel.criterioContaInterna ? ` (critério: ${rel.criterioContaInterna})` : ''
+      }. Entram no total; a tabela Por mês mostra o repasse sem elas.`
+    );
   }
-  return doc;
+  const pendentes = linhas.filter(conferenciaComProblema).length;
+  if (pendentes) {
+    notas.push(
+      `**Atenção:** ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Situação). Confira antes de pagar o repasse.`
+    );
+  }
+  const daSpott = linhas.filter(l => l.conferencia === 'Spott').length;
+  if (daSpott) {
+    notas.push(
+      `**Spott:** ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total e no repasse; não passaram pela carteira daqui.`
+    );
+  }
+  const semEnergia = linhas.filter(l => l.situacao === 'Sem energia').length;
+  if (semEnergia) {
+    notas.push(
+      `**Sem energia:** ${semEnergia} recarga${semEnergia === 1 ? '' : 's'} sem energia entregue, sem cobrança.`
+    );
+  }
+  if (linhas.some(l => l.cliente === 'Visitante')) {
+    notas.push('**Visitante:** recarga paga por Pix no QR do carregador, sem cadastro no app.');
+  }
+  return notas;
 }
 
 // ─── Excel ───────────────────────────────────────────────────────────────────

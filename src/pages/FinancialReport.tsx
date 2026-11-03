@@ -16,8 +16,8 @@ import {
   SubtotaisDoLocal,
   TIPO_XLSX,
   baixarArquivo,
+  carregadoresDoRelatorio,
   conferenciaComProblema,
-  gerarPdfDoLocal,
   gerarXlsxDoLocal,
   montarRelatorioDoLocal,
   reaisOuTraco,
@@ -329,7 +329,8 @@ export const FinancialReport = () => {
   const [localDoRelatorio, setLocalDoRelatorio] = useState<LocalDoRelatorio | null>(null);
   const [subtotaisDoLocal, setSubtotaisDoLocal] = useState<SubtotaisDoLocal | null>(null);
   const [criterioContaInterna, setCriterioContaInterna] = useState<string | null>(null);
-  const [exportandoLocal, setExportandoLocal] = useState<'pdf' | 'xlsx' | null>(null);
+  // 'pdf', 'xlsx', 'zip' ou o id do carregador cujo PDF está saindo.
+  const [exportandoLocal, setExportandoLocal] = useState<string | null>(null);
 
   // Locais do seletor: /locations/all já vem no escopo da conta (o super
   // admin vê todos, inclusive os da plataforma; o operador, os da marca).
@@ -571,21 +572,39 @@ export const FinancialReport = () => {
       comissaoPercent,
       repassePercent: resumo?.repassePercent,
       criterioContaInterna,
+      split: resumo?.split ?? null,
       inicio: startDate || null,
       fim: endDate || null,
     });
   }, [localId, localDoRelatorio, subtotaisDoLocal, reportData, comissaoPercent, resumo, criterioContaInterna, startDate, endDate]);
+  const carregadoresDoLocal = React.useMemo(
+    () => (relatorioDoLocal ? carregadoresDoRelatorio(relatorioDoLocal) : []),
+    [relatorioDoLocal]
+  );
 
-  const exportarDoLocal = (formato: 'pdf' | 'xlsx') => {
+  const exportarDoLocal = async (formato: 'pdf' | 'xlsx' | 'zip' | { carregador: string }) => {
     if (!relatorioDoLocal) return;
-    setExportandoLocal(formato);
+    const chave = typeof formato === 'string' ? formato : formato.carregador;
+    setExportandoLocal(chave);
     try {
-      if (formato === 'pdf') {
-        gerarPdfDoLocal(relatorioDoLocal).save(`${relatorioDoLocal.nomeDoArquivo}.pdf`);
-      } else {
+      if (formato === 'xlsx') {
         baixarArquivo(gerarXlsxDoLocal(relatorioDoLocal), `${relatorioDoLocal.nomeDoArquivo}.xlsx`, TIPO_XLSX);
+        toast.success('Relatório do local exportado (Excel)');
+        return;
       }
-      toast.success(`Relatório do local exportado (${formato === 'pdf' ? 'PDF' : 'Excel'})`);
+      // As fontes do PDF só carregam quando alguém pede um.
+      const pdf = await import('../lib/pdfDoLocal');
+      const visual = await pdf.visualDaMarca(relatorioDoLocal.local.marca);
+      if (formato === 'pdf') {
+        pdf.gerarPdfDoLocal(relatorioDoLocal, visual).save(`${relatorioDoLocal.nomeDoArquivo}.pdf`);
+      } else if (formato === 'zip') {
+        baixarArquivo(pdf.gerarZipDosCarregadores(relatorioDoLocal, visual), `${relatorioDoLocal.nomeDoArquivo}_por_carregador.zip`, 'application/zip');
+      } else {
+        const carregador = carregadoresDoLocal.find(c => c.id === formato.carregador);
+        if (!carregador) return;
+        pdf.gerarPdfDoCarregador(relatorioDoLocal, carregador, visual).save(pdf.nomeDoArquivoDoCarregador(relatorioDoLocal, carregador));
+      }
+      toast.success('Relatório do local exportado (PDF)');
     } catch (error) {
       console.error('Erro ao gerar o relatório do local:', error);
       toast.error('Erro ao gerar o relatório do local');
@@ -1576,6 +1595,35 @@ export const FinancialReport = () => {
                 </button>
               </div>
             </div>
+            {carregadoresDoLocal.length > 1 && (
+              <div className="px-6 py-3 border-b border-outline-variant/15 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-on-surface-variant mr-1">PDF por carregador</span>
+                {carregadoresDoLocal.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => exportarDoLocal({ carregador: c.id })}
+                    disabled={exportandoLocal != null || c.linhas.length === 0}
+                    title={c.linhas.length === 0 ? 'Sem recargas no período' : `${c.id}: ${c.linhas.length} recarga${c.linhas.length === 1 ? '' : 's'}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className={`material-symbols-outlined text-base ${exportandoLocal === c.id ? 'animate-spin' : ''}`}>
+                      {exportandoLocal === c.id ? 'refresh' : 'picture_as_pdf'}
+                    </span>
+                    {c.nome}
+                  </button>
+                ))}
+                <button
+                  onClick={() => exportarDoLocal('zip')}
+                  disabled={exportandoLocal != null || rel.linhas.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className={`material-symbols-outlined text-base ${exportandoLocal === 'zip' ? 'animate-spin' : ''}`}>
+                    {exportandoLocal === 'zip' ? 'refresh' : 'folder_zip'}
+                  </span>
+                  Todos (.zip)
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
