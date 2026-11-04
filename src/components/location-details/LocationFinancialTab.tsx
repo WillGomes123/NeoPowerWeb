@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import { exportToCSV, exportToExcel } from '@/lib/export';
 import { relatorioDaApi } from '@/lib/relatorioDoLocal';
+import { CustoDeEnergiaDoLocal } from './CustoDeEnergiaDoLocal';
 
 // Lazy load Recharts
 import {
@@ -44,6 +45,19 @@ interface Props {
 
 type Period = '7d' | '30d' | '90d';
 
+const diaIso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Início e fim do período da aba, os mesmos do PDF do local. */
+function datasDoPeriodo(period: Period): { inicio: string; fim: string } {
+  const dias = { '7d': 7, '30d': 30, '90d': 90 }[period];
+  const hoje = new Date();
+  return {
+    inicio: diaIso(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - dias)),
+    fim: diaIso(hoje),
+  };
+}
+
 export function LocationFinancialTab({ locationId }: Props) {
   const [data, setData] = useState<FinancialData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,12 +87,7 @@ export function LocationFinancialTab({ locationId }: Props) {
   const exportarPdf = async () => {
     setGerandoPdf(true);
     try {
-      const dias = { '7d': 7, '30d': 30, '90d': 90 }[period];
-      const dia = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const hoje = new Date();
-      const inicio = dia(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - dias));
-      const fim = dia(hoje);
+      const { inicio, fim } = datasDoPeriodo(period);
       const resposta = await api.get(
         `/reports/financial?locationId=${locationId}&startDate=${inicio}&endDate=${fim}`
       );
@@ -398,6 +407,8 @@ export function LocationFinancialTab({ locationId }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <CustoDeEnergiaDoLocal locationId={locationId} {...datasDoPeriodo(period)} />
     </div>
   );
 }
