@@ -9,6 +9,7 @@ import { exportToCSV, exportToExcel } from '../lib/export';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { ReportTemplate } from '../components/ReportTemplate';
+import { ResumoDoCustoDeEnergia } from '../components/ResumoDoCustoDeEnergia';
 import { SeletorDeLocal, LocalParaSelecao } from '../components/SeletorDeLocal';
 import {
   LinhaDoLocal,
@@ -1976,6 +1977,17 @@ export const FinancialReport = () => {
             Já incluídas no consumido e no repasse acima: comissão de {pct(comissaoPercent)}% e repasse de {pct(percentCliente)}%, como as demais. O acerto entre redes é manual.
           </p>
         </div>
+      )}
+
+      {/* Conta de luz do operador. Com filtro de estação, o repasse acima é só de uma. */}
+      {!overviewMode && !submittedFilter && (
+        <ResumoDoCustoDeEnergia
+          inicio={startDate}
+          fim={endDate}
+          locationId={localId}
+          clientId={drillDownClientId}
+          repasse={resumo?.recargas?.repasse ?? null}
+        />
       )}
 
       {/* Non-admin: Info + resumo */}
