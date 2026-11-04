@@ -310,6 +310,9 @@ export const FinancialReport = () => {
   // Repasse por recarga como a API calculou (caixa, saldo e, para a
   // plataforma, a taxa do Mercado Pago absorvida).
   const [resumo, setResumo] = useState<ResumoRepasse | null>(null);
+  // Operadores de Manaus: a API tira comissão e repasse da resposta
+  // (utils/comissaoOculta.ts na API) e a tela mostra só o consumido.
+  const [comissaoOculta, setComissaoOculta] = useState(false);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionItem[]>([]);
   const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -416,6 +419,7 @@ export const FinancialReport = () => {
       const items = Array.isArray(data) ? data : (Array.isArray(data?.items) ? data.items : []);
       setRecargasCruzadas(data?.recargasCruzadas || null);
       if (typeof data?.comissaoPercent === 'number') setComissaoPercent(data.comissaoPercent);
+      setComissaoOculta(data?.comissaoOculta === true);
       // Só a regra atual (95% ao dono). A 'por-recarga' (taxa dividida, API
       // #95) cai no caminho das linhas, como a API antiga.
       setResumo(data?.repasse?.regra === 'repasse-95' ? data.repasse : null);
@@ -574,10 +578,11 @@ export const FinancialReport = () => {
       repassePercent: resumo?.repassePercent,
       criterioContaInterna,
       split: resumo?.split ?? null,
+      comissaoOculta,
       inicio: startDate || null,
       fim: endDate || null,
     });
-  }, [localId, localDoRelatorio, subtotaisDoLocal, reportData, comissaoPercent, resumo, criterioContaInterna, startDate, endDate]);
+  }, [comissaoOculta, localId, localDoRelatorio, subtotaisDoLocal, reportData, comissaoPercent, resumo, criterioContaInterna, startDate, endDate]);
   const carregadoresDoLocal = React.useMemo(
     () => (relatorioDoLocal ? carregadoresDoRelatorio(relatorioDoLocal) : []),
     [relatorioDoLocal]
@@ -703,9 +708,13 @@ export const FinancialReport = () => {
         'Fim': row['Fim'],
         'Recarga (kWh)': valor(parseFloat(row['Recarga (kWh)']) || 0),
         'Receita (R$)': valor(v.receita),
-        'Comissão (R$)': valor(v.comissao),
-        'Repasse ao dono (R$)': valor(v.repasse),
-        ...(temSplit
+        ...(comissaoOculta
+          ? {}
+          : {
+              'Comissão (R$)': valor(v.comissao),
+              'Repasse ao dono (R$)': valor(v.repasse),
+            }),
+        ...(temSplit && !comissaoOculta
           ? {
               'Já recebido no split (R$)': valor(v.recebidoNoSplit),
               'A repassar (R$)': valor(v.aRepassar),
@@ -729,9 +738,13 @@ export const FinancialReport = () => {
       { key: 'Fim', header: 'Fim' },
       { key: 'Recarga (kWh)', header: 'Recarga (kWh)', format: emTexto ? undefined : ('number' as const) },
       { key: 'Receita (R$)', header: 'Consumido (R$)', format: numerico },
-      { key: 'Comissão (R$)', header: `Comissão NeoPower ${pct(comissaoPercent)}% (R$)`, format: numerico },
-      { key: 'Repasse ao dono (R$)', header: `Repasse ao dono ${pct(percentCliente)}% (R$)`, format: numerico },
-      ...(temSplit
+      ...(comissaoOculta
+        ? []
+        : [
+            { key: 'Comissão (R$)', header: `Comissão NeoPower ${pct(comissaoPercent)}% (R$)`, format: numerico },
+            { key: 'Repasse ao dono (R$)', header: `Repasse ao dono ${pct(percentCliente)}% (R$)`, format: numerico },
+          ]),
+      ...(temSplit && !comissaoOculta
         ? [
             { key: 'Já recebido no split (R$)', header: 'Já recebido pelo dono no split (R$)', format: numerico },
             { key: 'A repassar (R$)', header: 'A NeoPower repassa (R$)', format: numerico },
@@ -753,7 +766,9 @@ export const FinancialReport = () => {
       columns,
       data: exportData,
       // Rodapé com os totais e a regra; o custo da plataforma só para a NeoPower.
-      rodape: [
+      rodape: comissaoOculta
+        ? [`Período: ${periodLabel}`, `Consumido em recargas: R$ ${fmt(totals.revenue)}`]
+        : [
         `Período: ${periodLabel}`,
         `Consumido em recargas: R$ ${fmt(totals.revenue)} | Comissão NeoPower ${pct(comissaoPercent)}%: R$ ${fmt(totals.comissao)} | Repasse ao dono ${pct(percentCliente)}%: R$ ${fmt(totals.repasse)}`,
         ...(temSplit
@@ -987,6 +1002,7 @@ export const FinancialReport = () => {
     totalRepasse: totals.repasse,
     comissaoPercent,
     repassePercent: percentCliente,
+    comissaoOculta,
     // Custo da plataforma: só no PDF de quem a API mandou o custo (NeoPower).
     custo: veCustoDaPlataforma
       ? {
@@ -1569,9 +1585,11 @@ export const FinancialReport = () => {
                 {rel.cabecalho.map(linha => (
                   <p key={linha} className="text-sm text-on-surface-variant mt-1">{linha}</p>
                 ))}
-                <p className="text-xs text-on-surface-variant mt-2 max-w-3xl">
-                  <strong className="text-foreground">Comissão:</strong> {rel.regraDoRepasse}
-                </p>
+                {!rel.comissaoOculta && (
+                  <p className="text-xs text-on-surface-variant mt-2 max-w-3xl">
+                    <strong className="text-foreground">Comissão:</strong> {rel.regraDoRepasse}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -1714,6 +1732,18 @@ export const FinancialReport = () => {
       })()}
 
       {/* ─── Repasse por recarga ─── */}
+      {comissaoOculta ? (
+        <div className="glass-card rounded-xl p-5">
+          <div className="max-w-sm">
+            <CartaoDoRepasse
+              icone="bolt"
+              titulo="Consumido em recargas"
+              valor={`R$ ${fmt(consumido)}`}
+              detalhe={`${reportData.length} recarga${reportData.length === 1 ? '' : 's'}`}
+            />
+          </div>
+        </div>
+      ) : (
       <div className="glass-card rounded-xl p-5 space-y-4">
         <div>
           <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
@@ -1887,9 +1917,10 @@ export const FinancialReport = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* ─── Seção Recargas de outras redes (Recarga Cruzada) ─── */}
-      {recargasCruzadas && (recargasCruzadas.recebidas.quantidade > 0 || recargasCruzadas.aRepassar.quantidade > 0) && (
+      {!comissaoOculta && recargasCruzadas && (recargasCruzadas.recebidas.quantidade > 0 || recargasCruzadas.aRepassar.quantidade > 0) && (
         <div className="glass-card rounded-xl p-6 border border-outline-variant/15 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -2331,8 +2362,12 @@ export const FinancialReport = () => {
                 <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Fim</th>
                 <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
                 <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Consumido</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Comissão</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Repasse</th>
+                {!comissaoOculta && (
+                  <>
+                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Comissão</th>
+                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Repasse</th>
+                  </>
+                )}
                 {veCustoDaPlataforma && (
                   <>
                     <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4" title="Taxa do Mercado Pago proporcional ao consumo, absorvida pela NeoPower">Taxa MP</th>
@@ -2362,8 +2397,12 @@ export const FinancialReport = () => {
                     <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
                     <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(v.receita)}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-on-surface-variant">R$ {fmt(v.comissao)}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(v.repasse)}</td>
+                    {!comissaoOculta && (
+                      <>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-on-surface-variant">R$ {fmt(v.comissao)}</td>
+                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(v.repasse)}</td>
+                      </>
+                    )}
                     {veCustoDaPlataforma && (
                       <>
                         <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {fmt(v.taxaMp)}</td>
@@ -2407,17 +2446,21 @@ export const FinancialReport = () => {
                 <p className="text-xs text-on-surface-variant mb-1">Consumido</p>
                 <p className="text-lg font-bold text-primary">R$ {fmt(totals.revenue)}</p>
               </div>
-              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Comissão NeoPower ({pct(comissaoPercent)}%)</p>
-                <p className="text-lg font-bold text-foreground">R$ {fmt(totals.comissao)}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Repasse ao dono ({pct(percentCliente)}%)</p>
-                <p className="text-lg font-bold text-primary">R$ {fmt(totals.repasse)}</p>
-                {temSplit && (
-                  <p className="text-[11px] text-on-surface-variant mt-1">A NeoPower repassa R$ {fmt(totals.aRepassar)}</p>
-                )}
-              </div>
+              {!comissaoOculta && (
+                <>
+                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                    <p className="text-xs text-on-surface-variant mb-1">Comissão NeoPower ({pct(comissaoPercent)}%)</p>
+                    <p className="text-lg font-bold text-foreground">R$ {fmt(totals.comissao)}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
+                    <p className="text-xs text-on-surface-variant mb-1">Repasse ao dono ({pct(percentCliente)}%)</p>
+                    <p className="text-lg font-bold text-primary">R$ {fmt(totals.repasse)}</p>
+                    {temSplit && (
+                      <p className="text-[11px] text-on-surface-variant mt-1">A NeoPower repassa R$ {fmt(totals.aRepassar)}</p>
+                    )}
+                  </div>
+                </>
+              )}
               {veCustoDaPlataforma && (
                 <>
                   <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">

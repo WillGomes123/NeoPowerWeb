@@ -99,6 +99,11 @@ export interface EntradaDoRelatorioDoLocal {
   repassePercent?: number;
   criterioContaInterna?: string | null;
   split?: { ativo: boolean; desde: string | null } | null;
+  /**
+   * A API tirou comissão e repasse da resposta (operadores de Manaus, ver
+   * utils/comissaoOculta.ts na API): o relatório sai só com o consumido.
+   */
+  comissaoOculta?: boolean;
   /** Período escolhido na tela, AAAA-MM-DD. */
   inicio?: string | null;
   fim?: string | null;
@@ -389,6 +394,7 @@ export interface RelatorioDoLocal {
   repassePercent: number;
   criterioContaInterna: string | null;
   split: { ativo: boolean; desde: string | null } | null;
+  comissaoOculta: boolean;
   geradoEm: Date;
 }
 
@@ -420,6 +426,7 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
   const geradoEm = e.geradoEm ?? new Date();
   const comissao = e.comissaoPercent;
   const repassePercent = e.repassePercent ?? 100 - comissao;
+  const comissaoOculta = !!e.comissaoOculta;
   // A API manda da mais recente para a mais antiga; o extrato vai em ordem.
   const linhas = [...e.linhas].sort((a, b) => {
     const da = a.data ? chaveDaData(a.data) : 0;
@@ -449,7 +456,9 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
     `${textoDoPeriodo} · horários de ${local.fusoRotulo} · gerado em ${geradoEm.toLocaleDateString('pt-BR')}`,
   ].filter(Boolean);
 
-  const regraDoRepasse = `${pct(comissao)}% da NeoPower. Repasse ao local = valor cobrado - comissão (${pct(repassePercent)}%; as taxas do Mercado Pago saem da comissão da NeoPower).`;
+  const regraDoRepasse = comissaoOculta
+    ? ''
+    : `${pct(comissao)}% da NeoPower. Repasse ao local = valor cobrado - comissão (${pct(repassePercent)}%; as taxas do Mercado Pago saem da comissão da NeoPower).`;
   const explicacoes = [
     'Valores das recargas efetivamente feitas e cobradas no carregador. Não inclui créditos colocados na carteira (recargas de saldo).',
   ];
@@ -490,25 +499,27 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
     notas.push(
       `Contas internas NeoPower (linhas em laranja): recargas da equipe, pagas com saldo da carteira${
         e.criterioContaInterna ? ` (critério: ${e.criterioContaInterna})` : ''
-      }. Entram no total; o subtotal "Só clientes" mostra o repasse sem elas.`
+      }. Entram no total; o subtotal "Só clientes" mostra ${comissaoOculta ? 'o consumo' : 'o repasse'} sem elas.`
     );
   }
   const pendentes = linhas.filter(conferenciaComProblema).length;
   if (pendentes > 0) {
     notas.push(
-      `Atenção: ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Conferência). Confira antes de pagar o repasse.`
+      `Atenção: ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Conferência). Confira${comissaoOculta ? ' os valores' : ' antes de pagar o repasse'}.`
     );
   }
   const daSpott = linhas.filter(l => l.conferencia === 'Spott').length;
   if (daSpott > 0) {
     notas.push(
-      `Spott: ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total e no repasse; não passaram pela carteira daqui.`
+      `Spott: ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total${comissaoOculta ? '' : ' e no repasse'}; não passaram pela carteira daqui.`
     );
   }
   const estornado = linhas.reduce((t, l) => t + (l.valorEstornado ?? 0), 0);
   if (estornado > 0.004) {
     notas.push(
-      `Recargas estornadas: comissão e repasse sobre o que ficou depois do estorno (R$ ${numero(estornado)} devolvidos no período).`
+      comissaoOculta
+        ? `Recargas estornadas: valores depois do estorno (R$ ${numero(estornado)} devolvidos no período).`
+        : `Recargas estornadas: comissão e repasse sobre o que ficou depois do estorno (R$ ${numero(estornado)} devolvidos no período).`
     );
   }
   if (linhas.some(l => l.situacao === 'Sem energia')) {
@@ -534,13 +545,17 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
     cabecalho,
     explicacoes,
     regraDoRepasse,
-    colunas: colunasDoLocal(local.carregadores.length > 1),
+    colunas: colunasDoLocal(local.carregadores.length > 1).filter(
+      c => !comissaoOculta || (c.chave !== 'comissao' && c.chave !== 'repasse')
+    ),
     linhas,
     subtotais,
     notas,
     tituloDoResumo: `Resumo — ${local.nome} (${periodoCurto})`,
     notasDoResumo: [
-      `Comissão da NeoPower: ${pct(comissao)}%. Repasse ao local = valor cobrado - comissão.`,
+      ...(comissaoOculta
+        ? []
+        : [`Comissão da NeoPower: ${pct(comissao)}%. Repasse ao local = valor cobrado - comissão.`]),
       'Valores por recarga efetivamente feita (não por crédito colocado na carteira).',
     ],
     nomeDoArquivo: nomeDoArquivoDoLocal(nomeApresentavel(local.nome), periodo.de, periodo.ate),
@@ -551,6 +566,7 @@ export function montarRelatorioDoLocal(e: EntradaDoRelatorioDoLocal): RelatorioD
     repassePercent,
     criterioContaInterna: e.criterioContaInterna ?? null,
     split: e.split ?? null,
+    comissaoOculta,
     geradoEm,
   };
 }
@@ -564,6 +580,7 @@ export function relatorioDaApi(
     comissaoPercent?: number;
     criterioContaInterna?: string | null;
     repasse?: { repassePercent?: number; split?: RelatorioDoLocal['split'] } | null;
+    comissaoOculta?: boolean;
   },
   inicio: string | null,
   fim: string | null
@@ -579,6 +596,7 @@ export function relatorioDaApi(
     repassePercent: data.repasse?.repassePercent,
     criterioContaInterna: data.criterioContaInterna,
     split: data.repasse?.split ?? null,
+    comissaoOculta: data.comissaoOculta,
     inicio,
     fim,
   });
@@ -668,7 +686,7 @@ export function somarLinhas(linhas: LinhaDoLocal[]): TotaisDasLinhas {
 }
 
 export const temSplitNoRelatorio = (rel: RelatorioDoLocal) =>
-  !!rel.split?.ativo || rel.linhas.some(l => (l.recebidoNoSplit ?? 0) > 0);
+  !rel.comissaoOculta && (!!rel.split?.ativo || rel.linhas.some(l => (l.recebidoNoSplit ?? 0) > 0));
 
 export type MarcaDaLinha = '' | 'M' | 'P' | 'C' | 'S';
 
@@ -701,8 +719,12 @@ export function notasDoValor(
   const rep = pct(rel.repassePercent);
   const notas = [
     '# Como ler',
-    '**Cobrado:** valor debitado do cliente. **Estorno:** o que foi devolvido a ele. **Consumido:** cobrado menos estorno; é a base do repasse.',
-    `**Comissão:** ${com}% do consumido, arredondada recarga a recarga. **Repasse:** o restante (${rep}%). As taxas do Mercado Pago saem da comissão da NeoPower.`,
+    `**Cobrado:** valor debitado do cliente. **Estorno:** o que foi devolvido a ele. **Consumido:** cobrado menos estorno${rel.comissaoOculta ? '' : '; é a base do repasse'}.`,
+    ...(rel.comissaoOculta
+      ? []
+      : [
+          `**Comissão:** ${com}% do consumido, arredondada recarga a recarga. **Repasse:** o restante (${rep}%). As taxas do Mercado Pago saem da comissão da NeoPower.`,
+        ]),
   ];
   if (temSplitNoRelatorio(rel)) {
     const desde = rel.split?.desde ? new Date(rel.split.desde).toLocaleDateString('pt-BR') : null;
@@ -713,7 +735,11 @@ export function notasDoValor(
     );
   }
   notas.push(
-    '**Este relatório não desconta repasses já pagos:** ele lista o que cada recarga gerou. O acerto é feito por mês.',
+    ...(rel.comissaoOculta
+      ? []
+      : [
+          '**Este relatório não desconta repasses já pagos:** ele lista o que cada recarga gerou. O acerto é feito por mês.',
+        ]),
     `**Horários** de ${rel.local.fusoRotulo}${
       rel.local.fusoOrigem === 'padrao' ? ' (o local não tem estado cadastrado)' : ''
     }. Recargas ainda em andamento não entram. Clientes identificados só pelo primeiro nome e inicial do sobrenome (LGPD).`
@@ -744,7 +770,9 @@ export function notasDoValor(
   }
   if (marcas.has('S')) {
     notas.push(
-      '**S:** energia registrada sem valor cobrado nesta plataforma (por exemplo, valor devolvido ao visitante). Não gera comissão nem repasse.'
+      rel.comissaoOculta
+        ? '**S:** energia registrada sem valor cobrado nesta plataforma (por exemplo, valor devolvido ao visitante).'
+        : '**S:** energia registrada sem valor cobrado nesta plataforma (por exemplo, valor devolvido ao visitante). Não gera comissão nem repasse.'
     );
   }
 
@@ -754,26 +782,26 @@ export function notasDoValor(
     notas.push(
       `**Clientes de outra rede:** ${cruzadas.length} ${cruzadas.length === 1 ? 'recarga' : 'das ' + linhas.length + ' recargas'} de quem usa outro app${
         redes ? ` (${redes})` : ''
-      } neste local; ${cruzadas.length === 1 ? 'entra' : 'entram'} no repasse da mesma forma.`
+      } neste local; ${cruzadas.length === 1 ? 'entra' : 'entram'} ${rel.comissaoOculta ? 'no total' : 'no repasse'} da mesma forma.`
     );
   }
   if (linhas.some(l => l.contaInterna)) {
     notas.push(
       `**Contas internas NeoPower (linhas em laranja):** recargas da equipe, pagas com saldo da carteira${
         rel.criterioContaInterna ? ` (critério: ${rel.criterioContaInterna})` : ''
-      }. Entram no total; a tabela Por mês mostra o repasse sem elas.`
+      }. Entram no total; a tabela Por mês mostra ${rel.comissaoOculta ? 'o consumo' : 'o repasse'} sem elas.`
     );
   }
   const pendentes = linhas.filter(conferenciaComProblema).length;
   if (pendentes) {
     notas.push(
-      `**Atenção:** ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Situação). Confira antes de pagar o repasse.`
+      `**Atenção:** ${pendentes} recarga${pendentes === 1 ? '' : 's'} sem débito na carteira ou com diferença (coluna Situação). Confira${rel.comissaoOculta ? ' os valores' : ' antes de pagar o repasse'}.`
     );
   }
   const daSpott = linhas.filter(l => l.conferencia === 'Spott').length;
   if (daSpott) {
     notas.push(
-      `**Spott:** ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total e no repasse; não passaram pela carteira daqui.`
+      `**Spott:** ${daSpott} recarga${daSpott === 1 ? '' : 's'} do histórico da plataforma anterior (até 11/10/2026), paga${daSpott === 1 ? '' : 's'} na Spott. Entram no total${rel.comissaoOculta ? '' : ' e no repasse'}; não passaram pela carteira daqui.`
     );
   }
   const semEnergia = linhas.filter(l => l.situacao === 'Sem energia').length;
@@ -819,11 +847,13 @@ export function gerarXlsxDoLocal(rel: RelatorioDoLocal): Uint8Array<ArrayBuffer>
   texto(rel.titulo, { negrito: true, tamanho: 14 });
   alturas[1] = 22;
   for (const c of [...rel.cabecalho, ...rel.explicacoes]) texto(c, { tamanho: 10, cor: '595959' });
-  linhas.push([
-    celula('Comissão:', { negrito: true, tamanho: 10 }),
-    celula(rel.regraDoRepasse, { tamanho: 10 }),
-  ]);
-  mesclas.push(`B${linhas.length}:${ultima}${linhas.length}`);
+  if (!rel.comissaoOculta) {
+    linhas.push([
+      celula('Comissão:', { negrito: true, tamanho: 10 }),
+      celula(rel.regraDoRepasse, { tamanho: 10 }),
+    ]);
+    mesclas.push(`B${linhas.length}:${ultima}${linhas.length}`);
+  }
   linhas.push([]);
 
   linhas.push(rel.colunas.map(c => celula(c.titulo, cabecalho)));
@@ -899,8 +929,7 @@ export function gerarXlsxDoLocal(rel: RelatorioDoLocal): Uint8Array<ArrayBuffer>
         'Recargas',
         'Energia (kWh)',
         'Valor cobrado (R$)',
-        'Comissão NeoPower (R$)',
-        'Repasse ao local (R$)',
+        ...(rel.comissaoOculta ? [] : ['Comissão NeoPower (R$)', 'Repasse ao local (R$)']),
       ].map(t => celula(t, cabecalho)),
       ...rel.subtotais.map((st, i) => {
         const destaque: EstiloXlsx = i === 0 ? { negrito: true, fundo: 'E2EFDA' } : {};
@@ -914,8 +943,12 @@ export function gerarXlsxDoLocal(rel: RelatorioDoLocal): Uint8Array<ArrayBuffer>
             alinhar: 'right',
           }),
           celula(st.valores.valorCobrado, { ...reais, ...destaque }),
-          celula(st.valores.comissao, { ...reais, ...destaque }),
-          celula(st.valores.repasse, { ...reais, ...destaque }),
+          ...(rel.comissaoOculta
+            ? []
+            : [
+                celula(st.valores.comissao, { ...reais, ...destaque }),
+                celula(st.valores.repasse, { ...reais, ...destaque }),
+              ]),
         ];
       }),
       [],

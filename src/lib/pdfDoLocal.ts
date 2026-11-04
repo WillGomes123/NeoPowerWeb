@@ -605,6 +605,15 @@ const celulasDeValores = (t: TotaisDasLinhas, temSplit: boolean, comTraco = true
   ];
 };
 
+/** Tabela sem as colunas de comissão e repasse (RelatorioDoLocal.comissaoOculta). */
+function semColunasDaComissao(t: TabelaEnxuta): TabelaEnxuta {
+  const fica = t.colunas.map(c => c.titulo !== 'Comissão' && c.titulo !== 'Repasse');
+  return {
+    colunas: t.colunas.filter((_, i) => fica[i]),
+    linhas: t.linhas.map(l => ({ ...l, celulas: l.celulas.filter((_, i) => fica[i]) })),
+  };
+}
+
 function tabelaPorMes(linhas: LinhaDoLocal[], temSplit: boolean): TabelaEnxuta {
   const t = somarLinhas(linhas);
   const internas = linhas.filter(l => l.contaInterna);
@@ -704,18 +713,22 @@ function desenharResumo(
       nota: recargas(t.quantidade),
       cor: p.marca,
     },
-    {
-      rotulo: `Comissão NeoPower ${com}%`,
-      valor: reais(t.comissao),
-      nota: `${com}% do consumido`,
-      cor: VERMELHO,
-    },
-    {
-      rotulo: `Repasse ao dono ${rep}%`,
-      valor: reais(t.repasse),
-      nota: temSplit ? `${reais(t.recebidoNoSplit)} já no split` : `${rep}% do consumido`,
-      cor: VERDE,
-    },
+    ...(rel.comissaoOculta
+      ? []
+      : [
+          {
+            rotulo: `Comissão NeoPower ${com}%`,
+            valor: reais(t.comissao),
+            nota: `${com}% do consumido`,
+            cor: VERMELHO,
+          },
+          {
+            rotulo: `Repasse ao dono ${rep}%`,
+            valor: reais(t.repasse),
+            nota: temSplit ? `${reais(t.recebidoNoSplit)} já no split` : `${rep}% do consumido`,
+            cor: VERDE,
+          },
+        ]),
     {
       rotulo: 'Energia',
       valor: num(t.energiaKwh),
@@ -724,7 +737,7 @@ function desenharResumo(
       cor: p.marca,
     },
   ];
-  const lc = (util - 9) / 4;
+  const lc = (util - 3 * (cartoes.length - 1)) / cartoes.length;
   cartoes.forEach((c, i) => {
     const x = margem + i * (lc + 3);
     cartao(doc, x, y, lc, 27, BRANCO, BORDA_CARTAO);
@@ -757,7 +770,9 @@ function desenharResumo(
   });
   y += 27 + 5;
 
-  const legenda = `O repasse ao dono é ${rep}% do consumido em recargas; o saldo parado na carteira é do cliente até ele usar. As taxas do Mercado Pago saem dos ${com}% da NeoPower. Valores brutos do período, sem descontar repasses já pagos.`;
+  const legenda = rel.comissaoOculta
+    ? 'O saldo parado na carteira é do cliente até ele usar. Valores brutos do período.'
+    : `O repasse ao dono é ${rep}% do consumido em recargas; o saldo parado na carteira é do cliente até ele usar. As taxas do Mercado Pago saem dos ${com}% da NeoPower. Valores brutos do período, sem descontar repasses já pagos.`;
   usarFonte(doc, 400, 7.4);
   for (const parte of doc.splitTextToSize(legenda, util) as string[]) {
     escrever(doc, parte, margem, y, { tamanho: 7.4, cor: TEXTO_MEDIO });
@@ -784,7 +799,12 @@ function desenharResumo(
   y += 66 + 10;
 
   const blocos: Array<{ titulo: string; tabela: TabelaEnxuta }> = [
-    { titulo: 'Por mês', tabela: tabelaPorMes(r.linhas, temSplit) },
+    {
+      titulo: 'Por mês',
+      tabela: rel.comissaoOculta
+        ? semColunasDaComissao(tabelaPorMes(r.linhas, temSplit))
+        : tabelaPorMes(r.linhas, temSplit),
+    },
     ...(r.porCarregador ? [{ titulo: 'Por carregador', tabela: r.porCarregador }] : []),
   ];
   for (const b of blocos) {
@@ -946,8 +966,12 @@ function desenharSecaoDoCarregador(
     ['Recargas', String(t.quantidade)],
     ['Energia', `${num(t.energiaKwh)} kWh`],
     ['Consumido', reais(t.receita)],
-    ['Comissão', reais(t.comissao)],
-    ['Repasse', reais(t.repasse)],
+    ...(rel.comissaoOculta
+      ? []
+      : ([
+          ['Comissão', reais(t.comissao)],
+          ['Repasse', reais(t.repasse)],
+        ] as Array<[string, string]>)),
     ...(temSplit
       ? ([
           ['Já no split', reais(t.recebidoNoSplit)],
@@ -984,7 +1008,9 @@ function desenharSecaoDoCarregador(
   y += 2.2;
 
   // Larguras: a coluna Situação fica com o que sobra.
-  const colunas = colunasDoExtrato(temSplit);
+  const colunas = colunasDoExtrato(temSplit).filter(
+    col => !rel.comissaoOculta || (col.titulo !== 'Comissão' && col.titulo !== 'Repasse')
+  );
   const ocupado = colunas.reduce((s, col) => s + col.largura, 0);
   const larguras = colunas.map(col => col.largura || util - ocupado);
   const xDe = (i: number) => margem + larguras.slice(0, i).reduce((s, w) => s + w, 0);
@@ -1171,7 +1197,8 @@ function desenharConclusao(
   linhas: LinhaDoLocal[],
   x: number,
   y: number,
-  largura: number
+  largura: number,
+  comissaoOculta: boolean
 ) {
   const altura = 22;
   cartao(doc, x, y, largura, altura, CONCLUSAO, CONCLUSAO, 3);
@@ -1181,7 +1208,7 @@ function desenharConclusao(
   const daSpott = linhas.filter(l => l.conferencia === 'Spott').length;
   const conferidas = linhas.length - pendentes;
   const frase = pendentes
-    ? `${recargas(pendentes)} para conferir antes do repasse`
+    ? `${recargas(pendentes)} para conferir${comissaoOculta ? '' : ' antes do repasse'}`
     : daSpott
       ? 'Todas as recargas conferem; as da plataforma anterior foram pagas lá'
       : 'Todas as recargas conferem com o débito na carteira do cliente';
@@ -1232,7 +1259,7 @@ function desenharFim(
     doc.addPage('a4', 'landscape');
     y = TOPO_EXTRATO - 2;
   }
-  y = desenharConclusao(doc, linhas, x, y, largura);
+  y = desenharConclusao(doc, linhas, x, y, largura, rel.comissaoOculta);
   desenharNotas(doc, notas, x, y + 5, largura);
 }
 
@@ -1305,7 +1332,9 @@ export function gerarPdfDoLocal(rel: RelatorioDoLocal, v: VisualDaMarca): jsPDF 
     gerado: geradoNoFuso(rel),
     cidade: cidadeDoFuso(rel.local.fusoRotulo),
   });
-  const porCarregador = tabelaPorCarregador(rel, carregadores, temSplit);
+  const porCarregador = rel.comissaoOculta
+    ? semColunasDaComissao(tabelaPorCarregador(rel, carregadores, temSplit))
+    : tabelaPorCarregador(rel, carregadores, temSplit);
   desenharResumo(doc, rel, v, p, {
     rotulo: rel.nomeDoLocal,
     linhas: rel.linhas,
