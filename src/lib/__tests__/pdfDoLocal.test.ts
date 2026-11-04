@@ -107,6 +107,23 @@ const titulo = (doc: jsPDF) => {
   return m?.[1] ?? '';
 };
 
+describe('PDF com a comissão oculta (operadores de Manaus)', () => {
+  it('sai com as mesmas páginas, sem quebrar com menos colunas e cartões', () => {
+    const linhas = [linha(1), linha(2, { carregador: 'A' })];
+    const visivel = gerarPdfDoLocal(montarRelatorioDoLocal(entrada(linhas)), VISUAL);
+    // Como a API manda para essas contas: as linhas vêm sem comissão e repasse.
+    const semValores = linhas.map(l => {
+      const { comissao: _c, repasse: _r, ...resto } = l;
+      return resto as LinhaDoLocal;
+    });
+    const oculto = gerarPdfDoLocal(
+      montarRelatorioDoLocal(entrada(semValores, { comissaoOculta: true })),
+      VISUAL
+    );
+    expect(oculto.getNumberOfPages()).toBe(visivel.getNumberOfPages());
+  });
+});
+
 describe('PDF do local inteiro', () => {
   const rel = montarRelatorioDoLocal(
     entrada([

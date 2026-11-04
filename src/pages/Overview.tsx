@@ -32,9 +32,11 @@ interface OverviewData {
   financeiroDoLocal?: {
     recargas: number;
     receita: number;
-    comissaoPercent: number;
-    comissao: number;
-    repasse: number;
+    /** Sem estes três quando `comissaoOculta` (operadores de Manaus). */
+    comissaoPercent?: number;
+    comissao?: number;
+    repasse?: number;
+    comissaoOculta?: boolean;
     taxaMp?: number;
     liquidoNeoPower?: number;
   } | null;
@@ -242,7 +244,7 @@ export const Overview = () => {
   // recargas menos a comissão da NeoPower, a mesma conta do relatório por local.
   const receitaDe = (d: OverviewData | null) =>
     d?.financeiroDoLocal
-      ? d.financeiroDoLocal.repasse
+      ? (d.financeiroDoLocal.repasse ?? d.financeiroDoLocal.receita)
       : d?.locationId != null
         ? // Servidor ainda sem o financeiro do local: ao menos a receita das
           // recargas dele, nunca o zero dos depósitos.
@@ -430,10 +432,10 @@ export const Overview = () => {
           <div>
             <div className="flex justify-between items-start mb-2">
               <div>
-                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">Receita Líquida</span>
+                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase">{doLocal?.comissaoOculta ? 'Receita' : 'Receita Líquida'}</span>
                 <p className="text-[10px] text-outline">{filtrado ? rotuloDoPeriodo : 'Todo o histórico'}</p>
-                {doLocal && (
-                  <p className="text-[10px] text-outline">Repasse ao dono ({100 - doLocal.comissaoPercent}%)</p>
+                {doLocal && !doLocal.comissaoOculta && (
+                  <p className="text-[10px] text-outline">Repasse ao dono ({100 - (doLocal.comissaoPercent ?? 0)}%)</p>
                 )}
               </div>
               {revenueChange !== undefined && (
@@ -455,10 +457,12 @@ export const Overview = () => {
                 <span className="text-on-surface-variant">Recargas ({doLocal.recargas})</span>
                 <span className="font-semibold text-on-surface">R$ {fmt(doLocal.receita)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-on-surface-variant">Comissão NeoPower ({doLocal.comissaoPercent}%)</span>
-                <span className="font-semibold text-on-surface">− R$ {fmt(doLocal.comissao)}</span>
-              </div>
+              {!doLocal.comissaoOculta && (
+                <div className="flex justify-between items-center">
+                  <span className="text-on-surface-variant">Comissão NeoPower ({doLocal.comissaoPercent}%)</span>
+                  <span className="font-semibold text-on-surface">− R$ {fmt(doLocal.comissao ?? 0)}</span>
+                </div>
+              )}
               {doLocal.liquidoNeoPower !== undefined && (
                 <div className="flex justify-between items-center">
                   <span className="text-on-surface-variant">Líquido NeoPower</span>
