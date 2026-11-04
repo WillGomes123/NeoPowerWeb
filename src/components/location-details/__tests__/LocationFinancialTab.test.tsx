@@ -14,6 +14,7 @@ const pdf = vi.hoisted(() => {
     gerarPdfDoLocal: vi.fn((..._a: unknown[]) => ({ save })),
   };
 });
+vi.mock('../CustoDeEnergiaDoLocal', () => ({ CustoDeEnergiaDoLocal: () => null }));
 vi.mock('@/lib/pdfDoLocal', () => pdf);
 
 const exportar = vi.hoisted(() => ({
