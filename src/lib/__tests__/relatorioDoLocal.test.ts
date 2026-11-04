@@ -410,6 +410,59 @@ describe('relatorioDaApi', () => {
   });
 });
 
+describe('comissão oculta (operadores de Manaus)', () => {
+  const SINAIS = /comiss|repasse|repassa|\b95\s?%|\b5\s?%/i;
+  const oculto = () => montarRelatorioDoLocal(entrada({ comissaoOculta: true }));
+
+  it('sem as colunas de comissão e repasse', () => {
+    const chaves = oculto().colunas.map(c => c.chave);
+    expect(chaves).toContain('cobrado');
+    expect(chaves).not.toContain('comissao');
+    expect(chaves).not.toContain('repasse');
+  });
+
+  it('sem nenhum texto que entregue o percentual', () => {
+    const r = oculto();
+    const textos = [
+      r.regraDoRepasse,
+      ...r.cabecalho,
+      ...r.explicacoes,
+      ...r.notas,
+      ...r.notasDoResumo,
+      ...notasDoValor(r, r.linhas, null),
+      ...r.colunas.map(c => c.titulo),
+    ];
+    expect(textos.join(' | ')).not.toMatch(SINAIS);
+  });
+
+  it('o Excel sai sem comissão e repasse', () => {
+    const texto = new TextDecoder().decode(gerarXlsxDoLocal(oculto()));
+    expect(texto).toContain('TOTAL — todas as recargas');
+    expect(texto).not.toMatch(/comiss|repasse/i);
+  });
+
+  it('quem vê a comissão não muda', () => {
+    const chaves = montarRelatorioDoLocal(entrada()).colunas.map(c => c.chave);
+    expect(chaves).toContain('comissao');
+    expect(chaves).toContain('repasse');
+  });
+
+  it('a marca da API chega ao relatório', () => {
+    const r = relatorioDaApi(
+      {
+        comissaoOculta: true,
+        local: entrada().local,
+        items: entrada().linhas,
+        porTipoDeConta: entrada().subtotais,
+      },
+      '2026-10-01',
+      '2026-10-07'
+    );
+    expect(r?.comissaoOculta).toBe(true);
+    expect(r?.colunas.map(c => c.chave)).not.toContain('comissao');
+  });
+});
+
 describe('arquivos', () => {
   it('Excel: .xlsx de verdade, com as duas abas e números somáveis', () => {
     const bytes = gerarXlsxDoLocal(montarRelatorioDoLocal(entrada()));
