@@ -33,6 +33,13 @@ interface Transaction {
   redeDoCliente?: string | null;
   /** 'spott' = histórico importado da plataforma anterior (até 11/10/2026), pago lá. */
   origem?: string | null;
+  /**
+   * Quem carregou. A API só manda para admin e operador (o dono do condomínio
+   * não recebe); sem o campo, a coluna Cliente não aparece.
+   */
+  clienteNome?: string | null;
+  clienteCelular?: string | null;
+  clienteVisitante?: boolean;
 }
 
 interface WalletTx {
@@ -114,6 +121,16 @@ const exportColumns: ExportColumn[] = [
   // suporte acha a linha no banco.
   { key: 'transaction_id', header: 'ID interno', format: 'number' },
 ];
+
+/** Colunas do cliente, logo depois do carregador, quando a API manda o cliente. */
+const exportColunasCliente: ExportColumn[] = [
+  { key: 'cliente', header: 'Cliente', format: 'text' },
+  { key: 'celular', header: 'Celular', format: 'text' },
+];
+
+/** Nome que vai na linha: o cadastro, "Visitante" (pague e carregue) ou nada. */
+const nomeDoCliente = (tx: Transaction) =>
+  tx.clienteVisitante ? 'Visitante' : (tx.clienteNome?.trim() || '');
 
 const exportDepositColumns: ExportColumn[] = [
   { key: 'cliente', header: 'Cliente', format: 'text' },
@@ -299,13 +316,16 @@ export const Transactions = () => {
       list = list.filter(tx => emAndamento(tx) || new Date(tx.start_timestamp) <= end);
     }
 
-    // Filtro por texto (carregador, endereço, ID)
+    // Filtro por texto (carregador, endereço, ID e, quando vem, o cliente)
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
+      const digitos = q.replace(/\D/g, '');
       list = list.filter(tx =>
         tx.charge_point_id?.toLowerCase().includes(q) ||
         tx.address?.toLowerCase().includes(q) ||
-        String(tx.transaction_id).includes(q),
+        String(tx.transaction_id).includes(q) ||
+        nomeDoCliente(tx).toLowerCase().includes(q) ||
+        (digitos.length >= 4 && (tx.clienteCelular ?? '').replace(/\D/g, '').includes(digitos)),
       );
     }
 
@@ -315,11 +335,19 @@ export const Transactions = () => {
   // Exporta o que está na tela (período + busca), não o histórico inteiro.
   const ehSaldo = txTab === 'saldo';
 
+  // A API decide quem vê o cliente; a tela só mostra a coluna quando ele vem.
+  const mostraCliente = transactions.some(tx => 'clienteNome' in tx);
+  const colunasDaExportacao = mostraCliente
+    ? [...exportColumns.slice(0, 3), ...exportColunasCliente, ...exportColumns.slice(3)]
+    : exportColumns;
+
   const exportData = filtered.map(tx => ({
     transaction_id: tx.transaction_id,
     sequenciaNoLocal: tx.sequenciaNoLocal ?? '',
     nomeDoLocal: tx.nomeDoLocal ?? '',
     nomeDoCarregador: tx.nomeDoCarregador ?? tx.charge_point_id,
+    cliente: nomeDoCliente(tx),
+    celular: tx.clienteCelular ?? '',
     charge_point_id: tx.charge_point_id,
     start_timestamp: tx.start_timestamp,
     stop_timestamp: tx.stop_timestamp,
@@ -483,7 +511,7 @@ export const Transactions = () => {
           */}
           <ExportButton
             data={ehSaldo ? exportDeposits : exportData}
-            columns={ehSaldo ? exportDepositColumns : exportColumns}
+            columns={ehSaldo ? exportDepositColumns : colunasDaExportacao}
             filename={ehSaldo ? 'recargas_de_saldo_neopower' : 'transacoes_neopower'}
             title={ehSaldo ? 'Recargas de Saldo - NeoPower' : 'Historico de Transacoes - NeoPower'}
             disabled={(ehSaldo ? filteredDeposits : filtered).length === 0}
@@ -601,7 +629,7 @@ export const Transactions = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Buscar por carregador, endereço ou ID..."
+                placeholder={mostraCliente ? 'Buscar por cliente, celular, carregador ou ID...' : 'Buscar por carregador, endereço ou ID...'}
                 className="w-full pl-9 pr-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
               />
             </div>
@@ -619,6 +647,7 @@ export const Transactions = () => {
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
                 <th className="px-6 py-4">Nº</th>
                 <th className="px-6 py-4">Local e carregador</th>
+                {mostraCliente && <th className="px-6 py-4">Cliente</th>}
                 <th className="px-6 py-4">Início</th>
                 <th className="px-6 py-4">Fim</th>
                 <th className="px-6 py-4">Energia</th>
@@ -631,7 +660,7 @@ export const Transactions = () => {
             <tbody className="divide-y divide-outline-variant/5">
               {current.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
+                  <td colSpan={mostraCliente ? 10 : 9} className="px-6 py-16 text-center">
                     <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
                     <p className="text-sm text-on-surface-variant">Nenhuma transação encontrada</p>
                   </td>
@@ -673,6 +702,16 @@ export const Transactions = () => {
                         </span>
                       )}
                     </td>
+                    {mostraCliente && (
+                      <td className="px-6 py-4 text-sm">
+                        <span className="block font-medium text-foreground">{nomeDoCliente(tx) || '—'}</span>
+                        {/* Muita conta antiga não tem celular: o app só passou a
+                            pedir em algumas marcas. */}
+                        <span className="block mt-0.5 text-[11px] text-on-surface-variant whitespace-nowrap">
+                          {tx.clienteCelular || 'sem celular'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.start_timestamp)}</td>
                     <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(tx.stop_timestamp)}</td>
                     <td className="px-6 py-4 text-sm font-bold font-headline">
