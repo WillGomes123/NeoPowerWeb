@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAppTheme } from '../hooks/useAppTheme';
 import { useAuth } from '../lib/auth';
+import { aplicarCorDaBarra, instalarAppDaMarca } from '../lib/appInstalavel';
 
 interface TenantContextData {
   tenantSlug: string;
@@ -43,6 +44,11 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
   const activeBranding = user?.branding || tenantBranding;
   const { isDark, toggle: toggleTheme } = useAppTheme(activeBranding);
 
+  // Barra de status do app instalado acompanha o tema em uso.
+  useEffect(() => {
+    aplicarCorDaBarra(isDark);
+  }, [isDark]);
+
   useEffect(() => {
     const initializeTenant = async () => {
       try {
@@ -71,11 +77,14 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
           const result = await response.json();
           setTenantBranding(result.data);
           setTenantSlug(slug);
+          // Instalável no celular com a marca da URL (lib/appInstalavel.ts).
+          instalarAppDaMarca(slug, result.data, apiUrl);
         } else {
           if (slug !== 'neopower') {
             window.location.replace(`/neopower/login`);
             return;
           }
+          instalarAppDaMarca(slug, null, apiUrl);
         }
       } catch (error) {
         console.error('Erro ao inicializar Tenant:', error);
