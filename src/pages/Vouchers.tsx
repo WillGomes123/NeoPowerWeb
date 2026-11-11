@@ -28,7 +28,12 @@ interface Voucher {
   code: string;
   name: string;
   description?: string;
-  type: 'percent' | 'fixed' | 'kwh';
+  /**
+   * preco_kwh: o cliente paga `value` por kWh no lugar da tarifa (ex.: "preço de
+   * custo para os sócios" da FulGo). Vale toda vez, sem a regra de um uso por CPF,
+   * e também no Pix sem app.
+   */
+  type: 'percent' | 'fixed' | 'kwh' | 'preco_kwh';
   value: number;
   is_active: boolean;
   start_date?: string;
@@ -315,7 +320,7 @@ export const Vouchers = () => {
               </Label>
               <Select
                 value={editingVoucher.type}
-                onValueChange={(value: 'percent' | 'fixed' | 'kwh') =>
+                onValueChange={(value: 'percent' | 'fixed' | 'kwh' | 'preco_kwh') =>
                   setEditingVoucher({ ...editingVoucher, type: value })
                 }
               >
@@ -332,8 +337,17 @@ export const Vouchers = () => {
                   <SelectItem value="kwh" className="text-on-surface focus:bg-surface-container-highest">
                     Quilowatt-hora (kWh)
                   </SelectItem>
+                  <SelectItem value="preco_kwh" className="text-on-surface focus:bg-surface-container-highest">
+                    Preço por kWh (R$/kWh)
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {editingVoucher.type === 'preco_kwh' && (
+                <p className="text-xs text-on-surface-variant">
+                  Quem usa o cupom paga este valor por kWh no lugar da tarifa (a taxa de destrava
+                  continua). Pode ser usado de novo pela mesma pessoa, no app e no Pix sem app.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -721,15 +735,17 @@ export const Vouchers = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-headline font-bold text-on-surface">
-                            {voucher.type === 'fixed' ? 'R$ ' : ''}
+                            {voucher.type === 'fixed' || voucher.type === 'preco_kwh' ? 'R$ ' : ''}
                             {voucher.value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                             {voucher.type === 'percent' ? ' %' : ''}
                             {voucher.type === 'kwh' ? ' kWh' : ''}
+                            {voucher.type === 'preco_kwh' ? '/kWh' : ''}
                           </span>
                           <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">
                             {voucher.type === 'percent' && 'Percentual'}
                             {voucher.type === 'fixed' && 'Fixo'}
                             {voucher.type === 'kwh' && 'Energia (kWh)'}
+                            {voucher.type === 'preco_kwh' && 'Preço por kWh'}
                           </span>
                         </div>
                       </td>
