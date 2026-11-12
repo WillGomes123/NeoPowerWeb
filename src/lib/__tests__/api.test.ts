@@ -65,6 +65,15 @@ describe('API Utils', () => {
       );
     });
 
+    it('manda o fuso do navegador, para o "hoje" das telas não virar às 21:00 em SC', async () => {
+      const fuso = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      mockFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+
+      await fetchWithAuth('/test');
+
+      expect(mockFetch.mock.calls[0][1].headers['X-Timezone']).toBe(fuso);
+    });
+
     it('deve fazer request sem token quando nao autenticado', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
