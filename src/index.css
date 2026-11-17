@@ -119,6 +119,21 @@
   --font-grafico: 'Inter', sans-serif;
   /* Sombra dos cartões do Figma (some no tema escuro) */
   --shadow-cartao: var(--sombra-cartao);
+  --shadow-pilula: var(--sombra-pilula);
+  --color-tom-azul: var(--tom-azul);
+  --color-tom-azul-icone: var(--tom-azul-icone);
+  --color-tom-amarelo: var(--tom-amarelo);
+  --color-tom-amarelo-icone: var(--tom-amarelo-icone);
+  --color-tom-cinza: var(--tom-cinza);
+  --color-tom-cinza-icone: var(--tom-cinza-icone);
+  --color-estado-livre: var(--estado-livre);
+  --color-estado-livre-forte: var(--estado-livre-forte);
+  --color-estado-uso: var(--estado-uso);
+  --color-estado-uso-forte: var(--estado-uso-forte);
+  --color-estado-offline: var(--estado-offline);
+  --color-estado-offline-forte: var(--estado-offline-forte);
+  --color-estado-problema: var(--estado-problema);
+  --color-estado-problema-forte: var(--estado-problema-forte);
 }
 
 @layer base {
