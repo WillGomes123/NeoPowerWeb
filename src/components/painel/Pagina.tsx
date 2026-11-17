@@ -217,7 +217,7 @@ export function CartaoContador({
 }) {
   return (
     <section
-      className={`${classeDoCartao} min-h-[112px] px-[30px] py-4 flex items-center gap-[20px]`}
+      className={`${classeDoCartao} min-h-[112px] px-5 3xl:px-[30px] py-4 flex items-center gap-4 3xl:gap-[20px]`}
       aria-label={rotulo}
     >
       <span
