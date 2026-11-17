@@ -30,6 +30,9 @@ const APP_ROUTES = [
   'operacoes', 'relatorio-financeiro', 'usuarios', 'vouchers', 
   'tarifas', 'carteiras', 'notificacoes', 'email', 'branding',
   'sustentabilidade', 'alarmes', 'agendamentos', 'metas', 'energia', 'erros-do-app', 'atendimento',
+  // Faltavam: /cameras e /perfis abertos direto pela URL viravam nome de marca
+  // e caíam na Visão geral (achado no redesenho, 17/11/2026).
+  'cameras', 'perfis',
   // páginas legais públicas (sem tenant na URL → redireciona para /neopower/...)
   'privacidade', 'termos', 'excluir-conta', 'suporte'
 ];
