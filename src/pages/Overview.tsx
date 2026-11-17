@@ -766,7 +766,7 @@ export const Overview = () => {
 
       {/* Indicadores financeiros e de energia */}
       <div
-        className={`grid grid-cols-1 sm:grid-cols-2 ${mostraDepositos ? 'min-[1700px]:grid-cols-4' : 'lg:grid-cols-3'} gap-[25px]`}
+        className={`grid grid-cols-1 sm:grid-cols-2 ${mostraDepositos ? '3xl:grid-cols-4' : 'lg:grid-cols-3'} gap-[25px]`}
       >
         <CartaoIndicador
           tom="marca"

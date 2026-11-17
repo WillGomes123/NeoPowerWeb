@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
+import { classeDoCartao } from '../painel/Pagina';
 
-/** Peças visuais do módulo Energia, no mesmo vocabulário das outras páginas do painel. */
+/**
+ * Peças visuais do módulo Energia. Desde o redesenho de nov/2026 (Figma da
+ * Lauriane, Frame 18) seguem as peças do painel: cartão branco de cantos 15 px,
+ * títulos em Poppins, botões em pílula na cor da marca.
+ */
 
 export function Painel({
   titulo,
@@ -14,11 +19,13 @@ export function Painel({
   children: ReactNode;
 }) {
   return (
-    <section className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-      <div className="px-6 py-4 border-b border-outline-variant/10 flex flex-wrap gap-3 justify-between items-center">
+    <section className={`${classeDoCartao} overflow-hidden`}>
+      <div className="px-6 py-5 border-b border-border flex flex-wrap gap-3 justify-between items-center">
         <div>
-          <h3 className="text-lg font-headline font-bold text-on-surface">{titulo}</h3>
-          {detalhe && <p className="text-xs text-on-surface-variant mt-0.5">{detalhe}</p>}
+          <h3 className="text-[20px] leading-tight font-semibold text-foreground">{titulo}</h3>
+          {detalhe && (
+            <p className="text-[15px] font-medium text-muted-foreground mt-0.5">{detalhe}</p>
+          )}
         </div>
         {acao}
       </div>
@@ -43,7 +50,7 @@ export function Tabela({
     <div className="overflow-x-auto">
       <table className={`w-full text-left border-collapse ${denso ? 'text-[13px]' : 'text-sm'}`}>
         <thead>
-          <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+          <tr className="text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/60">
             {cabecalho.map((c, i) => {
               const t = typeof c === 'string' ? c : c.t;
               const n = typeof c === 'string' ? false : c.n;
@@ -55,9 +62,9 @@ export function Tabela({
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-outline-variant/5 text-on-surface">{children}</tbody>
+        <tbody className="divide-y divide-border text-foreground">{children}</tbody>
       </table>
-      {vazio && <p className="px-6 py-10 text-center text-sm text-on-surface-variant">{vazio}</p>}
+      {vazio && <p className="px-6 py-10 text-center text-[15px] text-muted-foreground">{vazio}</p>}
     </div>
   );
 }
@@ -80,20 +87,21 @@ export const Td = ({
 
 /** Linha secundária dentro de uma célula (grupo, distribuidora…). */
 export const Sub = ({ children }: { children: ReactNode }) => (
-  <span className="block text-[11px] text-on-surface-variant font-medium">{children}</span>
+  <span className="block text-xs text-muted-foreground font-medium">{children}</span>
 );
 
+// Tons fixos de estado (mesmos da Visão geral), não a cor da marca.
 const TONS = {
-  ok: 'bg-primary/10 text-primary border-primary/20',
-  aviso: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-  erro: 'bg-error/10 text-error border-error/20',
-  neutro: 'bg-surface-container-highest text-on-surface-variant border-outline-variant/20',
+  ok: 'bg-estado-livre text-estado-livre-forte border-transparent',
+  aviso: 'bg-estado-problema text-estado-problema-forte border-transparent',
+  erro: 'bg-destructive/10 text-destructive border-transparent',
+  neutro: 'bg-muted text-muted-foreground border-transparent',
 };
 
 export function Selo({ tom, children }: { tom: keyof typeof TONS; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap ${TONS[tom]}`}
+      className={`inline-flex items-center gap-1 rounded-[25px] border px-3 py-0.5 text-xs font-semibold whitespace-nowrap ${TONS[tom]}`}
     >
       {children}
     </span>
@@ -102,7 +110,7 @@ export function Selo({ tom, children }: { tom: keyof typeof TONS; children: Reac
 
 /** Sigla da modalidade (AUTO, CONS…), em fonte monoespaçada. */
 export const Sigla = ({ children }: { children: ReactNode }) => (
-  <span className="inline-block rounded border border-outline-variant/30 px-1.5 py-0.5 font-mono text-[10px] font-bold text-on-surface-variant">
+  <span className="inline-block rounded-[5px] border border-border px-1.5 py-0.5 font-mono text-[11px] font-bold text-muted-foreground">
     {children}
   </span>
 );
@@ -110,14 +118,14 @@ export const Sigla = ({ children }: { children: ReactNode }) => (
 export function Medidor({ valor, alerta }: { valor: number; alerta?: boolean }) {
   return (
     <div
-      className="h-2 min-w-[90px] rounded bg-surface-container-highest overflow-hidden"
+      className="h-2.5 min-w-[90px] rounded-[5px] bg-muted overflow-hidden"
       role="meter"
       aria-valuenow={Math.round(valor * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <i
-        className={`block h-full ${alerta ? 'bg-amber-500' : 'bg-primary'}`}
+        className={`block h-full ${alerta ? 'bg-estado-problema-forte' : 'bg-primary'}`}
         style={{ width: `${Math.min(100, valor * 100)}%` }}
       />
     </div>
@@ -133,16 +141,10 @@ export function Aviso({
   children: ReactNode;
   acao?: ReactNode;
 }) {
-  const cls =
-    tom === 'erro'
-      ? 'bg-error/10 text-error border-error/20'
-      : tom === 'ok'
-        ? 'bg-primary/10 text-primary border-primary/20'
-        : 'bg-amber-500/10 text-amber-500 border-amber-500/20';
   const icone = tom === 'erro' ? 'error' : tom === 'ok' ? 'check_circle' : 'warning';
   return (
     <div
-      className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm font-medium ${cls}`}
+      className={`flex items-start gap-2.5 rounded-[10px] px-4 py-3 text-sm font-medium ${TONS[tom]}`}
     >
       <span className="material-symbols-outlined text-lg shrink-0">{icone}</span>
       <span className="flex-1">{children}</span>
@@ -165,33 +167,33 @@ export function KPI({
   destaque?: boolean;
 }) {
   return (
-    <div
-      className={`p-5 rounded-xl border relative overflow-hidden ${destaque ? 'bg-surface-container-highest border-primary/20' : 'glass-card border-outline-variant/10'}`}
-    >
-      {destaque && (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
-      )}
-      <div className="relative z-10">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="material-symbols-outlined text-xl text-primary">{icone}</span>
-          <span className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
-            {rotulo}
-          </span>
-        </div>
-        <p className="text-2xl font-headline font-bold text-on-surface tabular-nums">{valor}</p>
-        <p className="text-[11px] text-on-surface-variant mt-1">{detalhe}</p>
+    <div className={`${classeDoCartao} p-5`}>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="w-[41px] h-[38px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-xl">{icone}</span>
+        </span>
+        <span className="text-base leading-tight font-semibold text-muted-foreground">
+          {rotulo}
+        </span>
       </div>
+      <p
+        className={`text-[28px] leading-tight font-semibold tabular-nums ${destaque ? 'text-primary-strong' : 'text-foreground'}`}
+      >
+        {valor}
+      </p>
+      <p className="text-sm text-muted-foreground mt-1">{detalhe}</p>
     </div>
   );
 }
 
 /** Bloco de fórmula / prévia de conta, em fonte monoespaçada. */
 export const Formula = ({ children }: { children: ReactNode }) => (
-  <div className="font-mono text-xs leading-relaxed bg-surface-container rounded-lg px-4 py-3 text-on-surface-variant overflow-x-auto">
+  <div className="font-mono text-xs leading-relaxed bg-muted rounded-[10px] px-4 py-3 text-muted-foreground overflow-x-auto">
     {children}
   </div>
 );
 
+/** Botão em pílula do Figma: verde (marca) no principal, cinza nos outros. */
 export const Botao = ({
   children,
   onClick,
@@ -211,9 +213,13 @@ export const Botao = ({
     type={type}
     onClick={onClick}
     disabled={disabled}
-    className={`inline-flex items-center gap-1.5 rounded-lg font-bold font-headline transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-      pequeno ? 'px-2.5 py-1 text-xs' : 'px-4 py-2 text-sm'
-    } ${primario ? 'bg-primary text-on-primary hover:bg-primary/90' : 'bg-surface-container-low border border-outline-variant/20 text-on-surface-variant hover:text-primary'}`}
+    className={`inline-flex items-center gap-1.5 rounded-[25px] font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+      pequeno ? 'px-3.5 py-1.5 text-sm' : 'px-5 py-2.5 text-[15px]'
+    } ${
+      primario
+        ? 'bg-primary text-primary-foreground hover:brightness-105'
+        : 'bg-[#d9d9d9] dark:bg-muted text-foreground hover:brightness-95'
+    }`}
   >
     {children}
   </button>

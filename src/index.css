@@ -111,6 +111,8 @@
   --color-sidebar-ring: var(--primary);
 
   /* Font families */
+  /* Redesenho (nov/2026): o Figma é de 1920 px; de 1700 px para cima cabe a tela do Figma inteira */
+  --breakpoint-3xl: 106.25rem;
   /* Redesenho (nov/2026): Poppins em tudo; Inter só nos eixos dos gráficos */
   --font-headline: 'Poppins', sans-serif;
   --font-body: 'Poppins', sans-serif;

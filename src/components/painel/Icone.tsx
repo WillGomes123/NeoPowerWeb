@@ -24,6 +24,11 @@ import recibo from '../../assets/icones/recibo.svg';
 import kpiReceitaLiquida from '../../assets/icones/kpi-receita-liquida.svg';
 import kpiEnergia from '../../assets/icones/kpi-energia.svg';
 import estadoOffline from '../../assets/icones/estado-offline.svg';
+import setaDireita from '../../assets/icones/seta-direita.svg';
+import usinas from '../../assets/icones/usinas.svg';
+import pontosConsumidores from '../../assets/icones/pontos-consumidores.svg';
+import kpiUsinas from '../../assets/icones/kpi-usinas.svg';
+import opLocais from '../../assets/icones/op-locais.svg';
 
 /**
  * Ícones do redesenho (Figma da Lauriane, nov/2026), usados como máscara:
@@ -56,6 +61,11 @@ export const ICONES = {
   'kpi-receita-liquida': kpiReceitaLiquida,
   'kpi-energia': kpiEnergia,
   'estado-offline': estadoOffline,
+  'seta-direita': setaDireita,
+  usinas,
+  'pontos-consumidores': pontosConsumidores,
+  'kpi-usinas': kpiUsinas,
+  'op-locais': opLocais,
 } as const;
 
 export type NomeDoIcone = keyof typeof ICONES;
@@ -70,7 +80,36 @@ interface IconeProps {
 }
 
 export function Icone({ nome, tamanho = 24, altura, className = '' }: IconeProps) {
-  const url = `url("${ICONES[nome]}")`;
+  return (
+    <IconeSvg
+      src={ICONES[nome]}
+      tamanho={tamanho}
+      altura={altura}
+      className={className}
+      nome={nome}
+    />
+  );
+}
+
+/**
+ * O mesmo ícone em máscara, a partir de qualquer SVG importado na página
+ * (`import x from '../assets/icones/x.svg'`). Para as telas usarem os ícones do
+ * Figma sem precisar registrá-los aqui.
+ */
+export function IconeSvg({
+  src,
+  tamanho = 24,
+  altura,
+  className = '',
+  nome,
+}: {
+  src: string;
+  tamanho?: number;
+  altura?: number;
+  className?: string;
+  nome?: string;
+}) {
+  const url = `url("${src}")`;
   const estilo: CSSProperties = {
     width: tamanho,
     height: altura ?? tamanho,
@@ -87,7 +126,7 @@ export function Icone({ nome, tamanho = 24, altura, className = '' }: IconeProps
   return (
     <span
       aria-hidden="true"
-      data-icone={nome}
+      data-icone={nome ?? 'svg'}
       className={`inline-block shrink-0 ${className}`}
       style={estilo}
     />
