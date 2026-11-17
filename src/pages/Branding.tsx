@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { PagamentosDaMarca } from '../components/branding/PagamentosDaMarca';
+import { CrmDaMarca } from '../components/branding/CrmDaMarca';
 import { PromotionsDialog } from '../components/PromotionsDialog';
 import { camposDaMarcaCompleta, COR_HEX, STATUS_DA_MARCA } from '../lib/marcaCompleta';
 import type { CoresDeStatus } from '../types';
@@ -582,7 +583,7 @@ export const Branding = () => {
 
             <div className="overflow-y-auto flex-1 min-h-0 p-5">
               <Tabs defaultValue="identity" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-6 bg-surface-container-highest">
+                <TabsList className="grid w-full h-auto grid-cols-3 sm:grid-cols-7 mb-6 bg-surface-container-highest">
                   <TabsTrigger
                     value="identity"
                     className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
@@ -618,6 +619,12 @@ export const Branding = () => {
                     className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
                   >
                     Pagamentos
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="crm"
+                    className="data-[state=active]:bg-surface-container data-[state=active]:text-on-surface text-on-surface-variant font-bold"
+                  >
+                    Integração
                   </TabsTrigger>
                 </TabsList>
 
@@ -1626,6 +1633,13 @@ export const Branding = () => {
                   className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
                 >
                   <PagamentosDaMarca clientId={formData.clientId || ''} />
+                </TabsContent>
+
+                <TabsContent
+                  value="crm"
+                  className="space-y-6 mt-0 flex-1 overflow-y-auto outline-none pr-1"
+                >
+                  <CrmDaMarca clientId={formData.clientId || ''} />
                 </TabsContent>
               </Tabs>
             </div>
