@@ -8,7 +8,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import { cn } from '../components/ui/utils';
 import { DetalheDoRelato, SeloDoTipo } from '../components/erros-do-app/DetalheDoRelato';
+import {
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import { classeDoBotaoContorno } from '../components/painel/Pecas';
+import {
+  classeDaTabela,
+  classeDoCartaoDaTabela,
+  classeDoFiltro,
+  classeDoTd,
+  classeDoTh,
+} from '../components/configuracoes/Pecas';
 import {
   APELIDOS_DE_MARCA,
   CLASSES_DO_TOM,
@@ -80,6 +94,7 @@ export const ErrosDoApp = () => {
   const [estado, setEstado] = useState<EstadoDaLista>('carregando');
   const [erro, setErro] = useState<string | null>(null);
   const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const [relatoAberto, setRelatoAberto] = useState<RelatoDeErro | null>(null);
   const [detalheAberto, setDetalheAberto] = useState(false);
 
@@ -177,6 +192,7 @@ export const ErrosDoApp = () => {
       setLista(dados);
       setErro(null);
       setEstado('pronto');
+      setAtualizadoEm(new Date());
     } catch (e) {
       if (g !== geracaoDaLista.current) return;
       setErro(mensagemDaFalha(e));
@@ -235,45 +251,35 @@ export const ErrosDoApp = () => {
   }, [lista, faixa, estado, atualizando, pagina, filtros, setParams]);
 
   const cabecalho = (
-    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-      <div>
-        <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">
-          PLATAFORMA
-        </span>
-        <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">
-          Erros do app
-        </h2>
-        <p className="text-on-surface-variant text-sm mt-1 max-w-2xl">
+    <CabecalhoDaPagina
+      rotulo="Plataforma"
+      titulo="Erros do app"
+      subtitulo={
+        <span className="text-muted-foreground">
           O que os apps das marcas relatam: erro de JS, app que fecha sozinho, tela de erro e OTA
           que não abriu. Quando o app cai, o relato só chega na abertura seguinte.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={atualizarTudo}
-        disabled={atualizando}
-        className="flex items-center gap-2 self-start md:self-auto bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors disabled:opacity-50"
-      >
-        <span
-          className={`material-symbols-outlined text-sm ${atualizando ? 'animate-spin' : ''}`}
-          aria-hidden="true"
-        >
-          refresh
         </span>
-        <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
-      </button>
-    </div>
+      }
+      acoes={
+        <BotaoAtualizar
+          aoAtualizar={atualizarTudo}
+          carregando={atualizando}
+          atualizadoEm={atualizadoEm}
+          falhou={estado === 'erro'}
+        />
+      }
+    />
   );
 
   if (estado === 'indisponivel' || estado === 'bloqueado') {
     return (
-      <div className="space-y-8 pb-12">
+      <div className="space-y-[25px] pb-12">
         {cabecalho}
         <div className="max-w-xl mx-auto mt-8 text-center space-y-3">
-          <span className="material-symbols-outlined text-5xl text-outline" aria-hidden="true">
+          <span className="material-symbols-outlined text-5xl text-muted-foreground/60" aria-hidden="true">
             {estado === 'bloqueado' ? 'lock' : 'cloud_off'}
           </span>
-          <p className="text-sm text-on-surface-variant">
+          <p className="text-sm text-muted-foreground">
             {estado === 'bloqueado'
               ? erro || 'Seu perfil não tem acesso aos erros do app.'
               : 'O servidor ainda não recebe os relatórios de erro do app. A tela passa a funcionar quando a API com /api/app/erros for publicada.'}
@@ -287,7 +293,7 @@ export const ErrosDoApp = () => {
   const itens = lista?.itens ?? [];
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-[25px] pb-12">
       {cabecalho}
 
       <Resumo
@@ -300,7 +306,7 @@ export const ErrosDoApp = () => {
       />
 
       {/* Filtros: valem para a lista abaixo (o resumo é sempre 7 dias, todas as marcas). */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div className={`${classeDoCartao} px-4 py-4 flex flex-wrap items-end gap-3`}>
         <Filtro rotulo="Marca">
           <Select
             value={filtros.marca ?? TODAS}
@@ -308,24 +314,24 @@ export const ErrosDoApp = () => {
           >
             <SelectTrigger
               aria-label="Marca"
-              className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+              className={classeDoFiltro}
             >
               <SelectValue>
                 {filtros.marca ? rotuloDaMarcaEscolhida(filtros.marca) : 'Todas as marcas'}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent className="bg-surface-container border-outline-variant/20">
-              <SelectItem value={TODAS} className="text-on-surface">
+            <SelectContent>
+              <SelectItem value={TODAS}>
                 Todas as marcas
               </SelectItem>
               {(opcoesDeMarca.some(m => m.clientId === filtros.marca) || !filtros.marca
                 ? opcoesDeMarca
                 : [...opcoesDeMarca, { clientId: filtros.marca, nome: filtros.marca }]
               ).map(m => (
-                <SelectItem key={m.clientId} value={m.clientId} className="text-on-surface">
+                <SelectItem key={m.clientId} value={m.clientId}>
                   {m.nome}
                   {/* Duas marcas podem ter o mesmo nome: o clientId diferencia. */}
-                  <span className="font-mono text-[11px] text-on-surface-variant">
+                  <span className="font-mono text-[11px] text-muted-foreground">
                     {m.clientId}
                   </span>
                 </SelectItem>
@@ -341,16 +347,16 @@ export const ErrosDoApp = () => {
           >
             <SelectTrigger
               aria-label="Versão"
-              className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+              className={classeDoFiltro}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-surface-container border-outline-variant/20">
-              <SelectItem value={TODAS} className="text-on-surface">
+            <SelectContent>
+              <SelectItem value={TODAS}>
                 Todas as versões
               </SelectItem>
               {versoes.map(v => (
-                <SelectItem key={v} value={v} className="text-on-surface">
+                <SelectItem key={v} value={v}>
                   {v}
                 </SelectItem>
               ))}
@@ -365,16 +371,16 @@ export const ErrosDoApp = () => {
           >
             <SelectTrigger
               aria-label="Tipo"
-              className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+              className={classeDoFiltro}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-surface-container border-outline-variant/20">
-              <SelectItem value={TODAS} className="text-on-surface">
+            <SelectContent>
+              <SelectItem value={TODAS}>
                 Todos os tipos
               </SelectItem>
               {TIPOS_DE_RELATO.map(t => (
-                <SelectItem key={t} value={t} className="text-on-surface">
+                <SelectItem key={t} value={t}>
                   {INFO_DOS_TIPOS[t].rotulo}
                 </SelectItem>
               ))}
@@ -389,13 +395,13 @@ export const ErrosDoApp = () => {
           >
             <SelectTrigger
               aria-label="Período"
-              className="bg-surface-container-low border-outline-variant/20 text-on-surface"
+              className={classeDoFiltro}
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-surface-container border-outline-variant/20">
+            <SelectContent>
               {PERIODOS.map(p => (
-                <SelectItem key={p.id} value={p.id} className="text-on-surface">
+                <SelectItem key={p.id} value={p.id}>
                   {p.rotulo}
                 </SelectItem>
               ))}
@@ -407,7 +413,7 @@ export const ErrosDoApp = () => {
           <button
             type="button"
             onClick={() => setParams(paramsDosFiltros(FILTROS_PADRAO, 1), { replace: true })}
-            className="flex items-center gap-1.5 h-9 px-3 rounded-lg text-xs font-bold text-on-surface-variant hover:text-primary transition-colors"
+            className={cn(classeDoBotaoContorno, 'h-[43px]')}
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">
               filter_alt_off
@@ -418,11 +424,11 @@ export const ErrosDoApp = () => {
       </div>
 
       {/* Relatos */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex flex-wrap justify-between items-center gap-2">
-          <h3 className="text-lg font-headline font-bold text-on-surface">Relatos</h3>
+      <section className={classeDoCartaoDaTabela} aria-label="Relatos">
+        <div className="px-3 3xl:px-5 mb-1 flex flex-wrap items-baseline justify-between gap-3">
+          <h3 className="text-[20px] leading-tight font-semibold text-foreground">Relatos</h3>
           {lista && (
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-sm font-medium text-muted-foreground">
               {total} relato{total === 1 ? '' : 's'} no período
             </span>
           )}
@@ -430,16 +436,16 @@ export const ErrosDoApp = () => {
 
         {estado === 'erro' ? (
           <div className="flex flex-col items-center text-center py-16 gap-3">
-            <span className="material-symbols-outlined text-4xl text-error" aria-hidden="true">
+            <span className="material-symbols-outlined text-4xl text-destructive" aria-hidden="true">
               error
             </span>
-            <p className="text-sm text-on-surface">Não foi possível carregar os erros do app</p>
-            {erro && <p className="text-xs text-on-surface-variant max-w-sm break-words">{erro}</p>}
+            <p className="text-sm text-foreground">Não foi possível carregar os erros do app</p>
+            {erro && <p className="text-xs text-muted-foreground max-w-sm break-words">{erro}</p>}
             <button
               type="button"
               onClick={() => void carregarLista()}
               disabled={atualizando}
-              className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg border border-outline-variant/20 text-on-surface text-sm font-bold hover:bg-surface-container-highest transition-all disabled:opacity-50"
+              className={`mt-2 ${classeDoBotaoContorno}`}
             >
               <span
                 className={`material-symbols-outlined text-base ${atualizando ? 'animate-spin' : ''}`}
@@ -452,11 +458,11 @@ export const ErrosDoApp = () => {
           </div>
         ) : !lista || faixa?.passouDoFim ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-strong" />
           </div>
         ) : itens.length === 0 ? (
-          <div className="flex flex-col items-center text-center py-16 gap-2 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl text-outline" aria-hidden="true">
+          <div className="flex flex-col items-center text-center py-16 gap-2 text-muted-foreground">
+            <span className="material-symbols-outlined text-4xl text-muted-foreground/60" aria-hidden="true">
               {total > 0 ? 'last_page' : 'check_circle'}
             </span>
             {total > 0 ? (
@@ -465,14 +471,14 @@ export const ErrosDoApp = () => {
                 <button
                   type="button"
                   onClick={() => irParaPagina(1)}
-                  className="text-xs font-bold text-primary hover:underline"
+                  className="text-sm font-semibold text-primary-strong hover:underline"
                 >
                   Voltar para a primeira página
                 </button>
               </>
             ) : (
               <>
-                <p className="text-sm text-on-surface">Nenhum erro recebido no período</p>
+                <p className="text-sm text-foreground">Nenhum erro recebido no período</p>
                 <p className="text-xs max-w-sm">
                   {temFiltroAtivo(filtros)
                     ? 'Há filtros ativos; mude ou limpe os filtros para ver mais.'
@@ -488,19 +494,19 @@ export const ErrosDoApp = () => {
             className={`overflow-x-auto transition-opacity ${atualizando ? 'opacity-60' : ''}`}
             aria-busy={atualizando}
           >
-            <table className="w-full text-left border-collapse">
+            <table className={classeDaTabela}>
               <thead>
-                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                  <th className="px-4 py-3 font-bold">Quando</th>
-                  <th className="px-4 py-3 font-bold">Marca</th>
-                  <th className="px-4 py-3 font-bold">Versão / OTA</th>
-                  <th className="px-4 py-3 font-bold">Plataforma</th>
-                  <th className="px-4 py-3 font-bold">Tipo</th>
-                  <th className="px-4 py-3 font-bold">Mensagem</th>
-                  <th className="px-4 py-3 font-bold">Usuário</th>
+                <tr>
+                  <th className={classeDoTh}>Quando</th>
+                  <th className={classeDoTh}>Marca</th>
+                  <th className={classeDoTh}>Versão / OTA</th>
+                  <th className={classeDoTh}>Plataforma</th>
+                  <th className={classeDoTh}>Tipo</th>
+                  <th className={classeDoTh}>Mensagem</th>
+                  <th className={classeDoTh}>Usuário</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
+              <tbody>
                 {itens.map(r => (
                   <LinhaDoRelato
                     key={r.id}
@@ -517,14 +523,14 @@ export const ErrosDoApp = () => {
         {/* Os números são da página que chegou, não da pedida: na troca de página
             não aparecem sobre a lista anterior. */}
         {faixa && estado !== 'erro' && !faixa.passouDoFim && (
-          <div className="px-6 py-4 border-t border-outline-variant/10 flex flex-wrap justify-between items-center gap-3">
-            <p className="text-xs text-on-surface-variant">
+          <div className="px-3 3xl:px-5 pt-2 pb-1 flex flex-wrap justify-between items-center gap-3">
+            <p className="text-sm text-muted-foreground">
               {faixa.inicio > 0 ? (
                 <>
-                  <span className="font-bold text-on-surface">
+                  <span className="font-semibold text-foreground">
                     {faixa.inicio}–{faixa.fim}
                   </span>{' '}
-                  de <span className="font-bold text-on-surface">{total}</span>
+                  de <span className="font-semibold text-foreground">{total}</span>
                 </>
               ) : total > 0 ? (
                 'Nenhum relato nesta página'
@@ -532,8 +538,8 @@ export const ErrosDoApp = () => {
                 'Nenhum relato'
               )}
               <span className="ml-3">
-                Página <span className="font-bold text-on-surface">{faixa.pagina}</span> de{' '}
-                <span className="font-bold text-on-surface">{faixa.totalDePaginas}</span>
+                Página <span className="font-semibold text-foreground">{faixa.pagina}</span> de{' '}
+                <span className="font-semibold text-foreground">{faixa.totalDePaginas}</span>
               </span>
             </p>
             <div className="flex gap-2">
@@ -541,7 +547,7 @@ export const ErrosDoApp = () => {
                 type="button"
                 onClick={() => irParaPagina(faixa.pagina - 1)}
                 disabled={faixa.pagina <= 1 || atualizando}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                className={classeDoBotaoContorno}
               >
                 <span className="material-symbols-outlined text-base" aria-hidden="true">
                   chevron_left
@@ -552,7 +558,7 @@ export const ErrosDoApp = () => {
                 type="button"
                 onClick={() => irParaPagina(faixa.pagina + 1)}
                 disabled={faixa.pagina >= faixa.totalDePaginas || atualizando}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                className={classeDoBotaoContorno}
               >
                 Próxima
                 <span className="material-symbols-outlined text-base" aria-hidden="true">
@@ -562,7 +568,7 @@ export const ErrosDoApp = () => {
             </div>
           </div>
         )}
-      </div>
+      </section>
 
       <DetalheDoRelato
         relato={relatoAberto}
@@ -576,8 +582,8 @@ export const ErrosDoApp = () => {
 
 function Filtro({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
-    <div className="space-y-1.5 w-full sm:w-52">
-      <span className="block text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
+    <div className="space-y-1.5 w-full sm:w-auto">
+      <span className="block px-3 text-muted-foreground text-[13px] font-medium">
         {rotulo}
       </span>
       {children}
@@ -597,48 +603,43 @@ function LinhaDoRelato({
   const atraso = atrasoDaChegada(r);
   const js = jsEmUso(r);
   const ondeFoi = [r.tela, codigoDoRelato(r)].filter(Boolean).join(' · ');
+  const td = cn(classeDoTd, 'align-top');
   return (
-    <tr
-      onClick={aoAbrir}
-      className="cursor-pointer hover:bg-surface-container-highest/30 transition-colors align-top"
-    >
-      <td className="px-4 py-3 whitespace-nowrap">
+    <tr onClick={aoAbrir} className="cursor-pointer">
+      <td className={`${td} whitespace-nowrap`}>
         <span
-          className="text-sm text-on-surface tabular-nums"
+          className="text-sm text-foreground tabular-nums"
           title={`Ocorreu: ${dataHoraCompleta(r.ocorridoEm)}\nRecebido: ${dataHoraCompleta(r.criadoEm)}`}
         >
           {formatarDataHora(momentoDoRelato(r))}
         </span>
         {atraso && (
-          <span className="block text-[11px] text-on-surface-variant">chegou {atraso} depois</span>
+          <span className="block text-[11px] text-muted-foreground">chegou {atraso} depois</span>
         )}
       </td>
-      <td
-        className="px-4 py-3 text-sm text-on-surface whitespace-nowrap"
-        title={r.clientId ?? undefined}
-      >
+      <td className={`${td} text-foreground whitespace-nowrap`} title={r.clientId ?? undefined}>
         {marca}
       </td>
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-sm font-medium text-on-surface">
+      <td className={`${td} whitespace-nowrap`}>
+        <span className="text-sm font-medium text-foreground">
           {versaoComBuild(r.appVersao, r.appBuild)}
         </span>
         <span
-          className="block font-mono text-[11px] text-on-surface-variant"
+          className="block font-mono text-[11px] text-muted-foreground"
           title={r.updateId ?? undefined}
         >
           {js ?? '—'}
           {r.emergencia && (
-            <span className="ml-1.5 font-sans font-bold text-red-600 dark:text-red-400">
+            <span className="ml-1.5 font-sans font-bold text-destructive">
               emergência
             </span>
           )}
         </span>
       </td>
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className="flex items-center gap-1.5 text-sm text-on-surface">
+      <td className={`${td} whitespace-nowrap`}>
+        <span className="flex items-center gap-1.5 text-sm text-foreground">
           <span
-            className="material-symbols-outlined text-base text-on-surface-variant"
+            className="material-symbols-outlined text-base text-muted-foreground"
             aria-hidden="true"
           >
             {iconeDaPlataforma(r.plataforma)}
@@ -647,17 +648,17 @@ function LinhaDoRelato({
         </span>
         {r.modelo && (
           <span
-            className="block max-w-[160px] truncate text-[11px] text-on-surface-variant"
+            className="block max-w-[160px] truncate text-[11px] text-muted-foreground"
             title={r.modelo}
           >
             {r.modelo}
           </span>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className={td}>
         <SeloDoTipo relato={r} />
       </td>
-      <td className="px-4 py-3">
+      <td className={td}>
         {/* Botão para o detalhe abrir também pelo teclado; a linha toda abre no clique. */}
         <button
           type="button"
@@ -668,21 +669,21 @@ function LinhaDoRelato({
           className="block max-w-[360px] text-left group"
           title={r.mensagem ?? undefined}
         >
-          <span className="block truncate text-sm text-on-surface group-hover:text-primary transition-colors">
+          <span className="block truncate text-sm text-foreground group-hover:text-primary-strong transition-colors">
             {r.mensagem || 'Sem mensagem'}
           </span>
           {ondeFoi && (
-            <span className="block truncate font-mono text-[11px] text-on-surface-variant">
+            <span className="block truncate font-mono text-[11px] text-muted-foreground">
               {ondeFoi}
             </span>
           )}
         </button>
       </td>
-      <td className="px-4 py-3 text-sm whitespace-nowrap">
+      <td className={`${td} whitespace-nowrap`}>
         {r.userId != null ? (
-          <span className="font-mono text-on-surface">#{r.userId}</span>
+          <span className="font-mono text-foreground">#{r.userId}</span>
         ) : (
-          <span className="text-on-surface-variant">sem login</span>
+          <span className="text-muted-foreground">sem login</span>
         )}
       </td>
     </tr>
@@ -722,24 +723,24 @@ function Resumo({
   return (
     <section className="space-y-4" aria-label="Resumo dos últimos 7 dias">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-lg font-headline font-bold text-on-surface">Últimos 7 dias</h3>
+        <h3 className="text-[20px] leading-tight font-semibold text-foreground">Últimos 7 dias</h3>
         {/* Os números antigos continuam, mas quem lê precisa saber que não são os de agora. */}
         {estado === 'erro' && resumo && (
-          <span className="flex items-center gap-1.5 text-xs text-on-surface-variant">
-            <span className="material-symbols-outlined text-sm text-error" aria-hidden="true">
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <span className="material-symbols-outlined text-sm text-destructive" aria-hidden="true">
               error
             </span>
             Não foi possível atualizar o resumo.
             <button
               type="button"
               onClick={aoTentarDeNovo}
-              className="font-bold text-primary hover:underline"
+              className="font-semibold text-primary-strong hover:underline"
             >
               Tentar de novo
             </button>
           </span>
         )}
-        <span className="text-xs text-on-surface-variant">
+        <span className="text-sm text-muted-foreground">
           Todas as marcas
           {resumo?.desde ? `, desde ${formatarDataHora(resumo.desde)}` : ''}. Clique para filtrar a
           lista.
@@ -747,34 +748,34 @@ function Resumo({
       </div>
 
       {estado === 'erro' && !resumo ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant/10 bg-surface-container-low px-5 py-4 text-sm text-on-surface-variant">
-          <span className="material-symbols-outlined text-error" aria-hidden="true">
+        <div className={`${classeDoCartao} flex flex-wrap items-center gap-3 px-5 py-4 text-sm text-muted-foreground`}>
+          <span className="material-symbols-outlined text-destructive" aria-hidden="true">
             error
           </span>
           Não foi possível carregar o resumo.
           <button
             type="button"
             onClick={aoTentarDeNovo}
-            className="text-xs font-bold text-primary hover:underline"
+            className="font-semibold text-primary-strong hover:underline"
           >
             Tentar de novo
           </button>
         </div>
       ) : (
         <div className={estado === 'carregando' && !resumo ? 'opacity-50' : ''}>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-            <div className="bg-surface-container-low p-5 rounded-xl border border-outline-variant/10">
-              <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 3xl:gap-[25px]">
+            <div className={`${classeDoCartao} p-5`}>
+              <span className="w-[41px] h-[38px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center mb-3">
                 <span className="material-symbols-outlined text-lg" aria-hidden="true">
                   bug_report
                 </span>
               </span>
-              <p className="text-xs text-on-surface-variant mb-1">Relatos</p>
-              <p className="text-2xl font-headline font-bold text-on-surface">
+              <p className="text-sm font-semibold text-foreground mb-1">Relatos</p>
+              <p className="text-[28px] leading-tight font-semibold tabular-nums text-foreground">
                 {resumo ? total : '—'}
               </p>
               {resumo && (
-                <p className="text-[11px] text-on-surface-variant mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {derrubaram} derrubaram o app
                 </p>
               )}
@@ -792,21 +793,19 @@ function Resumo({
                   // Sem glass-card: a borda e a sombra dele (CSS fora das camadas do
                   // Tailwind) apagariam a marcação do filtro ativo. O flex alinha o
                   // conteúdo no topo, como no card de Relatos (o botão centraliza).
-                  className={`flex flex-col items-start bg-surface-container-low p-5 rounded-xl border text-left transition-all ${
-                    ativo
-                      ? 'border-primary ring-1 ring-primary/40'
-                      : 'border-outline-variant/10 hover:border-outline-variant/40'
+                  className={`${classeDoCartao} flex flex-col items-start p-5 text-left transition-all ${
+                    ativo ? 'ring-2 ring-primary' : 'hover:ring-1 hover:ring-border'
                   }`}
                 >
                   <span
-                    className={`w-8 h-8 rounded-lg border flex items-center justify-center mb-3 ${CLASSES_DO_TOM[info.tom]}`}
+                    className={`w-[41px] h-[38px] rounded-[5px] border flex items-center justify-center mb-3 ${CLASSES_DO_TOM[info.tom]}`}
                   >
                     <span className="material-symbols-outlined text-lg" aria-hidden="true">
                       {info.icone}
                     </span>
                   </span>
-                  <span className="block text-xs text-on-surface-variant mb-1">{info.rotulo}</span>
-                  <span className="block text-2xl font-headline font-bold text-on-surface">
+                  <span className="block text-sm font-semibold text-foreground mb-1">{info.rotulo}</span>
+                  <span className="block text-[28px] leading-tight font-semibold tabular-nums text-foreground">
                     {resumo ? (porTipo.get(tipo) ?? 0) : '—'}
                   </span>
                 </button>
@@ -814,19 +813,19 @@ function Resumo({
             })}
           </div>
 
-          <div className="mt-4 bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-            <div className="px-5 py-3 border-b border-outline-variant/10 flex flex-wrap items-baseline justify-between gap-2">
-              <h4 className="text-sm font-headline font-bold text-on-surface">Por versão do app</h4>
-              <span className="text-[11px] text-on-surface-variant">
+          <div className={`${classeDoCartao} mt-4 3xl:mt-[25px] overflow-hidden`}>
+            <div className="px-5 py-4 border-b border-border flex flex-wrap items-baseline justify-between gap-2">
+              <h4 className="text-base font-semibold text-foreground">Por versão do app</h4>
+              <span className="text-sm text-muted-foreground">
                 versão (build) e plataforma
               </span>
             </div>
             {resumo && linhas.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-on-surface-variant">
+              <p className="px-5 py-6 text-sm text-muted-foreground">
                 Nenhum relato nos últimos 7 dias.
               </p>
             ) : (
-              <ul className="divide-y divide-outline-variant/5">
+              <ul className="divide-y divide-border">
                 {visiveis.map(l => {
                   const ativo = !!l.appVersao && filtros.versao === l.appVersao;
                   // Barra fina, uma cor só (a da marca), proporcional ao maior total.
@@ -839,20 +838,20 @@ function Resumo({
                         onClick={() => l.appVersao && aoFiltrarVersao(ativo ? null : l.appVersao)}
                         aria-pressed={ativo}
                         className={`w-full grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-5 py-2.5 text-left transition-colors disabled:cursor-default ${
-                          ativo ? 'bg-primary/5' : 'hover:bg-surface-container-highest/30'
+                          ativo ? 'bg-primary-soft' : 'hover:bg-muted/50'
                         }`}
                       >
                         <span className="flex items-center gap-2 min-w-0">
                           <span
-                            className="material-symbols-outlined text-base text-on-surface-variant"
+                            className="material-symbols-outlined text-base text-muted-foreground"
                             aria-hidden="true"
                           >
                             {iconeDaPlataforma(l.plataforma)}
                           </span>
-                          <span className="truncate text-sm font-medium text-on-surface">
+                          <span className="truncate text-sm font-medium text-foreground">
                             {versaoComBuild(l.appVersao, l.appBuild)}
                           </span>
-                          <span className="text-xs text-on-surface-variant">
+                          <span className="text-xs text-muted-foreground">
                             {rotuloDaPlataforma(l.plataforma)}
                           </span>
                         </span>
@@ -866,7 +865,7 @@ function Resumo({
                               style={{ width: `${largura}%` }}
                             />
                           </span>
-                          <span className="w-10 text-right text-sm font-bold text-on-surface tabular-nums">
+                          <span className="w-10 text-right text-sm font-semibold text-foreground tabular-nums">
                             {l.total}
                           </span>
                         </span>
@@ -880,7 +879,7 @@ function Resumo({
               <button
                 type="button"
                 onClick={() => setTodasAsVersoes(v => !v)}
-                className="w-full px-5 py-2.5 border-t border-outline-variant/10 text-xs font-bold text-primary hover:bg-surface-container-highest/30 transition-colors"
+                className="w-full px-5 py-3 border-t border-border text-sm font-semibold text-primary-strong hover:bg-muted/50 transition-colors"
               >
                 {todasAsVersoes ? 'Mostrar menos' : `Mostrar todas (${linhas.length})`}
               </button>
