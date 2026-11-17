@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { CircleCheck, Receipt, TrendingUp, Users, Wallet, Zap } from 'lucide-react';
 import { ExportButton } from '../components/ExportButton';
 import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
 import { DateRangePicker } from '../components/ui/date-range-picker';
@@ -7,6 +8,21 @@ import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { ExportColumn } from '../lib/export';
+import { Icone } from '../components/painel/Icone';
+import {
+  AbasDaPagina,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import { classeDoBotaoContorno } from '../components/painel/Pecas';
+import {
+  CartaoDeIndicador,
+  classeDasAcoesComExportar,
+  classeDoConteinerDaTabela,
+  rotuloDoPeriodo,
+} from '../components/financeiro/Pecas';
 
 interface Transaction {
   id: number;
@@ -171,6 +187,11 @@ export const Transactions = () => {
   const [depositRefundReason, setDepositRefundReason] = useState('');
   const [depositRefundLoading, setDepositRefundLoading] = useState(false);
   const [depositRefundToMP, setDepositRefundToMP] = useState(false);
+  // Botão Atualizar: quando os números chegaram e se a última busca falhou
+  // (os números na tela ficam, com o aviso no botão).
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
   const itemsPerPage = 10;
 
   const fetchAtivas = async () => {
@@ -223,8 +244,11 @@ export const Transactions = () => {
       if (!response.ok) throw new Error('Falha ao buscar transações.');
       const data = await response.json();
       setTransactions(Array.isArray(data) ? data : []);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      setFalhou(true);
       if (!silencioso) {
         setError(msg);
         toast.error(msg);
@@ -241,11 +265,28 @@ export const Transactions = () => {
       if (!response.ok) throw new Error('Falha ao buscar depósitos.');
       const data = await response.json();
       setWalletTxs(data);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
     } catch (err) {
       // No ciclo silencioso uma falha de rede não vira toast; tenta no próximo.
+      setFalhou(true);
       if (!silencioso) toast.error(err instanceof Error ? err.message : 'Erro ao buscar depósitos.');
     } finally {
       if (!silencioso) setLoadingWallet(false);
+    }
+  };
+
+  /**
+   * Botão Atualizar do cabeçalho: busca a aba aberta sem trocar a tela pelo
+   * carregando; se falhar, os números ficam e o botão avisa.
+   */
+  const atualizar = async () => {
+    setAtualizando(true);
+    try {
+      if (txTab === 'saldo' && isAdmin) await fetchWalletTransactions({ silencioso: true });
+      else await Promise.all([fetchTransactions({ silencioso: true }), fetchAtivas()]);
+    } finally {
+      setAtualizando(false);
     }
   };
 
@@ -448,20 +489,23 @@ export const Transactions = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-error">{error}</div>
+        <div className="text-destructive">{error}</div>
       </div>
     );
   }
 
+  const periodo = rotuloDoPeriodo(startDate, endDate);
+
   return (
-    <div className="space-y-8 pb-12">
-      {/* Page Header & Filters */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-xs font-bold text-primary font-headline tracking-[0.2em] uppercase mb-1 block">LIVE ENERGY FEED</span>
-          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Transações</h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="Transações"
+        subtitulo={
+          isAdmin
+            ? 'Recargas nos carregadores e recargas de saldo dos clientes.'
+            : 'Recargas feitas nos carregadores da sua rede.'
+        }
+        filtros={
           <DateRangePicker
             startDate={startDate}
             endDate={endDate}
@@ -472,11 +516,11 @@ export const Transactions = () => {
               setEndDate(getTodayString());
               setCurrentPage(1);
             }}
+            placeholder="Todo o período"
+            className={`${classeDaPilula} sm:w-[300px] justify-start`}
           />
-          <button onClick={() => void fetchTransactions()} className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors">
-            <span className="material-symbols-outlined text-sm">refresh</span>
-            <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
-          </button>
+        }
+        acoes={<div className={classeDasAcoesComExportar}>
           {/*
             Na aba de Saldo o botao baixava as RECARGAS, nao os depositos, e
             ficava habilitado pela contagem da outra aba.
@@ -488,112 +532,110 @@ export const Transactions = () => {
             title={ehSaldo ? 'Recargas de Saldo - NeoPower' : 'Historico de Transacoes - NeoPower'}
             disabled={(ehSaldo ? filteredDeposits : filtered).length === 0}
           />
-        </div>
-      </div>
+          <BotaoAtualizar
+            aoAtualizar={() => void atualizar()}
+            carregando={atualizando}
+            atualizadoEm={atualizadoEm}
+            falhou={falhou}
+          />
+        </div>}
+      />
 
-      {/* Tabs Recargas vs Saldo */}
+      {/* Abas Recargas vs Saldo. A contagem é a do período filtrado: antes era
+          o total da base, e com o filtro em um único dia a aba dizia 61 e a
+          tabela listava 4. */}
       {isAdmin && (
-        <div className="flex items-center gap-2 border-b border-outline-variant/10">
-          <button
-            onClick={() => { setTxTab('recargas'); setCurrentPage(1); }}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
-              txTab === 'recargas'
-                ? 'text-primary border-primary'
-                : 'text-on-surface-variant border-transparent hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">bolt</span>
-            Recargas (Eletroposto)
-            {/* A contagem e a do periodo filtrado. Antes era o total da base:
-                com o filtro em um unico dia a aba dizia 61 e a tabela listava 4. */}
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              txTab === 'recargas' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
-            }`}>
-              {filtered.length}
-            </span>
-          </button>
-          <button
-            onClick={() => { setTxTab('saldo'); setCurrentPage(1); }}
-            className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
-              txTab === 'saldo'
-                ? 'text-primary border-primary'
-                : 'text-on-surface-variant border-transparent hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">account_balance_wallet</span>
-            Recargas de Saldo
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              txTab === 'saldo' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
-            }`}>
-              {filteredDeposits.length}
-            </span>
-          </button>
-        </div>
+        <AbasDaPagina
+          rotulo="Tipo de transação"
+          abas={[
+            {
+              id: 'recargas' as const,
+              rotulo: 'Recargas (Eletroposto)',
+              icone: <Zap aria-hidden="true" className="w-6 h-6" />,
+              contador: filtered.length,
+            },
+            {
+              id: 'saldo' as const,
+              rotulo: 'Recargas de saldo',
+              icone: <Wallet aria-hidden="true" className="w-6 h-6" />,
+              contador: filteredDeposits.length,
+            },
+          ]}
+          ativa={txTab}
+          aoMudar={aba => { setTxTab(aba); setCurrentPage(1); }}
+        />
       )}
 
-      {/* Bento Summary Metrics */}
+      {/* Resumo do período */}
       {txTab === 'recargas' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {/* Primary KPI: Ticket Médio + Receita Total */}
-          <div className="glass-card p-4 rounded-xl border border-primary/20 relative overflow-hidden group col-span-1 md:col-span-2 flex flex-col justify-between">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-            <div className="flex justify-between items-start mb-2">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-lg">confirmation_number</span>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-muted-foreground bg-surface-container-highest">
-                {filtered.length} transações
-              </span>
-            </div>
-            
-            <div className="space-y-2">
-              <div>
-                <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-0.5">Ticket Médio (Período)</p>
-                <h2 className="text-2xl font-headline font-bold text-primary">R$ {fmt(avgTicket)}</h2>
-              </div>
-              <div className="pt-2 border-t border-outline-variant/10">
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-0.5">Receita Total</p>
-                <p className="text-base font-headline font-bold text-foreground">R$ {fmt(totalRevenue)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Energia Total */}
-          <MetricCard icon="bolt" label="ENERGIA TOTAL" value={`${fmt(totalKwh, 1)} kWh`} />
-
-          {/* Status das Transações */}
-          <div className="glass-card p-4 rounded-xl border border-outline-variant/10 relative overflow-hidden flex flex-col justify-between">
-            <div className="flex justify-between items-start mb-2">
-              <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
-                <span className="material-symbols-outlined text-lg">check_circle</span>
-              </div>
-            </div>
-            <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-1.5">Status das Transações</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Concluídas</p>
-                <p className="text-xl font-headline font-bold text-foreground">{completedCount}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-error uppercase tracking-widest">Não Concluídas</p>
-                <p className="text-xl font-headline font-bold text-foreground">{filtered.length - completedCount}</p>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[25px]">
+          <CartaoDeIndicador
+            tom="marca"
+            icone={<Icone nome="kpi-receita-liquida" tamanho={27} />}
+            titulo="Receita total"
+            subtitulo={periodo}
+            valor={`R$ ${fmt(totalRevenue)}`}
+          >
+            {filtered.length} {filtered.length === 1 ? 'transação' : 'transações'}
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="azul"
+            icone={<Receipt aria-hidden="true" className="w-6 h-6" />}
+            titulo="Ticket médio"
+            subtitulo={periodo}
+            valor={`R$ ${fmt(avgTicket)}`}
+          />
+          <CartaoDeIndicador
+            tom="amarelo"
+            icone={<Icone nome="kpi-energia" tamanho={26} />}
+            titulo="Energia total"
+            subtitulo={periodo}
+            valor={`${fmt(totalKwh, 1)} kWh`}
+          />
+          <CartaoDeIndicador
+            tom="cinza"
+            icone={<CircleCheck aria-hidden="true" className="w-6 h-6" />}
+            titulo="Concluídas"
+            subtitulo={periodo}
+            valor={String(completedCount)}
+          >
+            <span className="text-destructive font-medium">Não concluídas</span>{' '}
+            <span className="font-semibold tabular-nums text-foreground">{filtered.length - completedCount}</span>
+          </CartaoDeIndicador>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard icon="account_balance_wallet" badge={`${filteredDeposits.length} dep.`} label="TOTAL DEPÓSITOS" value={`R$ ${fmt(totalDeposits)}`} />
-          <MetricCard icon="trending_up" label="DEPÓSITO MÉDIO" value={`R$ ${fmt(avgDeposit)}`} />
-          <MetricCard icon="people" label="USUÁRIOS ÚNICOS" value={String(new Set(filteredDeposits.map(d => d.userId)).size)} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[25px]">
+          <CartaoDeIndicador
+            tom="marca"
+            icone={<Wallet aria-hidden="true" className="w-6 h-6" />}
+            titulo="Total de depósitos"
+            subtitulo={periodo}
+            valor={`R$ ${fmt(totalDeposits)}`}
+          >
+            {filteredDeposits.length} depósito{filteredDeposits.length === 1 ? '' : 's'}
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="azul"
+            icone={<TrendingUp aria-hidden="true" className="w-6 h-6" />}
+            titulo="Depósito médio"
+            subtitulo={periodo}
+            valor={`R$ ${fmt(avgDeposit)}`}
+          />
+          <CartaoDeIndicador
+            tom="cinza"
+            icone={<Users aria-hidden="true" className="w-6 h-6" />}
+            titulo="Usuários únicos"
+            subtitulo={periodo}
+            valor={String(new Set(filteredDeposits.map(d => d.userId)).size)}
+          />
         </div>
       )}
 
       {/* Transaction Table — Recargas (Eletroposto) */}
       {txTab === 'recargas' && (
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <h3 className="text-lg font-headline font-bold text-on-surface">Atividade Recente</h3>
+      <div className={`${classeDoCartao} overflow-hidden`}>
+        <div className="px-6 py-5 border-b border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <h3 className="text-[20px] leading-tight font-semibold text-foreground">Atividade recente</h3>
           <div className="flex items-center gap-4 flex-1 md:justify-end">
             <div className="relative flex-1 md:max-w-xs">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-base">search</span>
@@ -613,7 +655,7 @@ export const Transactions = () => {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className={classeDoConteinerDaTabela}>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
@@ -711,16 +753,16 @@ export const Transactions = () => {
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-outline-variant/10 flex justify-between items-center">
-          <p className="text-xs text-on-surface-variant">
-            Página <span className="font-bold text-on-surface">{currentPage}</span> de <span className="font-bold text-on-surface">{totalPages || 1}</span>
-            <span className="ml-2 text-outline">({filtered.length} transações)</span>
+        <div className="px-6 py-4 border-t border-border flex flex-wrap gap-3 justify-between items-center">
+          <p className="text-sm text-muted-foreground">
+            Página <span className="font-semibold text-foreground">{currentPage}</span> de <span className="font-semibold text-foreground">{totalPages || 1}</span>
+            <span className="ml-2">({filtered.length} transações)</span>
           </p>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+              className={classeDoBotaoContorno}
             >
               <span className="material-symbols-outlined text-base">chevron_left</span>
               Anterior
@@ -728,7 +770,7 @@ export const Transactions = () => {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+              className={classeDoBotaoContorno}
             >
               Próxima
               <span className="material-symbols-outlined text-base">chevron_right</span>
@@ -740,9 +782,9 @@ export const Transactions = () => {
 
       {/* Wallet Deposits Table — Saldo */}
       {txTab === 'saldo' && isAdmin && (
-        <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-          <div className="px-6 py-4 border-b border-outline-variant/10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h3 className="text-lg font-headline font-bold text-on-surface">Recargas de Saldo</h3>
+        <div className={`${classeDoCartao} overflow-hidden`}>
+          <div className="px-6 py-5 border-b border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <h3 className="text-[20px] leading-tight font-semibold text-foreground">Recargas de saldo</h3>
             <div className="flex items-center gap-3 flex-1 md:justify-end">
               <div className="relative flex-1 md:max-w-xs">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-base">search</span>
@@ -754,13 +796,6 @@ export const Transactions = () => {
                   className="w-full pl-9 pr-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                 />
               </div>
-              <button
-                onClick={() => void fetchWalletTransactions()}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-primary text-xs font-bold transition-colors"
-              >
-                <span className="material-symbols-outlined text-sm">refresh</span>
-                Atualizar
-              </button>
             </div>
           </div>
           {loadingWallet ? (
@@ -769,7 +804,7 @@ export const Transactions = () => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className={classeDoConteinerDaTabela}>
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
@@ -847,16 +882,16 @@ export const Transactions = () => {
               </div>
 
               {/* Pagination */}
-              <div className="px-6 py-4 border-t border-outline-variant/10 flex justify-between items-center">
-                <p className="text-xs text-on-surface-variant">
-                  Página <span className="font-bold text-on-surface">{currentPage}</span> de <span className="font-bold text-on-surface">{totalDepositPages || 1}</span>
-                  <span className="ml-2 text-outline">({filteredDeposits.length} depósitos)</span>
+              <div className="px-6 py-4 border-t border-border flex flex-wrap gap-3 justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  Página <span className="font-semibold text-foreground">{currentPage}</span> de <span className="font-semibold text-foreground">{totalDepositPages || 1}</span>
+                  <span className="ml-2">({filteredDeposits.length} depósitos)</span>
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                    className={classeDoBotaoContorno}
                   >
                     <span className="material-symbols-outlined text-base">chevron_left</span>
                     Anterior
@@ -864,7 +899,7 @@ export const Transactions = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalDepositPages, p + 1))}
                     disabled={currentPage === totalDepositPages || totalDepositPages === 0}
-                    className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                    className={classeDoBotaoContorno}
                   >
                     Próxima
                     <span className="material-symbols-outlined text-base">chevron_right</span>
@@ -899,79 +934,96 @@ export const Transactions = () => {
       {/* Deposit Refund Dialog */}
       {depositRefundOpen && depositRefundTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setDepositRefundOpen(false)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500">
-                <span className="material-symbols-outlined">account_balance_wallet</span>
-              </div>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="titulo-estorno"
+            className="bg-card text-card-foreground rounded-[15px] shadow-2xl w-full max-w-md mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-4 mb-6">
+              <span aria-hidden="true" className="w-[41px] h-[38px] rounded-[5px] bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined">undo</span>
+              </span>
               <div>
-                <h3 className="text-lg font-headline font-bold text-foreground">Estornar Depósito</h3>
-                <p className="text-xs text-muted-foreground">#{depositRefundTx.id} — {depositRefundTx.userName}</p>
+                <h3 id="titulo-estorno" className="text-[20px] leading-tight font-semibold text-foreground">Estornar depósito</h3>
+                <p className="text-sm text-muted-foreground">#{depositRefundTx.id} — {depositRefundTx.userName}</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              <div className="p-3 rounded-lg bg-surface-container-low border border-outline-variant/20">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Valor do depósito</p>
-                <p className="text-2xl font-bold text-foreground">R$ {fmt(depositRefundTx.amount)}</p>
+              <div className="px-4 py-3 rounded-[10px] bg-muted/60 dark:bg-muted/40">
+                <p className="text-sm font-medium text-muted-foreground mb-1">Valor do depósito</p>
+                <p className="text-2xl font-semibold tabular-nums text-foreground">R$ {fmt(depositRefundTx.amount)}</p>
                 {depositRefundTx.referenceId && /^[0-9]+$/.test(depositRefundTx.referenceId) && (
-                  <p className="text-[10px] text-muted-foreground mt-2 font-mono">
+                  <p className="text-[11px] text-muted-foreground mt-2 font-mono">
                     MercadoPago Payment ID: {depositRefundTx.referenceId}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Motivo (opcional)</label>
+                <label htmlFor="motivo-estorno" className="block text-sm font-medium text-muted-foreground mb-1.5">Motivo (opcional)</label>
                 <textarea
+                  id="motivo-estorno"
                   value={depositRefundReason}
                   onChange={(e) => setDepositRefundReason(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
+                  className="w-full px-4 py-2.5 rounded-[10px] bg-background border border-border text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none"
                   placeholder="Ex: depósito incorreto, valor errado..."
                 />
               </div>
 
               {/* Toggle MercadoPago */}
               {depositRefundTx.referenceId && /^[0-9]+$/.test(depositRefundTx.referenceId) && (
-                <div className="flex items-start gap-3 p-3 rounded-lg bg-surface-container-low border border-outline-variant/20">
+                <div className="flex items-start gap-3 px-4 py-3 rounded-[10px] bg-muted/60 dark:bg-muted/40">
                   <button
                     type="button"
+                    role="checkbox"
+                    aria-checked={depositRefundToMP}
+                    aria-label="Devolver ao meio de pagamento"
                     onClick={() => setDepositRefundToMP(!depositRefundToMP)}
                     className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                      depositRefundToMP ? 'bg-primary border-primary' : 'border-outline-variant'
+                      depositRefundToMP ? 'bg-primary border-primary' : 'border-muted-foreground'
                     }`}
                   >
-                    {depositRefundToMP && <span className="material-symbols-outlined text-white text-sm">check</span>}
+                    {depositRefundToMP && <span className="material-symbols-outlined text-primary-foreground text-sm">check</span>}
                   </button>
                   <div>
                     <p className="text-sm font-medium text-foreground">Devolver ao meio de pagamento</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       O valor será estornado via MercadoPago de volta ao cartão/Pix do cliente. Caso contrário, apenas debita o saldo da carteira.
                     </p>
                   </div>
                 </div>
               )}
+
+              {/* O que acontece ao confirmar, dito antes do clique. */}
+              <p className="text-sm text-destructive font-medium">
+                {depositRefundToMP
+                  ? `Ao confirmar, o Mercado Pago devolve R$ ${fmt(depositRefundTx.amount)} ao cartão ou Pix de ${depositRefundTx.userName}.`
+                  : `Ao confirmar, R$ ${fmt(depositRefundTx.amount)} saem do saldo da carteira de ${depositRefundTx.userName}.`}
+              </p>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="flex flex-wrap justify-end gap-3 mt-6">
               <button
                 onClick={() => setDepositRefundOpen(false)}
-                className="px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="h-10 px-5 rounded-[25px] bg-[#d9d9d9] dark:bg-muted text-foreground text-sm font-medium inline-flex items-center justify-center hover:brightness-95 transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => void handleDepositRefund()}
                 disabled={depositRefundLoading}
-                className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="h-10 px-5 rounded-[25px] bg-destructive text-white text-sm font-semibold inline-flex items-center gap-2 hover:brightness-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {depositRefundLoading ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
                 ) : (
                   <span className="material-symbols-outlined text-sm">undo</span>
                 )}
-                Confirmar Estorno
+                Confirmar estorno
               </button>
             </div>
           </div>
@@ -982,25 +1034,6 @@ export const Transactions = () => {
 };
 
 /* ── Sub-components ── */
-
-function MetricCard({ icon, badge, label, value }: {
-  icon: string; badge?: string; label: string; value: string;
-}) {
-  return (
-    <div className="glass-card p-4 rounded-xl border border-outline-variant/10 relative overflow-hidden group flex flex-col justify-between">
-      <div className="flex justify-between items-start mb-2">
-        <div className="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center text-foreground">
-          <span className="material-symbols-outlined text-lg">{icon}</span>
-        </div>
-        {badge && (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-muted-foreground bg-surface-container-highest">{badge}</span>
-        )}
-      </div>
-      <p className="text-[10px] font-medium text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
-      <h3 className="text-xl font-headline font-bold text-on-surface">{value}</h3>
-    </div>
-  );
-}
 
 function Legend({ dot, label }: { dot: string; label: string }) {
   return (
