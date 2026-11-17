@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 @import "tailwindcss";
@@ -58,6 +58,9 @@
   --color-surface-container-lowest: var(--dyn-color-surface-container-lowest, #000000);
   --color-surface-variant: var(--dyn-color-surface-variant, #262626);
   --color-surface-tint: var(--primary);
+  /* Redesenho (nov/2026): a cor da marca em fundo suave e em texto com contraste (useAppTheme) */
+  --color-primary-soft: var(--dyn-color-primary-soft, #d3fde2);
+  --color-primary-strong: var(--dyn-color-primary-strong, #00a858);
   --color-on-surface: var(--dyn-color-on-surface, #ffffff);
   --color-on-surface-variant: var(--dyn-color-on-surface-variant, #adaaaa);
   --color-on-background: var(--dyn-color-on-background, #ffffff);
@@ -108,10 +111,14 @@
   --color-sidebar-ring: var(--primary);
 
   /* Font families */
-  --font-headline: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-label: 'Inter', sans-serif;
-  --font-sans: 'Inter', sans-serif;
+  /* Redesenho (nov/2026): Poppins em tudo; Inter só nos eixos dos gráficos */
+  --font-headline: 'Poppins', sans-serif;
+  --font-body: 'Poppins', sans-serif;
+  --font-label: 'Poppins', sans-serif;
+  --font-sans: 'Poppins', sans-serif;
+  --font-grafico: 'Inter', sans-serif;
+  /* Sombra dos cartões do Figma (some no tema escuro) */
+  --shadow-cartao: var(--sombra-cartao);
 }
 
 @layer base {

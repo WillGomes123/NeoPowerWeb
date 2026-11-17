@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { lightVars, darkVars } from '../lib/theme-constants';
+import { corForte, corSuave } from '../lib/corDaMarca';
 
 
 const STORAGE_KEY = 'neopower-theme';
@@ -21,7 +22,8 @@ function applyTheme(isDark: boolean, branding?: any) {
   const baseVars = isDark ? darkVars : lightVars;
 
   // Determine primary color based on current theme
-  const defaultPrimary = !isDark ? '#059669' : '#39FF14';
+  // Sem cor na marca, vale o verde do redesenho (Figma, nov/2026).
+  const defaultPrimary = '#00cc6a';
   let activePrimary = branding?.primaryColor || defaultPrimary;
   
   if (isDark && branding?.primaryColorDark) {
@@ -62,6 +64,9 @@ function applyTheme(isDark: boolean, branding?: any) {
     '--color-on-primary': onPrimary,
     '--color-primary-foreground': onPrimary,
     '--color-sidebar-primary-foreground': onPrimary,
+    // Texto/ícone na cor da marca com contraste, e o fundo suave dela.
+    '--color-primary-strong': corForte(activePrimary, baseVars['--color-card'], isDark),
+    '--color-primary-soft': corSuave(activePrimary, baseVars['--color-card'], isDark),
   };
 
   // Merge all
