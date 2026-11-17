@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Select,
   SelectContent,
@@ -8,7 +9,6 @@ import {
 } from '../components/ui/select';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Button } from '../components/ui/button';
 import { ChargerDetailsDialog } from '../components/ChargerDetailsDialog';
 import { ChargerLogsSheet } from '../components/ChargerLogsSheet';
 import {
@@ -23,13 +23,80 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '../components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  CircleDot,
+  CirclePlus,
+  Copy,
+  FilterX,
+  HelpCircle,
+  Info,
+  Network,
+  Plug,
+  QrCode,
+  SearchX,
+  Trash2,
+  Wifi,
+  WifiOff,
+  X,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useSocket } from '../lib/hooks/useSocket';
-import { COR_DO_ESTADO, ROTULO_DO_ESTADO, estadoDoCarregador, type EstadoDoCarregador } from '../lib/estadoDoCarregador';
+import { estadoDoCarregador } from '../lib/estadoDoCarregador';
 import { QrCodeTemplate, type MarcaDoAdesivo } from '../components/QrCodeTemplate';
 import { carregarFonteDaMarca } from '../lib/fonteDaMarca';
+import {
+  BlocoDeIcone,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import {
+  classeDoBotaoContorno,
+  classeDoBotaoPrincipal,
+  classeDoCabecalhoDaTabela,
+} from '../components/painel/Pecas';
+import { Icone, IconeSvg } from '../components/painel/Icone';
+import {
+  AlternarExibicao,
+  BarraDeProgresso,
+  BotaoExpandirTodos,
+  BotaoLimparFiltros,
+  BotaoVerNoMapa,
+  BuscaDasEstacoes,
+  CabecalhoDaTabela,
+  CartaoDaEstacao,
+  CartaoDeNumero,
+  ChipComContagem,
+  ConfirmarExclusao,
+  EstadoDoCarregadorNaTabela,
+  GRUPOS,
+  GRUPO_DO_ESTADO,
+  ICONE_DO_GRUPO,
+  IconeDoCartao,
+  LinhaDaEstacao,
+  MenuDoLocal,
+  OrdenarPor,
+  ResumoDoLocal,
+  SeletorComRotulo,
+  contarGrupos,
+  formatarPercentual,
+  formatarPotencia,
+  grupoDaUrl,
+  rotuloDoGrupo,
+  tipoDeCorrente,
+  type GrupoDeEstado,
+  type ModoDeExibicao,
+  type OpcaoDoSeletor,
+  type PedidoDeExclusao,
+} from '../components/estacoes/PecasDasEstacoes';
+import iconeCarregador from '../assets/icones/estacoes-carregador.svg';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
@@ -59,12 +126,35 @@ interface Location {
 const estadoDe = (c: Charger) =>
   estadoDoCarregador({ isConnected: c.isConnected, last_seen: c.last_seen, ocppStatus: c.ocpp_status });
 
-// Estados que ganham etiqueta ao lado do nome (ativo, em uso e offline já se
-// leem pela bolinha).
-const COM_ETIQUETA: EstadoDoCarregador[] = ['instalacao', 'indisponivel', 'falha'];
+const grupoDe = (c: Charger): GrupoDeEstado => GRUPO_DO_ESTADO[estadoDe(c)];
+
+const nomeDe = (c: Charger) => c.description || c.charge_point_id;
+
+const plural = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 
 /** Valor do select para "carregador da plataforma" — o Radix não aceita "". */
 const SEM_OPERADOR = '__plataforma__';
+
+/** Valor "todos" dos seletores de filtro (o Radix também não aceita ""). */
+const TODOS = 'todos';
+
+/** Chave do download de QR Codes em lote (vários carregadores num PDF). */
+const LOTE_DE_QR = '__lote__';
+
+// Campos do redesenho (pendentes e cadastro): 40 px de altura, cantos de 10 px.
+const classeDoCampo = 'h-10 rounded-[10px] bg-card border-border text-foreground text-sm';
+
+type Ordem = 'nome-az' | 'nome-za' | 'estado' | 'atividade';
+const ORDENS: OpcaoDoSeletor[] = [
+  { valor: 'nome-az', rotulo: 'Nome A-Z' },
+  { valor: 'nome-za', rotulo: 'Nome Z-A' },
+  { valor: 'estado', rotulo: 'Estado (online primeiro)' },
+  { valor: 'atividade', rotulo: 'Última atividade' },
+];
+// "Estado": online primeiro, depois o que pede atenção, por último o offline.
+const PESO_DO_GRUPO: Record<GrupoDeEstado, number> = { online: 0, indisponivel: 1, manutencao: 2, offline: 3 };
+const porNome = (a: string, b: string) => a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' });
+const ultimaVez = (c: Charger) => (c.last_seen ? new Date(c.last_seen).getTime() || 0 : 0);
 
 export const Stations = () => {
   const { user } = useAuth();
@@ -79,6 +169,13 @@ export const Stations = () => {
   const [selectedOwners, setSelectedOwners] = useState<{ [key: string]: string }>({});
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  // "Atualizar" e as atualizações depois de salvar/excluir não trocam a tela
+  // pelo carregando: o botão mostra o andamento e a hora da última vez.
+  const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  // "Há 2 min" da última atividade: o relógio anda sozinho a cada minuto.
+  const [agora, setAgora] = useState(() => new Date());
   const [selectedLocations, setSelectedLocations] = useState<{ [key: string]: string }>({});
   // Edições inline dos carregadores pendentes (descrição, modelo, fabricante,
   // potência, tipo de conector) — permite configurar o equipamento antes mesmo
@@ -89,6 +186,8 @@ export const Stations = () => {
   const [savingPending, setSavingPending] = useState<string | null>(null);
   const [selectedCharger, setSelectedCharger] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // O botão de configurações (engrenagem) abre o mesmo diálogo, já em edição.
+  const [editarAoAbrir, setEditarAoAbrir] = useState(false);
   // Painel lateral de logs (mensagens OCPP e conexões) de um carregador.
   const [logsCharger, setLogsCharger] = useState<{ id: string; nome: string } | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -96,10 +195,39 @@ export const Stations = () => {
   const [registering, setRegistering] = useState(false);
   const [downloadingQr, setDownloadingQr] = useState<string | null>(null);
   const [qrPages, setQrPages] = useState<{ chargePointId: string; connectorIndex: number; totalConnectors: number; description?: string; model?: string; vendor?: string; powerKw?: number; connectorType?: string; marca?: MarcaDoAdesivo | null }[]>([]);
-  const { chargerStatuses } = useSocket();
+  const { chargerStatuses, isConnected: aoVivo } = useSocket();
   const [kwhToday, setKwhToday] = useState(0);
   // null = API sem o campo (antes do deploy): mostra "—".
   const [quedas, setQuedas] = useState<{ hoje: number; mes: number } | null>(null);
+  // Confirmação de exclusão aberta (carregador ou local).
+  const [pedidoDeExclusao, setPedidoDeExclusao] = useState<PedidoDeExclusao | null>(null);
+
+  // Filtro por estado na URL (?estado=offline): a Visão geral leva direto aos
+  // carregadores offline. Busca, local, tipo e ordem ficam só na tela.
+  const [params, setParams] = useSearchParams();
+  const grupoDoFiltro = grupoDaUrl(params.get('estado'));
+  const [busca, setBusca] = useState('');
+  const [localDoFiltro, setLocalDoFiltro] = useState(TODOS);
+  const [tipoDoFiltro, setTipoDoFiltro] = useState(TODOS);
+  const [ordem, setOrdem] = useState<Ordem>('nome-az');
+  const [modo, setModo] = useState<ModoDeExibicao>('lista');
+  // Locais recolhidos (o resto fica aberto, inclusive os que chegarem depois).
+  const [fechados, setFechados] = useState<Set<string>>(() => new Set());
+  // Estações marcadas nas caixas de seleção (QR Codes em lote).
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
+
+  const escolherGrupo = (grupo: GrupoDeEstado | null) => {
+    const novos = new URLSearchParams(params);
+    if (grupo) novos.set('estado', grupo);
+    else novos.delete('estado');
+    setParams(novos, { replace: true });
+  };
+  const limparFiltros = () => {
+    setBusca('');
+    setLocalDoFiltro(TODOS);
+    setTipoDoFiltro(TODOS);
+    escolherGrupo(null);
+  };
 
   const [regForm, setRegForm] = useState({
     charge_point_id: '', description: '', model: '', vendor: '',
@@ -128,6 +256,7 @@ export const Stations = () => {
   // seleções das outras linhas se perdiam a cada exclusão.
   const fetchData = async (silencioso = false) => {
     if (!silencioso) setLoading(true);
+    setAtualizando(true);
     try {
       const [chRes, locRes, statsRes] = await Promise.all([
         api.get('/chargers'),
@@ -163,11 +292,26 @@ export const Stations = () => {
       const donos: Record<string, string> = {};
       cl.forEach((c: Charger) => { donos[c.charge_point_id] = c.clientId || SEM_OPERADOR; });
       setSelectedOwners(donos);
-    } catch { toast.error('Erro ao buscar dados'); }
-    finally { setLoading(false); }
+      setAtualizadoEm(new Date());
+      setAgora(new Date());
+      setFalhou(false);
+    } catch {
+      toast.error('Erro ao buscar dados');
+      // Os dados que já estavam na tela ficam; o botão avisa que não atualizou.
+      setFalhou(true);
+    }
+    finally {
+      setLoading(false);
+      setAtualizando(false);
+    }
   };
 
   useEffect(() => { void fetchData(); }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setAgora(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Lista de white labels, para vincular um carregador ao operador dono.
   // Só a plataforma enxerga (e só ela pode gravar).
@@ -182,6 +326,16 @@ export const Stations = () => {
       } catch { /* sem a lista, o select fica vazio e o resto da tela segue */ }
     })();
   }, [ehAdminPlataforma]);
+
+  // Quem chega pela Visão geral (?estado=offline) cai direto nos filtros e na
+  // lista filtrada, sem rolar por cima dos cartões.
+  const filtrosRef = useRef<HTMLElement>(null);
+  const jaRolouParaOFiltro = useRef(false);
+  useEffect(() => {
+    if (loading || jaRolouParaOFiltro.current) return;
+    jaRolouParaOFiltro.current = true;
+    if (grupoDoFiltro) filtrosRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [loading, grupoDoFiltro]);
 
   // Valores de edição de um pendente: o que o usuário digitou, ou os dados atuais.
   const pendingDefaults = (c: Charger) => ({
@@ -287,8 +441,8 @@ export const Stations = () => {
       .catch(() => toast.error('Não foi possível copiar'));
   };
 
+  // A confirmação (AlertDialog) vem antes: ver pedirExclusaoDoCarregador.
   const handleDeleteCharger = async (chargerId: string) => {
-    if (!confirm(`Excluir o carregador "${chargerId}"? Esta ação não pode ser desfeita.`)) return;
     try {
       const r = await api.delete(`/chargers/${encodeURIComponent(chargerId)}`);
       const d = await r.json().catch(() => null);
@@ -302,8 +456,7 @@ export const Stations = () => {
     }
   };
 
-  const handleDeleteLocation = async (locId: number, nome: string) => {
-    if (!confirm(`Excluir o local "${nome}"? Remova os carregadores associados antes.`)) return;
+  const handleDeleteLocation = async (locId: number) => {
     try {
       const r = await api.delete(`/locations/${locId}`);
       const d = await r.json().catch(() => null);
@@ -316,20 +469,58 @@ export const Stations = () => {
     }
   };
 
-  const handleDownloadQrCode = async (chargerId: string) => {
-    let estiloDoPdf: HTMLStyleElement | null = null;
-    setDownloadingQr(chargerId);
-    toast.loading('Gerando QR Code...', { id: 'qr-gen' });
-    try {
-      const charger = mergedChargers.find(c => c.charge_point_id === chargerId);
-      const numConn = charger?.num_connectors || 1;
+  // Confirmações que dizem a consequência (estudo de usabilidade, H5).
+  const pedirExclusaoDoCarregador = (c: Charger) => {
+    setPedidoDeExclusao({
+      titulo: 'Excluir carregador?',
+      consequencia: (
+        <>
+          O cadastro de <strong>“{nomeDe(c)}”</strong>
+          {c.description ? ` (${c.charge_point_id})` : ''} sai da lista de estações e do app, e o
+          QR Code dele deixa de levar à recarga. Esta ação não pode ser desfeita.
+        </>
+      ),
+      aviso: 'O servidor não exclui um carregador com recarga em andamento.',
+      rotuloDoBotao: 'Excluir carregador',
+      aoConfirmar: () => void handleDeleteCharger(c.charge_point_id),
+    });
+  };
 
+  const pedirExclusaoDoLocal = (loc: Location, carregadores: number) => {
+    setPedidoDeExclusao({
+      titulo: 'Excluir local?',
+      consequencia: (
+        <>
+          O local <strong>“{loc.nomeDoLocal}”</strong> sai do painel e do app, com endereço e
+          dados de cadastro. Esta ação não pode ser desfeita.
+        </>
+      ),
+      aviso:
+        carregadores > 0
+          ? `Este local ainda tem ${plural(carregadores, 'carregador', 'carregadores')}. O servidor só exclui um local sem carregadores: exclua-os antes (no “…” de cada estação).`
+          : undefined,
+      rotuloDoBotao: 'Excluir local',
+      aoConfirmar: () => void handleDeleteLocation(loc.id),
+    });
+  };
+
+  // Gera o PDF dos adesivos de QR Code: um carregador (menu "…") ou vários
+  // (caixas de seleção), uma página por conector.
+  const handleDownloadQrCode = async (chargerIds: string[]) => {
+    if (chargerIds.length === 0) return;
+    let estiloDoPdf: HTMLStyleElement | null = null;
+    setDownloadingQr(chargerIds.length === 1 ? chargerIds[0] : LOTE_DE_QR);
+    toast.loading(chargerIds.length === 1 ? 'Gerando QR Code...' : `Gerando ${chargerIds.length} QR Codes...`, { id: 'qr-gen' });
+    try {
       // O adesivo leva a marca do operador dono do carregador (o cliente final
-      // usa o app dele), não a de quem está gerando o PDF.
-      let marca: MarcaDoAdesivo | null = null;
-      if (charger?.clientId) {
+      // usa o app dele), não a de quem está gerando o PDF. Uma busca por marca.
+      const marcas = new Map<string, MarcaDoAdesivo | null>();
+      const marcaDoOperador = async (clientId?: string | null): Promise<MarcaDoAdesivo | null> => {
+        if (!clientId) return null;
+        if (marcas.has(clientId)) return marcas.get(clientId) ?? null;
+        let marca: MarcaDoAdesivo | null = null;
         try {
-          const r = await api.get(`/branding/${encodeURIComponent(charger.clientId)}`);
+          const r = await api.get(`/branding/${encodeURIComponent(clientId)}`);
           if (r.ok) {
             const d = (await r.json()).data;
             if (d) {
@@ -348,30 +539,39 @@ export const Stations = () => {
             }
           }
         } catch { /* sem a marca do operador, usa a do usuário */ }
+        marcas.set(clientId, marca);
+        return marca;
+      };
+
+      const pages: typeof qrPages = [];
+      // A fonte de cada marca baixa enquanto o adesivo monta; a captura espera por ela.
+      const fontes: Promise<unknown>[] = [];
+      for (const chargerId of chargerIds) {
+        const charger = mergedChargers.find(c => c.charge_point_id === chargerId);
+        const numConn = Number(charger?.num_connectors) || 1;
+        const marca = await marcaDoOperador(charger?.clientId);
+        fontes.push(Promise.resolve(carregarFonteDaMarca((marca ?? user?.branding)?.fontFamily)));
+        for (let i = 0; i < numConn; i++) {
+          pages.push({
+            chargePointId: chargerId,
+            connectorIndex: i + 1,
+            totalConnectors: numConn,
+            description: charger?.description,
+            model: charger?.model,
+            vendor: charger?.vendor,
+            powerKw: charger?.power_kw,
+            connectorType: charger?.connector_type,
+            marca,
+          });
+        }
       }
-
-      // A fonte da marca baixa enquanto o adesivo monta; a captura espera por ela.
-      const fonteDaMarca = carregarFonteDaMarca((marca ?? user?.branding)?.fontFamily);
-
-      // Build pages data
-      const pages = Array.from({ length: numConn }, (_, i) => ({
-        chargePointId: chargerId,
-        connectorIndex: i + 1,
-        totalConnectors: numConn,
-        description: charger?.description,
-        model: charger?.model,
-        vendor: charger?.vendor,
-        powerKw: charger?.power_kw,
-        connectorType: charger?.connector_type,
-        marca,
-      }));
       setQrPages(pages);
 
       // Wait for render
       await new Promise(resolve => setTimeout(resolve, 800));
       // O html2canvas desenha o texto com as fontes já carregadas no documento:
       // sem esperar, o PDF sai na fonte reserva.
-      await fonteDaMarca;
+      await Promise.all(fontes);
       await document.fonts?.ready;
 
       const root = document.getElementById('qrcode-report-root');
@@ -422,8 +622,8 @@ export const Stations = () => {
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      pdf.save(`qrcode-${chargerId}.pdf`);
-      toast.success('QR Code gerado com sucesso!', { id: 'qr-gen' });
+      pdf.save(chargerIds.length === 1 ? `qrcode-${chargerIds[0]}.pdf` : `qrcodes-${chargerIds.length}-carregadores.pdf`);
+      toast.success(chargerIds.length === 1 ? 'QR Code gerado com sucesso!' : 'QR Codes gerados com sucesso!', { id: 'qr-gen' });
     } catch (err) {
       console.error('Erro ao gerar QR Code:', err);
       toast.error('Erro ao gerar QR Code', { id: 'qr-gen' });
@@ -436,9 +636,6 @@ export const Stations = () => {
 
   const pendingChargers = mergedChargers.filter(c => !c.locationId);
   const assignedChargers = mergedChargers.filter(c => c.locationId);
-  const onlineCount = mergedChargers.filter(c => c.isConnected).length;
-  // Percentual sobre os instalados: o cadastrado que nunca ligou não derruba a conta.
-  const instaladosCount = mergedChargers.filter(c => estadoDe(c) !== 'instalacao').length;
 
   const { topChargerName, topChargerKwh } = useMemo(() => {
     if (mergedChargers.length === 0) return { topChargerName: '—', topChargerKwh: 0 };
@@ -462,7 +659,9 @@ export const Stations = () => {
         const status = statusEvent?.status || c.status;
         return status === 'Charging';
       })
-      .reduce((acc, c) => acc + (c.power_kw || 0), 0);
+      // power_kw chega como texto ("60.00", decimal do banco): somar sem
+      // converter concatenava.
+      .reduce((acc, c) => acc + (Number(c.power_kw) || 0), 0);
   }, [mergedChargers, chargerStatuses]);
 
   const chargersByLocation = useMemo(() => {
@@ -472,10 +671,6 @@ export const Stations = () => {
       if (!groups[locId]) groups[locId] = [];
       groups[locId].push(c);
     });
-    // Dentro do local, carregadores online primeiro.
-    Object.values(groups).forEach(lista =>
-      lista.sort((a, b) => Number(b.isConnected) - Number(a.isConnected))
-    );
     return groups;
   }, [assignedChargers]);
 
@@ -491,6 +686,186 @@ export const Stations = () => {
     return marca ? `${raiz}${marca}/` : raiz;
   }, [mergedChargers, ehAdminPlataforma, user?.clientId, user?.branding?.clientId]);
 
+  // --- Cartões do topo: a rede inteira, sem os filtros -----------------------
+  const totalDeEstacoes = mergedChargers.length;
+  const contagemDaRede = contarGrupos(mergedChargers.map(estadoDe));
+  const emInstalacao = mergedChargers.filter(c => estadoDe(c) === 'instalacao').length;
+  // Disponibilidade = funcionando agora (disponíveis ou carregando) sobre os
+  // instalados; o cadastrado que nunca ligou não derruba a conta.
+  const instalados = totalDeEstacoes - emInstalacao;
+  const disponibilidade = instalados > 0 ? contagemDaRede.online / instalados : 0;
+  const fracaoDoTotal = (n: number) => (totalDeEstacoes > 0 ? n / totalDeEstacoes : 0);
+
+  // --- Filtros ----------------------------------------------------------------
+  const localPorId = useMemo(() => new Map(locations.map(l => [l.id, l])), [locations]);
+  const termo = busca.trim().toLocaleLowerCase('pt-BR');
+  // Busca por estação (nome, equipamento), ID ou localização (nome e endereço).
+  const casaComBusca = (c: Charger) => {
+    if (!termo) return true;
+    const loc = c.locationId != null ? localPorId.get(c.locationId) : undefined;
+    return [c.description, c.charge_point_id, c.model, c.vendor, loc?.nomeDoLocal, loc?.endereco].some(v =>
+      v?.toLocaleLowerCase('pt-BR').includes(termo)
+    );
+  };
+  const passaSemOEstado = (c: Charger) =>
+    casaComBusca(c) &&
+    (localDoFiltro === TODOS || String(c.locationId ?? '') === localDoFiltro) &&
+    (tipoDoFiltro === TODOS || tipoDeCorrente(c) === tipoDoFiltro);
+  const passaNoFiltro = (c: Charger) => passaSemOEstado(c) && (!grupoDoFiltro || grupoDe(c) === grupoDoFiltro);
+  const temFiltro = !!grupoDoFiltro || !!termo || localDoFiltro !== TODOS || tipoDoFiltro !== TODOS;
+  // Contagem dos chips: sobre o que os outros filtros deixam (o estado é o próprio chip).
+  const baseDosChips = mergedChargers.filter(passaSemOEstado);
+  const contagemDosChips = contarGrupos(baseDosChips.map(estadoDe));
+  const pendentesVisiveis = pendingChargers.filter(passaNoFiltro);
+
+  const opcoesDeLocal: OpcaoDoSeletor[] = [
+    { valor: TODOS, rotulo: 'Todas' },
+    ...locations
+      .filter(l => (chargersByLocation[l.id] || []).length > 0)
+      .map(l => ({ valor: String(l.id), rotulo: l.nomeDoLocal }))
+      .sort((a, b) => porNome(a.rotulo, b.rotulo)),
+  ];
+
+  // --- Ordem ------------------------------------------------------------------
+  const comparaEstacoes = (a: Charger, b: Charger) => {
+    switch (ordem) {
+      case 'nome-za':
+        return porNome(nomeDe(b), nomeDe(a));
+      case 'estado':
+        return PESO_DO_GRUPO[grupoDe(a)] - PESO_DO_GRUPO[grupoDe(b)] || porNome(nomeDe(a), nomeDe(b));
+      case 'atividade':
+        return ultimaVez(b) - ultimaVez(a) || porNome(nomeDe(a), nomeDe(b));
+      default:
+        return porNome(nomeDe(a), nomeDe(b));
+    }
+  };
+  const comparaLocais = (
+    a: { loc: Location; lista: Charger[] },
+    b: { loc: Location; lista: Charger[] }
+  ) => {
+    const online = (l: Charger[]) => l.filter(c => grupoDe(c) === 'online').length;
+    const recente = (l: Charger[]) => Math.max(0, ...l.map(ultimaVez));
+    switch (ordem) {
+      case 'nome-za':
+        return porNome(b.loc.nomeDoLocal, a.loc.nomeDoLocal);
+      case 'estado':
+        return online(b.lista) - online(a.lista) || porNome(a.loc.nomeDoLocal, b.loc.nomeDoLocal);
+      case 'atividade':
+        return recente(b.lista) - recente(a.lista) || porNome(a.loc.nomeDoLocal, b.loc.nomeDoLocal);
+      default:
+        return porNome(a.loc.nomeDoLocal, b.loc.nomeDoLocal);
+    }
+  };
+
+  const locaisDaLista = locations
+    .map(loc => ({ loc, lista: chargersByLocation[loc.id] || [] }))
+    .filter(({ lista }) => lista.some(passaNoFiltro))
+    .sort(comparaLocais);
+
+  // Carregadores de locais que não vieram na lista (apagados ou de outro escopo).
+  const outrosCarregadores = Object.keys(chargersByLocation)
+    .filter(key => key !== 'unknown' && !locations.some(l => l.id.toString() === key.toString()))
+    .flatMap(key => chargersByLocation[key]);
+  const outrosVisiveis = outrosCarregadores.filter(passaNoFiltro);
+
+  // --- Sanfona: "Expandir todos" ----------------------------------------------
+  const valoresVisiveis = [
+    ...locaisDaLista.map(({ loc }) => `location-${loc.id}`),
+    ...(outrosVisiveis.length > 0 ? ['location-unknown'] : []),
+  ];
+  const abertos = valoresVisiveis.filter(v => !fechados.has(v));
+  const todosAbertos = valoresVisiveis.length > 0 && abertos.length === valoresVisiveis.length;
+  const aoMudarAbertos = (novos: string[]) =>
+    setFechados(prev => {
+      const n = new Set(prev);
+      for (const v of valoresVisiveis) {
+        if (novos.includes(v)) n.delete(v);
+        else n.add(v);
+      }
+      return n;
+    });
+  const alternarTodos = () => setFechados(todosAbertos ? new Set(valoresVisiveis) : new Set());
+
+  // --- Seleção ----------------------------------------------------------------
+  const selecionadosValidos = mergedChargers
+    .map(c => c.charge_point_id)
+    .filter(id => selecionados.has(id));
+  const alternarSelecao = (ids: string[], marcar: boolean) =>
+    setSelecionados(prev => {
+      const n = new Set(prev);
+      for (const id of ids) {
+        if (marcar) n.add(id);
+        else n.delete(id);
+      }
+      return n;
+    });
+
+  const abrirDetalhes = (id: string, editar: boolean) => {
+    setEditarAoAbrir(editar);
+    setSelectedCharger(id);
+    setDetailsOpen(true);
+  };
+
+  const propsDaEstacao = (c: Charger) => ({
+    estacao: c,
+    estado: estadoDe(c),
+    agora,
+    selecionada: selecionados.has(c.charge_point_id),
+    aoSelecionar: (marcar: boolean) => alternarSelecao([c.charge_point_id], marcar),
+    gerandoQr: downloadingQr === c.charge_point_id,
+    aoVerDetalhes: () => abrirDetalhes(c.charge_point_id, false),
+    aoVerAtividade: () => { setLogsCharger({ id: c.charge_point_id, nome: nomeDe(c) }); setLogsOpen(true); },
+    aoEditar: () => abrirDetalhes(c.charge_point_id, true),
+    aoBaixarQr: () => void handleDownloadQrCode([c.charge_point_id]),
+    aoCopiarLink: copyLink,
+    aoExcluir: isAdmin ? () => pedirExclusaoDoCarregador(c) : undefined,
+  });
+
+  // Tabela (ou grade) das estações de um local; quando o filtro esconde
+  // algumas, diz quantas ficaram de fora.
+  const corpoDoLocal = (lista: Charger[]) => {
+    const visiveis = lista.filter(passaNoFiltro).sort(comparaEstacoes);
+    const ids = visiveis.map(c => c.charge_point_id);
+    const marcadas = ids.filter(id => selecionados.has(id)).length;
+    const fora = lista.length - visiveis.length;
+    return (
+      <>
+        {modo === 'lista' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px] table-fixed text-left border-collapse">
+              <CabecalhoDaTabela
+                selecao={marcadas === 0 ? false : marcadas === ids.length ? true : 'indeterminate'}
+                aoSelecionarTodas={marcar => alternarSelecao(ids, marcar)}
+              />
+              <tbody>
+                {visiveis.map(c => (
+                  <LinhaDaEstacao key={c.charge_point_id} {...propsDaEstacao(c)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(330px,1fr))] gap-4 px-6 pb-6 pt-2">
+            {visiveis.map(c => (
+              <CartaoDaEstacao key={c.charge_point_id} {...propsDaEstacao(c)} />
+            ))}
+          </ul>
+        )}
+        {fora > 0 && (
+          <p className="px-6 py-3 border-t border-border text-[13px] text-muted-foreground">
+            {plural(fora, 'estação deste local não aparece', 'estações deste local não aparecem')} por causa dos filtros.
+          </p>
+        )}
+      </>
+    );
+  };
+
+  // Gatilho da sanfona do local: o cabeçalho inteiro abre e fecha.
+  const classeDoGatilho =
+    'p-0 items-center gap-4 rounded-[10px] hover:no-underline text-left [&>svg]:size-6 [&>svg]:text-foreground';
+
+  const unidades = (n: number) => plural(n, 'unidade', 'unidades');
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -499,246 +874,519 @@ export const Stations = () => {
     );
   }
 
-  return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="inline-block px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-widest uppercase mb-2">NETWORK HUB</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Estações de Recarga</h1>
-          <p className="text-on-surface-variant mt-2 max-w-lg">Gerencie sua rede em tempo real. Monitore disponibilidade e saúde técnica de todos os carregadores.</p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => void fetchData()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
-            <span className="material-symbols-outlined text-lg">refresh</span>
-            Atualizar
-          </button>
-          <button onClick={() => setRegisterOpen(true)} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all">
-            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-            Nova Estação
-          </button>
-        </div>
-      </div>
+  const naoCarregou = falhou && !atualizadoEm;
+  const nadaNosFiltros =
+    temFiltro && totalDeEstacoes > 0 && pendentesVisiveis.length === 0 && locaisDaLista.length === 0 && outrosVisiveis.length === 0;
 
-      {/* Link de conexão do servidor (white label) — visível para o instalador */}
-      <div className="bg-surface-container rounded-2xl p-5 border border-primary/25 relative overflow-hidden shadow-soft">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 justify-between">
-          <div className="flex items-start gap-3 min-w-0">
-            <span className="material-symbols-outlined text-primary text-2xl shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>lan</span>
-            <div className="min-w-0">
-              <h4 className="font-headline font-bold text-on-surface text-sm">Link do servidor para instalar nos eletropostos</h4>
-              <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed max-w-xl">
-                Configure esta URL no equipamento OCPP e acrescente o <b>ID do carregador</b> ao final — ou copie o link completo em cada estação abaixo. Só carregadores cadastrados conseguem conectar.
-              </p>
+  return (
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="Estações de Recarga"
+        subtitulo="Gerencie sua rede de modo geral."
+        acoes={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 3xl:gap-8">
+            {/* "Período" do Frame 10: os números desta tela são do momento (a
+                API não guarda disponibilidade por período), e a pílula diz isso. */}
+            <span
+              className={`${classeDaPilula} inline-flex items-center justify-center`}
+              title={
+                aoVivo
+                  ? 'Os números desta tela são de agora, com o status dos carregadores ao vivo'
+                  : 'Os números desta tela são de agora (sem conexão ao vivo: use Atualizar)'
+              }
+            >
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${aoVivo ? 'bg-estado-livre-forte animate-pulse' : 'bg-estado-offline-forte'}`}
+                aria-hidden="true"
+              />
+              Período: agora
+            </span>
+            <BotaoAtualizar
+              aoAtualizar={() => void fetchData(true)}
+              carregando={atualizando}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou}
+            />
+          </div>
+        }
+      />
+
+      {/* A primeira busca falhou: sem dados, a tela diria "nenhuma estação". */}
+      {naoCarregou && (
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-[15px] bg-destructive/10 text-foreground">
+          <AlertTriangle aria-hidden="true" className="w-5 h-5 shrink-0 text-red-600 dark:text-red-400" />
+          <p className="flex-1 text-[15px] font-medium">Não foi possível carregar as estações.</p>
+          <button type="button" onClick={() => void fetchData()} className={classeDoBotaoContorno}>
+            Tentar de novo
+          </button>
+        </div>
+      )}
+
+      {/* Cartões: Saúde da rede, Estações, Online, Offline */}
+      {totalDeEstacoes > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(0,546fr)_repeat(3,minmax(0,260fr))] gap-[15px]">
+          <section
+            className={`${classeDoCartao} p-[22px] min-h-[200px] flex flex-col sm:col-span-2 xl:col-span-1`}
+            aria-labelledby="titulo-saude"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-[14px] min-w-0">
+                <BlocoDeIcone tom="marca">
+                  <Activity aria-hidden="true" className="w-5 h-5" />
+                </BlocoDeIcone>
+                <h2 id="titulo-saude" className="text-[20px] leading-tight font-semibold text-foreground">
+                  Saúde da rede
+                </h2>
+              </div>
+              {/* O círculo do Frame: como o número é feito e os outros números da rede. */}
+              <Popover>
+                <PopoverTrigger
+                  className="size-8 shrink-0 rounded-full border border-foreground/60 dark:border-primary text-foreground dark:text-primary-strong inline-flex items-center justify-center hover:bg-muted transition"
+                  aria-label="Como a saúde da rede é calculada"
+                  title="Como a saúde da rede é calculada"
+                >
+                  <Info aria-hidden="true" className="w-4 h-4" />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-[min(380px,calc(100vw-32px))] rounded-[15px] border-border bg-popover p-5 shadow-cartao space-y-3">
+                  <p className="text-[15px] font-semibold text-foreground">Como calculamos</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Estações funcionando agora (disponíveis ou carregando) sobre as instaladas.
+                    {emInstalacao > 0 && ` ${plural(emInstalacao, 'estação em instalação, que nunca conectou, fica', 'estações em instalação, que nunca conectaram, ficam')} de fora.`}{' '}
+                    É uma foto do momento: a API ainda não guarda a disponibilidade de períodos anteriores.
+                  </p>
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm border-t border-border pt-3 [&>dt]:whitespace-nowrap">
+                    <dt className="text-muted-foreground">Funcionando agora</dt>
+                    <dd className="font-semibold text-foreground text-right tabular-nums">{contagemDaRede.online} de {instalados}</dd>
+                    {/* Desconexões registradas pelo servidor (connection_events); antes era um número inventado. */}
+                    <dt className="text-muted-foreground">Quedas de conexão</dt>
+                    <dd className="font-semibold text-foreground text-right tabular-nums">
+                      {quedas ? `${quedas.hoje} hoje · ${quedas.mes} no mês` : '—'}
+                    </dd>
+                    <dt className="text-muted-foreground">Carregador líder</dt>
+                    <dd className="font-semibold text-foreground text-right">
+                      <span className="block max-w-[150px] truncate" title={topChargerName}>{topChargerName}</span>
+                      <span className="block text-xs font-medium text-muted-foreground">{topChargerKwh.toFixed(1)} kWh no total</span>
+                    </dd>
+                    <dt className="text-muted-foreground">Consumo hoje</dt>
+                    <dd className="font-semibold text-foreground text-right tabular-nums">{kwhToday.toFixed(1)} kWh</dd>
+                    <dt className="text-muted-foreground">Potência ativa</dt>
+                    <dd className="font-semibold text-foreground text-right tabular-nums">{formatarPotencia(activePower)}</dd>
+                  </dl>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <p className="text-sm text-foreground mt-3 max-w-[380px]">
+              Status técnico geral de todos os carregadores instalados, neste momento
+            </p>
+            <div className="mt-auto pt-4 space-y-3">
+              <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                <p className="text-[clamp(2.25rem,3vw,3.25rem)] leading-none font-semibold tabular-nums text-foreground">
+                  {formatarPercentual(disponibilidade).replace('%', ' %')}
+                </p>
+                <p className="text-sm font-medium text-foreground">Disponibilidade geral da rede, agora</p>
+              </div>
+              <BarraDeProgresso fracao={disponibilidade} cor="bg-primary" rotulo="Disponibilidade geral da rede" />
+            </div>
+          </section>
+
+          <CartaoDeNumero
+            icone={
+              <IconeDoCartao classe="bg-primary-soft text-primary-strong">
+                <IconeSvg src={iconeCarregador} tamanho={19} altura={24} />
+              </IconeDoCartao>
+            }
+            titulo="Estações"
+            valor={totalDeEstacoes}
+            legenda="Total de estações na rede"
+          />
+          <CartaoDeNumero
+            icone={
+              <IconeDoCartao classe="bg-estado-livre text-estado-livre-forte">
+                <Wifi className="w-5 h-5" />
+              </IconeDoCartao>
+            }
+            titulo="Online"
+            valor={contagemDaRede.online}
+            legenda={`${formatarPercentual(fracaoDoTotal(contagemDaRede.online))} do total`}
+            fracao={fracaoDoTotal(contagemDaRede.online)}
+            corDaBarra="bg-estado-livre-forte"
+          />
+          <CartaoDeNumero
+            icone={
+              <IconeDoCartao classe="bg-estado-offline text-estado-offline-forte">
+                <WifiOff className="w-5 h-5" />
+              </IconeDoCartao>
+            }
+            titulo="Offline"
+            valor={contagemDaRede.offline}
+            legenda={`${formatarPercentual(fracaoDoTotal(contagemDaRede.offline))} do total`}
+            fracao={fracaoDoTotal(contagemDaRede.offline)}
+            corDaBarra="bg-estado-offline-forte"
+          />
+        </div>
+      )}
+
+      {/* Filtros: busca, seletores, chips por estado (o estado vai para a URL) e ordem */}
+      {totalDeEstacoes > 0 && (
+        <section
+          ref={filtrosRef}
+          aria-label="Filtros"
+          className={`${classeDoCartao} scroll-mt-28 px-6 py-6 3xl:px-8 space-y-5`}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Abaixo de 1700 px a busca fica numa linha só dela: ao lado dos
+                quatro seletores ela encolhia até cortar o texto. */}
+            <BuscaDasEstacoes
+              className="basis-full 3xl:basis-0 3xl:flex-1 min-w-[240px]"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por estação, ID ou localização..."
+              aria-label="Buscar por estação, ID ou localização"
+            />
+            <SeletorComRotulo
+              rotulo="Estado"
+              valor={grupoDoFiltro ?? TODOS}
+              opcoes={[{ valor: TODOS, rotulo: 'Todos' }, ...GRUPOS.map(g => ({ valor: g.id, rotulo: g.rotulo }))]}
+              aoMudar={v => escolherGrupo(v === TODOS ? null : (v as GrupoDeEstado))}
+              className="w-full sm:w-auto sm:flex-1 3xl:flex-none 3xl:w-[160px]"
+            />
+            <SeletorComRotulo
+              rotulo="Localizações"
+              valor={localDoFiltro}
+              opcoes={opcoesDeLocal}
+              aoMudar={setLocalDoFiltro}
+              className="w-full sm:w-auto sm:flex-1 3xl:flex-none 3xl:w-[180px]"
+            />
+            <SeletorComRotulo
+              rotulo="Tipos de carregador"
+              valor={tipoDoFiltro}
+              opcoes={[
+                { valor: TODOS, rotulo: 'Todos' },
+                { valor: 'AC', rotulo: 'AC' },
+                { valor: 'DC', rotulo: 'DC' },
+              ]}
+              aoMudar={setTipoDoFiltro}
+              className="w-full sm:w-auto sm:flex-1 3xl:flex-none 3xl:w-[180px]"
+            />
+            <BotaoLimparFiltros
+              aoLimpar={limparFiltros}
+              ativo={temFiltro}
+              icone={<FilterX aria-hidden="true" className="w-5 h-5" />}
+              className="w-full sm:w-auto sm:flex-1 3xl:flex-none 3xl:w-[170px]"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div role="group" aria-label="Filtrar por estado" className="flex flex-wrap items-center gap-2.5">
+              <ChipComContagem
+                ativo={!grupoDoFiltro}
+                aoClicar={() => escolherGrupo(null)}
+                icone={<CircleDot className="w-4 h-4" />}
+                rotulo="Todos"
+                contagem={baseDosChips.length}
+              />
+              {GRUPOS.map(g => (
+                <ChipComContagem
+                  key={g.id}
+                  ativo={grupoDoFiltro === g.id}
+                  aoClicar={() => escolherGrupo(grupoDoFiltro === g.id ? null : g.id)}
+                  icone={ICONE_DO_GRUPO[g.id]}
+                  rotulo={g.rotulo}
+                  contagem={contagemDosChips[g.id]}
+                  dica={g.dica}
+                />
+              ))}
+            </div>
+            <div className="ml-auto">
+              <OrdenarPor valor={ordem} opcoes={ORDENS} aoMudar={v => setOrdem(v as Ordem)} />
             </div>
           </div>
-          {serverBase ? (
-            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
-              <code className="flex-1 md:flex-none md:max-w-md truncate bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2 text-xs font-mono text-on-surface">
-                {`${serverBase}<ID>`}
-              </code>
-              <Button variant="outline" className="shrink-0 border-outline-variant/20 text-on-surface-variant" onClick={() => copyLink(serverBase)} title="Copiar base do link">
-                <span className="material-symbols-outlined text-base">content_copy</span>
-              </Button>
-            </div>
-          ) : (
-            <span className="text-xs text-on-surface-variant shrink-0">Cadastre um carregador para ver o link.</span>
-          )}
-        </div>
-      </div>
+        </section>
+      )}
 
-      {/* 1. Network Health Panel (First) */}
-      {assignedChargers.length > 0 && (
-        <div className="bg-surface-container rounded-2xl p-6 border border-outline-variant/10 relative overflow-hidden shadow-soft">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            {/* Left part: Stats */}
-            <div className="lg:col-span-5 space-y-4">
-              <div>
-                <span className="inline-block px-2.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold tracking-widest uppercase mb-2">Desempenho da Rede</span>
-                <h4 className="font-headline text-2xl font-bold text-on-surface">Network Health</h4>
-                <p className="text-on-surface-variant text-xs mt-1">Conexão e status técnico dos carregadores instalados.</p>
-              </div>
-              <div className="grid grid-cols-3 gap-4 pt-2">
-                <div>
-                  <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">Estações</p>
-                  <p className="text-2xl font-headline font-bold text-foreground">{mergedChargers.length}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">Online</p>
-                  <p className="text-2xl font-headline font-bold text-primary">{onlineCount}</p>
-                </div>
-                <div>
-                  {/* Era "Uptime", mas é a foto de agora: conectados sobre instalados. */}
-                  <p className="text-[9px] text-on-surface-variant uppercase font-bold tracking-widest">Conectados</p>
-                  <p className="text-2xl font-headline font-bold text-foreground">
-                    {instaladosCount > 0 ? ((onlineCount / instaladosCount) * 100).toFixed(1) : '0'}%
-                  </p>
-                </div>
-              </div>
-            </div>
-            {/* Right part: Detailed Metrics */}
-            <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-3 gap-6 border-t lg:border-t-0 lg:border-l border-outline-variant/10 pt-6 lg:pt-0 lg:pl-8">
-              {/* Top Charger */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase block">Carregador Líder</span>
-                <p className="text-sm font-bold text-foreground truncate" title={topChargerName}>
-                  {topChargerName}
-                </p>
-                <p className="text-xs text-primary font-semibold">
-                  {topChargerKwh.toFixed(1)} kWh total
-                </p>
-              </div>
-
-              {/* Current Consumption */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase block">Consumo Atual</span>
-                <p className="text-xl font-headline font-bold text-foreground">
-                  {kwhToday.toFixed(1)} <span className="text-xs font-normal text-on-surface-variant">kWh hoje</span>
-                </p>
-                <p className="text-[10px] text-on-surface-variant">
-                  Potência ativa: <span className="text-tertiary font-bold">{activePower} kW</span>
-                </p>
-              </div>
-
-              {/* Charger Drops */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-on-surface-variant tracking-wider uppercase block">Quedas de Conexão</span>
-                {/* Desconexões registradas pelo servidor (connection_events); antes era um número inventado. */}
-                <p className="text-xl font-headline font-bold text-error">
-                  {quedas ? quedas.hoje : '—'} <span className="text-xs font-normal text-on-surface-variant">hoje</span>
-                </p>
-                <p className="text-[10px] text-on-surface-variant">
-                  {quedas ? quedas.mes : '—'} no mês
-                </p>
-              </div>
-            </div>
+      {/* Exibição: seleção à esquerda (só com estações marcadas); expandir, mapa e lista/grade à direita */}
+      {(locaisDaLista.length > 0 || outrosVisiveis.length > 0) && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-h-11 flex flex-wrap items-center gap-3">
+            {selecionadosValidos.length > 0 && (
+              <>
+                <span className="text-[15px] font-semibold text-foreground">
+                  {plural(selecionadosValidos.length, 'estação selecionada', 'estações selecionadas')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleDownloadQrCode(selecionadosValidos)}
+                  disabled={downloadingQr !== null}
+                  className={classeDoBotaoContorno}
+                >
+                  <QrCode aria-hidden="true" className="w-4 h-4" />
+                  {downloadingQr === LOTE_DE_QR ? 'Gerando QR Codes…' : 'Baixar QR Codes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelecionados(new Set())}
+                  className="text-sm font-medium text-primary-strong hover:underline"
+                >
+                  Limpar seleção
+                </button>
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3 ml-auto">
+            <BotaoExpandirTodos marcado={todosAbertos} aoAlternar={alternarTodos} />
+            <BotaoVerNoMapa />
+            <AlternarExibicao modo={modo} aoMudar={setModo} />
           </div>
         </div>
       )}
 
-      {/* 2. Pending Chargers Accordion (Second) */}
-      {pendingChargers.length > 0 && (
-        <div className="bg-surface-container-low rounded-xl border border-error/20 overflow-hidden shadow-soft">
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="pending-chargers" className="border-none">
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-surface-container-high/30 transition-all flex justify-between items-center w-full">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-error/10 flex items-center justify-center text-error animate-pulse">
-                    <span className="material-symbols-outlined text-lg">warning</span>
-                  </div>
-                  <div className="text-left">
-                    <h3 className="font-headline font-bold text-on-surface text-sm md:text-base">Carregadores Pendentes de Configuração</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Existem {pendingChargers.length} carregadores sem local atribuído. Clique para configurar.</p>
-                  </div>
+      {/* Locais, cada um com a tabela das suas estações */}
+      {(locaisDaLista.length > 0 || outrosVisiveis.length > 0) && (
+        <Accordion type="multiple" value={abertos} onValueChange={aoMudarAbertos} className="space-y-[25px]">
+          {locaisDaLista.map(({ loc, lista }) => (
+            <AccordionItem
+              key={loc.id}
+              value={`location-${loc.id}`}
+              className={`${classeDoCartao} overflow-hidden border-b-0`}
+            >
+              <div className="flex items-center gap-3 px-6 py-4">
+                <div className="flex-1 min-w-0">
+                  <AccordionTrigger className={classeDoGatilho}>
+                    <span className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
+                      <span className="flex items-center gap-3 min-w-0" title={loc.endereco || undefined}>
+                        <span className="text-primary-strong shrink-0">
+                          <Icone nome="local" tamanho={28} />
+                        </span>
+                        <span className="text-[24px] leading-tight font-semibold text-foreground truncate">
+                          {loc.nomeDoLocal}
+                        </span>
+                        {loc.endereco && <span className="sr-only">, {loc.endereco}</span>}
+                      </span>
+                      <span className="shrink-0 h-8 px-3 rounded-[25px] border border-foreground/50 dark:border-border text-[13px] font-medium text-foreground inline-flex items-center">
+                        {unidades(lista.length)}
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                        <ResumoDoLocal contagem={contarGrupos(lista.map(estadoDe))} />
+                      </span>
+                    </span>
+                  </AccordionTrigger>
                 </div>
+                <MenuDoLocal
+                  id={loc.id}
+                  nome={loc.nomeDoLocal}
+                  aoExcluir={isAdmin ? () => pedirExclusaoDoLocal(loc, lista.length) : undefined}
+                />
+              </div>
+              <AccordionContent className="pb-0">{corpoDoLocal(lista)}</AccordionContent>
+            </AccordionItem>
+          ))}
+
+          {/* Carregadores de locais não listados ou modificados */}
+          {outrosVisiveis.length > 0 && (
+            <AccordionItem value="location-unknown" className={`${classeDoCartao} overflow-hidden border-b-0`}>
+              <div className="px-6 py-4">
+                <AccordionTrigger className={classeDoGatilho}>
+                  <span className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2 min-w-0">
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span className="text-muted-foreground shrink-0">
+                        <HelpCircle aria-hidden="true" className="w-7 h-7" />
+                      </span>
+                      <span className="text-[24px] leading-tight font-semibold text-foreground">Outros locais</span>
+                    </span>
+                    <span className="shrink-0 h-8 px-3 rounded-[25px] border border-foreground/50 dark:border-border text-[13px] font-medium text-foreground inline-flex items-center">
+                      {unidades(outrosCarregadores.length)}
+                    </span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      Estações associadas a locais não listados ou modificados
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                      <ResumoDoLocal contagem={contarGrupos(outrosCarregadores.map(estadoDe))} />
+                    </span>
+                  </span>
+                </AccordionTrigger>
+              </div>
+              <AccordionContent className="pb-0">{corpoDoLocal(outrosCarregadores)}</AccordionContent>
+            </AccordionItem>
+          )}
+        </Accordion>
+      )}
+
+      {/* Os filtros não deixaram nenhuma estação */}
+      {nadaNosFiltros && (
+        <div className={`${classeDoCartao} flex flex-col items-center text-center gap-3 py-14 px-6`}>
+          <BlocoDeIcone tom="cinza" grande>
+            <SearchX aria-hidden="true" className="w-6 h-6" />
+          </BlocoDeIcone>
+          <p className="text-[20px] font-semibold text-foreground">
+            {grupoDoFiltro === 'offline' && !termo && localDoFiltro === TODOS && tipoDoFiltro === TODOS
+              ? 'Nenhuma estação offline agora'
+              : 'Nenhuma estação encontrada'}
+          </p>
+          <p className="text-[15px] text-muted-foreground max-w-md">
+            {grupoDoFiltro
+              ? `Nenhuma estação em “${rotuloDoGrupo(grupoDoFiltro)}” com esses filtros.`
+              : 'Nada com esses filtros. Tente outro nome, ID ou localização.'}
+          </p>
+          <button type="button" onClick={limparFiltros} className={`${classeDoBotaoContorno} mt-2`}>
+            <X aria-hidden="true" className="w-4 h-4" />
+            Limpar filtros
+          </button>
+        </div>
+      )}
+
+      {/* Nenhuma estação cadastrada */}
+      {!naoCarregou && totalDeEstacoes === 0 && (
+        <div className={`${classeDoCartao} flex flex-col items-center text-center py-16 px-8`}>
+          <BlocoDeIcone tom="marca" grande>
+            <Plug aria-hidden="true" className="w-6 h-6" />
+          </BlocoDeIcone>
+          <p className="text-[20px] font-semibold text-foreground mt-5">Nenhuma estação registrada</p>
+          <p className="text-[15px] text-muted-foreground mt-2 max-w-sm">Registre o primeiro carregador OCPP da rede; depois configure no equipamento o link do servidor, logo abaixo.</p>
+          <button
+            type="button"
+            onClick={() => setRegisterOpen(true)}
+            className={`${classeDoBotaoPrincipal} mt-6`}
+          >
+            <CirclePlus aria-hidden="true" className="w-5 h-5" />
+            Adicionar primeiro carregador
+          </button>
+        </div>
+      )}
+
+      {/* Fora do Frame 10, no fim da página: os carregadores que ainda não têm
+          local e a instalação (link do servidor e cadastro de estação). */}
+      {pendentesVisiveis.length > 0 && (
+        <section className={`${classeDoCartao} overflow-hidden`}>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="pending-chargers" className="border-b-0">
+              <AccordionTrigger className="px-6 py-5 items-center gap-4 rounded-none hover:no-underline hover:bg-muted/40 [&>svg]:size-5 [&>svg]:text-foreground">
+                <span className="flex items-center gap-4 text-left min-w-0">
+                  <BlocoDeIcone tom="amarelo" grande>
+                    <AlertTriangle aria-hidden="true" className="w-6 h-6" />
+                  </BlocoDeIcone>
+                  <span className="min-w-0">
+                    <span className="block text-[20px] leading-tight font-semibold text-foreground">Carregadores pendentes de configuração</span>
+                    <span className="block text-sm font-normal text-foreground mt-1">
+                      {pendentesVisiveis.length === 1
+                        ? '1 carregador sem local atribuído.'
+                        : `${pendentesVisiveis.length} carregadores sem local atribuído.`}{' '}
+                      Abra para preencher os dados e escolher o local.
+                    </span>
+                  </span>
+                </span>
               </AccordionTrigger>
-              <AccordionContent className="px-6 pb-6 pt-2">
-                <div className="overflow-x-auto rounded-lg border border-outline-variant/10">
-                  <table className="w-full text-left border-collapse">
+              <AccordionContent className="pb-0">
+                <div className="overflow-x-auto border-t border-border">
+                  <table className="w-full text-left border-collapse text-sm">
                     <thead>
-                      <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                        <th className="px-6 py-3">Charge Point ID</th>
-                        <th className="px-6 py-3">Modelo</th>
-                        <th className="px-6 py-3">Fabricante</th>
-                        <th className="px-6 py-3">Potência</th>
-                        <th className="px-6 py-3">Tipo</th>
-                        {ehAdminPlataforma && <th className="px-6 py-3">Operador</th>}
-                        <th className="px-6 py-3">Atribuir Local</th>
-                        <th className="px-6 py-3">Ação</th>
+                      <tr className={classeDoCabecalhoDaTabela}>
+                        <th className="pl-6 pr-3 py-3 font-semibold">Carregador</th>
+                        <th className="px-3 py-3 font-semibold">Modelo</th>
+                        <th className="px-3 py-3 font-semibold">Fabricante</th>
+                        <th className="px-3 py-3 font-semibold">Potência</th>
+                        <th className="px-3 py-3 font-semibold">Tipo</th>
+                        {ehAdminPlataforma && <th className="px-3 py-3 font-semibold">Operador</th>}
+                        <th className="px-3 py-3 font-semibold">Atribuir local</th>
+                        <th className="pl-3 pr-6 py-3 font-semibold">Ação</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-outline-variant/5">
-                      {pendingChargers.map(c => {
+                    <tbody className="divide-y divide-border">
+                      {pendentesVisiveis.map(c => {
                         const ed = editOf(c);
-                        const inputCls = 'h-8 bg-surface-container-low border-outline-variant/20 text-on-surface text-sm';
                         return (
-                        <tr key={c.charge_point_id} className="hover:bg-surface-container-highest/30 transition-colors align-top">
-                          <td className="px-6 py-3">
-                            <p className="text-[10px] text-on-surface-variant font-mono mb-1">{c.charge_point_id}</p>
-                            <Input value={ed.description} onChange={e => setEdit(c, { description: e.target.value })} placeholder="Descrição" className={`${inputCls} w-[150px]`} />
+                        <tr key={c.charge_point_id} className="hover:bg-muted/30 transition-colors align-top">
+                          <td className="pl-6 pr-3 py-4">
+                            <p className="text-[13px] font-mono font-medium text-foreground mb-2">{c.charge_point_id}</p>
+                            <Input value={ed.description} onChange={e => setEdit(c, { description: e.target.value })} placeholder="Descrição" aria-label={`Descrição de ${c.charge_point_id}`} className={`${classeDoCampo} w-[170px]`} />
+                            <div className="mt-2"><EstadoDoCarregadorNaTabela estado={estadoDe(c)} /></div>
                           </td>
-                          <td className="px-6 py-3">
-                            <Input value={ed.model} onChange={e => setEdit(c, { model: e.target.value })} placeholder="Modelo" className={`${inputCls} w-[120px]`} />
+                          <td className="px-3 py-4 pt-[38px]">
+                            <Input value={ed.model} onChange={e => setEdit(c, { model: e.target.value })} placeholder="Modelo" aria-label="Modelo" className={`${classeDoCampo} w-[130px]`} />
                           </td>
-                          <td className="px-6 py-3">
-                            <Input value={ed.vendor} onChange={e => setEdit(c, { vendor: e.target.value })} placeholder="Fabricante" className={`${inputCls} w-[120px]`} />
+                          <td className="px-3 py-4 pt-[38px]">
+                            <Input value={ed.vendor} onChange={e => setEdit(c, { vendor: e.target.value })} placeholder="Fabricante" aria-label="Fabricante" className={`${classeDoCampo} w-[130px]`} />
                           </td>
-                          <td className="px-6 py-3">
-                            <Input type="number" value={ed.power_kw} onChange={e => setEdit(c, { power_kw: e.target.value })} placeholder="kW" className={`${inputCls} w-[80px]`} />
+                          <td className="px-3 py-4 pt-[38px]">
+                            <Input type="number" value={ed.power_kw} onChange={e => setEdit(c, { power_kw: e.target.value })} placeholder="kW" aria-label="Potência em kW" className={`${classeDoCampo} w-[90px]`} />
                           </td>
-                          <td className="px-6 py-3">
+                          <td className="px-3 py-4 pt-[38px]">
                             <Select value={ed.connector_type} onValueChange={v => setEdit(c, { connector_type: v })}>
-                              <SelectTrigger className={`w-[110px] ${inputCls}`}><SelectValue placeholder="Tipo" /></SelectTrigger>
-                              <SelectContent className="bg-surface-container border-outline-variant/20">
+                              <SelectTrigger aria-label="Tipo de conector" className={`w-[120px] ${classeDoCampo}`}><SelectValue placeholder="Tipo" /></SelectTrigger>
+                              <SelectContent className="bg-popover border-border">
                                 {['Type1', 'Type2', 'CCS1', 'CCS2', 'CHAdeMO', 'GBT'].map(t => (
-                                  <SelectItem key={t} value={t} className="text-on-surface focus:bg-surface-container-highest">{t === 'GBT' ? 'GB/T' : t.replace('Type', 'Type ')}</SelectItem>
+                                  <SelectItem key={t} value={t}>{t === 'GBT' ? 'GB/T' : t.replace('Type', 'Type ')}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           </td>
                           {ehAdminPlataforma && (
-                            <td className="px-6 py-3">
+                            <td className="px-3 py-4 pt-[38px]">
                               <Select
                                 value={selectedOwners[c.charge_point_id] || SEM_OPERADOR}
                                 onValueChange={v => setSelectedOwners(p => ({ ...p, [c.charge_point_id]: v }))}
                               >
-                                <SelectTrigger className={`w-[160px] ${inputCls}`}>
+                                <SelectTrigger aria-label="Operador dono" className={`w-[170px] ${classeDoCampo}`}>
                                   <SelectValue placeholder="Plataforma" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-surface-container border-outline-variant/20">
-                                  <SelectItem value={SEM_OPERADOR} className="text-on-surface focus:bg-surface-container-highest">Plataforma</SelectItem>
+                                <SelectContent className="bg-popover border-border">
+                                  <SelectItem value={SEM_OPERADOR}>Plataforma</SelectItem>
                                   {operadores.map(o => (
-                                    <SelectItem key={o.clientId} value={o.clientId} className="text-on-surface focus:bg-surface-container-highest">
+                                    <SelectItem key={o.clientId} value={o.clientId}>
                                       {o.companyName || o.clientId}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                               {/* O equipamento precisa apontar para a URL do dono. */}
-                              <p className="text-[10px] text-on-surface-variant mt-1 font-mono truncate w-[160px]">
+                              <p className="text-xs text-muted-foreground mt-1.5 font-mono truncate w-[170px]">
                                 {selectedOwners[c.charge_point_id] && selectedOwners[c.charge_point_id] !== SEM_OPERADOR
                                   ? `/ocpp/${selectedOwners[c.charge_point_id]}/${c.charge_point_id}`
                                   : `/ocpp/${c.charge_point_id}`}
                               </p>
                             </td>
                           )}
-                          <td className="px-6 py-3">
+                          <td className="px-3 py-4 pt-[38px]">
                             {locations.length === 0 ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs text-amber-400">
-                                <span className="material-symbols-outlined text-sm">info</span>
-                                Nenhum local cadastrado — crie um em <b>Locais</b> primeiro
+                              <span className="inline-flex items-start gap-1.5 text-[13px] font-medium text-estado-problema-forte max-w-[220px]">
+                                <Info aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5" />
+                                <span>Nenhum local cadastrado — crie um em <Link to="/locais" className="font-semibold underline">Locais</Link> primeiro</span>
                               </span>
                             ) : (
                               <Select value={selectedLocations[c.charge_point_id] || ''} onValueChange={v => setSelectedLocations(p => ({ ...p, [c.charge_point_id]: v }))}>
-                                <SelectTrigger className={`w-[200px] ${inputCls}`}>
+                                <SelectTrigger aria-label="Local" className={`w-[210px] ${classeDoCampo}`}>
                                   <SelectValue placeholder="Selecione..." />
                                 </SelectTrigger>
-                                <SelectContent className="bg-surface-container border-outline-variant/20">
+                                <SelectContent className="bg-popover border-border">
                                   {locations.map(l => (
-                                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
+                                    <SelectItem key={l.id} value={l.id.toString()}>{l.nomeDoLocal}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             )}
                           </td>
-                          <td className="px-6 py-3">
-                            <div className="flex items-center gap-2">
+                          <td className="pl-3 pr-6 py-4 pt-[38px]">
+                            <div className="flex items-center gap-3">
                               <button
+                                type="button"
                                 onClick={() => handleSavePending(c)}
                                 disabled={savingPending === c.charge_point_id}
-                                className="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100 disabled:cursor-not-allowed whitespace-nowrap"
+                                className="h-10 px-5 rounded-[25px] bg-primary text-primary-foreground text-sm font-medium hover:brightness-105 active:scale-[0.98] transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                               >
                                 {savingPending === c.charge_point_id ? 'Salvando…' : 'Salvar'}
                               </button>
-                              {isAdmin && (<button
-                                onClick={() => handleDeleteCharger(c.charge_point_id)}
-                                className="p-1.5 rounded-lg border border-outline-variant/10 text-error/80 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all"
-                                title="Excluir carregador"
-                              >
-                                <span className="material-symbols-outlined text-base">delete</span>
-                              </button>)}
+                              {/* Exclusão separada do "Salvar", em vermelho e com confirmação. */}
+                              {isAdmin && (
+                                <span className="pl-3 border-l border-border">
+                                  <button
+                                    type="button"
+                                    onClick={() => pedirExclusaoDoCarregador(c)}
+                                    className="h-10 w-10 rounded-[25px] border border-red-600/50 dark:border-red-400/50 text-red-600 dark:text-red-400 hover:bg-red-600/10 transition inline-flex items-center justify-center"
+                                    title="Excluir carregador"
+                                    aria-label={`Excluir carregador ${c.charge_point_id}`}
+                                  >
+                                    <Trash2 aria-hidden="true" className="w-4 h-4" />
+                                  </button>
+                                </span>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -750,310 +1398,66 @@ export const Stations = () => {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </div>
+        </section>
       )}
 
-      {/* 3. Active Stations Accordion (Grouped by Location) */}
-      {assignedChargers.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-outline-variant/10 pb-2">
-            <h3 className="font-headline text-lg font-bold text-on-surface">Estações por Localização</h3>
-            <span className="text-xs text-on-surface-variant font-medium">Use a sanfona para recolher ou expandir locais</span>
+      {/* Link de conexão do servidor (white label) e cadastro de estação — para o instalador */}
+      <section
+        className={`${classeDoCartao} p-[22px] flex flex-col 3xl:flex-row 3xl:items-center gap-4 justify-between`}
+        aria-label="Instalação de estações"
+      >
+        <div className="flex items-start gap-4 min-w-0">
+          <BlocoDeIcone tom="marca">
+            <Network aria-hidden="true" className="w-5 h-5" />
+          </BlocoDeIcone>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-foreground">Link do servidor para instalar nos eletropostos</h2>
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+              Configure esta URL no equipamento OCPP e acrescente o <b className="text-foreground">ID do carregador</b> ao final — ou copie o link completo de cada estação no “…” da tabela. Só carregadores cadastrados conseguem conectar.
+            </p>
           </div>
-
-          <Accordion type="multiple" defaultValue={locations.map(l => `location-${l.id}`)} className="space-y-4">
-            {locations
-              .filter(loc => chargersByLocation[loc.id] && chargersByLocation[loc.id].length > 0)
-              // Locais com carregador online no topo (mais online primeiro); o resto mantém a ordem.
-              .map((loc, ordem) => ({
-                loc,
-                ordem,
-                online: chargersByLocation[loc.id].filter(c => c.isConnected).length,
-              }))
-              .sort((a, b) => b.online - a.online || a.ordem - b.ordem)
-              .map(({ loc }) => {
-                const locChargers = chargersByLocation[loc.id] || [];
-                const locOnlineCount = locChargers.filter(c => c.isConnected).length;
-                const locOfflineCount = locChargers.filter(c => estadoDe(c) === 'offline').length;
-                const locInstalacaoCount = locChargers.filter(c => estadoDe(c) === 'instalacao').length;
-
-                return (
-                  <AccordionItem 
-                    key={loc.id} 
-                    value={`location-${loc.id}`} 
-                    className="bg-card rounded-2xl border border-neutral-200 shadow-soft overflow-hidden px-0"
-                  >
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-surface-container-high/20 transition-colors w-full flex justify-between items-center">
-                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6 text-left">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-primary text-xl">location_on</span>
-                          <span className="font-headline font-bold text-base md:text-lg text-on-surface">{loc.nomeDoLocal}</span>
-                        </div>
-                        <span className="text-xs text-on-surface-variant font-mono truncate max-w-xs">{loc.endereco}</span>
-                        <div className="flex gap-2">
-                          <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] font-bold text-on-surface-variant">
-                            {locChargers.length} carregadores
-                          </span>
-                          {locOnlineCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                              {locOnlineCount} Online
-                            </span>
-                          )}
-                          {locOfflineCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-error/10 text-error text-[10px] font-bold">
-                              {locOfflineCount} Offline
-                            </span>
-                          )}
-                          {locInstalacaoCount > 0 && (
-                            <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-[10px] font-bold flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: COR_DO_ESTADO.instalacao }} />
-                              {locInstalacaoCount} Em instalação
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    
-                    <AccordionContent className="px-6 pb-4 pt-2 border-t border-outline-variant/10">
-                      <div className="space-y-2">
-                        {locChargers.map(c => {
-                          const isOnline = c.isConnected;
-                          const estado = estadoDe(c);
-                          return (
-                            <div 
-                              key={c.charge_point_id} 
-                              className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all duration-200 gap-4 ${
-                                isOnline
-                                  ? 'bg-surface-container-low/60 border-outline-variant/10 hover:border-primary/25 hover:bg-surface-container-low'
-                                  : 'bg-surface-container-low/30 border-outline-variant/5 opacity-70 hover:opacity-100 hover:bg-surface-container-low/40'
-                              }`}
-                            >
-                              {/* Left side: Status dot + Name + Details */}
-                              <div className="flex items-center gap-3.5 min-w-0">
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : estado === 'instalacao' ? '' : 'bg-error'}`} style={estado === 'instalacao' ? { backgroundColor: COR_DO_ESTADO.instalacao } : undefined} />
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-headline font-bold text-sm text-on-surface truncate">{c.description || c.charge_point_id}</span>
-                                    {c.description && <span className="text-[10px] text-on-surface-variant font-mono bg-surface-container px-1.5 py-0.5 rounded">{c.charge_point_id}</span>}
-                                    {COM_ETIQUETA.includes(estado) && <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded shrink-0">{ROTULO_DO_ESTADO[estado]}</span>}
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant">
-                                    {c.model && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">build</span>{c.vendor ? `${c.vendor} ` : ''}{c.model}</span>}
-                                    {c.power_kw && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">bolt</span><strong className={isOnline ? 'text-primary' : ''}>{c.power_kw} kW</strong></span>}
-                                    {c.connector_type && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">settings_input_hdmi</span>{c.connector_type}</span>}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Right side: Action Buttons */}
-                              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                                <button
-                                  onClick={() => { setSelectedCharger(c.charge_point_id); setDetailsOpen(true); }}
-                                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 ${
-                                    isOnline 
-                                      ? 'bg-surface-container-highest hover:bg-primary hover:text-on-primary hover:border-transparent' 
-                                      : 'bg-surface-container-highest hover:bg-error/10 hover:text-error hover:border-error/20'
-                                  }`}
-                                >
-                                  <span className="material-symbols-outlined text-xs">info</span>
-                                  Detalhes
-                                </button>
-                                <button
-                                  onClick={() => { setLogsCharger({ id: c.charge_point_id, nome: c.description || c.charge_point_id }); setLogsOpen(true); }}
-                                  className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 bg-surface-container-highest hover:bg-surface-variant"
-                                  title="Ver logs OCPP e de conexão"
-                                >
-                                  <span className="material-symbols-outlined text-xs">receipt_long</span>
-                                  Logs
-                                </button>
-                                <button
-                                  onClick={() => handleDownloadQrCode(c.charge_point_id)}
-                                  disabled={downloadingQr === c.charge_point_id}
-                                  className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all disabled:opacity-30 flex items-center justify-center"
-                                  title="Baixar QR Code"
-                                >
-                                  {downloadingQr === c.charge_point_id ? (
-                                    <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-primary" />
-                                  ) : (
-                                    <span className="material-symbols-outlined text-base">qr_code_2</span>
-                                  )}
-                                </button>
-                                {c.connection_url && (
-                                  <button
-                                    onClick={() => copyLink(c.connection_url!)}
-                                    className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all flex items-center justify-center"
-                                    title="Copiar link do servidor"
-                                  >
-                                    <span className="material-symbols-outlined text-base">link</span>
-                                  </button>
-                                )}
-                                {isAdmin && (<button
-                                  onClick={() => handleDeleteCharger(c.charge_point_id)}
-                                  className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
-                                  title="Excluir carregador"
-                                >
-                                  <span className="material-symbols-outlined text-base">delete</span>
-                                </button>)}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {isAdmin && (<div className="flex justify-end pt-3 mt-2 border-t border-outline-variant/10">
-                        <button
-                          onClick={() => handleDeleteLocation(loc.id, loc.nomeDoLocal)}
-                          className="flex items-center gap-1.5 text-xs font-bold text-error/80 hover:text-error px-3 py-1.5 rounded-lg hover:bg-error/10 transition-all"
-                          title="Excluir este local"
-                        >
-                          <span className="material-symbols-outlined text-sm">delete</span>
-                          Excluir local
-                        </button>
-                      </div>)}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-
-            {/* Handle Chargers with Unknown/Deleted Locations */}
-            {Object.keys(chargersByLocation).some(key => key !== 'unknown' && !locations.some(l => l.id.toString() === key.toString())) && (() => {
-              const unknownLocIds = Object.keys(chargersByLocation).filter(key => key !== 'unknown' && !locations.some(l => l.id.toString() === key.toString()));
-              const unknownChargers = unknownLocIds.flatMap(key => chargersByLocation[key]);
-              if (unknownChargers.length === 0) return null;
-              
-              return (
-                <AccordionItem 
-                  value="location-unknown" 
-                  className="bg-card rounded-2xl border border-neutral-200 shadow-soft overflow-hidden px-0"
-                >
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-surface-container-high/20 transition-colors w-full flex justify-between items-center">
-                    <div className="flex items-center gap-4 text-left">
-                      <span className="material-symbols-outlined text-outline text-xl">help_outline</span>
-                      <div>
-                        <span className="font-headline font-bold text-base md:text-lg text-on-surface">Outros Locais</span>
-                        <p className="text-xs text-on-surface-variant mt-0.5">Estações associadas a locais não listados ou modificados</p>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] font-bold text-on-surface-variant">
-                        {unknownChargers.length} carregadores
-                      </span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-6 pb-4 pt-2 border-t border-outline-variant/10">
-                    <div className="space-y-2">
-                      {unknownChargers.map(c => {
-                        const isOnline = c.isConnected;
-                        const estado = estadoDe(c);
-                        return (
-                          <div 
-                            key={c.charge_point_id} 
-                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border transition-all duration-200 gap-4 ${
-                              isOnline
-                                ? 'bg-surface-container-low/60 border-outline-variant/10 hover:border-primary/25 hover:bg-surface-container-low'
-                                : 'bg-surface-container-low/30 border-outline-variant/5 opacity-70 hover:opacity-100 hover:bg-surface-container-low/40'
-                            }`}
-                          >
-                            {/* Left side: Status dot + Name + Details */}
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-primary animate-pulse shadow-[0_0_8px_var(--primary)]' : estado === 'instalacao' ? '' : 'bg-error'}`} style={estado === 'instalacao' ? { backgroundColor: COR_DO_ESTADO.instalacao } : undefined} />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-headline font-bold text-sm text-on-surface truncate">{c.description || c.charge_point_id}</span>
-                                  {c.description && <span className="text-[10px] text-on-surface-variant font-mono bg-surface-container px-1.5 py-0.5 rounded">{c.charge_point_id}</span>}
-                                  {COM_ETIQUETA.includes(estado) && <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded shrink-0">{ROTULO_DO_ESTADO[estado]}</span>}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-on-surface-variant">
-                                  {c.model && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">build</span>{c.vendor ? `${c.vendor} ` : ''}{c.model}</span>}
-                                  {c.power_kw && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">bolt</span><strong className={isOnline ? 'text-primary' : ''}>{c.power_kw} kW</strong></span>}
-                                  {c.connector_type && <span className="flex items-center gap-1"><span className="material-symbols-outlined text-xs">settings_input_hdmi</span>{c.connector_type}</span>}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Right side: Action Buttons */}
-                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                              <button
-                                onClick={() => { setSelectedCharger(c.charge_point_id); setDetailsOpen(true); }}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 ${
-                                  isOnline 
-                                    ? 'bg-surface-container-highest hover:bg-primary hover:text-on-primary hover:border-transparent' 
-                                    : 'bg-surface-container-highest hover:bg-error/10 hover:text-error hover:border-error/20'
-                                }`}
-                              >
-                                <span className="material-symbols-outlined text-xs">info</span>
-                                Detalhes
-                              </button>
-                              <button
-                                onClick={() => { setLogsCharger({ id: c.charge_point_id, nome: c.description || c.charge_point_id }); setLogsOpen(true); }}
-                                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border border-outline-variant/10 flex items-center gap-1.5 bg-surface-container-highest hover:bg-surface-variant"
-                                title="Ver logs OCPP e de conexão"
-                              >
-                                <span className="material-symbols-outlined text-xs">receipt_long</span>
-                                Logs
-                              </button>
-                              <button
-                                onClick={() => handleDownloadQrCode(c.charge_point_id)}
-                                disabled={downloadingQr === c.charge_point_id}
-                                className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all disabled:opacity-30 flex items-center justify-center"
-                                title="Baixar QR Code"
-                              >
-                                {downloadingQr === c.charge_point_id ? (
-                                  <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-primary" />
-                                ) : (
-                                  <span className="material-symbols-outlined text-base">qr_code_2</span>
-                                )}
-                              </button>
-                              {c.connection_url && (
-                                <button
-                                  onClick={() => copyLink(c.connection_url!)}
-                                  className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-surface-variant transition-all flex items-center justify-center"
-                                  title="Copiar link do servidor"
-                                >
-                                  <span className="material-symbols-outlined text-base">link</span>
-                                </button>
-                              )}
-                              {isAdmin && (<button
-                                onClick={() => handleDeleteCharger(c.charge_point_id)}
-                                className="p-1.5 rounded-lg bg-surface-container-highest border border-outline-variant/10 hover:bg-error/10 hover:text-error hover:border-error/20 transition-all flex items-center justify-center"
-                                title="Excluir carregador"
-                              >
-                                <span className="material-symbols-outlined text-base">delete</span>
-                              </button>)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })()}
-          </Accordion>
         </div>
-      )}
-
-      {/* 4. Friendly Empty State */}
-      {assignedChargers.length === 0 && pendingChargers.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-20 bg-card rounded-2xl border border-dashed border-outline-variant/30 p-8 shadow-soft">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-6 animate-bounce">
-            <span className="material-symbols-outlined text-3xl">ev_station</span>
-          </div>
-          <p className="text-on-surface font-headline font-bold text-xl">Nenhuma estação registrada</p>
-          <p className="text-on-surface-variant text-sm mt-2 max-w-sm text-center font-medium">Clique em "Nova Estação" no topo direito para registrar seu primeiro carregador OCPP na rede.</p>
-          <button 
+        <div className="flex flex-wrap items-center gap-2 shrink-0 w-full 3xl:w-auto">
+          {serverBase ? (
+            <>
+              <code
+                title={`${serverBase}<ID>`}
+                className="flex-1 3xl:flex-none 3xl:max-w-[480px] min-w-0 truncate h-10 leading-10 rounded-[10px] bg-muted px-4 text-[13px] font-mono text-foreground"
+              >
+                {`${serverBase}<ID>`}
+              </code>
+              <button
+                type="button"
+                className={`${classeDoBotaoContorno} shrink-0`}
+                onClick={() => copyLink(serverBase)}
+                title="Copiar base do link"
+              >
+                <Copy aria-hidden="true" className="w-4 h-4" />
+                Copiar
+              </button>
+            </>
+          ) : (
+            <span className="text-sm text-muted-foreground">Cadastre um carregador para ver o link.</span>
+          )}
+          <button
+            type="button"
             onClick={() => setRegisterOpen(true)}
-            className="mt-6 px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-md"
+            className={`${classeDoBotaoPrincipal} h-10 shrink-0`}
           >
-            Adicionar Primeiro Carregador
+            <CirclePlus aria-hidden="true" className="w-5 h-5" />
+            Nova estação
           </button>
         </div>
-      )}
+      </section>
 
       {/* Charger Details Dialog */}
       <ChargerDetailsDialog
         chargePointId={selectedCharger}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        onUpdate={fetchData}
+        editarAoAbrir={editarAoAbrir}
+        // Silenciosa: com a tela de carregamento, o diálogo era desmontado ao salvar.
+        onUpdate={() => void fetchData(true)}
         onOpenLogs={(id, nome) => { setDetailsOpen(false); setLogsCharger({ id, nome }); setLogsOpen(true); }}
       />
       <ChargerLogsSheet
@@ -1063,106 +1467,115 @@ export const Stations = () => {
         onOpenChange={setLogsOpen}
       />
 
+      <ConfirmarExclusao pedido={pedidoDeExclusao} aoFechar={() => setPedidoDeExclusao(null)} />
+
       {/* Register Charger Dialog */}
       <Dialog open={registerOpen} onOpenChange={o => { setRegisterOpen(o); if (!o) setConnectionUrl(null); }}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 max-w-lg">
+        <DialogContent className="bg-card text-card-foreground border-0 rounded-[15px] shadow-cartao sm:max-w-lg p-7">
           <DialogHeader>
-            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">ev_station</span>
-              Registrar Novo Carregador
+            <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-3">
+              <BlocoDeIcone tom="marca">
+                <Plug aria-hidden="true" className="w-5 h-5" />
+              </BlocoDeIcone>
+              Registrar novo carregador
             </DialogTitle>
           </DialogHeader>
           {connectionUrl ? (
             <div className="space-y-4 mt-2">
-              <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
-                <p className="text-on-surface font-bold text-sm flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">check_circle</span>
+              <div className="rounded-[10px] bg-primary-soft p-4">
+                <p className="text-foreground font-semibold text-[15px] flex items-center gap-2">
+                  <CheckCircle2 aria-hidden="true" className="w-5 h-5 text-primary-strong" />
                   Carregador registrado
                 </p>
-                <p className="text-on-surface-variant text-xs mt-1 leading-relaxed">
+                <p className="text-foreground text-sm mt-1 leading-relaxed">
                   Configure esta URL no equipamento. Só carregadores pré-cadastrados
                   conseguem conectar por ela — se o ID não bater, o servidor recusa.
                 </p>
               </div>
               <div className="flex gap-2">
-                <Input readOnly value={connectionUrl} onFocus={e => e.currentTarget.select()}
-                  className="bg-surface-container-low border-outline-variant/20 text-on-surface font-mono text-xs" />
-                <Button variant="outline" className="shrink-0 border-outline-variant/20 text-on-surface-variant"
+                <Input readOnly value={connectionUrl} onFocus={e => e.currentTarget.select()} aria-label="URL de conexão"
+                  className={`${classeDoCampo} font-mono text-[13px]`} />
+                <button type="button" className={`${classeDoBotaoContorno} shrink-0`}
                   onClick={() => { navigator.clipboard.writeText(connectionUrl).then(() => toast.success('URL copiada')).catch(() => toast.error('Não foi possível copiar')); }}>
+                  <Copy aria-hidden="true" className="w-4 h-4" />
                   Copiar
-                </Button>
+                </button>
               </div>
               <div className="flex justify-end pt-2">
-                <Button onClick={() => { setRegisterOpen(false); setConnectionUrl(null); }}
-                  className="rounded-full px-6 bg-primary text-on-primary font-bold hover:opacity-90">
+                <button type="button" onClick={() => { setRegisterOpen(false); setConnectionUrl(null); }}
+                  className={classeDoBotaoPrincipal}>
                   Concluir
-                </Button>
+                </button>
               </div>
             </div>
           ) : (
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">ID do Carregador *</Label>
-              <Input placeholder="Ex: CP001, CHARGER-A1" value={regForm.charge_point_id} onChange={e => setRegForm(f => ({ ...f, charge_point_id: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-              <p className="text-[10px] text-on-surface-variant">Este ID será usado no QR Code e deve corresponder ao ID OCPP</p>
+              <Label htmlFor="reg-id" className="text-sm font-medium text-foreground">ID do carregador *</Label>
+              <Input id="reg-id" placeholder="Ex: CP001, CHARGER-A1" value={regForm.charge_point_id} onChange={e => setRegForm(f => ({ ...f, charge_point_id: e.target.value }))} className={classeDoCampo} />
+              <p className="text-xs text-muted-foreground">Este ID será usado no QR Code e deve corresponder ao ID OCPP</p>
             </div>
             <div className="space-y-2">
-              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Descrição</Label>
-              <Input placeholder="Ex: Carregador Estacionamento A" value={regForm.description} onChange={e => setRegForm(f => ({ ...f, description: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+              <Label htmlFor="reg-descricao" className="text-sm font-medium text-foreground">Descrição</Label>
+              <Input id="reg-descricao" placeholder="Ex: Carregador Estacionamento A" value={regForm.description} onChange={e => setRegForm(f => ({ ...f, description: e.target.value }))} className={classeDoCampo} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Modelo</Label>
-                <Input placeholder="Ex: Wallbox Plus" value={regForm.model} onChange={e => setRegForm(f => ({ ...f, model: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label htmlFor="reg-modelo" className="text-sm font-medium text-foreground">Modelo</Label>
+                <Input id="reg-modelo" placeholder="Ex: Wallbox Plus" value={regForm.model} onChange={e => setRegForm(f => ({ ...f, model: e.target.value }))} className={classeDoCampo} />
               </div>
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Fabricante</Label>
-                <Input placeholder="Ex: ABB" value={regForm.vendor} onChange={e => setRegForm(f => ({ ...f, vendor: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label htmlFor="reg-fabricante" className="text-sm font-medium text-foreground">Fabricante</Label>
+                <Input id="reg-fabricante" placeholder="Ex: ABB" value={regForm.vendor} onChange={e => setRegForm(f => ({ ...f, vendor: e.target.value }))} className={classeDoCampo} />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Potência (kW)</Label>
-                <Input type="number" placeholder="22" value={regForm.power_kw} onChange={e => setRegForm(f => ({ ...f, power_kw: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label htmlFor="reg-potencia" className="text-sm font-medium text-foreground">Potência (kW)</Label>
+                <Input id="reg-potencia" type="number" placeholder="22" value={regForm.power_kw} onChange={e => setRegForm(f => ({ ...f, power_kw: e.target.value }))} className={classeDoCampo} />
               </div>
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Conectores</Label>
-                <Input type="number" min="1" value={regForm.num_connectors} onChange={e => setRegForm(f => ({ ...f, num_connectors: e.target.value }))} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label htmlFor="reg-conectores" className="text-sm font-medium text-foreground">Conectores</Label>
+                <Input id="reg-conectores" type="number" min="1" value={regForm.num_connectors} onChange={e => setRegForm(f => ({ ...f, num_connectors: e.target.value }))} className={classeDoCampo} />
               </div>
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Tipo Conector</Label>
+                <Label className="text-sm font-medium text-foreground">Tipo de conector</Label>
                 <Select value={regForm.connector_type} onValueChange={v => setRegForm(f => ({ ...f, connector_type: v }))}>
-                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                  <SelectContent className="bg-surface-container border-outline-variant/20">
+                  <SelectTrigger aria-label="Tipo de conector" className={`w-full ${classeDoCampo}`}><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
                     {['Type1', 'Type2', 'CCS1', 'CCS2', 'CHAdeMO', 'GBT'].map(t => (
-                      <SelectItem key={t} value={t} className="text-on-surface focus:bg-surface-container-highest">{t === 'GBT' ? 'GB/T' : t.replace('Type', 'Type ')}</SelectItem>
+                      <SelectItem key={t} value={t}>{t === 'GBT' ? 'GB/T' : t.replace('Type', 'Type ')}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Local (opcional)</Label>
+              <Label className="text-sm font-medium text-foreground">Local (opcional)</Label>
               <Select value={regForm.locationId} onValueChange={v => setRegForm(f => ({ ...f, locationId: v }))}>
-                <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Selecione um local" /></SelectTrigger>
-                <SelectContent className="bg-surface-container border-outline-variant/20">
+                <SelectTrigger aria-label="Local" className={`w-full ${classeDoCampo}`}><SelectValue placeholder="Selecione um local" /></SelectTrigger>
+                <SelectContent className="bg-popover border-border">
                   {locations.map(l => (
-                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
+                    <SelectItem key={l.id} value={l.id.toString()}>{l.nomeDoLocal}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="outline" onClick={() => setRegisterOpen(false)} className="border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-highest rounded-full px-6">
+              <button type="button" onClick={() => setRegisterOpen(false)} className={classeDoBotaoContorno}>
                 Cancelar
-              </Button>
+              </button>
               <button
+                type="button"
                 onClick={handleRegisterCharger}
                 disabled={registering || !regForm.charge_point_id.trim()}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+                className={`${classeDoBotaoPrincipal} h-10`}
               >
-                {registering && <div className="w-4 h-4 animate-spin rounded-full border-b-2 border-on-primary" />}
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
+                {registering ? (
+                  <span aria-hidden="true" className="w-4 h-4 animate-spin rounded-full border-b-2 border-primary-foreground" />
+                ) : (
+                  <CirclePlus aria-hidden="true" className="w-5 h-5" />
+                )}
                 Registrar
               </button>
             </div>
