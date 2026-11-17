@@ -19,6 +19,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { BotaoAtualizar, CabecalhoDaPagina, classeDoCartao } from '@/components/painel/Pagina';
+import { classeDoBotaoContorno, classeDoBotaoPerigo } from '@/components/painel/Pecas';
+import { cn } from '@/components/ui/utils';
+import { AbasDoLocal } from '@/components/locais/AbasDoLocal';
+import { ConfirmarExclusaoDoLocal } from '@/components/locais/ConfirmarExclusaoDoLocal';
 
 // Lazy load dos componentes de aba
 import { LocationInfoTab } from '@/components/location-details/LocationInfoTab';
@@ -90,6 +95,9 @@ export function LocationDetails() {
   const [activeTab, setActiveTab] = useState<TabId>('info');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   // NFS-e e certificado digital: admin ou operador da marca (a API aplica a mesma regra).
@@ -114,6 +122,8 @@ export function LocationDetails() {
 
       setLocation(locData.location);
       setPermissions(permData);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
 
       // Se não tem permissão para ver info, seleciona a primeira aba disponível
       if (!permData.info) {
@@ -124,6 +134,7 @@ export function LocationDetails() {
       }
     } catch (error: any) {
       console.error('Erro ao carregar local:', error);
+      setFalhou(true);
       toast.error('Erro ao carregar dados do local');
       if (error.status === 404) {
         navigate('/locais');
@@ -137,32 +148,19 @@ export function LocationDetails() {
     fetchData();
   }, [fetchData]);
 
+  // A hora da última atualização fica embaixo do botão (BotaoAtualizar); a
+  // falha aparece ali e no aviso de erro, sem o "Dados atualizados" de antes,
+  // que saía mesmo quando a busca falhava.
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchData();
     setIsRefreshing(false);
-    toast.success('Dados atualizados');
   };
 
-  const handleDeleteLocation = async () => {
+  // Abre a confirmação, que diz a consequência e faz o pedido à API.
+  const handleDeleteLocation = () => {
     if (!location || !id) return;
-    
-    if (!window.confirm(`Tem certeza que deseja excluir o local "${location.nomeDoLocal}"? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
-
-    try {
-      const res = await api.delete(`/locations/${id}`);
-      if (res.ok) {
-        toast.success('Local excluído com sucesso!');
-        navigate('/locais');
-      } else {
-        const error = await res.json();
-        toast.error(error.message || 'Erro ao excluir local');
-      }
-    } catch (err) {
-      toast.error('Erro ao conectar com o servidor');
-    }
+    setConfirmandoExclusao(true);
   };
 
   // Filtrar abas baseado nas permissões
@@ -188,16 +186,16 @@ export function LocationDetails() {
   if (!location) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="bg-card border-border p-8">
-          <div className="text-center">
-            <Building2 className="w-12 h-12 text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-foreground mb-2">Local não encontrado</h2>
-            <p className="text-muted-foreground mb-4">O local solicitado não existe ou foi removido.</p>
-            <Button onClick={() => navigate('/locais')} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+        <Card className={cn(classeDoCartao, 'border-0 p-8')}>
+          <CardContent className="text-center p-0">
+            <Building2 className="w-12 h-12 text-primary-strong mx-auto mb-4" />
+            <h2 className="text-[20px] font-semibold text-foreground mb-2">Local não encontrado</h2>
+            <p className="text-[15px] text-muted-foreground mb-4">O local solicitado não existe ou foi removido.</p>
+            <Button onClick={() => navigate('/locais')} variant="outline" className={classeDoBotaoContorno}>
+              <ArrowLeft className="w-4 h-4" />
               Voltar para Locais
             </Button>
-          </div>
+          </CardContent>
         </Card>
       </div>
     );
@@ -206,98 +204,85 @@ export function LocationDetails() {
   if (visibleTabs.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Card className="bg-card border-border p-8">
-          <div className="text-center">
-            <Users className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-foreground mb-2">Acesso Restrito</h2>
-            <p className="text-muted-foreground mb-4">Você não tem permissão para visualizar este local.</p>
-            <Button onClick={() => navigate('/locais')} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+        <Card className={cn(classeDoCartao, 'border-0 p-8')}>
+          <CardContent className="text-center p-0">
+            <Users className="w-12 h-12 text-estado-problema-forte mx-auto mb-4" />
+            <h2 className="text-[20px] font-semibold text-foreground mb-2">Acesso restrito</h2>
+            <p className="text-[15px] text-muted-foreground mb-4">Você não tem permissão para visualizar este local.</p>
+            <Button onClick={() => navigate('/locais')} variant="outline" className={classeDoBotaoContorno}>
+              <ArrowLeft className="w-4 h-4" />
               Voltar para Locais
             </Button>
-          </div>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/locais')}
-            className="text-foreground/70 hover:text-foreground hover:bg-accent"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {location.nomeDoLocal || 'Local sem nome'}
-            </h1>
-            <p className="text-muted-foreground text-sm flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              {location.endereco}, {location.numero} - {location.cidade}/{location.estado}
-            </p>
+    <div className="space-y-[25px] pb-12">
+      {/* Cabeçalho do redesenho, com a volta para Locais em cima do título */}
+      <button
+        type="button"
+        onClick={() => navigate('/locais')}
+        className="inline-flex items-center gap-2 -mb-1 text-[15px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+        Voltar para Locais
+      </button>
+      <CabecalhoDaPagina
+        titulo={location.nomeDoLocal || 'Local sem nome'}
+        subtitulo={
+          <span className="inline-flex items-start gap-1.5">
+            <MapPin className="w-4 h-4 mt-0.5 text-primary-strong shrink-0" aria-hidden="true" />
+            {[
+              [location.endereco, location.numero].filter(Boolean).join(', '),
+              [location.cidade, location.estado].filter(Boolean).join('/'),
+            ]
+              .filter(Boolean)
+              .join(' - ')}
+          </span>
+        }
+        acoes={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 3xl:gap-8">
+            {/* Ação destrutiva separada e em vermelho; a confirmação diz a consequência */}
+            {isAdmin && (
+              <button type="button" onClick={handleDeleteLocation} className={cn(classeDoBotaoPerigo, 'h-12 px-6')}>
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                Excluir local
+              </button>
+            )}
+            <BotaoAtualizar
+              aoAtualizar={() => void handleRefresh()}
+              carregando={isRefreshing}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou && !!atualizadoEm}
+            />
           </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="border-border text-foreground/70 hover:bg-accent"
-        >
-          <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
-        {isAdmin && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDeleteLocation}
-            className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Excluir Local
-          </Button>
-        )}
-      </div>
+        }
+      />
 
-      {/* Tabs Navigation */}
-      <Card className="bg-card border-border">
-        <CardContent className="p-2">
-          <div className="flex flex-wrap gap-1">
-            {visibleTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
+      <AbasDoLocal
+        rotulo="Seções do local"
+        ativa={activeTab}
+        aoMudar={setActiveTab}
+        abas={visibleTabs.map(tab => {
+          const Icon = tab.icon;
+          return { id: tab.id, rotulo: tab.label, icone: <Icon className="w-5 h-5" aria-hidden="true" /> };
+        })}
+      />
 
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`
-                    flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all
-                    ${isActive
-                      ? 'bg-primary/10 text-primary border border-primary/30'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <ConfirmarExclusaoDoLocal
+        local={confirmandoExclusao ? location : null}
+        carregadores={location.chargePoints ? location.chargePoints.length : null}
+        aoFechar={() => setConfirmandoExclusao(false)}
+        aoExcluir={() => navigate('/locais')}
+      />
 
       {/* Tab Content */}
-      <div className="min-h-[500px]">
+      {/* Cartões das abas no estilo novo (cantos de 15 px; os de fora sem borda e
+          com a sombra do painel), sem mexer em cada aba */}
+      <div className="min-h-[500px] [&_[data-slot=card]]:rounded-[15px] [&_[data-slot=card]:not([data-slot=card]_*)]:border-transparent [&_[data-slot=card]:not([data-slot=card]_*)]:shadow-cartao">
         {activeTab === 'info' && permissions?.info && (
           <LocationInfoTab location={location} onUpdate={fetchData} />
         )}
