@@ -651,7 +651,11 @@ export const Overview = () => {
                 value={locationId || 'todos'}
                 onValueChange={v => setLocationId(v === 'todos' ? '' : v)}
               >
-                <SelectTrigger className={classeDaPilula} aria-label="Filtrar por local">
+                {/* Nome comprido corta com reticências (o span em volta do
+                    SelectValue, cuja classe o Radix ignora). O gap-1 deixa o
+                    texto chegar a 4 px da seta: "Todas as estações" cabe
+                    inteiro na pílula de 248 px do Figma. */}
+                <SelectTrigger className={`${classeDaPilula} gap-1`} aria-label="Filtrar por local">
                   <span className="flex flex-1 items-center gap-3 min-w-0">
                     <Icone nome="local" />
                     <span className="min-w-0 truncate"><SelectValue placeholder="Todos os locais" /></span>
@@ -672,7 +676,7 @@ export const Overview = () => {
                 value={chargerId || 'todas'}
                 onValueChange={v => setChargerId(v === 'todas' ? '' : v)}
               >
-                <SelectTrigger className={classeDaPilula} aria-label="Filtrar por estação">
+                <SelectTrigger className={`${classeDaPilula} gap-1`} aria-label="Filtrar por estação">
                   <span className="flex flex-1 items-center gap-3 min-w-0">
                     <Icone nome="estacao" />
                     <span className="min-w-0 truncate"><SelectValue placeholder="Todas as estações" /></span>
