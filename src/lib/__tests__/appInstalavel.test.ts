@@ -85,10 +85,10 @@ describe('aplicarAppDaMarca e aplicarCorDaBarra', () => {
 
   it('a barra do Android é o fundo do painel no tema em uso', () => {
     aplicarCorDaBarra(true);
-    expect(atributo('meta[name="theme-color"]', 'content')).toBe('#0e0e0e');
+    expect(atributo('meta[name="theme-color"]', 'content')).toBe('#191919');
     aplicarCorDaBarra(false);
     expect(document.head.querySelectorAll('meta[name="theme-color"]')).toHaveLength(1);
-    expect(atributo('meta[name="theme-color"]', 'content')).toBe('#f8fafc');
+    expect(atributo('meta[name="theme-color"]', 'content')).toBe('#f7f6f3');
   });
 });
 

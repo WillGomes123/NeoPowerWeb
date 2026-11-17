@@ -1,385 +1,146 @@
+/**
+ * Moldura do painel no redesenho de nov/2026: menu lateral agrupado
+ * (Visão Geral, Gestão, Financeiro, Configurações), item ativo marcado,
+ * itens da plataforma escondidos das marcas e a conta com "Sair".
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+
 import { DashboardLayout } from '../DashboardLayout';
-import { AuthProvider } from '../../lib/auth';
-import { UserRole } from '../../types';
 
-// Mock do useAuth
-const mockLogout = vi.fn();
-const mockSwitchRole = vi.fn();
-const mockNavigate = vi.fn();
-
-vi.mock('../../lib/auth', async () => {
-  const actual = await vi.importActual('../../lib/auth');
-  return {
-    ...actual,
-    useAuth: vi.fn(),
-  };
-});
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-// Mock do ThemeToggle
-vi.mock('../ThemeToggle', () => ({
-  ThemeToggle: () => <div data-testid="theme-toggle">Theme Toggle</div>,
+const estado = vi.hoisted(() => ({
+  user: null as Record<string, unknown> | null,
+  logout: vi.fn(),
+  navigate: vi.fn(),
+  toggleTheme: vi.fn(),
 }));
 
-describe('DashboardLayout', () => {
+vi.mock('../../lib/auth', () => ({
+  useAuth: () => ({ user: estado.user, logout: estado.logout }),
+}));
+vi.mock('react-router-dom', async () => {
+  const real = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...real, useNavigate: () => estado.navigate };
+});
+vi.mock('../../contexts/TenantContext', () => ({
+  useTenant: () => ({
+    isDark: false,
+    toggleTheme: estado.toggleTheme,
+    tenantBranding: { companyName: 'NeoPower', logoType: 'programmatic' },
+  }),
+}));
+vi.mock('../NotificationBell', () => ({
+  NotificationBell: () => <button>Notificações do topo</button>,
+}));
+vi.mock('../KairosPanel', () => ({ KairosPanel: () => <div>Painel do Kairos</div> }));
+
+const plataforma = { id: 1, name: 'Lauriane Macedo', email: 'l@neo.com', role: 'admin' };
+const operadorDaMarca = {
+  id: 2,
+  name: 'Op Vip',
+  email: 'op@vip.com',
+  role: 'operador',
+  clientId: 'vipenergy',
+};
+
+const abrir = (rota = '/') =>
+  render(
+    <MemoryRouter initialEntries={[rota]}>
+      <DashboardLayout>
+        <p>Conteúdo da página</p>
+      </DashboardLayout>
+    </MemoryRouter>
+  );
+
+const menu = () => within(screen.getByRole('navigation', { name: 'Menu principal' }));
+
+describe('DashboardLayout (redesenho)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockLogout.mockClear();
-    mockSwitchRole.mockClear();
-    mockNavigate.mockClear();
+    estado.user = plataforma;
+    estado.logout.mockClear();
+    estado.navigate.mockClear();
+    estado.toggleTheme.mockClear();
   });
 
-  const renderWithRouter = (component: React.ReactElement, initialRoute = '/') => {
-    return render(<MemoryRouter initialEntries={[initialRoute]}>{component}</MemoryRouter>);
-  };
-
-  describe('Renderizacao do Layout', () => {
-    it('deve renderizar o layout com sidebar e conteudo principal', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Test Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByText('NeoPower')).toBeInTheDocument();
-      expect(screen.getByText('Gerenciamento de Estações')).toBeInTheDocument();
-      expect(screen.getByText('Test Content')).toBeInTheDocument();
-    });
-
-    it('deve renderizar o logo com icone Zap', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      const logo = screen.getByText('NeoPower');
-      expect(logo).toBeInTheDocument();
-    });
-
-    it('deve renderizar o nome do usuario e role', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'John Doe', email: 'john@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByText('John Doe')).toBeInTheDocument();
-      expect(screen.getByText('ADMIN')).toBeInTheDocument();
-    });
+  it('mostra a marca, o conteúdo e a conta com nome e papel', () => {
+    abrir();
+    expect(screen.getByText('NeoPower')).toBeInTheDocument();
+    expect(screen.getByText('Conteúdo da página')).toBeInTheDocument();
+    expect(screen.getByText('Lauriane Macedo')).toBeInTheDocument();
+    expect(screen.getByText('Admin')).toBeInTheDocument();
   });
 
-  describe('Navegacao entre Paginas', () => {
-    it('deve renderizar todos os itens de navegacao para admin', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Admin User', email: 'admin@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByText('Visão Geral')).toBeInTheDocument();
-      expect(screen.getByText('Estações')).toBeInTheDocument();
-      expect(screen.getByText('Locais')).toBeInTheDocument();
-      expect(screen.getByText('Transações')).toBeInTheDocument();
-      expect(screen.getByText('Indicadores')).toBeInTheDocument();
-      expect(screen.getByText('Operações')).toBeInTheDocument();
-      expect(screen.getByText('Relatório Financeiro')).toBeInTheDocument();
-      expect(screen.getByText('Usuários')).toBeInTheDocument();
-      expect(screen.getByText('Vouchers')).toBeInTheDocument();
-    });
-
-    it('deve ocultar itens admin para usuario comum', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Common User', email: 'user@test.com', role: 'comum' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByText('Visão Geral')).toBeInTheDocument();
-      expect(screen.getByText('Estações')).toBeInTheDocument();
-      expect(screen.queryByText('Operações')).not.toBeInTheDocument();
-      expect(screen.queryByText('Usuários')).not.toBeInTheDocument();
-      expect(screen.queryByText('Vouchers')).not.toBeInTheDocument();
-    });
-
-    it('deve mostrar itens corretos para usuario ATEM', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'ATEM User', email: 'atem@test.com', role: 'atem' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByText('Visão Geral')).toBeInTheDocument();
-      expect(screen.getByText('Estações')).toBeInTheDocument();
-      expect(screen.getByText('Indicadores')).toBeInTheDocument();
-      expect(screen.queryByText('Operações')).not.toBeInTheDocument();
-      expect(screen.queryByText('Usuários')).not.toBeInTheDocument();
-    });
-
-    it('deve destacar o item ativo na navegacao', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>,
-        '/estacoes'
-      );
-
-      const activeLink = screen.getByText('Estações').closest('a');
-      expect(activeLink).toHaveClass('bg-emerald-500/10', 'text-emerald-400');
-    });
+  it('tem os quatro blocos do Figma e marca a Visão Geral como ativa na raiz', () => {
+    abrir('/');
+    const visao = menu().getByRole('link', { name: 'Visão Geral' });
+    expect(visao).toHaveAttribute('aria-current', 'page');
+    for (const grupo of ['Gestão', 'Financeiro', 'Configurações']) {
+      expect(menu().getByRole('button', { name: grupo })).toBeInTheDocument();
+    }
   });
 
-  describe('Sidebar', () => {
-    it('deve renderizar o ThemeToggle', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByTestId('theme-toggle')).toBeInTheDocument();
-    });
-
-    it('deve renderizar menu dropdown do usuario', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      const userMenuTrigger = screen.getByText('Test User').closest('button');
-      expect(userMenuTrigger).toBeInTheDocument();
-    });
+  it('abre o grupo da página atual e marca o item dela', () => {
+    abrir('/estacoes');
+    expect(menu().getByRole('button', { name: 'Gestão' })).toHaveAttribute('aria-expanded', 'true');
+    expect(menu().getByRole('link', { name: 'Estações' })).toHaveAttribute('aria-current', 'page');
+    expect(menu().getByRole('link', { name: 'Visão Geral' })).not.toHaveAttribute('aria-current');
+    // Financeiro está fechado: os itens dele não aparecem
+    expect(menu().queryByRole('link', { name: 'Transações' })).not.toBeInTheDocument();
   });
 
-  describe('Logout', () => {
-    it('deve chamar logout e redirecionar ao clicar em Sair', async () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      // Abrir dropdown do usuario
-      const userMenuTrigger = screen.getByText('Test User').closest('button');
-      fireEvent.click(userMenuTrigger!);
-
-      // Aguardar menu abrir e clicar em Sair
-      await waitFor(() => {
-        const logoutButton = screen.getByText('Sair');
-        expect(logoutButton).toBeInTheDocument();
-      });
-
-      const logoutButton = screen.getByText('Sair');
-      fireEvent.click(logoutButton);
-
-      expect(mockLogout).toHaveBeenCalledTimes(1);
-      expect(mockNavigate).toHaveBeenCalledWith('/login');
-    });
+  it('abre e fecha um grupo ao clicar', async () => {
+    abrir('/');
+    const financeiro = menu().getByRole('button', { name: 'Financeiro' });
+    await userEvent.click(financeiro);
+    expect(menu().getByRole('link', { name: 'Transações' })).toBeInTheDocument();
+    await userEvent.click(financeiro);
+    expect(menu().queryByRole('link', { name: 'Transações' })).not.toBeInTheDocument();
   });
 
-  describe('Alternar Role', () => {
-    it('deve alternar de admin para atem', async () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      // Abrir dropdown
-      const userMenuTrigger = screen.getByText('Test User').closest('button');
-      fireEvent.click(userMenuTrigger!);
-
-      // Aguardar e clicar em alternar role
-      await waitFor(() => {
-        const switchButton = screen.getByText(/Alternar para ATEM/);
-        expect(switchButton).toBeInTheDocument();
-      });
-
-      const switchButton = screen.getByText(/Alternar para ATEM/);
-      fireEvent.click(switchButton);
-
-      expect(mockSwitchRole).toHaveBeenCalledWith('atem');
-    });
-
-    it('deve alternar de atem para comum', async () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'atem' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      const userMenuTrigger = screen.getByText('Test User').closest('button');
-      fireEvent.click(userMenuTrigger!);
-
-      await waitFor(() => {
-        const switchButton = screen.getByText(/Alternar para Comum/);
-        expect(switchButton).toBeInTheDocument();
-      });
-
-      const switchButton = screen.getByText(/Alternar para Comum/);
-      fireEvent.click(switchButton);
-
-      expect(mockSwitchRole).toHaveBeenCalledWith('comum');
-    });
-
-    it('deve alternar de comum para admin', async () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'comum' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
-
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
-
-      const userMenuTrigger = screen.getByText('Test User').closest('button');
-      fireEvent.click(userMenuTrigger!);
-
-      await waitFor(() => {
-        const switchButton = screen.getByText(/Alternar para Admin/);
-        expect(switchButton).toBeInTheDocument();
-      });
-
-      const switchButton = screen.getByText(/Alternar para Admin/);
-      fireEvent.click(switchButton);
-
-      expect(mockSwitchRole).toHaveBeenCalledWith('admin');
-    });
+  it('mostra à plataforma os itens que só ela vê', async () => {
+    abrir('/energia');
+    expect(menu().getByRole('link', { name: /Energia/ })).toBeInTheDocument();
+    await userEvent.click(menu().getByRole('button', { name: 'Configurações' }));
+    expect(menu().getByRole('link', { name: 'White Label' })).toBeInTheDocument();
+    expect(menu().getByRole('link', { name: 'Usuários' })).toBeInTheDocument();
   });
 
-  describe('Edge Cases', () => {
-    it('deve renderizar com usuario null', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: null,
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
+  it('esconde do operador de marca os itens da plataforma e os de admin', async () => {
+    estado.user = operadorDaMarca;
+    abrir('/estacoes');
+    expect(menu().getByRole('link', { name: 'Estações' })).toBeInTheDocument();
+    expect(menu().queryByRole('link', { name: /Energia/ })).not.toBeInTheDocument();
+    expect(menu().queryByRole('link', { name: /Atendimento/ })).not.toBeInTheDocument();
+    // Configurações só tem itens de admin: o grupo nem aparece
+    expect(menu().queryByRole('button', { name: 'Configurações' })).not.toBeInTheDocument();
+  });
 
-      renderWithRouter(
-        <DashboardLayout>
-          <div>Content</div>
-        </DashboardLayout>
-      );
+  it('a busca do topo leva à página encontrada', async () => {
+    abrir('/');
+    await userEvent.type(screen.getByLabelText('Pesquisar no painel'), 'tari');
+    await userEvent.click(screen.getByRole('button', { name: 'Tarifas' }));
+    expect(estado.navigate).toHaveBeenCalledWith('/tarifas');
+  });
 
-      expect(screen.getByText('NeoPower')).toBeInTheDocument();
-    });
+  it('o botão de tema alterna o tema', async () => {
+    abrir('/');
+    await userEvent.click(screen.getByRole('button', { name: 'Mudar para o tema escuro' }));
+    expect(estado.toggleTheme).toHaveBeenCalledTimes(1);
+  });
 
-    it('deve renderizar children corretamente', () => {
-      const { useAuth } = require('../../lib/auth');
-      useAuth.mockReturnValue({
-        user: { id: '1', name: 'Test User', email: 'test@test.com', role: 'admin' },
-        logout: mockLogout,
-        switchRole: mockSwitchRole,
-      });
+  it('"Sair" encerra a sessão e volta ao login', async () => {
+    abrir('/');
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir menu da conta' }));
+    await userEvent.click(await screen.findByText('Sair'));
+    expect(estado.logout).toHaveBeenCalledTimes(1);
+    expect(estado.navigate).toHaveBeenCalledWith('/login');
+  });
 
-      renderWithRouter(
-        <DashboardLayout>
-          <div data-testid="custom-content">Custom Content Here</div>
-        </DashboardLayout>
-      );
-
-      expect(screen.getByTestId('custom-content')).toBeInTheDocument();
-      expect(screen.getByText('Custom Content Here')).toBeInTheDocument();
-    });
+  it('funciona sem usuário (sessão expirando)', () => {
+    estado.user = null;
+    abrir('/');
+    expect(screen.getByText('Conteúdo da página')).toBeInTheDocument();
   });
 });

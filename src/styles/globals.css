@@ -199,12 +199,21 @@ html {
 }
 
 /* Custom font families */
+/* Redesenho (nov/2026): Poppins nos títulos e no corpo */
 .font-headline {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .font-body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
+}
+
+:root {
+  --sombra-cartao: 0 2px 19px rgba(0, 0, 0, 0.25);
+}
+
+.dark {
+  --sombra-cartao: none;
 }
 
 /* Glass and glow utility classes */
