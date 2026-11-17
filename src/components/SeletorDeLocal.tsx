@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from './ui/utils';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import {
   Command,
@@ -35,6 +36,7 @@ export function SeletorDeLocal({
   mostrarMarca = false,
   carregando = false,
   textoVazio = 'Todos os locais',
+  className,
 }: {
   locais: LocalParaSelecao[];
   valor: number | null;
@@ -44,6 +46,8 @@ export function SeletorDeLocal({
   carregando?: boolean;
   /** Texto do botão sem local escolhido. */
   textoVazio?: string;
+  /** Classe do botão no lugar da padrão (ex.: a pílula do redesenho). */
+  className?: string;
 }) {
   const [aberto, setAberto] = useState(false);
   const selecionado = locais.find(l => l.id === valor) ?? null;
@@ -69,10 +73,16 @@ export function SeletorDeLocal({
           role="combobox"
           aria-expanded={aberto}
           aria-label="Local"
-          className="w-full flex items-center gap-2 pl-3 pr-2 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-foreground hover:bg-surface-container-highest/50 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+          className={
+            className
+              ? cn('flex items-center', className)
+              : 'w-full flex items-center gap-2 pl-3 pr-2 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-foreground hover:bg-surface-container-highest/50 focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all'
+          }
         >
-          <span className="material-symbols-outlined text-outline text-lg">location_on</span>
-          <span className={`flex-1 truncate text-left ${selecionado ? '' : 'text-outline'}`}>
+          <span aria-hidden="true" className={`material-symbols-outlined text-lg ${className ? '' : 'text-outline'}`}>
+            location_on
+          </span>
+          <span className={`flex-1 truncate text-left ${selecionado || className ? '' : 'text-outline'}`}>
             {selecionado
               ? selecionado.nome
               : valor != null
@@ -81,7 +91,9 @@ export function SeletorDeLocal({
                   ? 'Carregando locais...'
                   : textoVazio}
           </span>
-          <span className="material-symbols-outlined text-outline text-lg">unfold_more</span>
+          <span aria-hidden="true" className="material-symbols-outlined text-outline text-lg">
+            unfold_more
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[340px]" align="start">

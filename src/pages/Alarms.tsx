@@ -1,7 +1,41 @@
-import { Fragment, useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../lib/api';
 import type { AlarmSeverity } from '../types';
+import { DateRangePicker } from '../components/ui/date-range-picker';
+import { dataLocal } from '../components/ui/utils';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import { Icone, IconeSvg } from '../components/painel/Icone';
+import iconeRaio from '../assets/icones/alarmes-raio.svg';
+
+/*
+ * Alarmes — redesenho de nov/2026, à risca do Figma da Lauriane (frame
+ * 185:4223, que no arquivo se chama "cameras" por engano): cabeçalho com
+ * período, local e estação em pílula e o "Atualizar"; quatro cartões; os chips
+ * de severidade; a tabela de linhas verdes.
+ * Correções do Figma: subtítulo (era o das câmeras); os cartões, que eram
+ * cópias ("Ativos 25 / 113,4% / Valor médio por recarga"), viram Ativos,
+ * Críticos, Reconhecidos e Resolvidos com os números da lista — a pílula diz
+ * quanto cada um é do total, porque não há histórico para uma variação; uma
+ * coluna "Erro" só (o Figma repetiu a coluna).
+ * Funções que já existiam e o Figma não mostra, no lugar menos intrusivo: o
+ * filtro por status virou clique nos cartões; o aviso de crítico ativo virou o
+ * cartão "Críticos" em vermelho; o conector fica sob o carregador; a mensagem
+ * longa abre na própria linha; a paginação só aparece com mais de uma página.
+ */
 
 interface AlarmEntry {
   id: string;
@@ -16,17 +50,21 @@ interface AlarmEntry {
   location_name?: string;
 }
 
-const SEVERITY_CONFIG: Record<AlarmSeverity, { color: string; bg: string; border: string; dot: string; label: string; icon: string }> = {
-  critical: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', dot: 'bg-red-400 animate-pulse', label: 'Crítico', icon: 'warning' },
-  high: { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20', dot: 'bg-orange-400', label: 'Alto', icon: 'error' },
-  medium: { color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', dot: 'bg-yellow-400', label: 'Médio', icon: 'info' },
-  low: { color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-border', dot: 'bg-muted-foreground', label: 'Baixo', icon: 'notifications' },
+// Pílulas do Figma (sem ícone: o texto já diz o estado). As cores seguem o
+// Figma, com o texto um pouco mais escuro no claro para dar leitura.
+const VERMELHO = 'bg-[#fedbd5] text-[#c00000] dark:bg-[#4a1d17] dark:text-[#ff8a75]';
+
+const SEVERITY_CONFIG: Record<AlarmSeverity, { label: string; classe: string }> = {
+  critical: { label: 'Crítico', classe: VERMELHO },
+  high: { label: 'Alto', classe: 'bg-tom-amarelo text-estado-problema-forte' },
+  medium: { label: 'Média', classe: 'bg-tom-azul text-estado-uso-forte' },
+  low: { label: 'Baixa', classe: 'bg-tom-cinza text-tom-cinza-icone' },
 };
 
-const STATUS_CONFIG: Record<string, { color: string; bg: string; border: string; label: string }> = {
-  active: { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20', label: 'Ativo' },
-  acknowledged: { color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20', label: 'Reconhecido' },
-  resolved: { color: 'text-primary', bg: 'bg-primary/10', border: 'border-primary/20', label: 'Resolvido' },
+const STATUS_CONFIG: Record<AlarmEntry['status'], { label: string; classe: string }> = {
+  active: { label: 'Ativo', classe: VERMELHO },
+  acknowledged: { label: 'Reconhecido', classe: 'bg-estado-problema text-estado-problema-forte' },
+  resolved: { label: 'Resolvido', classe: 'bg-estado-livre text-estado-livre-forte' },
 };
 
 const ERROR_DESCRIPTIONS: Record<string, string> = {
@@ -51,21 +89,43 @@ const ERROR_DESCRIPTIONS: Record<string, string> = {
 type FilterSeverity = 'all' | AlarmSeverity;
 type FilterStatus = 'all' | 'active' | 'acknowledged' | 'resolved';
 
+const SEVERIDADES: AlarmSeverity[] = ['critical', 'high', 'medium', 'low'];
+
 /**
- * A coluna "Mensagem" é estreita (max-w-[240px] + truncate) para a tabela não
- * estourar. Acima deste tamanho a mensagem com certeza é cortada na tela, então
- * a linha ganha o botão de expandir — abaixo dele o texto cabe e o botão só
- * seria ruído. É um limite por caracteres porque o corte real é por pixel, que
- * não dá para medir antes de renderizar.
+ * A mensagem fica numa caixa estreita da coluna "Erro" (até duas linhas) para
+ * a tabela não estourar. Acima deste tamanho a mensagem com certeza é cortada
+ * na tela, então a linha ganha o botão de expandir — abaixo dele o texto cabe e
+ * o botão só seria ruído. É um limite por caracteres porque o corte real é por
+ * pixel, que não dá para medir antes de renderizar.
  */
 export const MESSAGE_PREVIEW_LIMIT = 60;
 
 export const isMensagemLonga = (mensagem: string | null | undefined): boolean =>
   (mensagem ?? '').trim().length > MESSAGE_PREVIEW_LIMIT;
 
+/** Cabeçalho da tabela do Figma: maiúsculas, sem fundo (as linhas é que têm). */
+const classeDoTh =
+  'px-3 3xl:px-4 pb-1 text-left text-[13px] 3xl:text-[15px] font-semibold uppercase text-foreground whitespace-nowrap';
+
+/** Célula das linhas verdes do Figma; a primeira e a última arredondam a linha. */
+const classeDoTd =
+  'px-3 3xl:px-4 py-3 align-middle bg-primary/[0.14] first:rounded-l-[15px] last:rounded-r-[15px]';
+
+const ordenar = (lista: string[]) =>
+  [...new Set(lista)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
 export const Alarms = () => {
   const [alarms, setAlarms] = useState<AlarmEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  // A última busca falhou: a lista na tela é a de antes.
+  const [falhou, setFalhou] = useState(false);
+  // Filtros do cabeçalho (período, local e estação), sobre a lista carregada.
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [filtroLocal, setFiltroLocal] = useState('');
+  const [filtroEstacao, setFiltroEstacao] = useState('');
   const [filterSeverity, setFilterSeverity] = useState<FilterSeverity>('all');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,10 +142,22 @@ export const Alarms = () => {
     });
   };
 
-  useEffect(() => { void fetchAlarms(); }, []);
+  useEffect(() => {
+    void fetchAlarms();
+  }, []);
+
+  // Filtro novo: volta para a primeira página.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dataInicio, dataFim, filtroLocal, filtroEstacao, filterStatus, filterSeverity]);
 
   const fetchAlarms = async () => {
-    setLoading(true);
+    setAtualizando(true);
+    const chegou = (lista: AlarmEntry[]) => {
+      setAlarms(lista);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
+    };
     try {
       // Tenta endpoint dedicado de alarmes
       const res = await api.get('/alarms');
@@ -93,22 +165,20 @@ export const Alarms = () => {
         const data = await res.json();
         const arr = Array.isArray(data) ? data : [];
         if (arr.length > 0) {
-          setAlarms(arr);
+          chegou(arr);
           return;
         }
       }
       // Fallback: gera a partir dos carregadores
       const chargersRes = await api.get('/chargers');
-      if (chargersRes.ok) {
-        const chargers = await chargersRes.json();
-        const generated = generateAlarmsFromChargers(Array.isArray(chargers) ? chargers : []);
-        setAlarms(generated);
-      } else {
-        setAlarms([]);
-      }
+      if (!chargersRes.ok) throw new Error('Falha ao buscar os carregadores');
+      const chargers = await chargersRes.json();
+      chegou(generateAlarmsFromChargers(Array.isArray(chargers) ? chargers : []));
     } catch {
-      setAlarms([]);
+      // A lista na tela fica (vazia na primeira vez) e o "Atualizar" avisa.
+      setFalhou(true);
     } finally {
+      setAtualizando(false);
       setLoading(false);
     }
   };
@@ -135,14 +205,18 @@ export const Alarms = () => {
 
       const connectors = cp.connectors || [];
       for (const conn of connectors) {
-        if (conn.status === 'Faulted' || conn.error_code && conn.error_code !== 'NoError') {
+        if (conn.status === 'Faulted' || (conn.error_code && conn.error_code !== 'NoError')) {
           const errCode = conn.error_code || 'InternalError';
           result.push({
             id: `${cpId}-${conn.connector_id}-${errCode}`,
             charger_id: cpId,
             connector_id: conn.connector_id || 1,
             error_code: errCode,
-            severity: ['GroundFailure', 'OverCurrentFailure', 'OverVoltage'].includes(errCode) ? 'critical' : ['HighTemperature', 'UnderVoltage', 'PowerSwitchFailure'].includes(errCode) ? 'high' : 'medium',
+            severity: ['GroundFailure', 'OverCurrentFailure', 'OverVoltage'].includes(errCode)
+              ? 'critical'
+              : ['HighTemperature', 'UnderVoltage', 'PowerSwitchFailure'].includes(errCode)
+                ? 'high'
+                : 'medium',
             status: 'active',
             message: ERROR_DESCRIPTIONS[errCode] || `Erro: ${errCode}`,
             timestamp: conn.timestamp || new Date().toISOString(),
@@ -154,37 +228,91 @@ export const Alarms = () => {
 
     return result.sort((a, b) => {
       const sevOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      return sevOrder[a.severity] - sevOrder[b.severity] || new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return (
+        sevOrder[a.severity] - sevOrder[b.severity] ||
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
     });
   };
 
   const handleAcknowledge = (alarmId: string) => {
-    setAlarms(prev => prev.map(a => a.id === alarmId ? { ...a, status: 'acknowledged' as const } : a));
+    setAlarms(prev =>
+      prev.map(a => (a.id === alarmId ? { ...a, status: 'acknowledged' as const } : a))
+    );
     toast.success('Alarme reconhecido');
   };
 
   const handleResolve = (alarmId: string) => {
-    setAlarms(prev => prev.map(a => a.id === alarmId ? { ...a, status: 'resolved' as const, resolved_at: new Date().toISOString() } : a));
+    setAlarms(prev =>
+      prev.map(a =>
+        a.id === alarmId
+          ? { ...a, status: 'resolved' as const, resolved_at: new Date().toISOString() }
+          : a
+      )
+    );
     toast.success('Alarme resolvido');
   };
 
-  const filtered = useMemo(() => {
+  // Opções dos filtros do cabeçalho: os locais e as estações que têm alarme.
+  const locaisDoFiltro = useMemo(
+    () => ordenar(alarms.map(a => a.location_name ?? '').filter(Boolean)),
+    [alarms]
+  );
+  const estacoesDoFiltro = useMemo(() => ordenar(alarms.map(a => a.charger_id)), [alarms]);
+
+  // Período, local e estação valem para a página toda (cartões, chips e tabela).
+  const doEscopo = useMemo(() => {
+    const inicio = dataInicio ? dataLocal(dataInicio) : null;
+    const fim = dataFim ? dataLocal(dataFim) : null;
+    fim?.setHours(23, 59, 59, 999);
     return alarms.filter(a => {
-      if (filterSeverity !== 'all' && a.severity !== filterSeverity) return false;
-      if (filterStatus !== 'all' && a.status !== filterStatus) return false;
+      if (filtroLocal && a.location_name !== filtroLocal) return false;
+      if (filtroEstacao && a.charger_id !== filtroEstacao) return false;
+      const quando = new Date(a.timestamp);
+      if (inicio && quando < inicio) return false;
+      if (fim && quando > fim) return false;
       return true;
     });
-  }, [alarms, filterSeverity, filterStatus]);
+  }, [alarms, dataInicio, dataFim, filtroLocal, filtroEstacao]);
+
+  // Os chips contam dentro do status escolhido (nos cartões), para baterem com a tabela.
+  const doStatus = useMemo(
+    () => doEscopo.filter(a => filterStatus === 'all' || a.status === filterStatus),
+    [doEscopo, filterStatus]
+  );
+
+  const filtered = useMemo(
+    () => doStatus.filter(a => filterSeverity === 'all' || a.severity === filterSeverity),
+    [doStatus, filterSeverity]
+  );
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const current = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const activeCount = alarms.filter(a => a.status === 'active').length;
-  const criticalCount = alarms.filter(a => a.severity === 'critical' && a.status === 'active').length;
-  const acknowledgedCount = alarms.filter(a => a.status === 'acknowledged').length;
-  const resolvedCount = alarms.filter(a => a.status === 'resolved').length;
+  const activeCount = doEscopo.filter(a => a.status === 'active').length;
+  const criticalCount = doEscopo.filter(
+    a => a.severity === 'critical' && a.status === 'active'
+  ).length;
+  const acknowledgedCount = doEscopo.filter(a => a.status === 'acknowledged').length;
+  const resolvedCount = doEscopo.filter(a => a.status === 'resolved').length;
 
-  const formatDt = (iso: string) => new Date(iso).toLocaleString('pt-BR');
+  // O filtro por status (antes uma barra de botões) é o clique nos cartões.
+  const criticosEscolhido = filterStatus === 'active' && filterSeverity === 'critical';
+  const escolherStatus = (status: Exclude<FilterStatus, 'all'>) =>
+    setFilterStatus(atual => (atual === status ? 'all' : status));
+  const escolherCriticos = () => {
+    if (criticosEscolhido) {
+      setFilterStatus('all');
+      setFilterSeverity('all');
+    } else {
+      setFilterStatus('active');
+      setFilterSeverity('critical');
+    }
+  };
+
+  const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+  const hora = (iso: string) =>
+    new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
   if (loading) {
     return (
@@ -195,87 +323,155 @@ export const Alarms = () => {
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">MONITORAMENTO</span>
-          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Alarmes</h2>
-          <p className="text-on-surface-variant text-sm mt-1">Alertas e falhas dos carregadores OCPP</p>
-        </div>
-        <button onClick={() => void fetchAlarms()} className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors">
-          <span className="material-symbols-outlined text-sm">refresh</span>
-          <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
-        </button>
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="Alarmes"
+        subtitulo="Acompanhe e trate os alarmes dos carregadores"
+        filtros={
+          <>
+            <DateRangePicker
+              startDate={dataInicio}
+              endDate={dataFim}
+              onStartDateChange={setDataInicio}
+              onEndDateChange={setDataFim}
+              onClear={() => {
+                setDataInicio('');
+                setDataFim('');
+              }}
+              placeholder="Todo o período"
+              className={`${classeDaPilula} justify-start`}
+            />
+            <Select
+              value={filtroLocal || 'todos'}
+              onValueChange={v => setFiltroLocal(v === 'todos' ? '' : v)}
+            >
+              <SelectTrigger className={classeDaPilula} aria-label="Filtrar por local">
+                <span className="flex items-center gap-3 min-w-0">
+                  <Icone nome="local" />
+                  <SelectValue placeholder="Todos os locais" />
+                </span>
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="todos">Todos os locais</SelectItem>
+                {locaisDoFiltro.map(l => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filtroEstacao || 'todas'}
+              onValueChange={v => setFiltroEstacao(v === 'todas' ? '' : v)}
+            >
+              <SelectTrigger className={classeDaPilula} aria-label="Filtrar por estação">
+                <span className="flex items-center gap-3 min-w-0">
+                  <Icone nome="estacao" />
+                  <SelectValue placeholder="Todas as estações" />
+                </span>
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="todas">Todas as estações</SelectItem>
+                {estacoesDoFiltro.map(e => (
+                  <SelectItem key={e} value={e}>
+                    {e}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        }
+        acoes={
+          <BotaoAtualizar
+            aoAtualizar={() => void fetchAlarms()}
+            carregando={atualizando}
+            atualizadoEm={atualizadoEm}
+            falhou={falhou}
+          />
+        }
+      />
+
+      {/* Cartões (219 × 188 no Figma); um clique filtra a tabela pelo status. */}
+      <div className="pt-[27px] grid grid-cols-2 xl:grid-cols-[repeat(4,219px)] gap-[25px]">
+        <CartaoDeAlarme
+          titulo="Ativos"
+          valor={activeCount}
+          total={doEscopo.length}
+          escolhido={filterStatus === 'active' && !criticosEscolhido}
+          aoEscolher={() => escolherStatus('active')}
+          dica="Mostrar só os ativos"
+        />
+        <CartaoDeAlarme
+          titulo="Críticos"
+          valor={criticalCount}
+          total={doEscopo.length}
+          escolhido={criticosEscolhido}
+          aoEscolher={escolherCriticos}
+          dica="Mostrar só os críticos ativos"
+          alerta={criticalCount > 0}
+        />
+        <CartaoDeAlarme
+          titulo="Reconhecidos"
+          valor={acknowledgedCount}
+          total={doEscopo.length}
+          escolhido={filterStatus === 'acknowledged'}
+          aoEscolher={() => escolherStatus('acknowledged')}
+          dica="Mostrar só os reconhecidos"
+        />
+        <CartaoDeAlarme
+          titulo="Resolvidos"
+          valor={resolvedCount}
+          total={doEscopo.length}
+          escolhido={filterStatus === 'resolved'}
+          aoEscolher={() => escolherStatus('resolved')}
+          dica="Mostrar só os resolvidos"
+        />
       </div>
 
-      {/* Critical banner */}
-      {criticalCount > 0 && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-center gap-3 animate-pulse">
-          <span className="material-symbols-outlined text-red-400 text-2xl">warning</span>
-          <div>
-            <p className="text-red-400 font-bold text-sm">{criticalCount} alarme(s) crítico(s) ativo(s)</p>
-            <p className="text-red-400/70 text-xs">Ação imediata necessária</p>
-          </div>
-        </div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <AlarmKPI icon="notification_important" color="text-red-400" bg="bg-red-500/10" label="ATIVOS" value={activeCount} />
-        <AlarmKPI icon="warning" color="text-orange-400" bg="bg-orange-500/10" label="CRÍTICOS" value={criticalCount} />
-        <AlarmKPI icon="visibility" color="text-yellow-400" bg="bg-yellow-500/10" label="RECONHECIDOS" value={acknowledgedCount} />
-        <AlarmKPI icon="check_circle" color="text-primary" bg="bg-primary/10" label="RESOLVIDOS" value={resolvedCount} />
+      {/* Chips de severidade */}
+      <div
+        className="flex flex-wrap items-center gap-[18px] 3xl:gap-[23px]"
+        role="group"
+        aria-label="Filtrar por severidade"
+      >
+        <ChipDoFigma ativo={filterSeverity === 'all'} onClick={() => setFilterSeverity('all')}>
+          Todos ({doStatus.length})
+        </ChipDoFigma>
+        {SEVERIDADES.map(s => (
+          <ChipDoFigma key={s} ativo={filterSeverity === s} onClick={() => setFilterSeverity(s)}>
+            {SEVERITY_CONFIG[s].label} ({doStatus.filter(a => a.severity === s).length})
+          </ChipDoFigma>
+        ))}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <div className="bg-surface-container-low p-1 rounded-lg flex items-center border border-outline-variant/10">
-          {(['all', 'critical', 'high', 'medium', 'low'] as FilterSeverity[]).map(s => (
-            <button key={s} onClick={() => { setFilterSeverity(s); setCurrentPage(1); }} className={`px-3 py-1.5 text-xs font-bold font-headline rounded-md transition-all ${filterSeverity === s ? 'bg-surface-container-highest text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
-              {s === 'all' ? 'TODOS' : SEVERITY_CONFIG[s].label.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        <div className="bg-surface-container-low p-1 rounded-lg flex items-center border border-outline-variant/10">
-          {(['all', 'active', 'acknowledged', 'resolved'] as FilterStatus[]).map(s => (
-            <button key={s} onClick={() => { setFilterStatus(s); setCurrentPage(1); }} className={`px-3 py-1.5 text-xs font-bold font-headline rounded-md transition-all ${filterStatus === s ? 'bg-surface-container-highest text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}>
-              {s === 'all' ? 'TODOS' : STATUS_CONFIG[s].label.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Alarms Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface">Histórico de Alarmes</h3>
-          <span className="text-xs text-on-surface-variant">{filtered.length} alarme(s)</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                <th className="px-6 py-4">Severidade</th>
-                <th className="px-6 py-4">Carregador</th>
-                <th className="px-6 py-4">Conector</th>
-                <th className="px-6 py-4">Erro</th>
-                <th className="px-6 py-4">Mensagem</th>
-                <th className="px-6 py-4">Local</th>
-                <th className="px-6 py-4">Data/Hora</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Ações</th>
+      {/* Tabela (1278 px no Figma, sem cartão em volta) */}
+      <div className="pt-[60px] max-w-[1278px] overflow-x-auto">
+        <table
+          aria-label="Histórico de alarmes"
+          className="w-full border-separate border-spacing-y-[10px] text-[13px] font-semibold text-foreground"
+        >
+          <thead>
+            <tr>
+              <th className={classeDoTh}>Severidade</th>
+              <th className={classeDoTh}>Carregador</th>
+              <th className={classeDoTh}>Erro</th>
+              <th className={classeDoTh}>Local</th>
+              <th className={classeDoTh}>Data/Hora</th>
+              <th className={classeDoTh}>Status</th>
+              <th className={classeDoTh}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {current.length === 0 ? (
+              <tr>
+                <td colSpan={7} className={`${classeDoTd} py-10 text-center`}>
+                  <p className="text-[15px] font-medium text-muted-foreground">
+                    Nenhum alarme encontrado
+                  </p>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/5">
-              {current.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center">
-                    <span className="material-symbols-outlined text-4xl text-outline mb-3 block">check_circle</span>
-                    <p className="text-sm text-on-surface-variant">Nenhum alarme encontrado</p>
-                  </td>
-                </tr>
-              ) : current.map(alarm => {
+            ) : (
+              current.map(alarm => {
                 const sev = SEVERITY_CONFIG[alarm.severity];
                 const st = STATUS_CONFIG[alarm.status] || STATUS_CONFIG.active;
                 const longa = isMensagemLonga(alarm.message);
@@ -283,112 +479,238 @@ export const Alarms = () => {
                 const detalheId = `alarme-mensagem-${alarm.id}`;
                 return (
                   <Fragment key={alarm.id}>
-                  <tr className="hover:bg-surface-container-highest/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${sev.bg} ${sev.color} ${sev.border}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
-                        {sev.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium">{alarm.charger_id}</td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">{alarm.connector_id || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-mono text-on-surface-variant bg-surface-container px-2 py-1 rounded">{alarm.error_code}</span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
-                      <div className="flex items-start gap-1.5">
-                        {/* title serve de atalho no hover; o botão abaixo é o
-                            caminho que funciona no toque e no teclado. */}
-                        <span className="max-w-[240px] truncate" title={alarm.message}>{alarm.message}</span>
-                        {longa && (
-                          <button
-                            type="button"
-                            onClick={() => toggleExpanded(alarm.id)}
-                            aria-expanded={aberta}
-                            aria-controls={detalheId}
-                            title={aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
-                            className="shrink-0 w-6 h-6 rounded-md bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
-                          >
-                            <span className="sr-only">
-                              {aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
+                    <tr>
+                      <td className={classeDoTd}>
+                        <Pilula classe={sev.classe}>{sev.label}</Pilula>
+                      </td>
+                      <td className={classeDoTd}>
+                        <span className="block whitespace-nowrap">{alarm.charger_id}</span>
+                        {alarm.connector_id > 0 && (
+                          <span className="block text-xs font-medium text-muted-foreground">
+                            Conector {alarm.connector_id}
+                          </span>
+                        )}
+                      </td>
+                      <td className={classeDoTd}>
+                        <div className="flex flex-col items-start 3xl:flex-row 3xl:items-center gap-1.5 3xl:gap-6">
+                          <Pilula classe="bg-[#e9e9ec] text-[#62666e] dark:bg-muted dark:text-muted-foreground">
+                            {alarm.error_code}
+                          </Pilula>
+                          <div className="flex items-start gap-1.5">
+                            {/* title serve de atalho no hover; o botão ao lado é o
+                                caminho que funciona no toque e no teclado. */}
+                            <span
+                              className="max-w-[200px] 3xl:max-w-[226px] line-clamp-2 break-words"
+                              title={alarm.message}
+                            >
+                              {alarm.message}
                             </span>
-                            <span className={`material-symbols-outlined text-base transition-transform ${aberta ? 'rotate-180' : ''}`} aria-hidden="true">
-                              expand_more
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">{alarm.location_name || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">{formatDt(alarm.timestamp)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${st.bg} ${st.color} ${st.border}`}>
-                        {st.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-1">
-                        {alarm.status === 'active' && (
-                          <button onClick={() => handleAcknowledge(alarm.id)} title="Reconhecer" className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-400 hover:bg-yellow-500/20 transition-colors">
-                            <span className="material-symbols-outlined text-base">visibility</span>
-                          </button>
-                        )}
-                        {alarm.status !== 'resolved' && (
-                          <button onClick={() => handleResolve(alarm.id)} title="Resolver" className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary hover:bg-primary/20 transition-colors">
-                            <span className="material-symbols-outlined text-base">check_circle</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {/* Linha de detalhe — a mensagem ganha a largura inteira da
-                      tabela, em vez dos 240px da coluna. */}
-                  {longa && aberta && (
-                    <tr className="bg-surface-container/40">
-                      <td id={detalheId} colSpan={9} className="px-6 py-4">
-                        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] mb-2">
-                          Mensagem completa
-                        </p>
-                        <p className="text-sm text-on-surface whitespace-pre-wrap break-words">
-                          {alarm.message}
-                        </p>
+                            {longa && (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(alarm.id)}
+                                aria-expanded={aberta}
+                                aria-controls={detalheId}
+                                title={aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
+                                className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-muted-foreground hover:text-primary-strong transition-colors"
+                              >
+                                <span className="sr-only">
+                                  {aberta ? 'Recolher mensagem' : 'Ver mensagem completa'}
+                                </span>
+                                <ChevronDown
+                                  className={`w-4 h-4 transition-transform ${aberta ? 'rotate-180' : ''}`}
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className={classeDoTd}>{alarm.location_name || '-'}</td>
+                      <td className={`${classeDoTd} whitespace-nowrap`}>
+                        <span className="block">{data(alarm.timestamp)}</span>
+                        <span className="block">{hora(alarm.timestamp)}</span>
+                      </td>
+                      <td className={classeDoTd}>
+                        <Pilula classe={st.classe}>{st.label}</Pilula>
+                      </td>
+                      <td className={classeDoTd}>
+                        <div className="flex flex-col 3xl:flex-row gap-[7px]">
+                          {alarm.status === 'active' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAcknowledge(alarm.id)}
+                              className="h-9 px-3 rounded-[15px] bg-[#e9e9ec] dark:bg-muted text-foreground text-[13px] font-semibold whitespace-nowrap shadow-pilula hover:brightness-95 transition"
+                            >
+                              Reconhecer
+                            </button>
+                          )}
+                          {alarm.status !== 'resolved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleResolve(alarm.id)}
+                              className="h-9 px-3 rounded-[15px] bg-primary-soft text-primary-strong text-[13px] font-semibold whitespace-nowrap shadow-pilula hover:brightness-95 transition"
+                            >
+                              Resolver
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  )}
+                    {/* Linha de detalhe — a mensagem ganha a largura inteira da
+                        tabela, em vez da caixa estreita da coluna. */}
+                    {longa && aberta && (
+                      <tr>
+                        <td id={detalheId} colSpan={7} className={`${classeDoTd} px-5 py-4`}>
+                          <p className="text-xs font-semibold uppercase text-muted-foreground mb-1.5">
+                            Mensagem completa
+                          </p>
+                          <p className="text-sm font-medium text-foreground whitespace-pre-wrap break-words">
+                            {alarm.message}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
                   </Fragment>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              })
+            )}
+          </tbody>
+        </table>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t border-outline-variant/10 flex justify-between items-center">
-          <p className="text-xs text-on-surface-variant">
-            Página <span className="font-bold text-on-surface">{currentPage}</span> de <span className="font-bold text-on-surface">{totalPages || 1}</span>
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10">
-              <span className="material-symbols-outlined text-base">chevron_left</span>Anterior
-            </button>
-            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10">
-              Próxima<span className="material-symbols-outlined text-base">chevron_right</span>
-            </button>
+        {/* Paginação (12 por página): só quando há mais de uma página. */}
+        {totalPages > 1 && (
+          <div className="mt-3 flex flex-wrap justify-between items-center gap-3">
+            <p className="text-sm font-medium text-muted-foreground">
+              Página <span className="font-semibold text-foreground">{currentPage}</span> de{' '}
+              <span className="font-semibold text-foreground">{totalPages}</span>
+            </p>
+            <div className="flex gap-3">
+              <ChipDoFigma
+                ativo={false}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                desabilitado={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+                Anterior
+              </ChipDoFigma>
+              <ChipDoFigma
+                ativo={false}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                desabilitado={currentPage === totalPages}
+              >
+                Próxima
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </ChipDoFigma>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
-function AlarmKPI({ icon, color, bg, label, value }: { icon: string; color: string; bg: string; label: string; value: number }) {
+/** Pílula da tabela do Figma (severidade, erro e status): 36 px, maiúsculas, sombra. */
+function Pilula({ classe, children }: { classe: string; children: ReactNode }) {
   return (
-    <div className="glass-card p-6 rounded-xl border border-outline-variant/10 relative overflow-hidden">
-      <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center ${color} mb-3`}>
-        <span className="material-symbols-outlined">{icon}</span>
-      </div>
-      <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
-      <h3 className="text-2xl font-headline font-bold text-on-surface">{value}</h3>
-    </div>
+    <span
+      className={`inline-flex items-center justify-center h-9 px-[18px] 3xl:px-[22px] rounded-[25px] text-xs 3xl:text-[13px] font-semibold uppercase whitespace-nowrap shadow-pilula ${classe}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Chip do Figma: verde quando escolhido; cinza-claro com sombra, sem borda, nos outros. */
+function ChipDoFigma({
+  ativo,
+  onClick,
+  desabilitado,
+  children,
+}: {
+  ativo: boolean;
+  onClick: () => void;
+  desabilitado?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      disabled={desabilitado}
+      className={`h-[43px] min-w-[142px] px-6 rounded-[25px] inline-flex items-center justify-center gap-1 text-[15px] font-semibold whitespace-nowrap shadow-pilula transition disabled:opacity-40 disabled:cursor-not-allowed ${
+        ativo
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-[#f4f6f8] dark:bg-card text-foreground hover:brightness-95'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Cartão do Figma: raio, título, o número e a pílula verde com quanto o grupo é
+ * do total (no Figma era uma variação, que a lista de alarmes não tem). Com
+ * crítico ativo, o cartão "Críticos" fica vermelho: é o aviso que antes era
+ * uma faixa sobre a página.
+ */
+function CartaoDeAlarme({
+  titulo,
+  valor,
+  total,
+  escolhido,
+  aoEscolher,
+  dica,
+  alerta,
+}: {
+  titulo: string;
+  valor: number;
+  total: number;
+  escolhido: boolean;
+  aoEscolher: () => void;
+  dica: string;
+  alerta?: boolean;
+}) {
+  const parte = total > 0 ? Math.round((valor / total) * 100) : 0;
+  return (
+    <button
+      type="button"
+      onClick={aoEscolher}
+      aria-pressed={escolhido}
+      title={escolhido ? 'Mostrar todos' : dica}
+      className={`${classeDoCartao} min-h-[188px] pl-[29px] pr-4 pt-[21px] pb-5 flex flex-col text-left transition hover:brightness-[0.98] ${
+        escolhido ? 'ring-2 ring-primary' : ''
+      }`}
+    >
+      <span className="flex items-start gap-[14px]">
+        <span
+          className={`mt-[3px] ${alerta ? 'text-[#c00000] dark:text-[#ff8a75]' : 'text-primary-strong'}`}
+        >
+          <IconeSvg src={iconeRaio} tamanho={26} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[20px] leading-tight font-semibold text-[#001119] dark:text-foreground">
+            {titulo}
+          </span>
+          <span className="block text-[32px] leading-tight font-semibold tabular-nums text-foreground">
+            {valor}
+          </span>
+        </span>
+      </span>
+      <span className="mt-auto">
+        <span
+          className={`inline-flex items-center h-7 px-3 rounded-[15px] text-[15px] font-medium tabular-nums shadow-[0_2px_19px_rgba(0,0,0,0.25)] dark:shadow-none ${
+            alerta ? VERMELHO : 'bg-primary-soft text-primary-strong'
+          }`}
+        >
+          {parte}%
+        </span>
+        <span className="block mt-2 text-[10px] font-normal text-[#001119] dark:text-muted-foreground">
+          {alerta ? 'Ação imediata necessária' : 'do total de alarmes'}
+        </span>
+      </span>
+    </button>
   );
 }

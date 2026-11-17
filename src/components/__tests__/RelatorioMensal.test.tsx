@@ -197,7 +197,8 @@ describe('RelatorioMensal', () => {
     expect(screen.getByText('Resumo de agosto')).toBeInTheDocument();
     const texto = document.body.textContent ?? '';
     expect(texto).toContain('sua rede fez 2.782 recargas para 598 motoristas e faturou R$ 81.819');
-    expect(texto).toContain('35,1% a mais que em julho');
+    // Frase no formato do Figma (redesenho de nov/2026): "(↑ 9,0% em relação a outubro)".
+    expect(texto).toContain('(↑ 35,1% em relação a julho)');
     expect(screen.getByText('Carregador saturando')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Carregadores/ }));

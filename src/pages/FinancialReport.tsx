@@ -24,6 +24,34 @@ import {
   reaisOuTraco,
 } from '../lib/relatorioDoLocal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, ComposedChart, Line } from 'recharts';
+import { X } from 'lucide-react';
+import { Icone, IconeSvg } from '../components/painel/Icone';
+import {
+  BlocoDeIcone,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+  type Tom,
+} from '../components/painel/Pagina';
+import {
+  BarraDeFiltros,
+  CampoDeBusca,
+  ChipDeFiltro,
+  classeDoBotaoContorno,
+} from '../components/painel/Pecas';
+import {
+  CabecalhoDoCartao,
+  CartaoDeIndicador,
+  NumeroMiudo,
+  SeloDeContorno,
+  Vazio,
+  classeDaCelula,
+  classeDaTabela,
+  classeDoTh,
+  fundoDaLinha,
+} from '../components/financeiro/Pecas';
+import iconeDepositos from '../assets/icones/kpi-depositos.svg';
 
 interface TenantFinancialSummary {
   clientId: string;
@@ -242,7 +270,22 @@ const COMISSAO_PADRAO_PERCENT = 5;
 
 const ALINHAR = { left: 'text-left', center: 'text-center', right: 'text-right' } as const;
 
-/** Cartão do resumo do repasse (visão de uma marca). */
+/** Ícone do Material Symbols no tamanho do bloco de ícone dos cartões. */
+const Simbolo = ({ nome }: { nome: string }) => (
+  <span aria-hidden="true" className="material-symbols-outlined text-[22px] leading-none">
+    {nome}
+  </span>
+);
+
+/** Botão pequeno em pílula verde (exportação principal de um cartão). */
+const classeDoBotaoVerde =
+  'h-10 px-5 rounded-[25px] bg-primary text-primary-foreground text-sm font-medium inline-flex items-center justify-center gap-2 ' +
+  'hover:brightness-105 active:scale-[0.98] transition disabled:opacity-60 disabled:cursor-not-allowed';
+
+/**
+ * Cartão do resumo do repasse (visão de uma marca), no padrão dos cartões de
+ * indicador da Visão geral.
+ */
 function CartaoDoRepasse({
   icone,
   titulo,
@@ -250,6 +293,8 @@ function CartaoDoRepasse({
   detalhe,
   destaque = false,
   tom,
+  cor = 'marca',
+  subtitulo,
 }: {
   icone: string;
   titulo: string;
@@ -257,28 +302,23 @@ function CartaoDoRepasse({
   detalhe?: React.ReactNode;
   destaque?: boolean;
   tom?: 'negativo';
+  /** Cor do bloco do ícone. */
+  cor?: Tom;
+  /** O período (ou o momento) do número. */
+  subtitulo?: string;
 }) {
   return (
-    <div
-      className={`p-4 rounded-xl border ${
-        destaque ? 'bg-primary/10 border-primary/30' : 'bg-background/50 border-outline-variant/15'
-      }`}
+    <CartaoDeIndicador
+      tom={cor}
+      icone={<Simbolo nome={icone} />}
+      titulo={titulo}
+      subtitulo={subtitulo}
+      valor={valor}
+      destaque={destaque}
+      negativo={tom === 'negativo'}
     >
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`material-symbols-outlined text-lg ${destaque ? 'text-primary' : 'text-on-surface-variant'}`}>
-          {icone}
-        </span>
-        <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">{titulo}</p>
-      </div>
-      <p
-        className={`text-2xl font-bold ${
-          destaque ? 'text-primary' : tom === 'negativo' ? 'text-red-600 dark:text-red-400' : 'text-foreground'
-        }`}
-      >
-        {valor}
-      </p>
-      {detalhe && <p className="text-xs text-on-surface-variant mt-1">{detalhe}</p>}
-    </div>
+      {detalhe}
+    </CartaoDeIndicador>
   );
 }
 
@@ -317,6 +357,10 @@ export const FinancialReport = () => {
   const [tenantOverview, setTenantOverview] = useState<TenantOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Botão Atualizar: quando os números chegaram e se a última atualização
+  // falhou (os números na tela ficam, com o aviso no botão).
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [filterId, setFilterId] = useState('');
   const [submittedFilter, setSubmittedFilter] = useState('');
@@ -395,7 +439,10 @@ export const FinancialReport = () => {
     });
   }, [filtraPorLocaisDoUsuario, user?.id]);
 
-  const fetchReport = useCallback(async () => {
+  // `manterNaFalha`: o Atualizar, com os mesmos filtros. Se a busca falha, os
+  // números na tela ficam e o botão avisa. Com filtro novo, a tela esvazia
+  // como antes, para não mostrar números de outro recorte.
+  const fetchReport = useCallback(async ({ manterNaFalha = false }: { manterNaFalha?: boolean } = {}) => {
     setLoading(true);
     let endpoint = '/reports/financial';
     const params = new URLSearchParams();
@@ -441,20 +488,25 @@ export const FinancialReport = () => {
       } else {
         setReportData(items);
       }
+      setAtualizadoEm(new Date());
+      setFalhou(false);
     } catch (error) {
       console.error(error);
       toast.error('Erro ao buscar relatório financeiro');
-      setReportData([]);
-      setRecargasCruzadas(null);
-      setResumo(null);
-      setLocalDoRelatorio(null);
-      setSubtotaisDoLocal(null);
+      setFalhou(true);
+      if (!manterNaFalha) {
+        setReportData([]);
+        setRecargasCruzadas(null);
+        setResumo(null);
+        setLocalDoRelatorio(null);
+        setSubtotaisDoLocal(null);
+      }
     } finally {
       setLoading(false);
     }
   }, [submittedFilter, localId, startDate, endDate, filtraPorLocaisDoUsuario, userLocationNames, drillDownClientId]);
 
-  const fetchTenantOverview = useCallback(async () => {
+  const fetchTenantOverview = useCallback(async ({ manterNaFalha = false }: { manterNaFalha?: boolean } = {}) => {
     if (!isSuperAdmin) {
       setTenantOverview(null);
       return;
@@ -469,10 +521,13 @@ export const FinancialReport = () => {
       if (!response.ok) throw new Error('Erro ao buscar overview');
       const data: TenantOverviewResponse = await response.json();
       setTenantOverview(data);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
     } catch (error) {
       console.error(error);
       toast.error('Erro ao buscar overview por whitelabel');
-      setTenantOverview(null);
+      setFalhou(true);
+      if (!manterNaFalha) setTenantOverview(null);
     } finally {
       setLoading(false);
     }
@@ -517,15 +572,16 @@ export const FinancialReport = () => {
     }
   }, [locationsLoaded, overviewMode, fetchReport, fetchWalletTransactions, fetchTenantOverview]);
 
+  // A hora (ou o aviso de falha) aparece embaixo do botão Atualizar; o
+  // "Relatório atualizado!" de antes saía até quando a busca falhava.
   const handleRefresh = async () => {
     setRefreshing(true);
     if (overviewMode) {
-      await fetchTenantOverview();
+      await fetchTenantOverview({ manterNaFalha: true });
     } else {
-      await Promise.all([fetchReport(), fetchWalletTransactions()]);
+      await Promise.all([fetchReport({ manterNaFalha: true }), fetchWalletTransactions()]);
     }
     setRefreshing(false);
-    toast.success('Relatório atualizado!');
   };
 
   const handleBackToOverview = () => {
@@ -1042,38 +1098,25 @@ export const FinancialReport = () => {
     ? `${dataLocal(startDate).toLocaleDateString('pt-BR')} — ${dataLocal(endDate).toLocaleDateString('pt-BR')}`
     : 'Todo o período';
 
+  // Etiqueta do status da recarga: cor fixa de estado, com a bolinha e o texto.
   const getStatusBadge = (status: string) => {
     const statusLower = status.toLowerCase();
-    if (statusLower.includes('conclu') || statusLower.includes('finish') || statusLower.includes('complet')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
-          {status}
-        </span>
-      );
-    }
-    if (statusLower.includes('pend') || statusLower.includes('process')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-          {status}
-        </span>
-      );
-    }
-    if (statusLower.includes('cancel') || statusLower.includes('fail') || statusLower.includes('error')) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-          {status}
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-xs font-medium">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#777575]"></span>
+    const etiqueta = (classe: string, bolinha: string) => (
+      <span className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-[25px] text-xs font-semibold whitespace-nowrap ${classe}`}>
+        <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${bolinha}`} />
         {status}
       </span>
     );
+    if (statusLower.includes('conclu') || statusLower.includes('finish') || statusLower.includes('complet')) {
+      return etiqueta('bg-estado-livre text-estado-livre-forte', 'bg-estado-livre-forte');
+    }
+    if (statusLower.includes('pend') || statusLower.includes('process')) {
+      return etiqueta('bg-estado-problema text-estado-problema-forte', 'bg-estado-problema-forte');
+    }
+    if (statusLower.includes('cancel') || statusLower.includes('fail') || statusLower.includes('error')) {
+      return etiqueta('bg-destructive/10 text-destructive', 'bg-destructive');
+    }
+    return etiqueta('bg-muted text-muted-foreground', 'bg-muted-foreground');
   };
 
   const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1084,7 +1127,7 @@ export const FinancialReport = () => {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-on-surface-variant">Gerando relatório financeiro...</p>
+        <p className="text-muted-foreground">Gerando relatório financeiro...</p>
       </div>
     );
   }
@@ -1123,213 +1166,201 @@ export const FinancialReport = () => {
     const liquidoNeoPowerTotal = agg.liquidoNeoPower ?? agg.fees - taxaMpAbsorvidaTotal;
 
     return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-headline font-bold text-foreground flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary text-3xl">insights</span>
-              Relatório Financeiro — Visão Geral
-            </h1>
-            <p className="text-on-surface-variant mt-1">
-              Consolidado de todos os whitelabels. Clique num card para abrir o relatório detalhado.
+      <div className="space-y-[25px] pb-12">
+        <CabecalhoDaPagina
+          titulo="Relatório financeiro"
+          subtitulo="Consolidado de todos os whitelabels. Clique numa marca para abrir o relatório detalhado."
+          detalhe={
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span>Período: {periodLabel}</span>
+              {(startDate || endDate) && (
+                <button
+                  type="button"
+                  onClick={() => { setStartDate(''); setEndDate(''); }}
+                  className="inline-flex items-center gap-1 font-medium text-primary-strong hover:underline"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                  Limpar período
+                </button>
+              )}
             </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-2xl text-on-surface-variant transition-all"
-            >
-              <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin' : ''}`}>refresh</span>
-              Atualizar
-            </button>
-          </div>
-        </div>
-
-        {/* Date filter */}
-        <div className="glass-card rounded-2xl p-4 flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[280px]">
-            <label className="text-xs text-on-surface-variant uppercase tracking-wide font-medium mb-2 block">
-              Período
-            </label>
-            <DateRangePicker
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onClear={() => { setStartDate(''); setEndDate(''); }}
+          }
+          filtros={
+            <>
+              <DateRangePicker
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                onClear={() => { setStartDate(''); setEndDate(''); }}
+                placeholder="Todo o período"
+                className={`${classeDaPilula} justify-start`}
+              />
+              {/* Relatório de um local (inclusive os da plataforma), recarga a recarga. */}
+              <SeletorDeLocal
+                locais={locais}
+                valor={null}
+                onChange={selecionarLocal}
+                mostrarMarca
+                textoVazio="Relatório por local..."
+                carregando={carregandoLocais}
+                className={`${classeDaPilula} sm:w-[290px]`}
+              />
+            </>
+          }
+          acoes={
+            <BotaoAtualizar
+              aoAtualizar={() => void handleRefresh()}
+              carregando={refreshing}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou}
             />
-          </div>
-          {(startDate || endDate) && (
-            <button
-              onClick={() => { setStartDate(''); setEndDate(''); }}
-              className="px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-2xl text-on-surface-variant text-sm transition-all"
-            >
-              Limpar período
-            </button>
-          )}
-          {/* Relatório de um local (inclusive os da plataforma), recarga a recarga. */}
-          <div className="w-full sm:w-[300px]">
-            <label className="text-xs text-on-surface-variant uppercase tracking-wide font-medium mb-2 block">
-              Relatório por local
-            </label>
-            <SeletorDeLocal
-              locais={locais}
-              valor={null}
-              onChange={selecionarLocal}
-              mostrarMarca
-              textoVazio="Escolher um local..."
-              carregando={carregandoLocais}
-            />
-          </div>
-        </div>
+          }
+        />
 
-        {/* ─── Hero Card: consolidado da plataforma ─── */}
-        <div className="glass-card rounded-3xl p-6 sm:p-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5 pointer-events-none" />
-          <div className="relative">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">leaderboard</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-widest font-medium">
-                Consolidado da plataforma
+        {/* ─── Consolidado da plataforma ─── */}
+        <section aria-label="Consolidado da plataforma" className={`${classeDoCartao} p-6 3xl:p-[30px]`}>
+          <CabecalhoDoCartao
+            icone={<Simbolo nome="leaderboard" />}
+            titulo="Consolidado da plataforma"
+            subtitulo={periodLabel}
+          />
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-[clamp(2.25rem,3vw,3rem)] leading-none font-semibold tabular-nums text-foreground">
+                R$ {fmt(entradaLiquida)}
+              </p>
+              <p className="text-[15px] font-medium text-muted-foreground mt-2">
+                entrou no caixa (depósitos − devoluções)
               </p>
             </div>
-            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-              <div>
-                <p className="text-4xl sm:text-5xl font-headline font-bold text-foreground">
-                  R$ {fmt(entradaLiquida)}
+            <div className="flex gap-8">
+              <div className="text-right">
+                <p className="text-sm font-medium text-muted-foreground">Recargas</p>
+                <p className="text-[28px] leading-tight font-semibold tabular-nums text-foreground">{agg.transactions}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-medium text-muted-foreground">Energia</p>
+                <p className="text-[28px] leading-tight font-semibold tabular-nums text-foreground">
+                  {fmt(agg.kWh)} <span className="text-base font-medium text-muted-foreground">kWh</span>
                 </p>
-                <p className="text-sm text-on-surface-variant mt-1">
-                  entrou no caixa (depósitos − devoluções)
-                </p>
-              </div>
-              <div className="flex gap-6">
-                <div className="text-right">
-                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Recargas</p>
-                  <p className="text-2xl font-bold text-foreground">{agg.transactions}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-on-surface-variant uppercase tracking-wide">Energia</p>
-                  <p className="text-2xl font-bold text-foreground">{fmt(agg.kWh)} <span className="text-sm text-on-surface-variant">kWh</span></p>
-                </div>
-              </div>
-            </div>
-
-            {/* Barra de composição da entrada */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs text-on-surface-variant">
-                <span>Depósitos: R$ {fmt(entradaBruta)}</span>
-                <span>Taxa Mercado Pago (absorvida pela NeoPower): R$ {fmt(taxaMp)}</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
-                <div
-                  className="bg-primary/70 transition-all"
-                  style={{ width: `${pctNaConta}%` }}
-                  title={`Na conta: R$ ${fmt(naConta)}`}
-                />
-                <div
-                  className="bg-red-500/40 transition-all"
-                  style={{ width: `${pctTaxaMp}%` }}
-                  title={`Taxa Mercado Pago: R$ ${fmt(taxaMp)}`}
-                />
-                <div
-                  className="bg-amber-500/40 transition-all"
-                  style={{ width: `${pctDevolvido}%` }}
-                  title={`Devolvido: R$ ${fmt(devolvido)}`}
-                />
-              </div>
-              <div className="flex flex-wrap gap-4 text-[10px] font-semibold uppercase tracking-wider">
-                <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary/70" />
-                  Na conta ({pctNaConta.toFixed(0)}%)
-                </span>
-                <span className="flex items-center gap-1.5 text-on-surface-variant">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />
-                  Taxa Mercado Pago ({pctTaxaMp.toFixed(0)}%)
-                </span>
-                {devolvido > 0 && (
-                  <span className="flex items-center gap-1.5 text-on-surface-variant">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500/40" />
-                    Devolvido ({pctDevolvido.toFixed(0)}%)
-                  </span>
-                )}
               </div>
             </div>
           </div>
+
+          {/* Barra de composição da entrada */}
+          <div className="mt-6 space-y-2">
+            <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+              <span>Depósitos: R$ {fmt(entradaBruta)}</span>
+              <span>Taxa Mercado Pago (absorvida pela NeoPower): R$ {fmt(taxaMp)}</span>
+            </div>
+            <div className="h-2.5 rounded-[5px] bg-muted overflow-hidden flex">
+              <div
+                className="bg-primary transition-all"
+                style={{ width: `${pctNaConta}%` }}
+                title={`Na conta: R$ ${fmt(naConta)}`}
+              />
+              <div
+                className="bg-destructive/70 transition-all"
+                style={{ width: `${pctTaxaMp}%` }}
+                title={`Taxa Mercado Pago: R$ ${fmt(taxaMp)}`}
+              />
+              <div
+                className="bg-estado-problema-forte/70 transition-all"
+                style={{ width: `${pctDevolvido}%` }}
+                title={`Devolvido: R$ ${fmt(devolvido)}`}
+              />
+            </div>
+            <div className="flex flex-wrap gap-4 text-xs font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden="true" className="w-2 h-2 rounded-full bg-primary" />
+                Na conta ({pctNaConta.toFixed(0)}%)
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden="true" className="w-2 h-2 rounded-full bg-destructive/70" />
+                Taxa Mercado Pago ({pctTaxaMp.toFixed(0)}%)
+              </span>
+              {devolvido > 0 && (
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden="true" className="w-2 h-2 rounded-full bg-estado-problema-forte/70" />
+                  Devolvido ({pctDevolvido.toFixed(0)}%)
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Indicadores do consolidado ─── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-[25px]">
+          <CartaoDeIndicador
+            tom="amarelo"
+            icone={<IconeSvg src={iconeDepositos} tamanho={25} />}
+            titulo="Entrada (depósitos)"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(entradaBruta)}`}
+          >
+            {agg.deposits.count} depósito{agg.deposits.count === 1 ? '' : 's'} pago{agg.deposits.count === 1 ? '' : 's'} no período
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="azul"
+            icone={<Icone nome="kpi-energia" tamanho={26} />}
+            titulo="Consumido em recargas"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(agg.revenue)}`}
+          >
+            {agg.transactions} recarga{agg.transactions === 1 ? '' : 's'} · ticket R$ {fmt(agg.transactions > 0 ? agg.revenue / agg.transactions : 0)}
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="marca"
+            icone={<Simbolo nome="handshake" />}
+            titulo="Repasse aos donos"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(agg.net)}`}
+            destaque
+          >
+            {pct(100 - comissaoPercent)}% do consumido · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="cinza"
+            icone={<Simbolo nome="savings" />}
+            titulo="Comissão NeoPower"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(agg.fees)}`}
+          >
+            {pct(comissaoPercent)}% do consumido, bruta
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="cinza"
+            icone={<Simbolo nome="trending_down" />}
+            titulo="Taxa Mercado Pago (absorvida)"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(taxaMpAbsorvidaTotal)}`}
+            negativo
+          >
+            proporcional ao consumo; sai dos {pct(comissaoPercent)}% da NeoPower (depósitos do período: R$ {fmt(taxaMp)})
+          </CartaoDeIndicador>
+          <CartaoDeIndicador
+            tom="marca"
+            icone={<Simbolo nome="account_balance" />}
+            titulo="Líquido NeoPower"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(liquidoNeoPowerTotal)}`}
+            negativo={liquidoNeoPowerTotal < 0}
+          >
+            comissão − taxa Mercado Pago absorvida
+          </CartaoDeIndicador>
         </div>
 
-        {/* ─── KPIs secundários ─── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Entrada (depósitos)</p>
-            </div>
-            <p className="text-2xl font-bold text-foreground">R$ {fmt(entradaBruta)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{agg.deposits.count} depósito{agg.deposits.count === 1 ? '' : 's'} pago{agg.deposits.count === 1 ? '' : 's'} no período</p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">ev_station</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Consumido em recargas</p>
-            </div>
-            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.revenue)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">
-              {agg.transactions} recarga{agg.transactions === 1 ? '' : 's'} · ticket R$ {fmt(agg.transactions > 0 ? agg.revenue / agg.transactions : 0)}
-            </p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">payments</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Repasse aos donos</p>
-            </div>
-            <p className="text-2xl font-bold text-primary">R$ {fmt(agg.net)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">
-              {pct(100 - comissaoPercent)}% do consumido · {activeTenants.length} marca{activeTenants.length === 1 ? '' : 's'} ativa{activeTenants.length === 1 ? '' : 's'}
-            </p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">savings</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Comissão NeoPower</p>
-            </div>
-            <p className="text-2xl font-bold text-foreground">R$ {fmt(agg.fees)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">{pct(comissaoPercent)}% do consumido, bruta</p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-red-500">trending_down</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Taxa Mercado Pago (absorvida)</p>
-            </div>
-            <p className="text-2xl font-bold text-red-500">R$ {fmt(taxaMpAbsorvidaTotal)}</p>
-            <p className="text-xs text-on-surface-variant mt-1">
-              proporcional ao consumo; sai dos {pct(comissaoPercent)}% da NeoPower (depósitos do período: R$ {fmt(taxaMp)})
-            </p>
-          </div>
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-primary">account_balance</span>
-              <p className="text-xs text-on-surface-variant uppercase tracking-wide font-medium">Líquido NeoPower</p>
-            </div>
-            <p className={`text-2xl font-bold ${liquidoNeoPowerTotal < 0 ? 'text-red-500' : 'text-foreground'}`}>
-              R$ {fmt(liquidoNeoPowerTotal)}
-            </p>
-            <p className="text-xs text-on-surface-variant mt-1">comissão − taxa Mercado Pago absorvida</p>
-          </div>
-        </div>
-
-        {/* ─── Chart: Top whitelabels por recargas ─── */}
+        {/* ─── Gráfico: top whitelabels por recargas ─── */}
         {topTenants.length > 0 && (
-          <div className="glass-card rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">bar_chart</span>
-                Top whitelabels por recargas
-              </h2>
-              <span className="text-xs text-on-surface-variant">Top {topTenants.length}</span>
-            </div>
-            <div className="w-full h-64">
+          <section aria-label="Top whitelabels por recargas" className={`${classeDoCartao} p-6 3xl:p-[30px]`}>
+            <CabecalhoDoCartao
+              icone={<Icone nome="grafico-barras" />}
+              titulo="Top whitelabels por recargas"
+              subtitulo={periodLabel}
+              direita={<SeloDeContorno>Top {topTenants.length}</SeloDeContorno>}
+            />
+            <div className="w-full h-64 mt-5">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={topTenants} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
@@ -1339,7 +1370,8 @@ export const FinancialReport = () => {
                     contentStyle={{
                       background: 'var(--color-card)',
                       border: '1px solid var(--color-border)',
-                      borderRadius: '12px',
+                      borderRadius: '10px',
+                      color: 'var(--color-foreground)',
                     }}
                     formatter={(v: number) => [`R$ ${fmt(v)}`, 'Receita']}
                     cursor={{ fill: 'rgba(0,0,0,0.05)' }}
@@ -1348,88 +1380,95 @@ export const FinancialReport = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </section>
         )}
 
-        {/* ─── Whitelabel cards ─── */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-foreground">Por whitelabel</h2>
-            <span className="text-xs text-on-surface-variant">
+        {/* ─── Cartões por whitelabel ─── */}
+        <section aria-label="Por whitelabel" className="space-y-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-[20px] leading-tight font-semibold text-foreground">Por whitelabel</h2>
+            <span className="text-sm text-muted-foreground">
               {activeTenants.length} whitelabels com carregador ou venda
             </span>
           </div>
           {activeTenants.length === 0 ? (
-            <div className="glass-card rounded-2xl p-8 text-center text-on-surface-variant flex flex-col items-center justify-center">
-              <span className="material-symbols-outlined text-outline-variant text-5xl mb-2">payments</span>
-              <p className="text-sm font-semibold">Nenhuma movimentação financeira registrada</p>
-              <p className="text-xs text-outline">Todos os whitelabels estão zerados para o período selecionado.</p>
+            <div className={classeDoCartao}>
+              <Vazio
+                titulo="Nenhuma movimentação financeira registrada"
+                texto="Todos os whitelabels estão zerados para o período selecionado."
+              />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-[25px]">
               {activeTenants.map(t => {
                 const shareOfRevenue = agg.revenue > 0 ? (t.revenue / agg.revenue) * 100 : 0;
+                const liquido = t.liquidoNeoPower ?? t.fees - (t.mpFee ?? 0);
                 return (
                   <button
                     key={t.clientId}
+                    type="button"
                     onClick={() => handleDrillDown(t.clientId)}
-                    className="glass-card rounded-2xl p-5 text-left transition-all hover:scale-[1.02] hover:shadow-xl hover:border-primary/30 group"
+                    className={`${classeDoCartao} p-5 3xl:p-[22px] text-left transition hover:-translate-y-0.5 hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group`}
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">{t.clientId}</p>
-                        <h3 className="text-lg font-semibold text-foreground truncate">{t.companyName}</h3>
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-start gap-4 min-w-0">
+                        <BlocoDeIcone>
+                          <Simbolo nome="storefront" />
+                        </BlocoDeIcone>
+                        <div className="min-w-0">
+                          <h3 className="text-[20px] leading-tight font-semibold text-foreground truncate">{t.companyName}</h3>
+                          <p className="text-sm font-medium text-muted-foreground truncate">{t.clientId}</p>
+                        </div>
                       </div>
-                      <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
+                      <span aria-hidden="true" className="material-symbols-outlined text-muted-foreground group-hover:text-primary-strong group-hover:translate-x-1 transition-all">
+                        chevron_right
+                      </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3 mb-4">
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Consumido</p>
-                        <p className="text-base font-bold text-foreground">R$ {fmt(t.revenue)}</p>
+                        <p className="text-sm text-muted-foreground">Consumido</p>
+                        <p className="text-lg font-semibold tabular-nums text-foreground">R$ {fmt(t.revenue)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Repasse ao dono</p>
-                        <p className="text-base font-bold text-primary">R$ {fmt(t.net)}</p>
+                        <p className="text-sm text-muted-foreground">Repasse ao dono</p>
+                        <p className="text-lg font-semibold tabular-nums text-primary-strong">R$ {fmt(t.net)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Comissão {pct(t.comissaoPercent ?? comissaoPercent)}%</p>
-                        <p className="text-sm text-foreground">R$ {fmt(t.fees)}</p>
+                        <p className="text-sm text-muted-foreground">Comissão {pct(t.comissaoPercent ?? comissaoPercent)}%</p>
+                        <p className="text-sm font-medium tabular-nums text-foreground">R$ {fmt(t.fees)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">
+                        <p className="text-sm text-muted-foreground">
                           Taxa MP{t.taxaMpPercent != null ? ` ${pct(t.taxaMpPercent)}%` : ''}
                         </p>
-                        <p className="text-sm text-red-500">R$ {fmt(t.mpFee ?? 0)}</p>
+                        <p className="text-sm font-medium tabular-nums text-destructive">R$ {fmt(t.mpFee ?? 0)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Líquido NeoPower</p>
-                        <p className={`text-sm ${(t.liquidoNeoPower ?? t.fees - (t.mpFee ?? 0)) < 0 ? 'text-red-500' : 'text-foreground'}`}>
-                          R$ {fmt(t.liquidoNeoPower ?? t.fees - (t.mpFee ?? 0))}
+                        <p className="text-sm text-muted-foreground">Líquido NeoPower</p>
+                        <p className={`text-sm font-medium tabular-nums ${liquido < 0 ? 'text-destructive' : 'text-foreground'}`}>
+                          R$ {fmt(liquido)}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-on-surface-variant uppercase tracking-wide">Transações</p>
-                        <p className="text-sm text-foreground">
+                        <p className="text-sm text-muted-foreground">Transações</p>
+                        <p className="text-sm font-medium tabular-nums text-foreground">
                           {t.transactions}
                           {t.chargers != null && (
-                            <span className="text-xs text-outline"> · {t.chargers} carregador{t.chargers === 1 ? '' : 'es'}</span>
+                            <span className="text-xs font-normal text-muted-foreground"> · {t.chargers} carregador{t.chargers === 1 ? '' : 'es'}</span>
                           )}
                         </p>
                       </div>
                       {/* Recarga cruzada: mesma comissão e repasse, sem taxa MP. */}
                       {(t.cruzadas?.quantidade ?? 0) > 0 && (
-                        <p className="col-span-2 text-xs text-amber-500 -mt-1">
+                        <p className="col-span-2 text-sm text-estado-problema-forte -mt-1">
                           R$ {fmt(t.cruzadas!.receita)} de clientes de outras redes ({t.cruzadas!.quantidade})
                         </p>
                       )}
                     </div>
-                    <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-primary to-primary/60 transition-all"
-                        style={{ width: `${shareOfRevenue}%` }}
-                      />
+                    <div className="h-2 rounded-[5px] bg-muted overflow-hidden">
+                      <div className="h-full bg-primary transition-all" style={{ width: `${shareOfRevenue}%` }} />
                     </div>
-                    <p className="text-xs text-on-surface-variant mt-1.5">
+                    <p className="text-sm text-muted-foreground mt-1.5">
                       {shareOfRevenue.toFixed(1)}% do consumido
                     </p>
                   </button>
@@ -1437,134 +1476,141 @@ export const FinancialReport = () => {
               })}
             </div>
           )}
-        </div>
+        </section>
       </div>
     );
   }
 
+  // Recorte que está na tela, para a linha embaixo do título.
+  const temFiltro = !!(submittedFilter || localId != null || startDate || endDate);
+  const recorte = [
+    `Período: ${periodLabel}`,
+    submittedFilter && `Estação: ${submittedFilter}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
-    <div className="space-y-6">
-      {/* Back button — só quando super admin fez drill-down num whitelabel ou abriu um local */}
+    <div className="space-y-[25px] pb-12">
+      {/* Voltar — só quando o super admin abriu uma marca ou um local */}
       {isSuperAdmin && (drillDownClientId || localId != null) && (
-        <button
-          onClick={handleBackToOverview}
-          className="flex items-center gap-2 text-sm text-on-surface-variant hover:text-foreground transition-colors"
-        >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
-          Voltar ao overview
+        <button type="button" onClick={handleBackToOverview} className={classeDoBotaoContorno}>
+          <span aria-hidden="true" className="material-symbols-outlined text-base">arrow_back</span>
+          Voltar à visão geral das marcas
         </button>
       )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-headline font-bold text-foreground flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-3xl">payments</span>
-            Relatório Financeiro
-            {localId != null && localDoRelatorio ? (
-              <span className="text-base font-normal text-on-surface-variant">— {localDoRelatorio.nome}</span>
-            ) : drillDownClientId && (
-              <span className="text-base font-normal text-on-surface-variant">— {drillDownClientId}</span>
+      <CabecalhoDaPagina
+        titulo={
+          localId != null && localDoRelatorio
+            ? `Relatório financeiro - ${localDoRelatorio.nome}`
+            : drillDownClientId
+              ? `Relatório financeiro - ${drillDownClientId}`
+              : 'Relatório financeiro'
+        }
+        subtitulo={
+          isAdmin
+            ? 'Análise detalhada de receitas, custos e lucros'
+            : `Relatório das suas estações (${userLocationNames.length} local/is)`
+        }
+        detalhe={
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>{recorte}</span>
+            {temFiltro && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1 font-medium text-primary-strong hover:underline"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                Limpar filtros
+              </button>
             )}
-          </h1>
-          <p className="text-on-surface-variant mt-1">
-            {isAdmin ? 'Análise detalhada de receitas, custos e lucros' : `Relatório das suas estações (${userLocationNames.length} local/is)`}
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all"
-          >
-            <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin' : ''}`}>refresh</span>
-            Atualizar
-          </button>
-          <button
-            onClick={() => handleExport('csv')}
-            disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-lg">download</span>
-            CSV
-          </button>
-          <button
-            onClick={() => handleExport('excel')}
-            disabled={reportData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-lg">table_view</span>
-            Excel
-          </button>
-          <button
-            onClick={() => handleExport('pdf')}
-            disabled={pdfLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-all disabled:opacity-70"
-          >
-            {pdfLoading
-              ? <span className="material-symbols-outlined text-lg animate-spin">refresh</span>
-              : <span className="material-symbols-outlined text-lg">picture_as_pdf</span>
-            }
-            Exportar PDF
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="glass-card rounded-xl p-5">
-        <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
-          {/* Local: todas as recargas dos carregadores do local (repasse ao dono do local). */}
-          <div className="flex-1 min-w-[240px]">
-            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Local</label>
-            <SeletorDeLocal
-              locais={locaisDoSeletor}
-              valor={localId}
-              onChange={selecionarLocal}
-              mostrarMarca={isSuperAdmin}
-              carregando={carregandoLocais}
-            />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">ID da Estação</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
-              <input
-                type="text"
-                placeholder="Filtrar por estação..."
-                value={filterId}
-                onChange={e => setFilterId(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-background border border-outline-variant/15 rounded-lg text-sm text-foreground placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-on-surface-variant font-medium mb-1.5 block">Período</label>
+        }
+        filtros={
+          <>
             <DateRangePicker
               startDate={startDate}
               endDate={endDate}
               onStartDateChange={setStartDate}
               onEndDateChange={setEndDate}
               onClear={() => { setStartDate(''); setEndDate(''); }}
-              className="min-w-[280px]"
+              placeholder="Todo o período"
+              className={`${classeDaPilula} justify-start`}
             />
-          </div>
-          <button type="submit" className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium text-sm transition-all">
-            <span className="material-symbols-outlined text-lg">search</span>
+            {/* Local: todas as recargas dos carregadores do local (repasse ao dono do local). */}
+            <SeletorDeLocal
+              locais={locaisDoSeletor}
+              valor={localId}
+              onChange={selecionarLocal}
+              mostrarMarca={isSuperAdmin}
+              carregando={carregandoLocais}
+              className={`${classeDaPilula} sm:w-[290px]`}
+            />
+          </>
+        }
+        acoes={
+          <BotaoAtualizar
+            aoAtualizar={() => void handleRefresh()}
+            carregando={refreshing}
+            atualizadoEm={atualizadoEm}
+            falhou={falhou}
+          />
+        }
+      />
+
+      {/* Estação e exportação */}
+      <BarraDeFiltros>
+        <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
+          <CampoDeBusca
+            placeholder="Filtrar por ID da estação..."
+            aria-label="ID da estação"
+            value={filterId}
+            onChange={e => setFilterId(e.target.value)}
+          />
+          <button type="submit" className={classeDoBotaoContorno}>
+            <span aria-hidden="true" className="material-symbols-outlined text-lg">search</span>
             Filtrar
           </button>
-          {(submittedFilter || localId != null) && (
-            <button type="button" onClick={handleClearFilters} className="flex items-center gap-2 px-4 py-2.5 border border-outline-variant/15 rounded-lg text-on-surface-variant hover:bg-surface-container-highest text-sm transition-all">
-              <span className="material-symbols-outlined text-lg">close</span>
-              Limpar
-            </button>
-          )}
         </form>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleExport('csv')}
+            disabled={reportData.length === 0}
+            className={classeDoBotaoContorno}
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-lg">download</span>
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport('excel')}
+            disabled={reportData.length === 0}
+            className={classeDoBotaoContorno}
+          >
+            <span aria-hidden="true" className="material-symbols-outlined text-lg">table_view</span>
+            Excel
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport('pdf')}
+            disabled={pdfLoading}
+            className={classeDoBotaoVerde}
+          >
+            <span aria-hidden="true" className={`material-symbols-outlined text-lg ${pdfLoading ? 'animate-spin' : ''}`}>
+              {pdfLoading ? 'refresh' : 'picture_as_pdf'}
+            </span>
+            Exportar PDF
+          </button>
+        </div>
+      </BarraDeFiltros>
 
       {/* API sem o relatório por local: os números abaixo seriam da marca inteira. */}
       {localId != null && !loading && !localDoRelatorio && reportData.length > 0 && (
-        <div className="glass-card rounded-xl p-4 border border-amber-500/30 text-sm text-amber-600 dark:text-amber-400 flex items-center gap-2">
-          <span className="material-symbols-outlined">warning</span>
+        <div role="status" className="rounded-[15px] bg-estado-problema text-estado-problema-forte px-5 py-4 text-sm font-medium flex items-center gap-2">
+          <span aria-hidden="true" className="material-symbols-outlined">warning</span>
           A API ainda não tem o relatório por local: os números abaixo são da marca inteira, não do local escolhido.
         </div>
       )}
@@ -1575,82 +1621,86 @@ export const FinancialReport = () => {
         const iEnergia = rel.colunas.findIndex(c => c.chave === 'energia');
         const kwh = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         return (
-          <div className="glass-card rounded-xl overflow-hidden">
-            <div className="px-6 py-5 border-b border-outline-variant/15 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">receipt_long</span>
-                  {rel.titulo}
-                </h2>
-                {rel.cabecalho.map(linha => (
-                  <p key={linha} className="text-sm text-on-surface-variant mt-1">{linha}</p>
+          <section aria-label="Relatório do local" className={`${classeDoCartao} overflow-hidden`}>
+            <div className="px-6 py-5 border-b border-border">
+              <CabecalhoDoCartao
+                icone={<Icone nome="recibo" />}
+                titulo={rel.titulo}
+                subtitulo={rel.cabecalho.map(linha => (
+                  <p key={linha}>{linha}</p>
                 ))}
-                {!rel.comissaoOculta && (
-                  <p className="text-xs text-on-surface-variant mt-2 max-w-3xl">
-                    <strong className="text-foreground">Comissão:</strong> {rel.regraDoRepasse}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => exportarDoLocal('pdf')}
-                  disabled={exportandoLocal != null}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 rounded-lg text-black font-medium transition-all disabled:opacity-70"
-                >
-                  <span className={`material-symbols-outlined text-lg ${exportandoLocal === 'pdf' ? 'animate-spin' : ''}`}>
-                    {exportandoLocal === 'pdf' ? 'refresh' : 'picture_as_pdf'}
-                  </span>
-                  PDF do local
-                </button>
-                <button
-                  onClick={() => exportarDoLocal('xlsx')}
-                  disabled={exportandoLocal != null}
-                  className="flex items-center gap-2 px-4 py-2 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-on-surface-variant transition-all disabled:opacity-70"
-                >
-                  <span className={`material-symbols-outlined text-lg ${exportandoLocal === 'xlsx' ? 'animate-spin' : ''}`}>
-                    {exportandoLocal === 'xlsx' ? 'refresh' : 'table_view'}
-                  </span>
-                  Excel do local
-                </button>
-              </div>
+                direita={
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => exportarDoLocal('pdf')}
+                      disabled={exportandoLocal != null}
+                      className={classeDoBotaoVerde}
+                    >
+                      <span aria-hidden="true" className={`material-symbols-outlined text-lg ${exportandoLocal === 'pdf' ? 'animate-spin' : ''}`}>
+                        {exportandoLocal === 'pdf' ? 'refresh' : 'picture_as_pdf'}
+                      </span>
+                      PDF do local
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => exportarDoLocal('xlsx')}
+                      disabled={exportandoLocal != null}
+                      className={classeDoBotaoContorno}
+                    >
+                      <span aria-hidden="true" className={`material-symbols-outlined text-lg ${exportandoLocal === 'xlsx' ? 'animate-spin' : ''}`}>
+                        {exportandoLocal === 'xlsx' ? 'refresh' : 'table_view'}
+                      </span>
+                      Excel do local
+                    </button>
+                  </>
+                }
+              />
+              {!rel.comissaoOculta && (
+                <p className="text-sm text-muted-foreground mt-3 max-w-4xl">
+                  <strong className="font-semibold text-foreground">Comissão:</strong> {rel.regraDoRepasse}
+                </p>
+              )}
             </div>
             {carregadoresDoLocal.length > 1 && (
-              <div className="px-6 py-3 border-b border-outline-variant/15 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-on-surface-variant mr-1">PDF por carregador</span>
+              <div className="px-6 py-3 border-b border-border flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground mr-1">PDF por carregador</span>
                 {carregadoresDoLocal.map(c => (
                   <button
                     key={c.id}
+                    type="button"
                     onClick={() => exportarDoLocal({ carregador: c.id })}
                     disabled={exportandoLocal != null || c.linhas.length === 0}
                     title={c.linhas.length === 0 ? 'Sem recargas no período' : `${c.id}: ${c.linhas.length} recarga${c.linhas.length === 1 ? '' : 's'}`}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${classeDoBotaoContorno} disabled:cursor-not-allowed`}
                   >
-                    <span className={`material-symbols-outlined text-base ${exportandoLocal === c.id ? 'animate-spin' : ''}`}>
+                    <span aria-hidden="true" className={`material-symbols-outlined text-base ${exportandoLocal === c.id ? 'animate-spin' : ''}`}>
                       {exportandoLocal === c.id ? 'refresh' : 'picture_as_pdf'}
                     </span>
                     {c.nome}
                   </button>
                 ))}
                 <button
+                  type="button"
                   onClick={() => exportarDoLocal('zip')}
                   disabled={exportandoLocal != null || rel.linhas.length === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-highest border border-outline-variant/15 rounded-lg text-sm text-on-surface-variant transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${classeDoBotaoContorno} disabled:cursor-not-allowed`}
                 >
-                  <span className={`material-symbols-outlined text-base ${exportandoLocal === 'zip' ? 'animate-spin' : ''}`}>
+                  <span aria-hidden="true" className={`material-symbols-outlined text-base ${exportandoLocal === 'zip' ? 'animate-spin' : ''}`}>
                     {exportandoLocal === 'zip' ? 'refresh' : 'folder_zip'}
                   </span>
                   Todos (.zip)
                 </button>
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto px-4 pb-2">
+              <table className={classeDaTabela}>
                 <thead>
-                  <tr className="border-b border-outline-variant/15">
+                  <tr>
                     {rel.colunas.map(c => (
                       <th
                         key={c.chave}
-                        className={`${ALINHAR[c.alinhar]} text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-3 whitespace-nowrap`}
+                        className={`${classeDoTh} pt-3 ${ALINHAR[c.alinhar]}`}
                       >
                         {c.titulo}
                       </th>
@@ -1660,18 +1710,16 @@ export const FinancialReport = () => {
                 <tbody>
                   {rel.linhas.length > 0 ? (
                     rel.linhas.map(l => (
-                      <tr
-                        key={l.numero}
-                        className={`border-b border-outline-variant/10 transition-colors ${
-                          l.contaInterna ? 'bg-orange-500/10' : 'hover:bg-surface-container-highest/50'
-                        }`}
-                      >
+                      <tr key={l.numero}>
                         {rel.colunas.map(c => (
                           <td
                             key={c.chave}
-                            className={`py-2 px-3 text-sm whitespace-nowrap ${ALINHAR[c.alinhar]} ${
+                            className={`${classeDaCelula} ${
+                              // Conta interna (NeoPower) continua em laranja.
+                              l.contaInterna ? 'bg-orange-500/15' : fundoDaLinha
+                            } tabular-nums whitespace-nowrap ${ALINHAR[c.alinhar]} ${
                               c.chave === 'conferencia' && conferenciaComProblema(l)
-                                ? 'text-red-600 dark:text-red-400 font-semibold'
+                                ? 'text-destructive font-semibold'
                                 : 'text-foreground'
                             }`}
                           >
@@ -1682,14 +1730,14 @@ export const FinancialReport = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={rel.colunas.length} className="text-center py-12 text-outline">
+                      <td colSpan={rel.colunas.length} className={`${classeDaCelula} ${fundoDaLinha} text-center py-10 text-muted-foreground`}>
                         Nenhuma recarga neste local no período.
                       </td>
                     </tr>
                   )}
                 </tbody>
                 <tfoot>
-                  {rel.subtotais.map((st, i) => {
+                  {rel.subtotais.map(st => {
                     const valores: Record<string, string> = {
                       energia: kwh(st.valores.energiaKwh),
                       cobrado: reaisOuTraco(st.valores.valorCobrado),
@@ -1699,15 +1747,15 @@ export const FinancialReport = () => {
                       repasse: reaisOuTraco(st.valores.repasse),
                     };
                     return (
-                      <tr key={st.rotulo} className={`bg-primary/5 ${i === 0 ? 'border-t-2 border-outline-variant/30' : 'border-t border-outline-variant/10'}`}>
-                        <td colSpan={iEnergia} className="py-2 px-3 text-sm font-bold text-foreground whitespace-nowrap">
+                      <tr key={st.rotulo}>
+                        <td colSpan={iEnergia} className={`${classeDaCelula} bg-primary/25 font-semibold text-foreground whitespace-nowrap`}>
                           {st.rotulo}
                         </td>
                         {rel.colunas.slice(iEnergia).map(c => (
                           <td
                             key={c.chave}
-                            className={`py-2 px-3 text-sm font-bold whitespace-nowrap ${ALINHAR[c.alinhar]} ${
-                              c.chave === 'repasse' ? 'text-primary' : 'text-foreground'
+                            className={`${classeDaCelula} bg-primary/25 font-semibold tabular-nums whitespace-nowrap ${ALINHAR[c.alinhar]} ${
+                              c.chave === 'repasse' ? 'text-primary-strong' : 'text-foreground'
                             }`}
                           >
                             {valores[c.chave] ?? ''}
@@ -1719,68 +1767,74 @@ export const FinancialReport = () => {
                 </tfoot>
               </table>
             </div>
-            <div className="px-6 py-4 border-t border-outline-variant/15">
-              <p className="text-xs font-semibold text-foreground mb-1.5">Notas</p>
+            <div className="px-6 py-4 border-t border-border">
+              <p className="text-sm font-semibold text-foreground mb-1.5">Notas</p>
               <ul className="space-y-1">
                 {rel.notas.map(nota => (
-                  <li key={nota} className="text-xs text-on-surface-variant">• {nota}</li>
+                  <li key={nota} className="text-sm text-muted-foreground">• {nota}</li>
                 ))}
               </ul>
             </div>
-          </div>
+          </section>
         );
       })()}
 
       {/* ─── Repasse por recarga ─── */}
       {comissaoOculta ? (
-        <div className="glass-card rounded-xl p-5">
-          <div className="max-w-sm">
-            <CartaoDoRepasse
-              icone="bolt"
-              titulo="Consumido em recargas"
-              valor={`R$ ${fmt(consumido)}`}
-              detalhe={`${reportData.length} recarga${reportData.length === 1 ? '' : 's'}`}
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4 gap-[25px]">
+          <CartaoDoRepasse
+            icone="bolt"
+            cor="azul"
+            titulo="Consumido em recargas"
+            subtitulo={periodLabel}
+            valor={`R$ ${fmt(consumido)}`}
+            detalhe={`${reportData.length} recarga${reportData.length === 1 ? '' : 's'}`}
+          />
         </div>
       ) : (
-      <div className="glass-card rounded-xl p-5 space-y-4">
-        <div>
-          <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">payments</span>
-            Repasse ao dono por recarga
-          </h2>
-          <p className="text-sm text-on-surface-variant mt-1 max-w-3xl">
-            O repasse ao dono é <strong>{pct(percentCliente)}% do que foi consumido em recargas</strong>: o
-            saldo parado na carteira é do cliente até ele usar.{' '}
-            {temSplit ? (
-              <>
-                Com o split{splitDesde ? ` (desde ${splitDesde})` : ''}, o crédito que o cliente coloca cai direto
-                na conta Mercado Pago do dono, já sem a comissão: a NeoPower repassa só as recargas pagas com saldo
-                que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).
-              </>
-            ) : (
-              <>As taxas do Mercado Pago saem dos {pct(comissaoPercent)}% da NeoPower.</>
-            )}
-            {(submittedFilter || localId != null) && mostraCaixa && ' Com o filtro de estação ou de local, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
-          </p>
+      <section aria-label="Repasse ao dono por recarga" className="space-y-[18px]">
+        <div className="flex items-start gap-4 3xl:gap-[18px]">
+          <BlocoDeIcone>
+            <Simbolo nome="payments" />
+          </BlocoDeIcone>
+          <div className="min-w-0">
+            <h2 className="text-[20px] leading-tight font-semibold text-foreground">
+              Repasse ao dono por recarga
+            </h2>
+            <p className="text-[15px] text-muted-foreground mt-1 max-w-5xl">
+              O repasse ao dono é <strong className="font-semibold text-foreground">{pct(percentCliente)}% do que foi consumido em recargas</strong>: o
+              saldo parado na carteira é do cliente até ele usar.{' '}
+              {temSplit ? (
+                <>
+                  Com o split{splitDesde ? ` (desde ${splitDesde})` : ''}, o crédito que o cliente coloca cai direto
+                  na conta Mercado Pago do dono, já sem a comissão: a NeoPower repassa só as recargas pagas com saldo
+                  que ficou na conta da NeoPower (de antes do split ou de clientes de outras redes).
+                </>
+              ) : (
+                <>As taxas do Mercado Pago saem dos {pct(comissaoPercent)}% da NeoPower.</>
+              )}
+              {(submittedFilter || localId != null) && mostraCaixa && ' Com o filtro de estação ou de local, "Entrou no caixa" e o saldo continuam sendo da marca inteira.'}
+            </p>
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 3xl:grid-cols-4 gap-[25px]">
           {mostraCaixa && (
             <CartaoDoRepasse
               icone="account_balance"
+              cor="amarelo"
               titulo="Entrou no caixa"
+              subtitulo={periodLabel}
               valor={`R$ ${fmt(entrouNoCaixa)}`}
               detalhe={
                 <>
                   Depósitos R$ {fmt(depositosPagos)} − devoluções R$ {fmt(totalDevolvido)}
                   {veCustoDaPlataforma && (
-                    <span className="block text-outline">
+                    <span className="block">
                       O Mercado Pago reteve R$ {fmt(mercadoPagoFeeDeposits)} desses depósitos (custo da NeoPower)
                     </span>
                   )}
                   {totalCreditosSemPagamento > 0 && (
-                    <span className="block text-outline">Créditos manuais/migração (R$ {fmt(totalCreditosSemPagamento)}) não são entrada</span>
+                    <span className="block">Créditos manuais/migração (R$ {fmt(totalCreditosSemPagamento)}) não são entrada</span>
                   )}
                 </>
               }
@@ -1788,7 +1842,9 @@ export const FinancialReport = () => {
           )}
           <CartaoDoRepasse
             icone="bolt"
+            cor="azul"
             titulo="Consumido em recargas"
+            subtitulo={periodLabel}
             valor={`R$ ${fmt(consumido)}`}
             detalhe={
               <>
@@ -1799,13 +1855,16 @@ export const FinancialReport = () => {
           />
           <CartaoDoRepasse
             icone="savings"
+            cor="cinza"
             titulo={`Comissão NeoPower ${pct(comissaoPercent)}%`}
+            subtitulo={periodLabel}
             valor={`R$ ${fmt(comissaoNeoPower)}`}
             detalhe={`${pct(comissaoPercent)}% do consumido`}
           />
           <CartaoDoRepasse
             icone="handshake"
             titulo="Repasse ao dono"
+            subtitulo={periodLabel}
             valor={`R$ ${fmt(repasseAoDono)}`}
             destaque={!temSplit}
             detalhe={
@@ -1822,7 +1881,9 @@ export const FinancialReport = () => {
           {temSplit && (
             <CartaoDoRepasse
               icone="call_split"
+              cor="azul"
               titulo="Já recebido no split"
+              subtitulo={periodLabel}
               valor={`R$ ${fmt(totals.recebidoNoSplit)}`}
               detalhe="Recargas pagas com crédito que caiu direto na conta Mercado Pago do dono. Não entra no repasse."
             />
@@ -1831,6 +1892,7 @@ export const FinancialReport = () => {
             <CartaoDoRepasse
               icone="send_money"
               titulo="A NeoPower repassa"
+              subtitulo={periodLabel}
               valor={`R$ ${fmt(totals.aRepassar)}`}
               destaque
               detalhe={
@@ -1845,7 +1907,15 @@ export const FinancialReport = () => {
           {mostraCaixa && (
             <CartaoDoRepasse
               icone="account_balance_wallet"
+              cor="amarelo"
               titulo="Saldo de clientes a consumir"
+              subtitulo={
+                saldoClientes
+                  ? saldoClientes.fonte === 'carteiras-agora'
+                    ? 'Hoje'
+                    : `Fim do período (${new Date(saldoClientes.em).toLocaleDateString('pt-BR')})`
+                  : undefined
+              }
               valor={saldoClientes ? `R$ ${fmt(saldoClientes.aConsumir)}` : '—'}
               detalhe={
                 saldoClientes ? (
@@ -1856,7 +1926,7 @@ export const FinancialReport = () => {
                       : `no fim do período (${new Date(saldoClientes.em).toLocaleDateString('pt-BR')})`}
                     {' '}· {saldoClientes.carteiras} carteira{saldoClientes.carteiras === 1 ? '' : 's'}. Entrou e ainda não virou recarga.
                     {saldoClientes.devedor > 0 && (
-                      <span className="block text-amber-500">Clientes devendo: R$ {fmt(saldoClientes.devedor)}</span>
+                      <span className="block font-medium text-estado-problema-forte">Clientes devendo: R$ {fmt(saldoClientes.devedor)}</span>
                     )}
                   </>
                 ) : (
@@ -1869,14 +1939,16 @@ export const FinancialReport = () => {
           {veCustoDaPlataforma && (
             <CartaoDoRepasse
               icone="percent"
+              cor="cinza"
               titulo="Taxa Mercado Pago (absorvida pela NeoPower)"
+              subtitulo={periodLabel}
               valor={`−R$ ${fmt(totals.taxaMp)}`}
               tom="negativo"
               detalhe={
                 <>
                   {pct(taxaMpPercent)}% efetiva sobre o consumo · {textoDaFonteDaTaxa}. Não reduz o repasse.
                   {qtdCruzadas > 0 && (
-                    <span className="block text-outline">Recargas de outras redes ficam sem (a taxa ficou no depósito da rede do cliente)</span>
+                    <span className="block">Recargas de outras redes ficam sem (a taxa ficou no depósito da rede do cliente)</span>
                   )}
                 </>
               }
@@ -1886,6 +1958,7 @@ export const FinancialReport = () => {
             <CartaoDoRepasse
               icone="account_balance"
               titulo="Líquido NeoPower"
+              subtitulo={periodLabel}
               valor={`R$ ${fmt(totals.liquidoNeoPower)}`}
               tom={totals.liquidoNeoPower < 0 ? 'negativo' : undefined}
               detalhe="Comissão − taxa do Mercado Pago absorvida"
@@ -1895,119 +1968,113 @@ export const FinancialReport = () => {
 
         {/* Para onde vai o consumido */}
         {consumido > 0 && (
-          <div>
-            <div className="h-1.5 rounded-full bg-surface-container-highest overflow-hidden flex">
-              <div className="bg-blue-500/50 transition-all" style={{ width: `${(repasseAoDono / consumido) * 100}%` }} title={`Repasse: R$ ${fmt(repasseAoDono)}`} />
+          <div className={`${classeDoCartao} p-5 3xl:p-[22px]`}>
+            <div className="h-2.5 rounded-[5px] bg-muted overflow-hidden flex">
+              <div className="bg-tom-azul-icone transition-all" style={{ width: `${(repasseAoDono / consumido) * 100}%` }} title={`Repasse: R$ ${fmt(repasseAoDono)}`} />
               {veCustoDaPlataforma ? (
                 <>
-                  <div className="bg-primary/70 transition-all" style={{ width: `${(Math.max(0, totals.liquidoNeoPower) / consumido) * 100}%` }} title={`Líquido NeoPower: R$ ${fmt(totals.liquidoNeoPower)}`} />
-                  <div className="bg-red-500/40 transition-all" style={{ width: `${(Math.min(totals.taxaMp, comissaoNeoPower) / consumido) * 100}%` }} title={`Taxa MP: R$ ${fmt(totals.taxaMp)}`} />
+                  <div className="bg-primary transition-all" style={{ width: `${(Math.max(0, totals.liquidoNeoPower) / consumido) * 100}%` }} title={`Líquido NeoPower: R$ ${fmt(totals.liquidoNeoPower)}`} />
+                  <div className="bg-destructive/70 transition-all" style={{ width: `${(Math.min(totals.taxaMp, comissaoNeoPower) / consumido) * 100}%` }} title={`Taxa MP: R$ ${fmt(totals.taxaMp)}`} />
                 </>
               ) : (
-                <div className="bg-primary/70 transition-all" style={{ width: `${(comissaoNeoPower / consumido) * 100}%` }} title={`Comissão: R$ ${fmt(comissaoNeoPower)}`} />
+                <div className="bg-primary transition-all" style={{ width: `${(comissaoNeoPower / consumido) * 100}%` }} title={`Comissão: R$ ${fmt(comissaoNeoPower)}`} />
               )}
             </div>
-            <div className="flex flex-wrap gap-4 mt-2 text-xs text-on-surface-variant">
-              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500/50" />Dono ({((repasseAoDono / consumido) * 100).toFixed(1)}%)</span>
-              <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-primary/70" />NeoPower ({((comissaoNeoPower / consumido) * 100).toFixed(1)}%)</span>
+            <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-tom-azul-icone" />Dono ({((repasseAoDono / consumido) * 100).toFixed(1)}%)</span>
+              <span className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-primary" />NeoPower ({((comissaoNeoPower / consumido) * 100).toFixed(1)}%)</span>
               {veCustoDaPlataforma && (
-                <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500/40" />dos quais taxa MP ({((totals.taxaMp / consumido) * 100).toFixed(1)}%)</span>
+                <span className="flex items-center gap-1.5"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-destructive/70" />dos quais taxa MP ({((totals.taxaMp / consumido) * 100).toFixed(1)}%)</span>
               )}
             </div>
           </div>
         )}
-      </div>
+      </section>
       )}
 
       {/* ─── Seção Recargas de outras redes (Recarga Cruzada) ─── */}
       {!comissaoOculta && recargasCruzadas && (recargasCruzadas.recebidas.quantidade > 0 || recargasCruzadas.aRepassar.quantidade > 0) && (
-        <div className="glass-card rounded-xl p-6 border border-outline-variant/15 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-2xl">sync_alt</span>
-              <div>
-                <h2 className="text-lg font-headline font-semibold text-foreground">Recargas de outras redes</h2>
-                <p className="text-xs text-on-surface-variant">Sessões realizadas de forma cruzada entre marcas parceiras</p>
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-              Recarga Cruzada
-            </span>
-          </div>
+        <section aria-label="Recargas de outras redes" className={`${classeDoCartao} p-6 3xl:p-[30px] space-y-5`}>
+          <CabecalhoDoCartao
+            icone={<Simbolo nome="sync_alt" />}
+            titulo="Recargas de outras redes"
+            subtitulo="Sessões realizadas de forma cruzada entre marcas parceiras"
+            direita={<SeloDeContorno>Recarga Cruzada</SeloDeContorno>}
+          />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* A receber */}
-            <div className="p-4 rounded-xl bg-surface-container/60 border border-outline-variant/15 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="p-5 rounded-[10px] bg-muted/60 dark:bg-muted/40 space-y-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A receber (postos próprios)</p>
-                  <p className="text-2xl font-bold text-primary mt-1">
+                  <p className="text-[15px] font-semibold text-foreground">A receber (postos próprios)</p>
+                  <p className="text-[28px] leading-tight font-semibold tabular-nums text-primary-strong mt-1">
                     R$ {fmt(recargasCruzadas.recebidas.valorRepasse ?? recargasCruzadas.recebidas.valorBruto * (percentCliente / 100))}
                   </p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     {pct(percentCliente)}% do consumido, após {pct(comissaoPercent)}% NeoPower (Bruto: R$ {fmt(recargasCruzadas.recebidas.valorBruto)})
                   </p>
                 </div>
-                <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+                <span aria-hidden="true" className="w-[41px] h-[38px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined">call_received</span>
-                </div>
+                </span>
               </div>
-              <div className="pt-2 border-t border-outline-variant/10 space-y-1.5">
-                <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de origem ({recargasCruzadas.recebidas.quantidade} sessões):</p>
+              <div className="pt-3 border-t border-border space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Por rede de origem ({recargasCruzadas.recebidas.quantidade} sessões):</p>
                 {recargasCruzadas.recebidas.porRede.length > 0 ? (
                   recargasCruzadas.recebidas.porRede.map(item => (
-                    <div key={item.nome ?? item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                    <div key={item.nome ?? item.rede} className="flex justify-between items-center gap-3 text-sm py-1.5 px-3 rounded-[5px] bg-card">
                       <span className="font-medium text-foreground">{item.nome ?? item.rede}</span>
-                      <span className="text-on-surface-variant">
+                      <span className="text-muted-foreground tabular-nums">
                         {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto * (percentCliente / 100))} líq.
                       </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-on-surface-variant italic">Nenhuma sessão no período.</p>
+                  <p className="text-sm text-muted-foreground italic">Nenhuma sessão no período.</p>
                 )}
               </div>
             </div>
 
             {/* A repassar */}
-            <div className="p-4 rounded-xl bg-surface-container/60 border border-outline-variant/15 space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="p-5 rounded-[10px] bg-muted/60 dark:bg-muted/40 space-y-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wide">A repassar (postos parceiros)</p>
-                  <p className="text-2xl font-bold text-amber-500 mt-1">
+                  <p className="text-[15px] font-semibold text-foreground">A repassar (postos parceiros)</p>
+                  <p className="text-[28px] leading-tight font-semibold tabular-nums text-estado-problema-forte mt-1">
                     R$ {fmt(recargasCruzadas.aRepassar.valorBruto)}
                   </p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-0.5">
                     Valor a acertar com redes parceiras
                   </p>
                 </div>
-                <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-500">
+                <span aria-hidden="true" className="w-[41px] h-[38px] rounded-[5px] bg-estado-problema text-estado-problema-forte flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined">call_made</span>
-                </div>
+                </span>
               </div>
-              <div className="pt-2 border-t border-outline-variant/10 space-y-1.5">
-                <p className="text-[11px] font-semibold text-on-surface-variant uppercase">Por rede de destino ({recargasCruzadas.aRepassar.quantidade} sessões):</p>
+              <div className="pt-3 border-t border-border space-y-1.5">
+                <p className="text-sm font-medium text-muted-foreground">Por rede de destino ({recargasCruzadas.aRepassar.quantidade} sessões):</p>
                 {recargasCruzadas.aRepassar.porRede.length > 0 ? (
                   recargasCruzadas.aRepassar.porRede.map(item => (
-                    <div key={item.nome ?? item.rede} className="flex justify-between items-center text-xs py-1 px-2 rounded bg-surface-container-highest/40">
+                    <div key={item.nome ?? item.rede} className="flex justify-between items-center gap-3 text-sm py-1.5 px-3 rounded-[5px] bg-card">
                       <span className="font-medium text-foreground">{item.nome ?? item.rede}</span>
-                      <span className="text-on-surface-variant">
+                      <span className="text-muted-foreground tabular-nums">
                         {item.quantidade} {item.quantidade === 1 ? 'sessão' : 'sessões'} · R$ {fmt(item.valorBruto)}
                       </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-on-surface-variant italic">Nenhuma sessão no período.</p>
+                  <p className="text-sm text-muted-foreground italic">Nenhuma sessão no período.</p>
                 )}
               </div>
             </div>
           </div>
 
-          <p className="text-xs text-on-surface-variant italic flex items-center gap-1.5 pt-1">
-            <span className="material-symbols-outlined text-sm text-outline">info</span>
+          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <span aria-hidden="true" className="material-symbols-outlined text-base">info</span>
             Já incluídas no consumido e no repasse acima: comissão de {pct(comissaoPercent)}% e repasse de {pct(percentCliente)}%, como as demais. O acerto entre redes é manual.
           </p>
-        </div>
+        </section>
       )}
 
       {/* Conta de luz do operador. Com filtro de estação, o repasse acima é só de uma. */}
@@ -2023,134 +2090,118 @@ export const FinancialReport = () => {
 
       {/* Non-admin: Info + resumo */}
       {!isAdmin && (
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="material-symbols-outlined text-primary text-xl">info</span>
-            <p className="text-sm text-on-surface-variant">
+        <section aria-label="Suas estações" className={`${classeDoCartao} p-5 3xl:p-[22px] space-y-4`}>
+          <div className="flex items-start gap-3">
+            <span aria-hidden="true" className="material-symbols-outlined text-primary-strong text-xl">info</span>
+            <p className="text-[15px] text-muted-foreground">
               Exibindo apenas transações das estações vinculadas ao seu perfil.
               {userLocationNames.length > 0 && (
-                <span className="text-outline"> Locais: {userLocationNames.join(', ')}</span>
+                <span> Locais: {userLocationNames.join(', ')}</span>
               )}
             </p>
           </div>
-          <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15 max-w-xs">
-            <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Energia Total</p>
-            <p className="text-xl font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
+          <div className="max-w-xs">
+            <NumeroMiudo rotulo="Energia total" valor={`${totals.energy.toFixed(2)} kWh`} />
           </div>
-        </div>
+        </section>
       )}
 
       {/* Admin Only: Depósitos em Carteira */}
       {isAdmin && (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-outline-variant/15">
-            <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-              <span className="material-symbols-outlined text-foreground">account_balance_wallet</span>
-              Depósitos em Carteira
-            </h2>
-            <p className="text-sm text-on-surface-variant mt-1">
-              Valores depositados pelos clientes da marca (Pix/Cartão)
-              {veCustoDaPlataforma && ' — Taxa Mercado Pago por método (Pix 0,99% · crédito 4,99% · débito 3,99%), absorvida pela NeoPower'}
-            </p>
+        <section aria-label="Depósitos em carteira" className={`${classeDoCartao} overflow-hidden`}>
+          <div className="px-6 py-5 border-b border-border">
+            <CabecalhoDoCartao
+              tom="amarelo"
+              icone={<IconeSvg src={iconeDepositos} tamanho={25} />}
+              titulo="Depósitos em Carteira"
+              subtitulo={
+                <>
+                  Valores depositados pelos clientes da marca (Pix/Cartão)
+                  {veCustoDaPlataforma && ' — Taxa Mercado Pago por método (Pix 0,99% · crédito 4,99% · débito 3,99%), absorvida pela NeoPower'}
+                </>
+              }
+            />
           </div>
           <div className="p-6">
-            <div className={`grid grid-cols-1 ${veCustoDaPlataforma ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mb-6`}>
-              <div className="p-4 rounded-xl bg-background/50 border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
-                  <p className="text-xs text-foreground font-medium uppercase">Total Depósitos</p>
-                </div>
-                <p className="text-lg font-bold text-foreground">R$ {fmt(depositosPagos)}</p>
-                <p className="text-xs text-outline mt-1">{qtdDepositos} depósito{qtdDepositos === 1 ? '' : 's'} pago{qtdDepositos === 1 ? '' : 's'}</p>
-              </div>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${veCustoDaPlataforma ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-4 mb-6`}>
+              <NumeroMiudo
+                rotulo="Total de depósitos"
+                valor={`R$ ${fmt(depositosPagos)}`}
+                detalhe={`${qtdDepositos} depósito${qtdDepositos === 1 ? '' : 's'} pago${qtdDepositos === 1 ? '' : 's'}`}
+              />
               {/* Custo da plataforma: só a NeoPower vê a taxa do Mercado Pago. */}
               {veCustoDaPlataforma && (
-                <div className="p-4 rounded-xl bg-background/50 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-                    <p className="text-xs text-foreground font-medium uppercase">Taxa Mercado Pago</p>
-                  </div>
-                  <p className="text-lg font-bold text-foreground">-R$ {fmt(mercadoPagoFeeDeposits)}</p>
-                  <p className="text-xs text-outline mt-1">por método, absorvida pela NeoPower</p>
-                </div>
+                <NumeroMiudo
+                  rotulo="Taxa Mercado Pago"
+                  valor={`-R$ ${fmt(mercadoPagoFeeDeposits)}`}
+                  negativo
+                  detalhe="por método, absorvida pela NeoPower"
+                />
               )}
-              <div className="p-4 rounded-xl bg-background/50 border border-primary/15">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>
-                  <p className="text-xs text-on-surface-variant font-medium uppercase">Entrou no caixa</p>
-                </div>
-                <p className="text-lg font-bold text-primary">R$ {fmt(entrouNoCaixa)}</p>
-                <p className="text-xs text-outline mt-1">
-                  Depósitos − devoluções
-                  {totalDevolvido > 0 && ` (R$ ${fmt(totalDevolvido)} devolvidos)`}
-                </p>
-              </div>
-              <div className="p-4 rounded-xl bg-background/50 border border-border">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                  <p className="text-xs text-foreground font-medium uppercase">Média por Depósito</p>
-                </div>
-                <p className="text-lg font-bold text-foreground">
-                  R$ {qtdDepositos > 0 ? fmt(depositosPagos / qtdDepositos) : '0,00'}
-                </p>
-                <p className="text-xs text-outline mt-1">Valor médio</p>
-              </div>
+              <NumeroMiudo
+                rotulo="Entrou no caixa"
+                valor={`R$ ${fmt(entrouNoCaixa)}`}
+                destaque
+                detalhe={`Depósitos − devoluções${totalDevolvido > 0 ? ` (R$ ${fmt(totalDevolvido)} devolvidos)` : ''}`}
+              />
+              <NumeroMiudo
+                rotulo="Média por depósito"
+                valor={`R$ ${qtdDepositos > 0 ? fmt(depositosPagos / qtdDepositos) : '0,00'}`}
+                detalhe="Valor médio"
+              />
             </div>
             {totalCreditosSemPagamento > 0 && (
-              <p className="text-xs text-outline -mt-3 mb-4">
+              <p className="text-sm text-muted-foreground -mt-3 mb-4">
                 Créditos manuais/migração no período: R$ {fmt(totalCreditosSemPagamento)} (movem saldo, não são entrada).
               </p>
             )}
 
             {deposits.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className={classeDaTabela}>
                   <thead>
-                    <tr className="border-b border-outline-variant/15">
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Usuário</th>
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Data</th>
-                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Valor</th>
+                    <tr>
+                      <th className={`${classeDoTh} text-left`}>Usuário</th>
+                      <th className={`${classeDoTh} text-left`}>Data</th>
+                      <th className={`${classeDoTh} text-right`}>Valor</th>
                       {veCustoDaPlataforma && (
                         <>
-                          <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Taxa MP</th>
-                          <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Líquido</th>
+                          <th className={`${classeDoTh} text-right`}>Taxa MP</th>
+                          <th className={`${classeDoTh} text-right`}>Líquido</th>
                         </>
                       )}
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Referência</th>
+                      <th className={`${classeDoTh} text-left`}>Referência</th>
                     </tr>
                   </thead>
                   <tbody>
                     {deposits.slice(0, 10).map((deposit) => (
-                      <tr key={deposit.id} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <p className="text-sm font-medium text-foreground">{deposit.userName}</p>
-                          <p className="text-xs text-outline">{deposit.userEmail}</p>
+                      <tr key={deposit.id}>
+                        <td className={`${classeDaCelula} ${fundoDaLinha}`}>
+                          <p className="font-semibold text-foreground">{deposit.userName}</p>
+                          <p className="text-xs text-muted-foreground">{deposit.userEmail}</p>
                         </td>
-                        <td className="py-3 px-4 text-sm text-on-surface-variant">{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(deposit.amount)}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{new Date(deposit.createdAt).toLocaleString('pt-BR')}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-foreground`}>R$ {fmt(deposit.amount)}</td>
                         {veCustoDaPlataforma && (
                           <>
-                            <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">-R$ {fmt(taxaMpDoDeposito(deposit))}</td>
-                            <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(deposit.amount - taxaMpDoDeposito(deposit))}</td>
+                            <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-destructive`}>-R$ {fmt(taxaMpDoDeposito(deposit))}</td>
+                            <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-primary-strong`}>R$ {fmt(deposit.amount - taxaMpDoDeposito(deposit))}</td>
                           </>
                         )}
-                        <td className="py-3 px-4 text-sm text-on-surface-variant">{deposit.referenceId || '-'}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{deposit.referenceId || '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {deposits.length > 10 && (
-                  <p className="text-sm text-on-surface-variant mt-4 text-center">Mostrando 10 de {deposits.length} depósitos</p>
+                  <p className="text-sm text-muted-foreground mt-4 text-center">Mostrando 10 de {deposits.length} depósitos</p>
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12">
-                <span className="material-symbols-outlined text-outline-variant text-5xl mb-3">account_balance_wallet</span>
-                <p className="text-outline">Nenhum depósito encontrado no período.</p>
-              </div>
+              <Vazio titulo="Nenhum depósito encontrado no período." />
             )}
           </div>
-        </div>
+        </section>
       )}
 
       {/* ─── Seção NFS-e ──────────────────────────────────────────────────────────── */}
@@ -2165,111 +2216,101 @@ export const FinancialReport = () => {
           ? notasRows
           : notasRows.filter(r => r.invoice_status === nfseFilter);
 
+        // Etiqueta do status da nota: ícone e texto, não só a cor.
         const getNfseStatusBadge = (status: string) => {
-          if (status === 'Issued')  return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-primary" />Emitida</span>;
-          if (status === 'Pending') return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />Pendente</span>;
-          if (status === 'Error')   return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-500 text-xs font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-red-400" />Erro</span>;
-          return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface-variant text-xs font-semibold">{status}</span>;
+          const etiqueta = (classe: string, icone: string, texto: string) => (
+            <span className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-[25px] text-xs font-semibold whitespace-nowrap ${classe}`}>
+              <span aria-hidden="true" className="material-symbols-outlined text-sm">{icone}</span>
+              {texto}
+            </span>
+          );
+          if (status === 'Issued') return etiqueta('bg-estado-livre text-estado-livre-forte', 'check_circle', 'Emitida');
+          if (status === 'Pending') return etiqueta('bg-estado-problema text-estado-problema-forte', 'schedule', 'Pendente');
+          if (status === 'Error') return etiqueta('bg-destructive/10 text-destructive', 'error', 'Erro');
+          return etiqueta('bg-muted text-muted-foreground', 'help', status);
         };
 
         return (
-          <div className="glass-card rounded-xl overflow-hidden">
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-outline-variant/15 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">receipt_long</span>
-                  Notas Fiscais de Serviço (NFS-e)
-                </h2>
-                <p className="text-sm text-on-surface-variant mt-1">
-                  {notasRows.length} nota(s) no período • Emissão automática por recarga
-                </p>
-              </div>
-              {/* KPI mini cards */}
-              <div className="flex items-center gap-3">
-                {[
-                  { label: 'Emitidas', count: emitidas, color: 'text-primary', bg: 'bg-primary/10' },
-                  { label: 'Pendentes', count: pendentes, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-                  { label: 'Erros', count: erros, color: 'text-red-500', bg: 'bg-red-500/10' },
+          <section aria-label="Notas Fiscais de Serviço (NFS-e)" className={`${classeDoCartao} overflow-hidden`}>
+            <div className="px-6 py-5 border-b border-border">
+              <CabecalhoDoCartao
+                icone={<Icone nome="recibo" />}
+                titulo="Notas Fiscais de Serviço (NFS-e)"
+                subtitulo={`${notasRows.length} nota(s) no período • Emissão automática por recarga`}
+                direita={[
+                  { label: 'Emitidas', count: emitidas, classe: 'bg-estado-livre text-estado-livre-forte' },
+                  { label: 'Pendentes', count: pendentes, classe: 'bg-estado-problema text-estado-problema-forte' },
+                  { label: 'Erros', count: erros, classe: 'bg-destructive/10 text-destructive' },
                 ].map(kpi => (
-                  <div key={kpi.label} className={`px-4 py-2 rounded-xl ${kpi.bg} flex flex-col items-center`}>
-                    <span className={`text-xl font-bold font-headline ${kpi.color}`}>{kpi.count}</span>
-                    <span className="text-[10px] text-on-surface-variant uppercase tracking-wide">{kpi.label}</span>
+                  <div key={kpi.label} className={`min-w-[84px] px-4 py-2 rounded-[10px] flex flex-col items-center ${kpi.classe}`}>
+                    <span className="text-xl font-semibold tabular-nums">{kpi.count}</span>
+                    <span className="text-xs font-medium">{kpi.label}</span>
                   </div>
                 ))}
-              </div>
+              />
             </div>
 
             {/* Filtro por status */}
-            <div className="px-6 py-3 border-b border-outline-variant/10 flex items-center gap-2">
-              <span className="text-xs text-on-surface-variant font-medium uppercase tracking-wide mr-2">Filtrar:</span>
+            <div className="px-6 py-4 border-b border-border flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground mr-1">Filtrar:</span>
               {(['all', 'Issued', 'Pending', 'Error'] as const).map(f => (
-                <button
-                  key={f}
-                  onClick={() => setNfseFilter(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    nfseFilter === f
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright'
-                  }`}
-                >
+                <ChipDeFiltro key={f} ativo={nfseFilter === f} onClick={() => setNfseFilter(f)}>
                   {f === 'all' ? 'Todas' : f === 'Issued' ? 'Emitidas' : f === 'Pending' ? 'Pendentes' : 'Com Erro'}
-                </button>
+                </ChipDeFiltro>
               ))}
             </div>
 
             {/* Tabela de Notas */}
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto px-4 py-2">
               {filtered.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <span className="material-symbols-outlined text-5xl text-outline-variant mb-3">receipt_long</span>
-                  <p className="text-outline">
-                    {notasRows.length === 0
+                <Vazio
+                  titulo={
+                    notasRows.length === 0
                       ? 'Nenhuma emissão de NFS-e no período. Configure o provider no cadastro dos postos.'
-                      : `Nenhuma nota com status "${nfseFilter}" no período.`}
-                  </p>
-                </div>
+                      : `Nenhuma nota com status "${nfseFilter}" no período.`
+                  }
+                />
               ) : (
-                <table className="w-full">
+                <table className={classeDaTabela}>
                   <thead>
-                    <tr className="border-b border-outline-variant/15">
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Número NF</th>
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Estação</th>
-                      <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Data/Hora</th>
-                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Valor (R$)</th>
-                      <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
-                      <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Status NF</th>
-                      <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">PDF</th>
+                    <tr>
+                      <th className={`${classeDoTh} text-left`}>Número NF</th>
+                      <th className={`${classeDoTh} text-left`}>Estação</th>
+                      <th className={`${classeDoTh} text-left`}>Data/Hora</th>
+                      <th className={`${classeDoTh} text-right`}>Valor (R$)</th>
+                      <th className={`${classeDoTh} text-right`}>Energia</th>
+                      <th className={`${classeDoTh} text-center`}>Status NF</th>
+                      <th className={`${classeDoTh} text-center`}>PDF</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((row, i) => (
-                      <tr key={i} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <span className="font-mono text-xs text-on-surface bg-surface-container-highest px-2 py-0.5 rounded">
+                      <tr key={i}>
+                        <td className={`${classeDaCelula} ${fundoDaLinha}`}>
+                          <span className="font-mono text-xs text-foreground">
                             {row.invoice_id || '—'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm font-medium text-foreground max-w-[160px] truncate">{row['Estação']}</td>
-                        <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {row['Receita (R$)']}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
-                        <td className="py-3 px-4 text-center">{getNfseStatusBadge(row.invoice_status || '')}</td>
-                        <td className="py-3 px-4 text-center">
+                        <td className={`${classeDaCelula} ${fundoDaLinha} font-semibold text-foreground max-w-[160px] truncate`}>{row['Estação']}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{row['Início']}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-primary-strong`}>R$ {row['Receita (R$)']}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-foreground`}>{row['Recarga (kWh)']} kWh</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-center`}>{getNfseStatusBadge(row.invoice_status || '')}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-center`}>
                           {row.invoice_pdf_url ? (
                             <a
                               href={row.invoice_pdf_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors"
+                              className="inline-flex items-center gap-1 h-8 px-3 rounded-[25px] bg-primary-soft text-primary-strong text-xs font-semibold hover:brightness-95 transition"
                             >
-                              <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                              <span aria-hidden="true" className="material-symbols-outlined text-sm">picture_as_pdf</span>
                               PDF
                             </a>
                           ) : row.invoice_status === 'Issued' ? (
-                            <span className="text-xs text-on-surface-variant">N/A</span>
+                            <span className="text-xs text-muted-foreground">N/A</span>
                           ) : (
-                            <span className="text-xs text-outline">—</span>
+                            <span className="text-xs text-muted-foreground">—</span>
                           )}
                         </td>
                       </tr>
@@ -2277,42 +2318,36 @@ export const FinancialReport = () => {
                   </tbody>
                   {filtered.length > 0 && (
                     <tfoot>
-                      <tr className="border-t border-outline-variant/15 bg-surface-container-low/50">
-                        <td colSpan={3} className="py-3 px-4 text-xs text-on-surface-variant font-medium">
+                      <tr>
+                        <td colSpan={3} className={`${classeDaCelula} bg-primary/25 text-muted-foreground font-medium`}>
                           Total: {filtered.length} nota(s)
                         </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-primary">
+                        <td className={`${classeDaCelula} bg-primary/25 text-right tabular-nums font-semibold text-primary-strong`}>
                           R$ {fmt(filtered.reduce((s, r) => s + (parseFloat(r['Receita (R$)']) || 0), 0))}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono text-sm font-bold text-foreground">
+                        <td className={`${classeDaCelula} bg-primary/25 text-right tabular-nums font-semibold text-foreground`}>
                           {filtered.reduce((s, r) => s + (parseFloat(r['Recarga (kWh)']) || 0), 0).toFixed(2)} kWh
                         </td>
-                        <td colSpan={2} />
+                        <td colSpan={2} className={`${classeDaCelula} bg-primary/25`} />
                       </tr>
                     </tfoot>
                   )}
                 </table>
               )}
             </div>
-          </div>
+          </section>
         );
       })()}
 
       {/* Daily Evolution Chart */}
       {!overviewMode && dailyData.length > 0 && (
-        <div className="glass-card rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-headline font-semibold text-foreground flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary text-xl">show_chart</span>
-                Evolução Diária de Receita e Consumo
-              </h2>
-              <p className="text-xs text-on-surface-variant mt-0.5">
-                Desempenho financeiro e energético ao longo do período selecionado
-              </p>
-            </div>
-          </div>
-          <div className="w-full h-72">
+        <section aria-label="Evolução diária de receita e consumo" className={`${classeDoCartao} p-6 3xl:p-[30px]`}>
+          <CabecalhoDoCartao
+            icone={<Icone nome="grafico-linha" />}
+            titulo="Evolução Diária de Receita e Consumo"
+            subtitulo="Desempenho financeiro e energético ao longo do período selecionado"
+          />
+          <div className="w-full h-72 mt-5">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
@@ -2321,7 +2356,7 @@ export const FinancialReport = () => {
                     <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} opacity={0.15} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                 <XAxis dataKey="date" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} />
                 <YAxis yAxisId="left" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} tickFormatter={(v) => `R$ ${v}`} />
                 <YAxis yAxisId="right" orientation="right" stroke="var(--color-muted-foreground)" fontSize={11} tickLine={false} tickFormatter={(v) => `${v} kWh`} />
@@ -2329,7 +2364,8 @@ export const FinancialReport = () => {
                   contentStyle={{
                     background: 'var(--color-card)',
                     border: '1px solid var(--color-border)',
-                    borderRadius: '12px',
+                    borderRadius: '10px',
+                    color: 'var(--color-foreground)',
                   }}
                   formatter={(value: any, name: string) => {
                     if (name === 'revenue') return [`R$ ${fmt(Number(value))}`, 'Receita'];
@@ -2338,43 +2374,43 @@ export const FinancialReport = () => {
                   labelStyle={{ color: 'var(--color-foreground)', fontWeight: 'bold' }}
                 />
                 <Area yAxisId="left" type="monotone" dataKey="revenue" fill="url(#colorRevenue)" stroke="var(--primary)" strokeWidth={2} name="revenue" />
-                <Line yAxisId="right" type="monotone" dataKey="energy" stroke="#00d2ff" strokeWidth={2} dot={dailyData.length < 30} activeDot={{ r: 6 }} name="energy" />
+                <Line yAxisId="right" type="monotone" dataKey="energy" stroke="var(--tom-azul-icone)" strokeWidth={2} dot={dailyData.length < 30} activeDot={{ r: 6 }} name="energy" />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Data Table (com um local escolhido, o relatório do local acima substitui) */}
-      <div className={`glass-card rounded-xl overflow-hidden ${relatorioDoLocal ? 'hidden' : ''}`}>
-        <div className="px-6 py-5 border-b border-outline-variant/15">
-          <h2 className="text-lg font-headline font-semibold text-foreground">Detalhamento por Transação</h2>
-          <p className="text-sm text-on-surface-variant mt-1">
+      <section aria-label="Detalhamento por transação" className={`${classeDoCartao} overflow-hidden ${relatorioDoLocal ? 'hidden' : ''}`}>
+        <div className="px-6 py-5 border-b border-border">
+          <h2 className="text-[20px] leading-tight font-semibold text-foreground">Detalhamento por Transação</h2>
+          <p className="text-[15px] font-medium text-muted-foreground mt-0.5">
             {visibleReportData.length} {visibleReportData.length === 1 ? 'registro encontrado' : 'registros encontrados'}
           </p>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto px-4 pb-2">
+          <table className={classeDaTabela}>
             <thead>
-              <tr className="border-b border-outline-variant/15">
-                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Estação</th>
-                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Início</th>
-                <th className="text-left text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Fim</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Energia</th>
-                <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Consumido</th>
+              <tr>
+                <th className={`${classeDoTh} pt-3 text-left`}>Estação</th>
+                <th className={`${classeDoTh} pt-3 text-left`}>Início</th>
+                <th className={`${classeDoTh} pt-3 text-left`}>Fim</th>
+                <th className={`${classeDoTh} pt-3 text-right`}>Energia</th>
+                <th className={`${classeDoTh} pt-3 text-right`}>Consumido</th>
                 {!comissaoOculta && (
                   <>
-                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Comissão</th>
-                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Repasse</th>
+                    <th className={`${classeDoTh} pt-3 text-right`}>Comissão</th>
+                    <th className={`${classeDoTh} pt-3 text-right`}>Repasse</th>
                   </>
                 )}
                 {veCustoDaPlataforma && (
                   <>
-                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4" title="Taxa do Mercado Pago proporcional ao consumo, absorvida pela NeoPower">Taxa MP</th>
-                    <th className="text-right text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Líquido NeoPower</th>
+                    <th className={`${classeDoTh} pt-3 text-right`} title="Taxa do Mercado Pago proporcional ao consumo, absorvida pela NeoPower">Taxa MP</th>
+                    <th className={`${classeDoTh} pt-3 text-right`}>Líquido NeoPower</th>
                   </>
                 )}
-                <th className="text-center text-xs font-medium text-on-surface-variant uppercase tracking-wider py-3 px-4">Status</th>
+                <th className={`${classeDoTh} pt-3 text-center`}>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -2382,48 +2418,47 @@ export const FinancialReport = () => {
                 visibleReportData.map((row, index) => {
                   const v = valoresDaLinha(row);
                   return (
-                  <tr key={index} className="border-b border-outline-variant/10 hover:bg-surface-container-highest/50 transition-colors">
-                    <td className="py-3 px-4 text-sm font-medium text-foreground">
+                  <tr key={index}>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} font-semibold text-foreground`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span>{row['Estação']}</span>
                         {row.recargaCruzada && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20" title={`Recarga Cruzada - Rede: ${row.redeDoCliente || 'Outra rede'}`}>
+                          <span className="px-2 py-0.5 rounded-[25px] text-[11px] font-semibold bg-estado-problema text-estado-problema-forte" title={`Recarga Cruzada - Rede: ${row.redeDoCliente || 'Outra rede'}`}>
                             Cliente {row.redeDoCliente || 'outra rede'}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Início']}</td>
-                    <td className="py-3 px-4 text-sm text-on-surface-variant">{row['Fim']}</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-foreground">{row['Recarga (kWh)']} kWh</td>
-                    <td className="py-3 px-4 text-right font-mono text-sm text-primary">R$ {fmt(v.receita)}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{row['Início']}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{row['Fim']}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-foreground`}>{row['Recarga (kWh)']} kWh</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums font-medium text-primary-strong`}>R$ {fmt(v.receita)}</td>
                     {!comissaoOculta && (
                       <>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-on-surface-variant">R$ {fmt(v.comissao)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-foreground">R$ {fmt(v.repasse)}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-muted-foreground`}>R$ {fmt(v.comissao)}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-foreground`}>R$ {fmt(v.repasse)}</td>
                       </>
                     )}
                     {veCustoDaPlataforma && (
                       <>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-red-600 dark:text-red-400/70">R$ {fmt(v.taxaMp)}</td>
-                        <td className="py-3 px-4 text-right font-mono text-sm text-on-surface-variant">R$ {fmt(v.liquidoNeoPower)}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-destructive`}>R$ {fmt(v.taxaMp)}</td>
+                        <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-muted-foreground`}>R$ {fmt(v.liquidoNeoPower)}</td>
                       </>
                     )}
-                    <td className="py-3 px-4 text-center">{getStatusBadge(row['Status'])}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-center`}>{getStatusBadge(row['Status'])}</td>
                   </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={veCustoDaPlataforma ? 10 : 8} className="text-center py-16">
-                    <div className="flex flex-col items-center gap-3">
-                      <span className="material-symbols-outlined text-outline-variant text-5xl">description</span>
-                      <p className="text-outline">
-                        {!isAdmin && userLocationNames.length === 0
+                  <td colSpan={veCustoDaPlataforma ? 10 : 8} className="pt-2">
+                    <Vazio
+                      titulo={
+                        !isAdmin && userLocationNames.length === 0
                           ? 'Nenhuma estação vinculada ao seu perfil.'
-                          : 'Nenhum dado encontrado para os filtros selecionados.'}
-                      </p>
-                    </div>
+                          : 'Nenhum dado encontrado para os filtros selecionados.'
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -2432,51 +2467,36 @@ export const FinancialReport = () => {
         </div>
 
         {visibleReportData.length > 0 && (
-          <div className="px-6 py-5 border-t border-outline-variant/15">
-            <div className={`grid grid-cols-2 ${veCustoDaPlataforma ? 'md:grid-cols-7' : 'md:grid-cols-5'} gap-4`}>
-              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Total Transações</p>
-                <p className="text-lg font-bold text-foreground">{visibleReportData.length}</p>
-              </div>
-              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Energia Total</p>
-                <p className="text-lg font-bold text-foreground">{totals.energy.toFixed(2)} kWh</p>
-              </div>
-              <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                <p className="text-xs text-on-surface-variant mb-1">Consumido</p>
-                <p className="text-lg font-bold text-primary">R$ {fmt(totals.revenue)}</p>
-              </div>
+          <div className="px-6 py-5 border-t border-border">
+            <div className={`grid grid-cols-2 ${veCustoDaPlataforma ? 'md:grid-cols-4 2xl:grid-cols-7' : 'md:grid-cols-5'} gap-4`}>
+              <NumeroMiudo rotulo="Total de transações" valor={visibleReportData.length} />
+              <NumeroMiudo rotulo="Energia total" valor={`${totals.energy.toFixed(2)} kWh`} />
+              <NumeroMiudo rotulo="Consumido" valor={`R$ ${fmt(totals.revenue)}`} destaque />
               {!comissaoOculta && (
                 <>
-                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                    <p className="text-xs text-on-surface-variant mb-1">Comissão NeoPower ({pct(comissaoPercent)}%)</p>
-                    <p className="text-lg font-bold text-foreground">R$ {fmt(totals.comissao)}</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                    <p className="text-xs text-on-surface-variant mb-1">Repasse ao dono ({pct(percentCliente)}%)</p>
-                    <p className="text-lg font-bold text-primary">R$ {fmt(totals.repasse)}</p>
-                    {temSplit && (
-                      <p className="text-[11px] text-on-surface-variant mt-1">A NeoPower repassa R$ {fmt(totals.aRepassar)}</p>
-                    )}
-                  </div>
+                  <NumeroMiudo rotulo={`Comissão NeoPower (${pct(comissaoPercent)}%)`} valor={`R$ ${fmt(totals.comissao)}`} />
+                  <NumeroMiudo
+                    rotulo={`Repasse ao dono (${pct(percentCliente)}%)`}
+                    valor={`R$ ${fmt(totals.repasse)}`}
+                    destaque
+                    detalhe={temSplit ? `A NeoPower repassa R$ ${fmt(totals.aRepassar)}` : undefined}
+                  />
                 </>
               )}
               {veCustoDaPlataforma && (
                 <>
-                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                    <p className="text-xs text-on-surface-variant mb-1">Taxa MP absorvida ({pct(taxaMpPercent)}%)</p>
-                    <p className="text-lg font-bold text-red-600 dark:text-red-400">R$ {fmt(totals.taxaMp)}</p>
-                  </div>
-                  <div className="p-3 rounded-xl bg-background/50 border border-outline-variant/15">
-                    <p className="text-xs text-on-surface-variant mb-1">Líquido NeoPower</p>
-                    <p className={`text-lg font-bold ${totals.liquidoNeoPower < 0 ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>R$ {fmt(totals.liquidoNeoPower)}</p>
-                  </div>
+                  <NumeroMiudo rotulo={`Taxa MP absorvida (${pct(taxaMpPercent)}%)`} valor={`R$ ${fmt(totals.taxaMp)}`} negativo />
+                  <NumeroMiudo
+                    rotulo="Líquido NeoPower"
+                    valor={`R$ ${fmt(totals.liquidoNeoPower)}`}
+                    negativo={totals.liquidoNeoPower < 0}
+                  />
                 </>
               )}
             </div>
           </div>
         )}
-      </div>
+      </section>
 
       {/* PDF Template (off-screen) */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>

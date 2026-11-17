@@ -133,9 +133,11 @@ interface ChargerDetailsDialogProps {
   onUpdate?: () => void;
   /** Atalho para a linha do tempo de logs (ChargerLogsSheet) deste carregador. */
   onOpenLogs?: (chargePointId: string, nome: string) => void;
+  /** Abre com a identificação já em edição ("Editar informações" nas Estações). */
+  editarAoAbrir?: boolean;
 }
 
-export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpdate, onOpenLogs }: ChargerDetailsDialogProps) => {
+export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpdate, onOpenLogs, editarAoAbrir }: ChargerDetailsDialogProps) => {
   const [charger, setCharger] = useState<ChargerDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -151,7 +153,7 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
 
   useEffect(() => {
     if (open && chargePointId) {
-      void fetchChargerDetails();
+      void fetchChargerDetails(!!editarAoAbrir);
       void buscarConectividade();
     } else {
       setConectividade(null);
@@ -180,14 +182,14 @@ export const ChargerDetailsDialog = ({ chargePointId, open, onOpenChange, onUpda
     }
   };
 
-  const fetchChargerDetails = async () => {
+  const fetchChargerDetails = async (editar = false) => {
     if (!chargePointId) return;
     setLoading(true);
     try {
       const r = await api.get(`/chargers/${encodeURIComponent(chargePointId)}/details`);
       if (r.ok) {
         const d = await r.json();
-        setCharger(d); setEditName(d.description || ''); setEditConnectorType(d.connector_type || ''); setEditPowerKw(d.power_kw ? String(d.power_kw) : ''); setEditing(false);
+        setCharger(d); setEditName(d.description || ''); setEditConnectorType(d.connector_type || ''); setEditPowerKw(d.power_kw ? String(d.power_kw) : ''); setEditing(editar);
       } else toast.error('Erro ao carregar detalhes');
     } catch { toast.error('Erro ao carregar detalhes'); }
     finally { setLoading(false); }

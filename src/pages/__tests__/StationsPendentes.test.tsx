@@ -5,7 +5,7 @@
  * fechava e a rolagem voltava ao topo.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -65,9 +65,16 @@ vi.mock('../../lib/api', () => ({
 }));
 
 const abrirPendentes = async () => {
-  const titulo = await screen.findByText('Carregadores Pendentes de Configuração');
+  const titulo = await screen.findByText('Carregadores pendentes de configuração');
   await userEvent.click(titulo);
   await screen.findByText('PEND-A');
+};
+
+// Desde o redesenho (nov/2026) a exclusão pede confirmação num AlertDialog,
+// que diz a consequência, em vez do confirm() do navegador.
+const confirmarExclusao = async () => {
+  const dialogo = await screen.findByRole('alertdialog');
+  await userEvent.click(within(dialogo).getByRole('button', { name: 'Excluir carregador' }));
 };
 
 describe('Estações: excluir carregador pendente', () => {
@@ -76,7 +83,6 @@ describe('Estações: excluir carregador pendente', () => {
     segurarChargers = null;
     mockGet.mockClear();
     mockDelete.mockClear();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   it('a lista continua aberta e sem tela de carregamento enquanto os dados são atualizados', async () => {
@@ -90,13 +96,14 @@ describe('Estações: excluir carregador pendente', () => {
 
     const botoes = screen.getAllByTitle('Excluir carregador');
     await userEvent.click(botoes[0]);
+    await confirmarExclusao();
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('/chargers/PEND-A'));
     // O excluído some na hora; os outros pendentes continuam na tela.
     await waitFor(() => expect(screen.queryByText('PEND-A')).toBeNull());
     expect(screen.getByText('PEND-B')).toBeTruthy();
     expect(screen.getByText('PEND-C')).toBeTruthy();
-    expect(screen.getByText('Carregadores Pendentes de Configuração')).toBeTruthy();
+    expect(screen.getByText('Carregadores pendentes de configuração')).toBeTruthy();
 
     liberar();
     await waitFor(() => expect(mockGet.mock.calls.filter(c => c[0] === '/chargers').length).toBe(2));
@@ -110,8 +117,10 @@ describe('Estações: excluir carregador pendente', () => {
     await abrirPendentes();
 
     await userEvent.click(screen.getAllByTitle('Excluir carregador')[0]);
+    await confirmarExclusao();
     await waitFor(() => expect(screen.queryByText('PEND-A')).toBeNull());
     await userEvent.click(screen.getAllByTitle('Excluir carregador')[0]);
+    await confirmarExclusao();
     await waitFor(() => expect(screen.queryByText('PEND-B')).toBeNull());
 
     expect(mockDelete).toHaveBeenCalledTimes(2);

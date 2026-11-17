@@ -30,6 +30,9 @@ const APP_ROUTES = [
   'operacoes', 'relatorio-financeiro', 'usuarios', 'vouchers', 
   'tarifas', 'carteiras', 'notificacoes', 'email', 'branding',
   'sustentabilidade', 'alarmes', 'agendamentos', 'metas', 'energia', 'erros-do-app', 'atendimento',
+  // Faltavam: /cameras e /perfis abertos direto pela URL viravam nome de marca
+  // e caíam na Visão geral (achado no redesenho, 17/11/2026).
+  'cameras', 'perfis',
   // páginas legais públicas (sem tenant na URL → redireciona para /neopower/...)
   'privacidade', 'termos', 'excluir-conta', 'suporte'
 ];
@@ -57,7 +60,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
         if (!potentialTenant || APP_ROUTES.includes(potentialTenant)) {
           const originalPath = window.location.pathname;
-          window.location.replace(`/neopower${originalPath === '/' ? '/login' : originalPath}`);
+          // Leva junto a busca e o âncora: sem eles /estacoes?estado=offline perdia o
+          // filtro e /energia?aba=usinas abria a visão geral.
+          const resto = originalPath === '/' ? '' : window.location.search + window.location.hash;
+          window.location.replace(`/neopower${originalPath === '/' ? '/login' : originalPath}${resto}`);
           return;
         }
 

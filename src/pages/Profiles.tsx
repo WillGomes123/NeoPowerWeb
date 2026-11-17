@@ -1,16 +1,41 @@
 import { useState, useEffect, useMemo } from 'react';
+import { cn } from '../components/ui/utils';
+import { BadgeCheck, Pencil, Plus, Star, Trash2, Users as IconeUsuarios } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '../components/ui/dialog';
-import {
-  AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '../components/ui/alert-dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import type { CustomerProfile } from '../types';
+import {
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  CartaoContador,
+} from '../components/painel/Pagina';
+import {
+  classeDoBotaoContorno,
+  classeDoBotaoPrincipal,
+} from '../components/painel/Pecas';
+import {
+  CabecalhoDoCartao,
+  CarregandoPagina,
+  ConfirmarExclusao,
+  EstadoVazio,
+  classeDaEtiqueta,
+  classeDaTabela,
+  classeDoBotaoDeIcone,
+  classeDoCartaoDaTabela,
+  classeDoTd,
+  classeDoTh,
+  classeDoBotaoDeIconePerigo,
+  classeDoBotaoPrincipalMenor,
+  classeDoCampo,
+  classeDoDialogo,
+  classeDoRotulo,
+} from '../components/configuracoes/Pecas';
 
 const PRESET_COLORS = ['#39FF14', '#22D3EE', '#F59E0B', '#A78BFA', '#F472B6', '#60A5FA', '#34D399', '#FB7185'];
 
@@ -19,6 +44,8 @@ const emptyForm = { id: 0, name: '', description: '', color: PRESET_COLORS[0], i
 export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
   const [profiles, setProfiles] = useState<CustomerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
@@ -33,7 +60,12 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
       if (!r.ok) throw new Error();
       const d = await r.json();
       setProfiles(Array.isArray(d) ? d : []);
-    } catch { toast.error('Erro ao buscar perfis'); }
+      setAtualizadoEm(new Date());
+      setFalhou(false);
+    } catch {
+      setFalhou(true);
+      toast.error('Erro ao buscar perfis');
+    }
     finally { setLoading(false); }
   };
 
@@ -86,171 +118,127 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const totalUsers = useMemo(() => profiles.reduce((sum, p) => sum + (p.userCount || 0), 0), [profiles]);
+  const perfilPadrao = profiles.find(p => p.isDefault)?.name;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+  // Só a primeira carga troca a tela pelo carregando; depois, o "Atualizar" mostra.
+  if (loading && !atualizadoEm && profiles.length === 0) {
+    return <CarregandoPagina />;
   }
 
+  const acoes = (
+    <>
+      <button type="button" onClick={openCreate} className={classeDoBotaoPrincipal}>
+        <Plus className="w-5 h-5" aria-hidden="true" />
+        Novo perfil
+      </button>
+      <BotaoAtualizar
+        aoAtualizar={() => void fetchProfiles()}
+        carregando={loading}
+        atualizadoEm={atualizadoEm}
+        falhou={falhou}
+      />
+    </>
+  );
+
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        {!embedded ? (
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">SEGMENTAÇÃO</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Perfis de Cliente</h1>
-          <p className="text-on-surface-variant mt-1">Crie segmentos (ex.: Comum, Uber) para tarifas e notificações direcionadas</p>
-        </div>
-        ) : <div />}
-        <div className="flex items-center gap-3">
-          <button onClick={() => void fetchProfiles()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
-            <span className="material-symbols-outlined text-lg">refresh</span>
-            Atualizar
-          </button>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <button onClick={openCreate} className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all">
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-                Novo Perfil
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
-              <DialogHeader>
-                <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">badge</span>
-                  {isEdit ? 'Editar Perfil' : 'Novo Perfil de Cliente'}
-                </DialogTitle>
-                <DialogDescription className="text-on-surface-variant">
-                  Defina um segmento de cliente. A tarifa do perfil é configurada na tela de Tarifas.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nome</Label>
-                  <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Uber" className="bg-surface-container-low border-outline-variant/20 text-on-surface" maxLength={100} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Descrição</Label>
-                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Motoristas de aplicativo com tarifa diferenciada..." className="bg-surface-container-low border-outline-variant/20 text-on-surface min-h-[72px]" maxLength={500} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Cor</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {PRESET_COLORS.map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm({ ...form, color: c })}
-                        className={`w-8 h-8 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-surface-container ring-on-surface scale-110' : 'hover:scale-105'}`}
-                        style={{ backgroundColor: c }}
-                        aria-label={`Cor ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <label className="flex items-center gap-3 cursor-pointer mt-1">
-                  <input type="checkbox" checked={form.isDefault} onChange={e => setForm({ ...form, isDefault: e.target.checked })} className="w-4 h-4 accent-primary" />
-                  <span className="text-sm text-on-surface">Perfil padrão para novos usuários</span>
-                </label>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDialogOpen(false)}
-                  className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold text-sm hover:bg-surface-container-high active:scale-95 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                >
-                  {saving ? 'Salvando...' : (isEdit ? 'Salvar Alterações' : 'Criar Perfil')}
-                </button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+    <div className="space-y-[25px] pb-12">
+      {/* Dentro de Tarifas (aba Perfis) a página já tem título: aqui só as ações. */}
+      {embedded ? (
+        <div className="flex flex-col sm:flex-row sm:justify-end items-stretch sm:items-start gap-4">{acoes}</div>
+      ) : (
+        <CabecalhoDaPagina
+          rotulo="Segmentação"
+          titulo="Perfis de cliente"
+          subtitulo="Crie segmentos (ex.: Comum, Uber) para tarifas e notificações direcionadas"
+          acoes={acoes}
+        />
+      )}
+
+      {/* Contadores */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[25px]">
+        <CartaoContador icone={<BadgeCheck className="w-7 h-7" />} rotulo="Total de perfis" valor={profiles.length} />
+        <CartaoContador
+          icone={<IconeUsuarios className="w-7 h-7" />}
+          rotulo="Usuários segmentados"
+          valor={totalUsers}
+          fundoDoIcone="bg-tom-azul text-tom-azul-icone"
+        />
+        <CartaoContador
+          icone={<Star className="w-7 h-7" />}
+          rotulo="Perfil padrão"
+          valor={
+            <span className="block truncate text-[28px]" title={perfilPadrao}>
+              {perfilPadrao || '—'}
+            </span>
+          }
+          fundoDoIcone="bg-tom-amarelo text-tom-amarelo-icone"
+        />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SummaryCard icon="badge" label="TOTAL DE PERFIS" value={String(profiles.length)} />
-        <SummaryCard icon="group" label="USUÁRIOS SEGMENTADOS" value={String(totalUsers)} color="text-tertiary" />
-        <SummaryCard icon="star" label="PERFIL PADRÃO" value={profiles.find(p => p.isDefault)?.name || '—'} color="text-secondary" />
-      </div>
-
-      {/* Profiles Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">badge</span>
-            Perfis Cadastrados
-          </h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{profiles.length} registros</span>
-        </div>
+      {/* Tabela (linhas verdes arredondadas, como Notificações e Alarmes no Figma) */}
+      <section className={classeDoCartaoDaTabela} aria-label="Perfis cadastrados">
+        <CabecalhoDoCartao titulo="Perfis cadastrados" detalhe={`${profiles.length} registros`} />
 
         {profiles.length === 0 ? (
-          <div className="text-center py-16 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl opacity-30 block mb-3">badge</span>
-            <p>Nenhum perfil criado ainda</p>
-            <p className="text-sm mt-1 text-on-surface-variant/60">Clique em "Novo Perfil" para começar</p>
-          </div>
+          <EstadoVazio icone={<BadgeCheck className="w-10 h-10" />} titulo="Nenhum perfil criado ainda">
+            Clique em "Novo perfil" para começar
+          </EstadoVazio>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className={classeDaTabela}>
               <thead>
-                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                  <th className="px-6 py-4">Perfil</th>
-                  <th className="px-6 py-4">Descrição</th>
-                  <th className="px-6 py-4">Usuários</th>
-                  <th className="px-6 py-4">Padrão</th>
-                  <th className="px-6 py-4">Ações</th>
+                <tr>
+                  <th className={classeDoTh}>Perfil</th>
+                  <th className={classeDoTh}>Descrição</th>
+                  <th className={classeDoTh}>Usuários</th>
+                  <th className={classeDoTh}>Padrão</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
+              <tbody>
                 {profiles.map(p => (
-                  <tr key={p.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                    <td className="px-6 py-4">
+                  <tr key={p.id}>
+                    <td className={classeDoTd}>
                       <div className="flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${p.color || '#39FF14'}22` }}>
-                          <span className="material-symbols-outlined text-lg" style={{ color: p.color || '#39FF14' }}>badge</span>
+                        {/* A cor é do perfil (escolhida pelo operador), não do tema. */}
+                        <span
+                          className="w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${p.color || '#39FF14'}22`, color: p.color || '#39FF14' }}
+                          aria-hidden="true"
+                        >
+                          <BadgeCheck className="w-5 h-5" />
                         </span>
-                        <span className="text-sm font-semibold text-on-surface">{p.name}</span>
+                        <span className="text-sm font-semibold text-foreground">{p.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 max-w-xs">
-                      <span className="text-sm text-on-surface-variant truncate block">{p.description || '—'}</span>
+                    <td className={`${classeDoTd} max-w-xs`}>
+                      <span className="text-sm text-muted-foreground truncate block" title={p.description || undefined}>
+                        {p.description || '—'}
+                      </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface border border-outline-variant/10 text-xs font-bold">
-                        <span className="material-symbols-outlined text-xs">group</span>
+                    <td className={classeDoTd}>
+                      <span className={`${classeDaEtiqueta} bg-card text-foreground`}>
+                        <IconeUsuarios className="w-3.5 h-3.5" aria-hidden="true" />
                         {p.userCount || 0}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={classeDoTd}>
                       {p.isDefault ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
-                          <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                          PADRÃO
+                        <span className={`${classeDaEtiqueta} bg-primary-soft text-primary-strong`}>
+                          <Star className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                          Padrão
                         </span>
                       ) : (
-                        <span className="text-on-surface-variant text-xs">—</span>
+                        <span className="text-muted-foreground text-sm">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => openEdit(p)} className="w-8 h-8 rounded-lg flex items-center justify-center text-primary hover:bg-primary/10 transition-colors" title="Editar">
-                          <span className="material-symbols-outlined text-lg">edit</span>
+                    <td className={classeDoTd}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button type="button" onClick={() => openEdit(p)} className={classeDoBotaoDeIcone} title="Editar" aria-label={`Editar o perfil ${p.name}`}>
+                          <Pencil className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setDeleteTarget(p)} className="w-8 h-8 rounded-lg flex items-center justify-center text-error hover:bg-error/10 transition-colors" title="Excluir">
-                          <span className="material-symbols-outlined text-lg">delete</span>
+                        <button type="button" onClick={() => setDeleteTarget(p)} className={classeDoBotaoDeIconePerigo} title="Excluir" aria-label={`Excluir o perfil ${p.name}`}>
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -260,50 +248,76 @@ export const Profiles = ({ embedded = false }: { embedded?: boolean }) => {
             </table>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <AlertDialogContent className="bg-surface-container border-outline-variant/20 font-sans">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-on-surface font-headline text-xl">Excluir Perfil</AlertDialogTitle>
-            <AlertDialogDescription className="text-on-surface-variant">
-              Tem certeza que deseja excluir o perfil <strong>{deleteTarget?.name}</strong>? Não é possível excluir perfis em uso por usuários, tarifas ou campanhas.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setDeleteTarget(null)}
-              className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface font-bold text-sm hover:bg-surface-container-highest active:scale-95 transition-all"
-            >
+      {/* Novo / editar perfil */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className={`${classeDoDialogo} sm:max-w-[480px]`}>
+          <DialogHeader>
+            <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-primary-strong" aria-hidden="true" />
+              {isEdit ? 'Editar perfil' : 'Novo perfil de cliente'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Defina um segmento de cliente. A tarifa do perfil é configurada na tela de Tarifas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="perfil-nome" className={classeDoRotulo}>Nome</Label>
+              <Input id="perfil-nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Uber" className={classeDoCampo} maxLength={100} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="perfil-descricao" className={classeDoRotulo}>Descrição</Label>
+              <Textarea id="perfil-descricao" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Motoristas de aplicativo com tarifa diferenciada..." className="rounded-[10px] bg-card border-border text-foreground min-h-[72px]" maxLength={500} />
+            </div>
+            <div className="space-y-2">
+              <p className={classeDoRotulo}>Cor</p>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setForm({ ...form, color: c })}
+                    aria-pressed={form.color === c}
+                    className={`w-8 h-8 rounded-full transition-all ${form.color === c ? 'ring-2 ring-offset-2 ring-offset-card ring-foreground scale-110' : 'hover:scale-105'}`}
+                    style={{ backgroundColor: c }}
+                    aria-label={`Cor ${c}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-3 cursor-pointer mt-1">
+              <input type="checkbox" checked={form.isDefault} onChange={e => setForm({ ...form, isDefault: e.target.checked })} className="w-4 h-4 accent-primary" />
+              <span className="text-sm text-foreground">Perfil padrão para novos usuários</span>
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setDialogOpen(false)} className={classeDoBotaoContorno}>
               Cancelar
             </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-error text-on-error hover:bg-error/90 px-6 py-2 rounded-full font-bold text-sm disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
-            >
-              {deleting ? 'Aguarde...' : 'Sim, Excluir'}
+            <button type="button" onClick={handleSave} disabled={saving} className={classeDoBotaoPrincipalMenor}>
+              {saving ? 'Salvando…' : (isEdit ? 'Salvar alterações' : 'Criar perfil')}
             </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excluir perfil: diz o que acontece antes */}
+      <ConfirmarExclusao
+        aberto={!!deleteTarget}
+        aoMudar={o => !o && setDeleteTarget(null)}
+        titulo="Excluir perfil"
+        rotuloDoBotao="Sim, excluir"
+        carregando={deleting}
+        aoConfirmar={() => void handleDelete()}
+      >
+        <p>
+          Tem certeza que deseja excluir o perfil <strong className="text-foreground">{deleteTarget?.name}</strong>? Não é possível excluir perfis em uso por usuários, tarifas ou campanhas.
+        </p>
+      </ConfirmarExclusao>
     </div>
   );
 };
-
-function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
-  return (
-    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
-      <div className="flex justify-between items-start">
-        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
-        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>{icon}</span>
-      </div>
-      <span className="text-3xl font-headline font-bold text-on-surface truncate">{value}</span>
-    </div>
-  );
-}
 
 export default Profiles;

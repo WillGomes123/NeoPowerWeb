@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Ticket, X } from 'lucide-react';
+import { Ticket } from 'lucide-react';
 import { dataLocal } from '../components/ui/utils';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import {
@@ -39,11 +39,12 @@ import {
 } from 'recharts';
 
 /*
- * Visão geral — redesenho de nov/2026 (Figma da Lauriane, Frames 14 e 16).
- * Segue o Figma; onde ele não diz nada, entram as correções do estudo de
- * usabilidade: período escrito em cada gráfico (H1), "última atualização" e
- * aviso de falha (H1), atalho para os carregadores offline (H1/H9), "Limpar
- * filtros" (H3) e o escopo dos filtros escrito no cabeçalho (H7).
+ * Visão geral — redesenho de nov/2026 (Figma da Lauriane, Frames 14 e 16),
+ * seguido à risca: cabeçalho só com título e subtítulo, cartões com título,
+ * período, valor e variação, e os textos dos gráficos como no Figma. Do estudo
+ * de usabilidade ficam só o que não muda o desenho: "última atualização" e
+ * aviso de falha no Atualizar (H1) e o bloco Offline que leva aos carregadores
+ * offline (H1/H9).
  */
 
 interface ChartPoint {
@@ -168,20 +169,10 @@ interface CartaoIndicadorProps {
   valor: ReactNode;
   /** Variação (%) — só quando há com o que comparar. */
   variacao?: number;
-  /** Linha de baixo, à direita: o detalhe que explica o número. */
-  rodape?: ReactNode;
 }
 
-/** Cartão de indicador do Figma: ícone, título, período, valor e variação. */
-function CartaoIndicador({
-  tom,
-  icone,
-  titulo,
-  subtitulo,
-  valor,
-  variacao,
-  rodape,
-}: CartaoIndicadorProps) {
+/** Cartão de indicador do Figma: ícone, título, período, valor e variação ("↑ +12 %"). */
+function CartaoIndicador({ tom, icone, titulo, subtitulo, valor, variacao }: CartaoIndicadorProps) {
   return (
     <section
       className={`${classeDoCartao} p-[22px] min-h-[165px] flex flex-col`}
@@ -197,43 +188,18 @@ function CartaoIndicador({
         </div>
       </div>
       <div className="mt-[18px]">{valor}</div>
-      {(variacao !== undefined || rodape) && (
-        <div className="mt-auto pt-3 flex items-end justify-between gap-3 text-sm">
-          {variacao !== undefined ? (
-            <span
-              className={`inline-flex items-center gap-1 text-[15px] font-medium ${variacao >= 0 ? 'text-primary-strong' : 'text-destructive'}`}
-            >
-              <span className={variacao >= 0 ? '' : 'rotate-180'}>
-                <Icone nome="seta-alta" tamanho={19} />
-              </span>
-              {variacao >= 0 ? '+' : '−'}
-              {Math.abs(variacao).toFixed(1).replace('.', ',')} %
-            </span>
-          ) : (
-            <span />
-          )}
-          {rodape && <div className="text-right text-muted-foreground min-w-0">{rodape}</div>}
-        </div>
+      {variacao !== undefined && (
+        <p
+          className={`mt-auto pt-3 inline-flex items-center gap-1 text-[15px] font-medium ${variacao >= 0 ? 'text-primary-strong' : 'text-destructive'}`}
+        >
+          <span className={variacao >= 0 ? '' : 'rotate-180'}>
+            <Icone nome="seta-alta" tamanho={19} />
+          </span>
+          {variacao >= 0 ? '+' : '−'}
+          {Math.abs(variacao).toFixed(1).replace('.', ',')} %
+        </p>
       )}
     </section>
-  );
-}
-
-/** Rótulo e valor do rodapé dos cartões, numa linha. */
-function LinhaDoRodape({
-  rotulo,
-  valor,
-  valorClasse = 'text-foreground',
-}: {
-  rotulo: string;
-  valor: string;
-  valorClasse?: string;
-}) {
-  return (
-    <p className="flex justify-end gap-2 whitespace-nowrap">
-      <span>{rotulo}</span>
-      <span className={`font-semibold tabular-nums ${valorClasse}`}>{valor}</span>
-    </p>
   );
 }
 
@@ -362,7 +328,7 @@ export const Overview = () => {
   const [estacoes, setEstacoes] = useState<EstacaoDaLista[]>([]);
   const [previousData, setPreviousData] = useState<OverviewData | null>(null);
 
-  const { isConnected, chargerStatuses } = useSocket();
+  const { chargerStatuses } = useSocket();
 
   const chargerCountRef = useRef(0);
   useEffect(() => {
@@ -495,14 +461,6 @@ export const Overview = () => {
     if (chargerId && !estacoesDoFiltro.some(e => e.charge_point_id === chargerId)) setChargerId('');
   }, [estacoesDoFiltro, chargerId]);
 
-  const temFiltro = !!(startDate || endDate || locationId || chargerId);
-  const limparFiltros = () => {
-    setStartDate('');
-    setEndDate('');
-    setLocationId('');
-    setChargerId('');
-  };
-
   const calculateChange = (current: number, previous: number | undefined): number | undefined => {
     if (!previous || previous === 0) return undefined;
     return ((current - previous) / previous) * 100;
@@ -555,14 +513,12 @@ export const Overview = () => {
   // recorta tudo por ela). O rótulo diz qual é, para ninguém somar meses
   // diferentes achando que são o mesmo número.
   const rotuloDoPeriodo = `${startDate ? dataCurta(startDate) : 'Início'} a ${endDate ? dataCurta(endDate) : 'hoje'}`;
-  const janelaDosGraficos = filtrado ? rotuloDoPeriodo : 'últimos 7 dias';
   const nomeDoLocal = (l: LocalDaLista) => l.nomeDoLocal || l.location_name || `Local ${l.id}`;
   const nomeDaEstacao = (e: EstacaoDaLista) => e.description?.trim() || e.charge_point_id;
-  const localEscolhido = locais.find(l => String(l.id) === locationId);
-  const estacaoEscolhida = estacoes.find(e => e.charge_point_id === chargerId);
   // A API devolve o escopo que de fato aplicou. Enquanto ela não estiver
-  // atualizada, o número é da rede toda — e dizer "Local: X" em cima disso seria
-  // mentira. Melhor avisar do que mostrar um total que não é daquele posto.
+  // atualizada, o número é da rede toda — e mostrar o local escolhido em cima
+  // disso seria mentira. Melhor avisar do que mostrar um total que não é
+  // daquele posto.
   const localConfirmado = !locationId || String(data?.locationId ?? '') === locationId;
   const estacaoConfirmada = !chargerId || String(data?.chargerId ?? '') === chargerId;
   const escopoConfirmado = localConfirmado && estacaoConfirmada;
@@ -613,13 +569,6 @@ export const Overview = () => {
 
   const mostraDepositos = isSuperAdmin && !comEscopo;
 
-  // Escopo dos filtros, escrito (estudo, H7): o que a tela está somando.
-  const escopo = [
-    filtrado ? `Período: ${rotuloDoPeriodo}` : 'Período: todo',
-    localEscolhido ? `Local: ${nomeDoLocal(localEscolhido)}` : 'Todos os locais',
-    estacaoEscolhida ? `Estação: ${nomeDaEstacao(estacaoEscolhida)}` : 'Todas as estações',
-  ].join(' · ');
-
   const statusItens = [
     {
       chave: 'livre',
@@ -657,41 +606,14 @@ export const Overview = () => {
         titulo="Visão geral"
         subtitulo="Acompanhe o desempenho da sua rede de recarga."
         detalhe={
-          <div className="space-y-1">
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>{escopo}</span>
-              <span
-                className="inline-flex items-center gap-1.5"
-                title={
-                  isConnected
-                    ? 'Status dos carregadores ao vivo'
-                    : 'Sem conexão ao vivo: os números se atualizam a cada minuto'
-                }
-              >
-                <span
-                  className={`w-2 h-2 rounded-full ${isConnected ? 'bg-estado-livre-forte animate-pulse' : 'bg-estado-offline-forte'}`}
-                />
-                {isConnected ? 'ao vivo' : 'sem ao vivo'}
-              </span>
-              {temFiltro && (
-                <button
-                  type="button"
-                  onClick={limparFiltros}
-                  className="inline-flex items-center gap-1 font-medium text-primary-strong hover:underline"
-                >
-                  <X className="w-3.5 h-3.5" aria-hidden="true" />
-                  Limpar filtros
-                </button>
-              )}
+          // Só o aviso, quando o servidor ainda não aplica o filtro escolhido.
+          !escopoConfirmado && (
+            <p className="text-amber-600 dark:text-amber-400">
+              {!localConfirmado
+                ? 'Servidor ainda não filtra por local — números da rede toda.'
+                : 'Servidor ainda não filtra por estação — números sem esse filtro.'}
             </p>
-            {!escopoConfirmado && (
-              <p className="text-amber-600 dark:text-amber-400">
-                {!localConfirmado
-                  ? 'Servidor ainda não filtra por local — números da rede toda.'
-                  : 'Servidor ainda não filtra por estação — números sem esse filtro.'}
-              </p>
-            )}
-          </div>
+          )
         }
         filtros={
           <>
@@ -781,40 +703,6 @@ export const Overview = () => {
           }
           valor={<ValorGrande prefixo="R$" valor={fmt(netRevenue)} />}
           variacao={revenueChange}
-          rodape={
-            doLocal ? (
-              // De onde sai o número de cima: receita − comissão = repasse.
-              <>
-                <LinhaDoRodape
-                  rotulo={`Recargas (${doLocal.recargas})`}
-                  valor={`R$ ${fmt(doLocal.receita)}`}
-                />
-                {!doLocal.comissaoOculta && (
-                  <LinhaDoRodape
-                    rotulo={`Comissão (${doLocal.comissaoPercent}%)`}
-                    valor={`− R$ ${fmt(doLocal.comissao ?? 0)}`}
-                  />
-                )}
-                {doLocal.liquidoNeoPower !== undefined && (
-                  <LinhaDoRodape
-                    rotulo="Líquido NeoPower"
-                    valor={`R$ ${fmt(doLocal.liquidoNeoPower)}`}
-                    valorClasse="text-primary-strong"
-                  />
-                )}
-              </>
-            ) : (
-              // Recargas à parte: consumo do saldo, não soma na receita.
-              <LinhaDoRodape
-                rotulo={isSuperAdmin ? 'Recargas (consumo)' : 'Transações'}
-                valor={
-                  isSuperAdmin
-                    ? `R$ ${fmt(data.revenueTotal || 0)}`
-                    : String(data.transactionsTotal || 0)
-                }
-              />
-            )
-          }
         />
 
         <CartaoIndicador
@@ -828,9 +716,6 @@ export const Overview = () => {
               valor={fmt(filtrado ? data.revenueToday : data.revenueMonth)}
             />
           }
-          rodape={
-            !filtrado && <LinhaDoRodape rotulo="Hoje" valor={`R$ ${fmt(data.revenueToday)}`} />
-          }
         />
 
         {/* Depósitos: só a plataforma (a API não manda os do operador) e só na
@@ -842,16 +727,6 @@ export const Overview = () => {
             titulo="Depósitos recebidos"
             subtitulo={filtrado ? rotuloDoPeriodo : 'Todo o histórico'}
             valor={<ValorGrande prefixo="R$" valor={fmt(grossDeposits)} />}
-            rodape={
-              <>
-                <LinhaDoRodape rotulo="Depósitos" valor={String(data.depositsCount || 0)} />
-                <LinhaDoRodape
-                  rotulo="Taxa Mercado Pago"
-                  valor={`− R$ ${fmt(data.mercadoPagoFee || 0)}`}
-                  valorClasse="text-destructive"
-                />
-              </>
-            }
           />
         )}
 
@@ -863,9 +738,6 @@ export const Overview = () => {
           valor={
             <ValorGrande valor={fmt(filtrado ? data.kwhToday : data.kwhMonth, 1)} sufixo="kWh" />
           }
-          rodape={
-            !filtrado && <LinhaDoRodape rotulo="Hoje" valor={`${fmt(data.kwhToday, 1)} kWh`} />
-          }
         />
       </div>
 
@@ -875,8 +747,8 @@ export const Overview = () => {
           <CabecalhoDoCartao
             icone={<Icone nome="grafico-linha" tamanho={30} altura={25} />}
             titulo="Análise da receita"
-            subtitulo={`Receita diária das recargas · ${janelaDosGraficos}`}
-            selo={<Selo>Receita (R$)</Selo>}
+            subtitulo="Evolução da receita no período selecionado"
+            selo={<Selo>Receita líquida</Selo>}
           />
           <div className="mt-4">
             {!data.last7DaysRevenue?.length ? (
@@ -945,7 +817,8 @@ export const Overview = () => {
           <CabecalhoDoCartao
             icone={<Icone nome="grafico-barras" />}
             titulo="Consumo de energia"
-            subtitulo={`Energia diária entregue (kWh) · ${janelaDosGraficos}`}
+            // O Figma repetiu aqui o subtítulo da receita, por engano.
+            subtitulo="Evolução do consumo no período selecionado"
             selo={<Selo>Diária</Selo>}
           />
           <div className="mt-4">
@@ -1003,7 +876,8 @@ export const Overview = () => {
             subtitulo="Conectividade e uso da rede"
             selo={
               statusTotal > 0 && (
-                <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                // Claro: só o texto (Frame 14). Escuro: na pílula verde do Frame 16.
+                <span className="shrink-0 inline-flex items-center text-sm font-medium text-foreground whitespace-nowrap dark:h-[30px] dark:px-6 dark:rounded-[25px] dark:border dark:border-primary dark:bg-primary/50">
                   {statusPct(statusConectados)}% conectados
                 </span>
               )
@@ -1099,20 +973,6 @@ export const Overview = () => {
                   </div>
                 )}
               </div>
-
-              {statusCounts.offline > 0 && (
-                <p className="text-sm text-foreground">
-                  {statusCounts.offline === statusTotal
-                    ? 'Todos os carregadores estão offline. '
-                    : `${statusCounts.offline} carregador${statusCounts.offline === 1 ? '' : 'es'} sem conexão. `}
-                  <Link
-                    to="/estacoes?estado=offline"
-                    className="font-semibold text-primary-strong hover:underline"
-                  >
-                    Ver quais →
-                  </Link>
-                </p>
-              )}
             </div>
           )}
         </section>

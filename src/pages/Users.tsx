@@ -1,22 +1,65 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
+  ArrowLeftRight,
+  BadgeCheck,
+  Check,
+  MapPin,
+  Monitor,
+  MoreVertical,
+  Pencil,
+  Phone,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  User,
+  UserPlus,
+  Users as IconeUsuarios,
+  X,
+} from 'lucide-react';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '../components/ui/dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
   DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
 } from '../components/ui/dropdown-menu';
-import {
-  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '../components/ui/alert-dialog';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { cn } from '../components/ui/utils';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
+import {
+  AbasDaPagina,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  CartaoContador,
+} from '../components/painel/Pagina';
+import {
+  BarraDeFiltros,
+  CampoDeBusca,
+  classeDoBotaoContorno,
+  classeDoBotaoPrincipal,
+} from '../components/painel/Pecas';
+import {
+  CabecalhoDoCartao,
+  CarregandoPagina,
+  ConfirmarExclusao,
+  EstadoVazio,
+  classeDaEtiqueta,
+  classeDaTabela,
+  classeDoBotaoDeIcone,
+  classeDoCartaoDaTabela,
+  classeDoTd,
+  classeDoTh,
+  classeDoBotaoPrincipalMenor,
+  classeDoCampo,
+  classeDoDialogo,
+  classeDoRotulo,
+  classeDoSelectPequeno,
+} from '../components/configuracoes/Pecas';
 
 type ManagedRole = 'admin' | 'operador' | 'comum' | 'blocked';
 type Platform = 'web' | 'mobile' | null;
@@ -52,6 +95,8 @@ export const Users = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userLocations, setUserLocations] = useState<{ locationId: number; locationAddress: string }[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,7 +122,12 @@ export const Users = () => {
       if (!r.ok) throw new Error();
       const d = await r.json();
       setUsers(Array.isArray(d) ? d : []);
-    } catch { toast.error('Erro ao buscar usuários'); }
+      setAtualizadoEm(new Date());
+      setFalhou(false);
+    } catch {
+      setFalhou(true);
+      toast.error('Erro ao buscar usuários');
+    }
     finally { setLoading(false); }
   };
 
@@ -198,7 +248,7 @@ export const Users = () => {
       const normalizedEmail = editUserData.email.trim().toLowerCase();
       const payload: any = { name: editUserData.name, email: normalizedEmail, role: editUserData.role, phone: editUserData.phone || undefined, platform: editUserData.platform, profileId: editUserData.profileId ? parseInt(editUserData.profileId) : null };
       if (editUserData.password) payload.password = editUserData.password;
-      
+
       const r = await api.put(`/admin/users/${editUserData.id}`, payload);
       if (!r.ok) { const d = await r.json(); throw new Error(d.error || 'Erro'); }
       toast.success('Usuário atualizado!');
@@ -243,501 +293,354 @@ export const Users = () => {
     return phone;
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+  // Só a primeira carga troca a tela pelo carregando; depois, o "Atualizar" mostra.
+  if (loading && !atualizadoEm && users.length === 0) {
+    return <CarregandoPagina />;
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">ACCESS CONTROL</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Usuários</h1>
-          <p className="text-on-surface-variant mt-1">Gerenciamento de usuários, funções e permissões de acesso</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => void fetchUsers()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
-            <span className="material-symbols-outlined text-lg">refresh</span>
-            Atualizar
-          </button>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <button className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all">
-                <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>person_add</span>
-                Novo Usuário
-              </button>
-            </DialogTrigger>
-            <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
-              <DialogHeader>
-                <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-                  <span className="material-symbols-outlined text-primary">person_add</span>
-                  Criar Novo Usuário
-                </DialogTitle>
-                <DialogDescription className="text-on-surface-variant">
-                  Preencha os dados para criar um novo usuário no sistema.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nome</Label>
-                  <Input value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome completo" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Email</Label>
-                  <Input type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@exemplo.com" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Senha</Label>
-                  <Input type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Mínimo 8 caracteres" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Função</Label>
-                    <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v as ManagedRole })}>
-                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-surface-container border-outline-variant/20">
-                        <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
-<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
-                        <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Acesso do Usuário</Label>
-                    <Select value={newUser.platform} onValueChange={v => setNewUser({ ...newUser, platform: v as 'web' | 'app' | 'ambos' })}>
-                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
-                      <SelectContent className="bg-surface-container border-outline-variant/20">
-                        <SelectItem value="web" className="text-on-surface focus:bg-surface-container-highest">Painel Web</SelectItem>
-                        <SelectItem value="app" className="text-on-surface focus:bg-surface-container-highest">App Mobile</SelectItem>
-                        <SelectItem value="ambos" className="text-on-surface focus:bg-surface-container-highest">Ambos</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
-                    <Input value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Perfil de Cliente</Label>
-                    <Select value={newUser.profileId || 'none'} onValueChange={v => setNewUser({ ...newUser, profileId: v === 'none' ? '' : v })}>
-                      <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
-                      <SelectContent className="bg-surface-container border-outline-variant/20">
-                        <SelectItem value="none" className="text-on-surface-variant focus:bg-surface-container-highest">Sem perfil (tarifa global)</SelectItem>
-                        {profiles.map(p => (
-                          <SelectItem key={p.id} value={String(p.id)} className="text-on-surface focus:bg-surface-container-highest">{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setCreateDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</Button>
-                <button onClick={handleCreateUser} disabled={creating} className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
-                  {creating ? 'Criando...' : 'Criar Usuário'}
-                </button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        rotulo="Controle de acesso"
+        titulo="Usuários"
+        subtitulo="Gerenciamento de usuários, funções e permissões de acesso"
+        acoes={
+          <>
+            <button type="button" onClick={() => setCreateDialogOpen(true)} className={classeDoBotaoPrincipal}>
+              <UserPlus className="w-5 h-5" aria-hidden="true" />
+              Novo usuário
+            </button>
+            <BotaoAtualizar
+              aoAtualizar={() => void fetchUsers()}
+              carregando={loading}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou}
+            />
+          </>
+        }
+      />
+
+      {/* Contadores */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[25px]">
+        <CartaoContador icone={<IconeUsuarios className="w-7 h-7" />} rotulo="Usuários" valor={users.length} />
+        <CartaoContador icone={<ShieldCheck className="w-7 h-7" />} rotulo="Admins" valor={users.filter(u => u.role === 'admin').length} />
+        <CartaoContador
+          icone={<Monitor className="w-7 h-7" />}
+          rotulo="Painel web"
+          valor={webUsers.length}
+          fundoDoIcone="bg-tom-azul text-tom-azul-icone"
+        />
+        <CartaoContador
+          icone={<Smartphone className="w-7 h-7" />}
+          rotulo="App mobile"
+          valor={mobileUsers.length}
+          fundoDoIcone="bg-tom-amarelo text-tom-amarelo-icone"
+        />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <SummaryCard icon="group" label="TOTAL USUÁRIOS" value={String(users.length)} />
-        <SummaryCard icon="admin_panel_settings" label="ADMINS" value={String(users.filter(u => u.role === 'admin').length)} color="text-primary" />
-        <SummaryCard icon="desktop_windows" label="USUÁRIOS WEB" value={String(webUsers.length)} color="text-foreground" />
-        <SummaryCard icon="smartphone" label="USUÁRIOS MOBILE" value={String(mobileUsers.length)} color="text-foreground" />
-      </div>
+      <AbasDaPagina
+        rotulo="Usuários por plataforma"
+        ativa={platformTab}
+        aoMudar={setPlatformTab}
+        abas={[
+          { id: 'web', rotulo: 'Painel web', icone: <Monitor className="w-5 h-5" aria-hidden="true" />, contador: webUsers.length },
+          { id: 'mobile', rotulo: 'App mobile', icone: <Smartphone className="w-5 h-5" aria-hidden="true" />, contador: mobileUsers.length },
+        ]}
+      />
 
-      {/* Platform Tabs */}
-      <div className="flex items-center gap-2 border-b border-outline-variant/10">
-        <button
-          onClick={() => setPlatformTab('web')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
-            platformTab === 'web'
-              ? 'text-primary border-primary'
-              : 'text-on-surface-variant border-transparent hover:text-on-surface'
-          }`}
-        >
-          <span className="material-symbols-outlined text-base">desktop_windows</span>
-          Painel Web
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            platformTab === 'web' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
-          }`}>
-            {webUsers.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setPlatformTab('mobile')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold transition-colors border-b-2 -mb-px ${
-            platformTab === 'mobile'
-              ? 'text-primary border-primary'
-              : 'text-on-surface-variant border-transparent hover:text-on-surface'
-          }`}
-        >
-          <span className="material-symbols-outlined text-base">smartphone</span>
-          App Mobile
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-            platformTab === 'mobile' ? 'bg-primary/15 text-primary' : 'bg-surface-container-highest text-on-surface-variant'
-          }`}>
-            {mobileUsers.length}
-          </span>
-        </button>
-      </div>
-
-      {/* Search */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por nome, email ou telefone..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/20 text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-          />
-        </div>
+      <BarraDeFiltros>
+        <CampoDeBusca
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Buscar por nome, email ou telefone..."
+          aria-label="Buscar por nome, email ou telefone"
+        />
         {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="px-3 py-2 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-foreground transition-colors text-xs font-bold flex items-center gap-1"
-            title="Limpar busca"
-          >
-            <span className="material-symbols-outlined text-sm">close</span>
+          <button type="button" onClick={() => setSearchQuery('')} className={classeDoBotaoContorno}>
+            <X className="w-4 h-4" aria-hidden="true" />
             Limpar
           </button>
         )}
-      </div>
+      </BarraDeFiltros>
 
-      {/* Users Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">
-              {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
-            </span>
-            {platformTab === 'web' ? 'Usuários do Painel Web' : 'Usuários do App Mobile'}
-          </h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{visibleUsers.length} registros</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                <th className="px-6 py-4">Usuário</th>
-                <th className="px-6 py-4">Telefone</th>
-                <th className="px-6 py-4">Função</th>
-                <th className="px-6 py-4">Perfil</th>
-                <th className="px-6 py-4">Marca</th>
-                <th className="px-6 py-4">Locais</th>
-                <th className="px-6 py-4">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/5">
-              {visibleUsers.length === 0 && (
+      {/* Tabela (linhas verdes arredondadas, como Notificações e Alarmes no Figma) */}
+      <section className={classeDoCartaoDaTabela} aria-label="Lista de usuários">
+        <CabecalhoDoCartao
+          titulo={platformTab === 'web' ? 'Usuários do painel web' : 'Usuários do app mobile'}
+          detalhe={`${visibleUsers.length} registros`}
+        />
+        {visibleUsers.length === 0 ? (
+          <EstadoVazio icone={platformTab === 'web' ? <Monitor className="w-10 h-10" /> : <Smartphone className="w-10 h-10" />}>
+            {platformTab === 'web'
+              ? 'Nenhum usuário web cadastrado. Crie um pelo botão "Novo usuário".'
+              : 'Nenhum usuário mobile cadastrado. Os usuários do app aparecem aqui ao se registrarem.'}
+          </EstadoVazio>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className={classeDaTabela}>
+              <thead>
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
-                    <span className="material-symbols-outlined text-4xl text-outline mb-3 block">
-                      {platformTab === 'web' ? 'desktop_windows' : 'smartphone'}
-                    </span>
-                    <p className="text-sm text-on-surface-variant">
-                      {platformTab === 'web'
-                        ? 'Nenhum usuário web cadastrado. Crie um pelo botão "Novo Usuário".'
-                        : 'Nenhum usuário mobile cadastrado. Os usuários do app aparecem aqui ao se registrarem.'}
-                    </p>
-                  </td>
+                  <th className={classeDoTh}>Usuário</th>
+                  <th className={classeDoTh}>Telefone</th>
+                  <th className={classeDoTh}>Função</th>
+                  <th className={classeDoTh}>Perfil</th>
+                  <th className={classeDoTh}>Marca</th>
+                  <th className={classeDoTh}>Locais</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Ações</th>
                 </tr>
-              )}
-              {visibleUsers.map(user => (
-                <tr key={user.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                  {/* Name + Email */}
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
-                        <span className="material-symbols-outlined text-lg">person</span>
+              </thead>
+              <tbody>
+                {visibleUsers.map(user => (
+                  <tr key={user.id} className="group">
+                    {/* Nome e e-mail */}
+                    <td className={classeDoTd}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span
+                          className="w-9 h-9 rounded-full bg-card text-muted-foreground flex items-center justify-center shrink-0"
+                          aria-hidden="true"
+                        >
+                          <User className="w-5 h-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{user.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-on-surface">{user.name}</p>
-                        <p className="text-[11px] text-on-surface-variant">{user.email}</p>
-                      </div>
-                    </div>
-                  </td>
+                    </td>
 
-                  {/* Phone */}
-                  <td className="px-6 py-4">
-                    {editingPhone === user.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input type="tel" value={phoneValue} onChange={e => setPhoneValue(e.target.value)} placeholder="(92) 99999-9999" className="w-36 h-8 bg-surface-container-low border-outline-variant/20 text-on-surface text-sm" />
-                        <button onClick={() => handlePhoneUpdate(user.id)} className="w-7 h-7 rounded-md bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors">
-                          <span className="material-symbols-outlined text-sm">check</span>
-                        </button>
-                        <button onClick={() => { setEditingPhone(null); setPhoneValue(''); }} className="w-7 h-7 rounded-md bg-error/10 text-error flex items-center justify-center hover:bg-error/20 transition-colors">
-                          <span className="material-symbols-outlined text-sm">close</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-on-surface-variant">phone</span>
-                        <span className="text-sm text-on-surface-variant">{formatPhone(user.phone)}</span>
-                        <button onClick={() => { setEditingPhone(user.id); setPhoneValue(user.phone || ''); }} className="w-6 h-6 rounded-md text-outline hover:text-primary hover:bg-surface-container-highest flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
-                          <span className="material-symbols-outlined text-xs">edit</span>
-                        </button>
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Role */}
-                  <td className="px-6 py-4">
-                    <Select value={user.role} onValueChange={v => handleRoleChange(user.id, v as ManagedRole)}>
-                      <SelectTrigger className="w-[130px] bg-surface-container-low border-outline-variant/20 text-on-surface text-sm h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-surface-container border-outline-variant/20">
-                        <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
-<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
-                        <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
-                        <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-
-                  {/* Profile (segmento de cliente) */}
-                  <td className="px-6 py-4">
-                    {user.profileName ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary/10 text-secondary border border-secondary/20 text-[10px] font-bold">
-                        <span className="material-symbols-outlined text-xs">badge</span>
-                        {user.profileName}
-                      </span>
-                    ) : (
-                      <span className="text-on-surface-variant text-xs">—</span>
-                    )}
-                  </td>
-
-                  {/* Brand */}
-                  <td className="px-6 py-4">
-                    {user.clientId ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 text-[10px] font-bold font-mono uppercase">
-                        {user.clientId}
-                      </span>
-                    ) : (
-                      <span className="text-on-surface-variant text-xs">Padrão</span>
-                    )}
-                  </td>
-
-                  {/* Locations */}
-                  <td className="px-6 py-4">
-                    {user.locationIds ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-highest text-on-surface border border-outline-variant/10 text-xs font-bold">
-                        <span className="material-symbols-outlined text-xs">location_on</span>
-                        {user.locationIds.length}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold">
-                        TODOS
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-6 py-4">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-surface-container-highest transition-colors text-on-surface-variant outline-none focus:ring-2 focus:ring-primary/20">
-                          <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 bg-surface-container border-outline-variant/20">
-                        {user.role !== 'admin' && user.role !== 'blocked' && (
-                          <DropdownMenuItem
-                            onClick={() => handleManageLocations(user)}
-                            className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
+                    {/* Telefone */}
+                    <td className={classeDoTd}>
+                      {editingPhone === user.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="tel"
+                            value={phoneValue}
+                            onChange={e => setPhoneValue(e.target.value)}
+                            placeholder="(92) 99999-9999"
+                            aria-label={`Telefone de ${user.name}`}
+                            className="w-40 h-9 rounded-[25px] bg-card border-border text-foreground text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handlePhoneUpdate(user.id)}
+                            className="w-8 h-8 rounded-full bg-primary-soft text-primary-strong flex items-center justify-center hover:brightness-95 transition"
+                            aria-label="Salvar telefone"
                           >
-                            <span className="material-symbols-outlined text-[18px] text-tertiary">location_on</span>
-                            Gerenciar Locais
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingPhone(null); setPhoneValue(''); }}
+                            className="w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center hover:text-foreground transition"
+                            aria-label="Cancelar"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          <Phone className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                          <span className="text-sm text-foreground">{formatPhone(user.phone)}</span>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingPhone(user.id); setPhoneValue(user.phone || ''); }}
+                            className={cn(classeDoBotaoDeIcone, 'w-7 h-7 opacity-0 group-hover:opacity-100 focus-visible:opacity-100')}
+                            aria-label={`Editar telefone de ${user.name}`}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Função */}
+                    <td className={classeDoTd}>
+                      <Select value={user.role} onValueChange={v => handleRoleChange(user.id, v as ManagedRole)}>
+                        <SelectTrigger className={`w-[140px] ${classeDoSelectPequeno}`} aria-label={`Função de ${user.name}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="operador">Operador</SelectItem>
+                          <SelectItem value="comum">Comum</SelectItem>
+                          <SelectItem value="blocked" className="text-destructive focus:text-destructive">Bloqueado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+
+                    {/* Perfil (segmento de cliente) */}
+                    <td className={classeDoTd}>
+                      {user.profileName ? (
+                        <span className={`${classeDaEtiqueta} bg-primary-soft text-primary-strong`}>
+                          <BadgeCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                          {user.profileName}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </td>
+
+                    {/* Marca */}
+                    <td className={classeDoTd}>
+                      {user.clientId ? (
+                        <span className={`${classeDaEtiqueta} bg-tom-azul text-tom-azul-icone font-mono`}>
+                          {user.clientId}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Padrão</span>
+                      )}
+                    </td>
+
+                    {/* Locais */}
+                    <td className={classeDoTd}>
+                      {user.locationIds ? (
+                        <span className={`${classeDaEtiqueta} bg-card text-foreground`}>
+                          <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+                          {user.locationIds.length}
+                        </span>
+                      ) : (
+                        <span className={`${classeDaEtiqueta} bg-primary-soft text-primary-strong`}>Todos</span>
+                      )}
+                    </td>
+
+                    {/* Ações */}
+                    <td className={`${classeDoTd} text-right`}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" className={classeDoBotaoDeIcone} aria-label={`Ações de ${user.name}`}>
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-[10px]">
+                          {user.role !== 'admin' && user.role !== 'blocked' && (
+                            <DropdownMenuItem
+                              onClick={() => handleManageLocations(user)}
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <MapPin className="w-4 h-4" aria-hidden="true" />
+                              Gerenciar locais
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => openEditModal(user)}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <Pencil className="w-4 h-4" aria-hidden="true" />
+                            Editar usuário
                           </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => openEditModal(user)}
-                          className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
-                        >
-                          <span className="material-symbols-outlined text-[18px] text-primary">edit</span>
-                          Editar Usuário
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest">
-                            <span className="material-symbols-outlined text-[18px] text-on-surface-variant">sync_alt</span>
-                            Alterar Acesso
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="bg-surface-container border-outline-variant/20 w-44">
-                            <DropdownMenuItem
-                              onClick={() => handlePlatformAccessChange(user.id, 'web')}
-                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
-                            >
-                              <span className="material-symbols-outlined text-[16px] text-primary">desktop_windows</span>
-                              Painel Web
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handlePlatformAccessChange(user.id, 'mobile')}
-                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
-                            >
-                              <span className="material-symbols-outlined text-[16px] text-tertiary">smartphone</span>
-                              App Mobile
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handlePlatformAccessChange(user.id, null)}
-                              className="flex items-center gap-2 cursor-pointer text-on-surface focus:bg-surface-container-highest"
-                            >
-                              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">sync_alt</span>
-                              Ambos
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
 
-                        <DropdownMenuSeparator className="bg-outline-variant/10" />
-                        <DropdownMenuItem
-                          onClick={() => { setSelectedUser(user); setDeleteUserDialogOpen(true); }}
-                          className="flex items-center gap-2 cursor-pointer text-error focus:bg-error/10 focus:text-error"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                          Excluir Usuário
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
+                              <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
+                              Alterar acesso
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-44 rounded-[10px]">
+                              <DropdownMenuItem
+                                onClick={() => handlePlatformAccessChange(user.id, 'web')}
+                                className="flex items-center gap-2 cursor-pointer"
+                              >
+                                <Monitor className="w-4 h-4" aria-hidden="true" />
+                                Painel web
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handlePlatformAccessChange(user.id, 'mobile')}
+                                className="flex items-center gap-2 cursor-pointer"
+                              >
+                                <Smartphone className="w-4 h-4" aria-hidden="true" />
+                                App
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handlePlatformAccessChange(user.id, null)}
+                                className="flex items-center gap-2 cursor-pointer"
+                              >
+                                <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
+                                Ambos
+                              </DropdownMenuItem>
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
 
-      {/* Gerenciar Locais Dialog (Standalone) */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 text-on-surface">
+                          {/* Excluir fica separado e em vermelho */}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => { setSelectedUser(user); setDeleteUserDialogOpen(true); }}
+                            className="flex items-center gap-2 cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" aria-hidden="true" />
+                            Excluir usuário
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Novo usuário */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className={`${classeDoDialogo} sm:max-w-[520px]`}>
           <DialogHeader>
-            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">location_on</span>
-              Gerenciar Locais — {selectedUser?.name}
+            <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary-strong" aria-hidden="true" />
+              Criar novo usuário
             </DialogTitle>
-            <DialogDescription className="text-on-surface-variant">
-              Adicione ou remova locais que este usuário pode acessar
+            <DialogDescription className="text-muted-foreground">
+              Preencha os dados para criar um novo usuário no sistema.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="grid gap-4 py-2">
             <div className="space-y-2">
-              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Adicionar Local</label>
-              <Select onValueChange={handleAddLocation}>
-                <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface">
-                  <SelectValue placeholder="Selecione um local" />
-                </SelectTrigger>
-                <SelectContent className="bg-surface-container border-outline-variant/20">
-                  {locations.filter(l => !userLocations.some(ul => ul.locationId === l.id)).map(l => (
-                    <SelectItem key={l.id} value={l.id.toString()} className="text-on-surface focus:bg-surface-container-highest">{l.nomeDoLocal}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="novo-nome" className={classeDoRotulo}>Nome</Label>
+              <Input id="novo-nome" value={newUser.name} onChange={e => setNewUser({ ...newUser, name: e.target.value })} placeholder="Nome completo" className={classeDoCampo} />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Locais Permitidos</label>
-              {userLocations.length === 0 ? (
-                <p className="text-on-surface-variant text-sm py-4 text-center">Nenhum local atribuído</p>
-              ) : (
-                <div className="space-y-2">
-                  {userLocations.map(ul => (
-                    <div key={ul.locationId} className="flex items-center justify-between p-3 rounded-lg bg-surface-container-low border border-outline-variant/5">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-                        <span className="text-sm text-on-surface">{locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}</span>
-                      </div>
-                      <button onClick={() => handleRemoveLocation(ul.locationId)} className="text-error text-xs font-bold hover:bg-error/10 px-2 py-1 rounded transition-colors">
-                        Remover
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-end pt-4 border-t border-outline-variant/10">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Fechar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">edit</span>
-              Editar Usuário
-            </DialogTitle>
-            <DialogDescription className="text-on-surface-variant">
-              Atualize as informações principais do usuário
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nome</Label>
-                <Input value={editUserData.name} onChange={e => setEditUserData({ ...editUserData, name: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Função</Label>
-                <Select value={editUserData.role} onValueChange={v => setEditUserData({ ...editUserData, role: v as ManagedRole })}>
-                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-surface-container border-outline-variant/20">
-                    <SelectItem value="admin" className="text-on-surface focus:bg-surface-container-highest">Admin</SelectItem>
-<SelectItem value="operador" className="text-on-surface focus:bg-surface-container-highest">Operador</SelectItem>
-                    <SelectItem value="comum" className="text-on-surface focus:bg-surface-container-highest">Comum</SelectItem>
-                    <SelectItem value="blocked" className="text-error focus:bg-error/10">Bloqueado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Label htmlFor="novo-email" className={classeDoRotulo}>Email</Label>
+              <Input id="novo-email" type="email" value={newUser.email} onChange={e => setNewUser({ ...newUser, email: e.target.value })} placeholder="email@exemplo.com" className={classeDoCampo} />
             </div>
             <div className="space-y-2">
-              <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Email</Label>
-              <Input type="email" value={editUserData.email} onChange={e => setEditUserData({ ...editUserData, email: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+              <Label htmlFor="novo-senha" className={classeDoRotulo}>Senha</Label>
+              <Input id="novo-senha" type="password" value={newUser.password} onChange={e => setNewUser({ ...newUser, password: e.target.value })} placeholder="Mínimo 8 caracteres" className={classeDoCampo} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Acesso do Usuário</Label>
-                <Select value={editUserData.platform} onValueChange={v => setEditUserData({ ...editUserData, platform: v as any })}>
-                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue /></SelectTrigger>
-                  <SelectContent className="bg-surface-container border-outline-variant/20">
-                    <SelectItem value="web" className="text-on-surface focus:bg-surface-container-highest">Painel Web</SelectItem>
-                    <SelectItem value="app" className="text-on-surface focus:bg-surface-container-highest">App Mobile</SelectItem>
-                    <SelectItem value="ambos" className="text-on-surface focus:bg-surface-container-highest">Ambos</SelectItem>
+                <Label className={classeDoRotulo}>Função</Label>
+                <Select value={newUser.role} onValueChange={v => setNewUser({ ...newUser, role: v as ManagedRole })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Função"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="operador">Operador</SelectItem>
+                    <SelectItem value="comum">Comum</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Nova Senha</Label>
-                <Input type="password" placeholder="Deixe em branco p/ manter" value={editUserData.password} onChange={e => setEditUserData({ ...editUserData, password: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label className={classeDoRotulo}>Acesso do usuário</Label>
+                <Select value={newUser.platform} onValueChange={v => setNewUser({ ...newUser, platform: v as 'web' | 'app' | 'ambos' })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Acesso do usuário"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="web">Painel web</SelectItem>
+                    <SelectItem value="app">App mobile</SelectItem>
+                    <SelectItem value="ambos">Ambos</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Telefone</Label>
-                <Input value={editUserData.phone} onChange={e => setEditUserData({ ...editUserData, phone: e.target.value })} className="bg-surface-container-low border-outline-variant/20 text-on-surface" />
+                <Label htmlFor="novo-telefone" className={classeDoRotulo}>Telefone</Label>
+                <Input id="novo-telefone" value={newUser.phone} onChange={e => setNewUser({ ...newUser, phone: e.target.value })} placeholder="(92) 99999-9999" className={classeDoCampo} />
               </div>
               <div className="space-y-2">
-                <Label className="text-on-surface-variant text-xs uppercase tracking-widest">Perfil de Cliente</Label>
-                <Select value={editUserData.profileId || 'none'} onValueChange={v => setEditUserData({ ...editUserData, profileId: v === 'none' ? '' : v })}>
-                  <SelectTrigger className="bg-surface-container-low border-outline-variant/20 text-on-surface"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
-                  <SelectContent className="bg-surface-container border-outline-variant/20">
-                    <SelectItem value="none" className="text-on-surface-variant focus:bg-surface-container-highest">Sem perfil (tarifa global)</SelectItem>
+                <Label className={classeDoRotulo}>Perfil de cliente</Label>
+                <Select value={newUser.profileId || 'none'} onValueChange={v => setNewUser({ ...newUser, profileId: v === 'none' ? '' : v })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Perfil de cliente"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-muted-foreground">Sem perfil (tarifa global)</SelectItem>
                     {profiles.map(p => (
-                      <SelectItem key={p.id} value={String(p.id)} className="text-on-surface focus:bg-surface-container-highest">{p.name}</SelectItem>
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -745,50 +648,164 @@ export const Users = () => {
             </div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => setEditUserDialogOpen(false)} className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</Button>
-            <button onClick={handleEditUser} disabled={editing} className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50">
-              {editing ? 'Salvando...' : 'Salvar Alterações'}
+            <button type="button" onClick={() => setCreateDialogOpen(false)} className={classeDoBotaoContorno}>Cancelar</button>
+            <button type="button" onClick={handleCreateUser} disabled={creating} className={classeDoBotaoPrincipalMenor}>
+              {creating ? 'Criando…' : 'Criar usuário'}
             </button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
-        <AlertDialogContent className="bg-surface-container border-outline-variant/20 font-sans">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-on-surface font-headline text-xl">Excluir Usuário</AlertDialogTitle>
-            <AlertDialogDescription className="text-on-surface-variant">
-              Tem certeza que deseja excluir o usuário <strong>{selectedUser?.name}</strong>? Esta ação removerá o acesso dele ao sistema permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-outline-variant/20 text-on-surface hover:bg-surface-container-highest rounded-full px-6">
-              Cancelar
-            </AlertDialogCancel>
-            <button
-              onClick={handleDeleteUser}
-              disabled={deleting}
-              className="bg-error text-on-error hover:bg-error/90 px-6 py-2 rounded-full font-bold text-sm disabled:opacity-50 transition-all hover:scale-105 active:scale-95"
-            >
-              {deleting ? 'Aguarde...' : 'Sim, Excluir'}
-            </button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Gerenciar locais */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className={classeDoDialogo}>
+          <DialogHeader>
+            <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary-strong" aria-hidden="true" />
+              Gerenciar locais — {selectedUser?.name}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Adicione ou remova locais que este usuário pode acessar
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div className="space-y-2">
+              <Label className={classeDoRotulo}>Adicionar local</Label>
+              <Select onValueChange={handleAddLocation}>
+                <SelectTrigger className={classeDoCampo} aria-label="Adicionar local">
+                  <SelectValue placeholder="Selecione um local" />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.filter(l => !userLocations.some(ul => ul.locationId === l.id)).map(l => (
+                    <SelectItem key={l.id} value={l.id.toString()}>{l.nomeDoLocal}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <p className={classeDoRotulo}>Locais permitidos</p>
+              {userLocations.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-4 text-center">Nenhum local atribuído</p>
+              ) : (
+                <ul className="space-y-2">
+                  {userLocations.map(ul => (
+                    <li key={ul.locationId} className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-[10px] bg-muted/60">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <MapPin className="w-4 h-4 text-primary-strong shrink-0" aria-hidden="true" />
+                        <span className="text-sm text-foreground truncate">{locations.find(l => l.id === ul.locationId)?.nomeDoLocal || ul.locationAddress}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLocation(ul.locationId)}
+                        className="text-destructive text-sm font-medium hover:bg-destructive/10 px-3 h-8 rounded-[25px] transition-colors shrink-0"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end pt-4 border-t border-border">
+            <button type="button" onClick={() => setDialogOpen(false)} className={classeDoBotaoContorno}>Fechar</button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      {/* Editar usuário */}
+      <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
+        <DialogContent className={`${classeDoDialogo} sm:max-w-[520px]`}>
+          <DialogHeader>
+            <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary-strong" aria-hidden="true" />
+              Editar usuário
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Atualize as informações principais do usuário
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editar-nome" className={classeDoRotulo}>Nome</Label>
+                <Input id="editar-nome" value={editUserData.name} onChange={e => setEditUserData({ ...editUserData, name: e.target.value })} className={classeDoCampo} />
+              </div>
+              <div className="space-y-2">
+                <Label className={classeDoRotulo}>Função</Label>
+                <Select value={editUserData.role} onValueChange={v => setEditUserData({ ...editUserData, role: v as ManagedRole })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Função"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="operador">Operador</SelectItem>
+                    <SelectItem value="comum">Comum</SelectItem>
+                    <SelectItem value="blocked" className="text-destructive focus:text-destructive">Bloqueado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editar-email" className={classeDoRotulo}>Email</Label>
+              <Input id="editar-email" type="email" value={editUserData.email} onChange={e => setEditUserData({ ...editUserData, email: e.target.value })} className={classeDoCampo} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className={classeDoRotulo}>Acesso do usuário</Label>
+                <Select value={editUserData.platform} onValueChange={v => setEditUserData({ ...editUserData, platform: v as any })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Acesso do usuário"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="web">Painel web</SelectItem>
+                    <SelectItem value="app">App mobile</SelectItem>
+                    <SelectItem value="ambos">Ambos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editar-senha" className={classeDoRotulo}>Nova senha</Label>
+                <Input id="editar-senha" type="password" placeholder="Deixe em branco p/ manter" value={editUserData.password} onChange={e => setEditUserData({ ...editUserData, password: e.target.value })} className={classeDoCampo} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="editar-telefone" className={classeDoRotulo}>Telefone</Label>
+                <Input id="editar-telefone" value={editUserData.phone} onChange={e => setEditUserData({ ...editUserData, phone: e.target.value })} className={classeDoCampo} />
+              </div>
+              <div className="space-y-2">
+                <Label className={classeDoRotulo}>Perfil de cliente</Label>
+                <Select value={editUserData.profileId || 'none'} onValueChange={v => setEditUserData({ ...editUserData, profileId: v === 'none' ? '' : v })}>
+                  <SelectTrigger className={classeDoCampo} aria-label="Perfil de cliente"><SelectValue placeholder="Sem perfil" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none" className="text-muted-foreground">Sem perfil (tarifa global)</SelectItem>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setEditUserDialogOpen(false)} className={classeDoBotaoContorno}>Cancelar</button>
+            <button type="button" onClick={handleEditUser} disabled={editing} className={classeDoBotaoPrincipalMenor}>
+              {editing ? 'Salvando…' : 'Salvar alterações'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Excluir usuário: diz o que acontece antes */}
+      <ConfirmarExclusao
+        aberto={deleteUserDialogOpen}
+        aoMudar={setDeleteUserDialogOpen}
+        titulo="Excluir usuário"
+        rotuloDoBotao="Sim, excluir"
+        carregando={deleting}
+        aoConfirmar={() => void handleDeleteUser()}
+      >
+        <p>
+          Tem certeza que deseja excluir o usuário <strong className="text-foreground">{selectedUser?.name}</strong>? Esta ação removerá o acesso dele ao sistema permanentemente.
+        </p>
+      </ConfirmarExclusao>
     </div>
   );
 };
-
-function SummaryCard({ icon, label, value, color }: { icon: string; label: string; value: string; color?: string }) {
-  return (
-    <div className="glass-panel px-4 py-3 rounded-lg border border-outline-variant/10 flex items-center justify-between h-16 hover:border-primary/20 transition-colors">
-      <div className="min-w-0">
-        <span className="text-on-surface-variant text-[9px] uppercase tracking-wider block truncate">{label}</span>
-        <span className="text-xl font-headline font-bold text-on-surface block mt-0.5">{value}</span>
-      </div>
-      <span className={`material-symbols-outlined text-base ${color || 'text-primary'} flex-shrink-0`}>{icon}</span>
-    </div>
-  );
-}
