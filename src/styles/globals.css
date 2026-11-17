@@ -210,10 +210,42 @@ html {
 
 :root {
   --sombra-cartao: 0 2px 19px rgba(0, 0, 0, 0.25);
+  --sombra-pilula: 0 4px 4px rgba(0, 0, 0, 0.25);
+  /* Tons dos blocos de ícone do Figma (os da marca vêm de primary-soft) */
+  --tom-azul: #c9ebfc;
+  --tom-azul-icone: #089ef7;
+  --tom-amarelo: #fff8d7;
+  --tom-amarelo-icone: #e0a800;
+  --tom-cinza: #ebedf0;
+  --tom-cinza-icone: #4d4d4d;
+  /* Estados do carregador: cor fixa, não da marca (verde = livre em qualquer marca) */
+  --estado-livre: #befdd0;
+  --estado-livre-forte: #00a858;
+  --estado-uso: #c9ebfc;
+  --estado-uso-forte: #0b7fc4;
+  --estado-offline: #cccccc;
+  --estado-offline-forte: #4d4d4d;
+  --estado-problema: #fff1c2;
+  --estado-problema-forte: #a86b00;
 }
 
 .dark {
   --sombra-cartao: none;
+  --sombra-pilula: none;
+  --tom-azul: #10374a;
+  --tom-azul-icone: #4cb8ff;
+  --tom-amarelo: #3b3312;
+  --tom-amarelo-icone: #fec80b;
+  --tom-cinza: #2f2f2f;
+  --tom-cinza-icone: #c9c8c4;
+  --estado-livre: #0f3d27;
+  --estado-livre-forte: #3ddc84;
+  --estado-uso: #0f2f40;
+  --estado-uso-forte: #4cb8ff;
+  --estado-offline: #333333;
+  --estado-offline-forte: #c9c8c4;
+  --estado-problema: #3b3312;
+  --estado-problema-forte: #fec80b;
 }
 
 /* Glass and glow utility classes */
