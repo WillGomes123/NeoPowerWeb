@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { ChevronDown, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -20,9 +21,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Icone, IconeSvg } from '../painel/Icone';
+import { BlocoDeIcone, BotaoAtualizar, CabecalhoDaPagina, classeDoCartao } from '../painel/Pagina';
+import { classeDoCabecalhoDaTabela } from '../painel/Pecas';
 import { MetasDialog } from './MetasDialog';
 import { DestaquesDoMes } from './DestaquesDoMes';
-import { montarDestaques, resumoDosDestaques } from './destaques';
+import { montarDestaques, type Destaque } from './destaques';
+import iconeFaturamento from '../../assets/icones/indicadores-faturamento.svg';
+import iconeRecargas from '../../assets/icones/indicadores-recargas.svg';
+import iconeEnergia from '../../assets/icones/indicadores-energia.svg';
+import iconeGrafico from '../../assets/icones/indicadores-grafico.svg';
+import iconeRaio from '../../assets/icones/indicadores-raio.svg';
+import iconeAbaVisao from '../../assets/icones/indicadores-aba-visao.svg';
+import iconeAbaCarregadores from '../../assets/icones/indicadores-aba-carregadores.svg';
+import iconeAbaMotoristas from '../../assets/icones/indicadores-aba-motoristas.svg';
+import iconeAbaMetas from '../../assets/icones/indicadores-aba-metas.svg';
 import {
   DIAS_SEMANA,
   STATUS_META,
@@ -50,6 +64,14 @@ import {
  * Relatório mensal pensado para o cliente (operador da marca): linguagem do dia
  * a dia (recargas, motoristas, uso dos carregadores), um resumo em frase no topo
  * e o detalhe separado em abas. Os números vêm de GET /indicators/monthly.
+ *
+ * Redesenho de nov/2026 (Figma da Lauriane, frame "Indicadores"), seguido à
+ * risca: mês e "Mês em andamento" em pílulas sob o título, faixa verde com a
+ * frase do mês, quatro cartões, abas em pílula (a primeira só com o ícone),
+ * gráfico de 12 meses ao lado dos destaques e os quatro números menores. O que
+ * a tela já fazia e o Figma não mostra (exportar, evolução diária, "como os
+ * números são calculados") ficou no lugar menos intrusivo: o exportar no fim da
+ * linha das abas e o resto no pé da página.
  */
 
 // Azul mais claro que o da apresentação: precisa contrastar no tema escuro e no claro.
@@ -58,38 +80,89 @@ const VERDE = '#16A34A';
 const VERMELHO = '#DC2626';
 const AMBAR = '#D97706';
 
+/** Gráficos nas cores do tema (claro e escuro), como na Visão geral. */
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: '#1a1919',
-    border: '1px solid #494847',
-    borderRadius: 8,
+    backgroundColor: 'var(--color-card)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 10,
     padding: 10,
+    color: 'var(--color-foreground)',
   },
-  labelStyle: { color: '#adaaaa', marginBottom: 4, fontSize: 12 },
-  itemStyle: { color: '#f5f5f5', fontSize: 12 },
+  labelStyle: {
+    color: 'var(--color-muted-foreground)',
+    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  itemStyle: { color: 'var(--color-foreground)', fontSize: 12 },
 };
+const EIXO = { fill: 'var(--color-muted-foreground)', fontSize: 11 };
+const COR_DA_GRADE = 'var(--color-border)';
+const CURSOR = { fill: 'var(--color-muted)', fillOpacity: 0.6 };
+
+/** "outubro" → "Outubro". */
+const maiuscula = (s: string) => (s ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : s);
+/** "2026-10" → "Outubro de 2026" (o navegador de mês do Figma). */
+const mesComAno = (mes: string) => `${maiuscula(nomeDoMes(mes))} de ${mes.slice(0, 4)}`;
 
 // ---------------------------------------------------------------------------
 // Peças pequenas
 // ---------------------------------------------------------------------------
 
+/** Seta para cima (ou para baixo) dos cartões do Figma. */
+const Seta = ({ subiu, tamanho }: { subiu: boolean; tamanho: number }) => (
+  <span className={subiu ? '-rotate-90' : 'rotate-90'}>
+    <Icone nome="seta-alta" tamanho={tamanho} />
+  </span>
+);
+
+/** Seta e número dos cartões do Figma: "↑ 9,0%" na cor da marca, "↓ 1,1%" em vermelho. */
 function Variacao({ valor, sufixo = '%' }: { valor: number | null; sufixo?: string }) {
   if (valor === null) return null;
   if (valor === 0)
+    return <span className="text-[15px] font-medium text-muted-foreground">igual</span>;
+  const subiu = valor > 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-[3px] text-[15px] font-medium tabular-nums ${subiu ? 'text-primary-strong' : 'text-destructive'}`}
+    >
+      <Seta subiu={subiu} tamanho={19} />
+      <span className="sr-only">{subiu ? 'subiu' : 'caiu'}</span>
+      {fmtVar(valor, sufixo).replace('+', '').replace('-', '')}
+    </span>
+  );
+}
+
+/**
+ * Pílula verde (ou vermelha) dos cartões pequenos do Figma: "↑ 113,4%",
+ * "↑ +2,9", "↑ +2,9 p.p". `comSinal` põe o "+"/"−" como no Figma.
+ */
+function PilulaDeVariacao({
+  valor,
+  sufixo = '%',
+  comSinal = false,
+}: {
+  valor: number | null;
+  sufixo?: string;
+  comSinal?: boolean;
+}) {
+  if (valor === null) return null;
+  if (valor === 0)
     return (
-      <span className="inline-flex items-center rounded-full bg-surface-container-highest px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+      <span className="h-7 px-3 rounded-[15px] bg-muted text-muted-foreground text-[13px] font-medium inline-flex items-center">
         igual
       </span>
     );
   const subiu = valor > 0;
+  const numero = fmtVar(valor, sufixo).replace('+', '').replace('-', '');
   return (
     <span
-      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${subiu ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}
+      className={`h-7 px-3 rounded-[15px] shadow-cartao text-[15px] font-medium inline-flex items-center gap-1 tabular-nums whitespace-nowrap ${subiu ? 'bg-primary-soft text-primary-strong' : 'bg-destructive/10 text-destructive'}`}
     >
-      <span className="material-symbols-outlined text-[14px] leading-none">
-        {subiu ? 'arrow_upward' : 'arrow_downward'}
-      </span>
-      {fmtVar(valor, sufixo).replace('+', '').replace('-', '')}
+      <Seta subiu={subiu} tamanho={18} />
+      <span className="sr-only">{subiu ? 'subiu' : 'caiu'}</span>
+      {comSinal ? `${subiu ? '+' : '−'}${numero}` : numero}
     </span>
   );
 }
@@ -100,12 +173,22 @@ function Ajuda({ texto }: { texto: string }) {
     <span
       title={texto}
       aria-label={texto}
-      className="material-symbols-outlined text-[15px] leading-none text-on-surface-variant/70 cursor-help align-middle no-print"
+      className="material-symbols-outlined text-[15px] leading-none text-muted-foreground/80 cursor-help align-middle no-print"
     >
       help
     </span>
   );
 }
+
+/** Bloco de ícone grande do Figma (55×55), nos cartões de gráfico e de destaques. */
+const BlocoGrande = ({ children }: { children: ReactNode }) => (
+  <span
+    aria-hidden="true"
+    className="w-[55px] h-[55px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center shrink-0"
+  >
+    {children}
+  </span>
+);
 
 function Secao({
   titulo,
@@ -121,14 +204,18 @@ function Secao({
   children: ReactNode;
 }) {
   return (
-    <section className="glass-panel rounded-xl border border-outline-variant/10 p-5 lg:p-6 print-avoid">
+    <section className={`${classeDoCartao} p-[22px] 3xl:p-[26px] print-avoid`} aria-label={titulo}>
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5">
-        <div>
-          <h3 className="font-headline text-base font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">{icone}</span>
-            {titulo}
-          </h3>
-          {subtitulo && <p className="text-sm text-on-surface-variant mt-1">{subtitulo}</p>}
+        <div className="flex items-start gap-[18px] min-w-0">
+          <BlocoDeIcone>
+            <span className="material-symbols-outlined text-[22px]">{icone}</span>
+          </BlocoDeIcone>
+          <div className="min-w-0">
+            <h3 className="text-[20px] leading-tight font-semibold text-foreground">{titulo}</h3>
+            {subtitulo && (
+              <p className="text-sm font-medium text-muted-foreground mt-1">{subtitulo}</p>
+            )}
+          </div>
         </div>
         {acoes && <div className="no-print">{acoes}</div>}
       </div>
@@ -147,16 +234,17 @@ function Chips<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1.5">
       {opcoes.map(o => (
         <button
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+          aria-pressed={valor === o.id}
+          className={`h-8 px-3.5 rounded-[25px] text-[13px] font-medium transition-colors ${
             valor === o.id
-              ? 'bg-primary/15 text-primary'
-              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-foreground hover:bg-muted/70'
           }`}
         >
           {o.rotulo}
@@ -167,8 +255,8 @@ function Chips<T extends string>({
 }
 
 const Vazio = ({ texto }: { texto: string }) => (
-  <div className="h-40 flex flex-col items-center justify-center gap-2 text-on-surface-variant">
-    <span className="material-symbols-outlined text-4xl text-outline">leaderboard</span>
+  <div className="h-40 flex flex-col items-center justify-center gap-2 rounded-[10px] border border-dashed border-border text-muted-foreground">
+    <span className="material-symbols-outlined text-4xl">leaderboard</span>
     <p className="text-sm">{texto}</p>
   </div>
 );
@@ -178,11 +266,16 @@ const Vazio = ({ texto }: { texto: string }) => (
 // ---------------------------------------------------------------------------
 
 type ChaveSerie = keyof Omit<PontoSerie, 'mes'>;
-const METRICAS_SERIE: Array<{ id: ChaveSerie; rotulo: string; fmt: (n: number) => string }> = [
-  { id: 'faturamento', rotulo: 'Faturamento', fmt: n => fmtBRL(n) },
+const METRICAS_SERIE: Array<{
+  id: ChaveSerie;
+  rotulo: string;
+  unidade?: string;
+  fmt: (n: number) => string;
+}> = [
+  { id: 'faturamento', rotulo: 'Faturamento', unidade: 'R$', fmt: n => fmtBRL(n) },
   { id: 'operacoes', rotulo: 'Recargas', fmt: fmtInt },
   { id: 'usuariosAtivos', rotulo: 'Motoristas', fmt: fmtInt },
-  { id: 'energiaKwh', rotulo: 'Energia', fmt: n => fmtKwh(n) },
+  { id: 'energiaKwh', rotulo: 'Energia', unidade: 'kWh', fmt: n => fmtKwh(n) },
   { id: 'novosUsuarios', rotulo: 'Novos motoristas', fmt: fmtInt },
   { id: 'baseAcumulada', rotulo: 'Motoristas na base', fmt: fmtInt },
 ];
@@ -222,18 +315,94 @@ type ColunaTabela =
 
 type Aba = 'resumo' | 'carregadores' | 'motoristas' | 'metas';
 
-const ABAS: Array<{ id: Aba; rotulo: string; icone: string }> = [
-  { id: 'resumo', rotulo: 'Resumo', icone: 'dashboard' },
-  { id: 'carregadores', rotulo: 'Carregadores', icone: 'ev_station' },
-  { id: 'motoristas', rotulo: 'Motoristas', icone: 'group' },
-  { id: 'metas', rotulo: 'Metas e projeção', icone: 'flag' },
+/** As quatro abas do Figma, com a largura de cada pílula. A primeira é só o ícone. */
+const ABAS: Array<{
+  id: Aba;
+  rotulo: string;
+  icone: ReactNode;
+  largura: string;
+  soIcone?: boolean;
+}> = [
+  {
+    id: 'resumo',
+    rotulo: 'Resumo',
+    icone: <IconeSvg src={iconeAbaVisao} />,
+    largura: 'w-[169px]',
+    soIcone: true,
+  },
+  {
+    id: 'carregadores',
+    rotulo: 'Carregadores',
+    icone: <IconeSvg src={iconeAbaCarregadores} />,
+    largura: 'min-w-[201px]',
+  },
+  {
+    id: 'motoristas',
+    rotulo: 'Motoristas',
+    icone: <IconeSvg src={iconeAbaMotoristas} />,
+    largura: 'min-w-[190px]',
+  },
+  {
+    id: 'metas',
+    rotulo: 'Metas e projeção',
+    icone: <IconeSvg src={iconeAbaMetas} />,
+    largura: 'min-w-[241px]',
+  },
 ];
+
+/** Abas do Figma (Indicadores): pílulas separadas, a ativa na cor da marca. */
+function AbasEmPilula({ ativa, aoMudar }: { ativa: Aba; aoMudar: (a: Aba) => void }) {
+  return (
+    <nav aria-label="Seções do relatório" className="flex flex-wrap gap-3 sm:gap-[21px]">
+      {ABAS.map(a => {
+        const eAtiva = a.id === ativa;
+        return (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => aoMudar(a.id)}
+            aria-current={eAtiva ? 'page' : undefined}
+            title={a.soIcone ? a.rotulo : undefined}
+            className={`h-[43px] ${a.largura} px-[26px] rounded-[25px] border inline-flex items-center gap-[17px] text-[15px] font-semibold whitespace-nowrap shadow-pilula transition-colors ${
+              eAtiva
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'bg-[#f4f6f8] dark:bg-card border-transparent text-foreground hover:bg-muted'
+            }`}
+          >
+            {a.icone}
+            {a.soIcone ? <span className="sr-only">{a.rotulo}</span> : a.rotulo}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** "2 pontos de atenção - 2 pontos de destaque - 1 para saber", como no Figma. */
+function resumoNoFormatoDoFigma(destaques: Destaque[]): string {
+  if (!destaques.length) return 'Nada fora do normal neste período';
+  const n = (s: Destaque['severidade']) => destaques.filter(d => d.severidade === s).length;
+  const partes = [
+    n('atencao') && `${n('atencao')} ${n('atencao') === 1 ? 'ponto' : 'pontos'} de atenção`,
+    n('ok') && `${n('ok')} ${n('ok') === 1 ? 'ponto' : 'pontos'} de destaque`,
+    n('info') && `${n('info')} para saber`,
+  ].filter(Boolean);
+  return partes.join(' - ');
+}
 
 // ---------------------------------------------------------------------------
 // Tela
 // ---------------------------------------------------------------------------
 
-export function RelatorioMensal() {
+export function RelatorioMensal({
+  evolucaoDiaria,
+}: {
+  /**
+   * "Evolução diária" (o gráfico dia a dia da página), no pé da página. Recebe
+   * um número que muda a cada clique em "Atualizar", para buscar de novo.
+   */
+  evolucaoDiaria?: (atualizacao: number) => ReactNode;
+} = {}) {
   const { user } = useAuth();
   const podeGerenciar = user?.role === 'admin' || (user?.role === 'operador' && !!user?.clientId);
   const empresa = user?.branding?.companyName || 'NeoPower';
@@ -242,6 +411,11 @@ export function RelatorioMensal() {
   const [dados, setDados] = useState<Relatorio | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  // Atualização que falhou com o mesmo mês na tela: os números ficam, com o aviso.
+  const [falhou, setFalhou] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [atualizacao, setAtualizacao] = useState(0);
+  const [diariaAberta, setDiariaAberta] = useState(false);
   const [aba, setAba] = useState<Aba>('resumo');
   const [metricaSerie, setMetricaSerie] = useState<ChaveSerie>('faturamento');
   const [metricaProjecao, setMetricaProjecao] = useState<
@@ -254,6 +428,7 @@ export function RelatorioMensal() {
   const [metasAbertas, setMetasAbertas] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [imprimindo, setImprimindo] = useState(false);
+  const mesNaTela = useRef<string | null>(null);
 
   useEffect(() => {
     const antes = () => setImprimindo(true);
@@ -275,18 +450,31 @@ export function RelatorioMensal() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
+    // Mesmo mês já na tela: se a atualização falhar, os números ficam e o botão
+    // avisa. Mês novo: a tela não pode mostrar os números do mês anterior.
+    const manterSeFalhar = mesNaTela.current === mes;
+    const falhar = (mensagem: string) => {
+      if (manterSeFalhar) {
+        setFalhou(true);
+      } else {
+        setDados(null);
+        mesNaTela.current = null;
+        setErro(mensagem);
+      }
+    };
     try {
       const resp = await api.get(`/indicators/monthly?mes=${mes}&meses=12`);
       const corpo = await resp.json().catch(() => null);
       if (!resp.ok) {
-        setDados(null);
-        setErro(corpo?.error || 'Não foi possível carregar o relatório.');
+        falhar(corpo?.error || 'Não foi possível carregar o relatório.');
         return;
       }
       setDados(corpo as Relatorio);
+      mesNaTela.current = mes;
+      setFalhou(false);
+      setAtualizadoEm(new Date());
     } catch {
-      setErro('Erro ao conectar com o servidor.');
-      setDados(null);
+      falhar('Erro ao conectar com o servidor.');
     } finally {
       setCarregando(false);
     }
@@ -313,9 +501,9 @@ export function RelatorioMensal() {
 
   if (!podeGerenciar) {
     return (
-      <div className="glass-panel rounded-lg p-8 text-center text-on-surface-variant">
-        <span className="material-symbols-outlined text-4xl text-outline">lock</span>
-        <p className="mt-2 text-sm">
+      <div className={`${classeDoCartao} p-8 text-center text-muted-foreground`}>
+        <span className="material-symbols-outlined text-4xl">lock</span>
+        <p className="mt-2 text-[15px]">
           O relatório mensal é exclusivo de administradores e operadores da marca.
         </p>
       </div>
@@ -402,120 +590,136 @@ export function RelatorioMensal() {
   // para imprimir, todas.
   const mostrar = (a: Aba) => imprimindo || aba === a;
 
+  const atualizar = () => {
+    void carregar();
+    setAtualizacao(n => n + 1);
+  };
+
+  // Mês em pílula ("‹ Outubro de 2026 ›") e "Mês em andamento", sob o título (Figma).
+  const navegadorDoMes = (
+    <div className="no-print mt-[10px] flex flex-wrap items-center gap-3 sm:gap-[17px]">
+      <div className="inline-flex items-center justify-between w-[214px] h-[43px] rounded-[25px] border border-primary bg-[#f4f6f8] dark:bg-card shadow-pilula px-[10px]">
+        <button
+          type="button"
+          aria-label="Mês anterior"
+          onClick={() => setMes(m => somarMeses(m, -1))}
+          className="h-7 w-7 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted"
+        >
+          <ChevronLeft aria-hidden="true" className="w-[19px] h-[18px]" />
+        </button>
+        <label className="relative text-[11px] font-medium text-foreground cursor-pointer whitespace-nowrap">
+          {mesComAno(mes)}
+          <input
+            type="month"
+            aria-label="Escolher mês"
+            value={mes}
+            max={mesMaximo}
+            onChange={e => e.target.value && setMes(e.target.value)}
+            className="absolute inset-0 opacity-0 cursor-pointer"
+          />
+        </label>
+        <button
+          type="button"
+          aria-label="Próximo mês"
+          disabled={mes >= mesMaximo}
+          onClick={() => setMes(m => somarMeses(m, 1))}
+          className="h-7 w-7 inline-flex items-center justify-center rounded-full text-foreground hover:bg-muted disabled:opacity-30"
+        >
+          <ChevronRight aria-hidden="true" className="w-[19px] h-[18px]" />
+        </button>
+      </div>
+      {r && !r.fechado && r.mes === mes && (
+        <span className="inline-flex items-center justify-center gap-1 min-w-[314px] h-[43px] px-6 rounded-[25px] border border-[#089ef7] bg-[#e6f4fe] text-[#089ef7] dark:border-tom-azul-icone dark:bg-tom-azul dark:text-tom-azul-icone text-[11px] font-medium shadow-pilula whitespace-nowrap">
+          <b className="font-semibold">Mês em andamento</b> dados até {fmtDataHora(r.periodo.fim)}
+        </span>
+      )}
+    </div>
+  );
+
+  // Exportar (o Figma não tem): no fim da linha das abas, em pílula de contorno.
+  const menuExportar = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={!r || exportando}
+          className="h-[43px] px-[22px] rounded-[25px] border border-foreground dark:border-primary bg-card text-foreground dark:text-primary-strong text-[15px] font-medium inline-flex items-center gap-2 hover:bg-muted transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download aria-hidden="true" className="w-[18px] h-[18px]" />
+          {exportando ? 'Gerando…' : 'Exportar'}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
+        <DropdownMenuItem onSelect={() => void exportarPptx()} className="gap-2 py-2">
+          <span className="material-symbols-outlined text-lg text-primary-strong">slideshow</span>
+          <span>
+            <span className="block text-sm font-medium">Apresentação</span>
+            <span className="block text-xs text-muted-foreground">
+              PowerPoint pronto para a reunião
+            </span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={exportarCsv} className="gap-2 py-2">
+          <span className="material-symbols-outlined text-lg text-primary-strong">table_view</span>
+          <span>
+            <span className="block text-sm font-medium">Planilha por carregador</span>
+            <span className="block text-xs text-muted-foreground">Arquivo CSV (Excel)</span>
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={imprimir} className="gap-2 py-2">
+          <span className="material-symbols-outlined text-lg text-primary-strong">print</span>
+          <span>
+            <span className="block text-sm font-medium">Imprimir ou salvar PDF</span>
+            <span className="block text-xs text-muted-foreground">Relatório completo</span>
+          </span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Mês e ações */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center rounded-full bg-surface-container-high p-1">
-            <button
-              type="button"
-              aria-label="Mês anterior"
-              onClick={() => setMes(m => somarMeses(m, -1))}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-highest"
-            >
-              <span className="material-symbols-outlined text-xl">chevron_left</span>
-            </button>
-            <label className="relative px-3 text-sm font-semibold text-on-surface cursor-pointer">
-              {mesPorExtenso(mes)}
-              <input
-                type="month"
-                aria-label="Escolher mês"
-                value={mes}
-                max={mesMaximo}
-                onChange={e => e.target.value && setMes(e.target.value)}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-            </label>
-            <button
-              type="button"
-              aria-label="Próximo mês"
-              disabled={mes >= mesMaximo}
-              onClick={() => setMes(m => somarMeses(m, 1))}
-              className="h-8 w-8 inline-flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-highest disabled:opacity-30"
-            >
-              <span className="material-symbols-outlined text-xl">chevron_right</span>
-            </button>
-          </div>
-          {r && !r.fechado && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-600 dark:text-sky-400">
-              <span className="material-symbols-outlined text-sm">schedule</span>
-              Mês em andamento · dados até {fmtDataHora(r.periodo.fim)}
-            </span>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => void carregar()}
-            disabled={carregando}
-            title="Atualizar dados"
-            aria-label="Atualizar dados"
-            className="h-10 w-10 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary"
-          >
-            <span
-              className={`material-symbols-outlined text-xl ${carregando ? 'animate-spin' : ''}`}
-            >
-              refresh
-            </span>
-          </button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                disabled={!r || exportando}
-                className="h-10 px-4 inline-flex items-center gap-1.5 rounded-full text-sm font-semibold bg-primary text-on-primary disabled:opacity-60"
-              >
-                <span className="material-symbols-outlined text-lg">download</span>
-                {exportando ? 'Gerando…' : 'Exportar'}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64 bg-popover border-border">
-              <DropdownMenuItem onSelect={() => void exportarPptx()} className="gap-2 py-2">
-                <span className="material-symbols-outlined text-lg text-primary">slideshow</span>
-                <span>
-                  <span className="block text-sm font-medium">Apresentação</span>
-                  <span className="block text-xs text-muted-foreground">
-                    PowerPoint pronto para a reunião
-                  </span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={exportarCsv} className="gap-2 py-2">
-                <span className="material-symbols-outlined text-lg text-primary">table_view</span>
-                <span>
-                  <span className="block text-sm font-medium">Planilha por carregador</span>
-                  <span className="block text-xs text-muted-foreground">Arquivo CSV (Excel)</span>
-                </span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={imprimir} className="gap-2 py-2">
-                <span className="material-symbols-outlined text-lg text-primary">print</span>
-                <span>
-                  <span className="block text-sm font-medium">Imprimir ou salvar PDF</span>
-                  <span className="block text-xs text-muted-foreground">Relatório completo</span>
-                </span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <div className="space-y-[25px]">
+      <div className="no-print">
+        <CabecalhoDaPagina
+          rotulo="Desempenho da rede"
+          titulo="Indicadores"
+          subtitulo="Acompanhe o desempenho mensal da sua rede"
+          detalhe={navegadorDoMes}
+          acoes={
+            <BotaoAtualizar
+              aoAtualizar={atualizar}
+              carregando={carregando}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou}
+            />
+          }
+        />
       </div>
 
       {erro && (
-        <div className="bg-error/10 border border-error/30 rounded-lg p-4 text-error text-sm">
-          {erro}
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-[15px] bg-destructive/10 text-destructive">
+          <p className="flex-1 text-[15px] font-medium">{erro}</p>
+          <button
+            type="button"
+            onClick={() => void carregar()}
+            className="h-10 px-5 rounded-[25px] bg-card text-destructive text-sm font-semibold"
+          >
+            Tentar de novo
+          </button>
         </div>
       )}
 
       {carregando && !r && (
         <div className="flex flex-col items-center justify-center h-64 gap-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-on-surface-variant text-sm">
+          <p className="text-muted-foreground text-sm">
             Preparando o relatório de {mesPorExtenso(mes)}…
           </p>
         </div>
       )}
 
       {r && (
-        <div className={`space-y-6 transition-opacity ${carregando ? 'opacity-60' : ''}`}>
+        <div className={`space-y-[25px] transition-opacity ${carregando ? 'opacity-60' : ''}`}>
           <div className="hidden print:block">
             <h1 className="text-2xl font-bold">Relatório de {mesPorExtenso(r.mes)}</h1>
             <p className="text-sm">
@@ -525,54 +729,31 @@ export function RelatorioMensal() {
 
           <ResumoDoMes r={r} mesAnteriorNome={mesAnteriorNome} />
 
-          {/* Abas */}
-          <div className="no-print grid grid-cols-2 sm:flex gap-1 rounded-2xl sm:rounded-full bg-surface-container-high p-1 w-full sm:w-fit">
-            {ABAS.map(a => (
-              <button
-                key={a.id}
-                type="button"
-                onClick={() => setAba(a.id)}
-                className={`shrink-0 inline-flex items-center justify-center sm:justify-start gap-1.5 px-3 sm:px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  aba === a.id
-                    ? 'bg-surface-container-lowest text-on-surface shadow'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span
-                  className={`material-symbols-outlined text-lg ${aba === a.id ? 'text-primary' : ''}`}
-                >
-                  {a.icone}
-                </span>
-                {a.rotulo}
-              </button>
-            ))}
+          <div className="no-print flex flex-wrap items-center gap-3 sm:gap-[21px] 3xl:pt-[10px]">
+            <AbasEmPilula ativa={aba} aoMudar={setAba} />
+            <div className="ml-auto">{menuExportar}</div>
           </div>
 
-          {/* Resumo */}
+          {/* Resumo (a aba só com o ícone) */}
           {mostrar('resumo') && (
-            <div className="space-y-6">
-              <Destaques r={r} />
-              <Secao
-                titulo="Evolução nos últimos 12 meses"
-                subtitulo={`De ${mesCurto(r.serie[0].mes)} a ${mesCurto(r.mes)}. A barra mais forte é o mês escolhido.`}
-                icone="bar_chart"
-                acoes={
-                  <Chips
-                    opcoes={METRICAS_SERIE.map(m => ({ id: m.id, rotulo: m.rotulo }))}
-                    valor={metricaSerie}
-                    onChange={setMetricaSerie}
-                  />
-                }
-              >
-                <Trajetoria serie={r.serie} metrica={metricaSerie} mesSelecionado={r.mes} />
-              </Secao>
+            <div className="space-y-[25px] 3xl:space-y-[45px]">
+              <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] 3xl:grid-cols-[minmax(0,1039fr)_minmax(0,497fr)] gap-[25px] 3xl:gap-[35px]">
+                <Trajetoria
+                  serie={r.serie}
+                  metrica={metricaSerie}
+                  onMetrica={setMetricaSerie}
+                  mesSelecionado={r.mes}
+                  comRotulos={imprimindo}
+                />
+                <Destaques r={r} />
+              </div>
               <MaisNumeros r={r} />
             </div>
           )}
 
           {/* Carregadores */}
           {mostrar('carregadores') && (
-            <div className="space-y-6">
+            <div className="space-y-[25px]">
               <Secao
                 titulo="Como cada carregador foi"
                 subtitulo={`Comparado com ${r.comparacaoParcial ? `o mesmo período de ${mesAnteriorNome}` : mesAnteriorNome}. Toque no nome da coluna para ordenar.`}
@@ -587,7 +768,7 @@ export function RelatorioMensal() {
                   totalFaturamento={r.resumo.faturamento}
                 />
               </Secao>
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-[25px]">
                 <Secao
                   titulo="Uso dos carregadores"
                   subtitulo="Quanto tempo cada um ficou com carro conectado"
@@ -608,9 +789,9 @@ export function RelatorioMensal() {
 
           {/* Motoristas */}
           {mostrar('motoristas') && (
-            <div className="space-y-6">
+            <div className="space-y-[25px]">
               <Motoristas r={r} />
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-[25px]">
                 <Secao
                   titulo="De onde vêm os novos motoristas"
                   subtitulo="Pelo bairro do local onde fizeram a primeira recarga"
@@ -631,7 +812,7 @@ export function RelatorioMensal() {
 
           {/* Metas e projeção */}
           {mostrar('metas') && (
-            <div className="space-y-6">
+            <div className="space-y-[25px]">
               <Secao
                 titulo={`Metas de ${nomeDoMes(r.mes)}`}
                 subtitulo={
@@ -644,7 +825,7 @@ export function RelatorioMensal() {
                   <button
                     type="button"
                     onClick={() => setMetasAbertas(true)}
-                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
+                    className="h-10 px-5 rounded-[25px] border border-primary bg-primary-soft text-primary-strong text-sm font-medium inline-flex items-center gap-1.5 hover:brightness-95 transition"
                   >
                     <span className="material-symbols-outlined text-base">
                       {r.metas.definidas ? 'edit' : 'add'}
@@ -682,8 +863,34 @@ export function RelatorioMensal() {
             </div>
           )}
 
-          <details className="glass-panel rounded-xl border border-outline-variant/10 p-5 text-sm text-on-surface-variant no-print">
-            <summary className="cursor-pointer font-semibold text-on-surface">
+          {/* Pé da página: o que a tela já tinha e o Figma não mostra. */}
+          {evolucaoDiaria && (
+            <div className="no-print space-y-[25px]">
+              <button
+                type="button"
+                onClick={() => setDiariaAberta(a => !a)}
+                aria-expanded={diariaAberta}
+                className={`${classeDoCartao} w-full flex items-center justify-between gap-3 px-5 py-4 text-left`}
+              >
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold text-foreground">
+                    Evolução diária
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    Receita, recargas, energia e motoristas dia a dia, no período que você escolher
+                  </span>
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`w-5 h-5 shrink-0 text-foreground transition-transform ${diariaAberta ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {diariaAberta && evolucaoDiaria(atualizacao)}
+            </div>
+          )}
+
+          <details className={`${classeDoCartao} p-5 text-sm text-muted-foreground no-print`}>
+            <summary className="cursor-pointer text-[15px] font-semibold text-foreground">
               Como os números são calculados
             </summary>
             <ul className="mt-3 space-y-1.5 list-disc pl-5 text-xs leading-relaxed">
@@ -703,6 +910,10 @@ export function RelatorioMensal() {
               <li>
                 <b>Uso dos carregadores</b>: {EXPLICA.uso} Recargas acima de 24 horas contam como 24
                 horas.
+              </li>
+              <li>
+                <b>Preço médio do kWh</b>: {EXPLICA.preco} <b>Valor médio por recarga</b>:{' '}
+                {EXPLICA.ticket}
               </li>
               <li>
                 <b>Mês em andamento</b>: a comparação é com o mesmo número de dias do mês anterior.
@@ -736,9 +947,10 @@ export function RelatorioMensal() {
 function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: string }) {
   const { resumo: a, resumoAnterior: b, variacoes: v } = r;
   const nomeMes = nomeDoMes(r.mes);
+  // Mês em andamento: a comparação é com o mesmo número de dias do mês anterior.
   const comparado = r.comparacaoParcial
-    ? `no mesmo período de ${mesAnteriorNome}`
-    : `em ${mesAnteriorNome}`;
+    ? `ao mesmo período de ${mesAnteriorNome}`
+    : `a ${mesAnteriorNome}`;
 
   const frase =
     a.operacoes === 0 ? (
@@ -746,29 +958,23 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
     ) : (
       <>
         {r.fechado ? `Em ${nomeMes}` : `Até agora em ${nomeMes}`}, sua rede fez{' '}
-        <b className="text-on-surface">{fmtInt(a.operacoes)} recargas</b> para{' '}
-        <b className="text-on-surface">{fmtInt(a.usuariosAtivos)} motoristas</b> e faturou{' '}
-        <b className="text-on-surface">{fmtBRL(a.faturamento)}</b>
-        {v.faturamento !== null && (
-          <>
-            {' '}
-            <span
-              className={
-                v.faturamento >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400'
-              }
-            >
-              ({fmtNum(Math.abs(v.faturamento), 1)}% {v.faturamento >= 0 ? 'a mais' : 'a menos'} que{' '}
+        <b className="font-semibold">{fmtInt(a.operacoes)} recargas</b> para{' '}
+        <b className="font-semibold">{fmtInt(a.usuariosAtivos)} motoristas</b> e faturou{' '}
+        <b className="font-semibold">
+          {fmtBRL(a.faturamento)}
+          {v.faturamento !== null && (
+            <>
+              {' '}
+              ({v.faturamento >= 0 ? '↑' : '↓'} {fmtNum(Math.abs(v.faturamento), 1)}% em relação{' '}
               {comparado})
-            </span>
-          </>
-        )}
+            </>
+          )}
+        </b>
         .
         {a.novosUsuarios > 0 && (
           <>
-            {' '}
-            <b className="text-on-surface">{fmtInt(a.novosUsuarios)}</b>{' '}
+            <br />
+            <b className="font-semibold">{fmtInt(a.novosUsuarios)}</b>{' '}
             {a.novosUsuarios === 1 ? 'pessoa carregou' : 'pessoas carregaram'} com você pela
             primeira vez.
           </>
@@ -776,17 +982,31 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
       </>
     );
 
-  const cards = [
+  const cards: Array<{
+    rotulo: string;
+    icone: ReactNode;
+    valor: string;
+    /** Valor em reais: o "R$" menor, embaixo do ícone, como no Figma. */
+    emReais?: boolean;
+    vari: number | null;
+    antes: string;
+    ajuda?: string;
+  }> = [
     {
       rotulo: 'Faturamento',
-      icone: 'payments',
+      icone: <IconeSvg src={iconeFaturamento} tamanho={25} />,
       valor: fmtBRL(a.faturamento),
+      emReais: true,
       vari: v.faturamento,
       antes: fmtBRL(b.faturamento),
     },
     {
       rotulo: 'Recargas',
-      icone: 'bolt',
+      icone: (
+        <span className="text-tom-azul-icone">
+          <IconeSvg src={iconeRecargas} tamanho={28} altura={29} />
+        </span>
+      ),
       valor: fmtInt(a.operacoes),
       vari: v.operacoes,
       antes: fmtInt(b.operacoes),
@@ -794,7 +1014,7 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
     },
     {
       rotulo: 'Motoristas',
-      icone: 'group',
+      icone: <IconeSvg src={iconeAbaMotoristas} tamanho={24} />,
       valor: fmtInt(a.usuariosAtivos),
       vari: v.usuariosAtivos,
       antes: fmtInt(b.usuariosAtivos),
@@ -802,7 +1022,7 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
     },
     {
       rotulo: 'Energia entregue',
-      icone: 'electric_bolt',
+      icone: <IconeSvg src={iconeEnergia} tamanho={26} altura={28} />,
       valor: fmtKwh(a.energiaKwh),
       vari: v.energiaKwh,
       antes: fmtKwh(b.energiaKwh),
@@ -810,38 +1030,53 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-transparent to-transparent p-5 lg:p-6 print-avoid">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary mb-2">
-          {r.fechado
-            ? `Resumo de ${nomeMes}`
-            : `${nomeMes.charAt(0).toUpperCase()}${nomeMes.slice(1)} até agora`}
+    <div className="space-y-[25px]">
+      {/* Faixa verde do Figma com a frase do mês */}
+      <div className="rounded-[25px] border border-primary/80 bg-gradient-to-r from-primary/35 to-primary/0 min-h-[147px] px-6 lg:px-[30px] pt-[21px] pb-6 print-avoid">
+        <p className="text-[15px] font-semibold uppercase text-primary-strong">
+          {r.fechado ? `Resumo de ${nomeMes}` : `${maiuscula(nomeMes)} até agora`}
         </p>
-        <p className="text-lg lg:text-xl leading-relaxed text-on-surface-variant max-w-4xl">
-          {frase}
-        </p>
+        <p className="mt-[15px] text-base leading-normal text-foreground">{frase}</p>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 3xl:grid-cols-4 gap-[25px]">
         {cards.map(c => (
-          <div
+          <section
             key={c.rotulo}
-            className="glass-panel rounded-xl border border-outline-variant/10 p-4 lg:p-5 flex flex-col gap-2 print-avoid"
+            aria-label={c.rotulo}
+            className={`${classeDoCartao} pl-[23px] pr-6 pt-[19px] pb-4 min-h-[168px] flex flex-col print-avoid`}
           >
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <span className="material-symbols-outlined text-lg text-primary">{c.icone}</span>
-              <span className="text-sm font-medium">{c.rotulo}</span>
-              {c.ajuda && <Ajuda texto={c.ajuda} />}
+            <div className="flex items-center gap-[18px] min-w-0">
+              <BlocoDeIcone>{c.icone}</BlocoDeIcone>
+              <h2
+                title={c.ajuda}
+                className="text-[22px] 3xl:text-[24px] leading-tight font-semibold text-[#001119] dark:text-foreground"
+              >
+                {c.rotulo}
+              </h2>
             </div>
-            <span className="text-2xl lg:text-3xl font-headline font-bold text-on-surface">
-              {c.valor}
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
+            {c.emReais ? (
+              <p className="mt-[9px] flex items-baseline font-semibold tabular-nums text-foreground leading-tight">
+                <span aria-hidden="true" className="w-[59px] shrink-0 text-[28px] 3xl:text-[32px]">
+                  R$
+                </span>
+                <span aria-hidden="true" className="text-[34px] 3xl:text-[40px] break-all">
+                  {c.valor.replace(/^R\$\s*/, '')}
+                </span>
+                <span className="sr-only">{c.valor}</span>
+              </p>
+            ) : (
+              <span className="mt-[9px] pl-[59px] text-[34px] 3xl:text-[40px] leading-tight font-semibold tabular-nums text-foreground break-words">
+                {c.valor}
+              </span>
+            )}
+            <div className="mt-auto pt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
               <Variacao valor={c.vari} />
-              <span className="text-xs text-on-surface-variant">
-                {mesAnteriorNome}: {c.antes}
+              <span className="text-[15px] font-medium text-muted-foreground ml-auto">
+                {maiuscula(mesAnteriorNome)}: {c.antes}
               </span>
             </div>
-          </div>
+          </section>
         ))}
       </div>
     </div>
@@ -851,9 +1086,27 @@ function ResumoDoMes({ r, mesAnteriorNome }: { r: Relatorio; mesAnteriorNome: st
 function Destaques({ r }: { r: Relatorio }) {
   const destaques = montarDestaques(r);
   return (
-    <Secao titulo="Destaques do mês" subtitulo={resumoDosDestaques(destaques)} icone="auto_awesome">
-      <DestaquesDoMes destaques={destaques} />
-    </Secao>
+    <section
+      aria-label="Destaques do mês"
+      className={`${classeDoCartao} pt-[22px] pb-[17px] px-[13px] print-avoid`}
+    >
+      <div className="flex items-start gap-[13px] px-[9px] 3xl:px-[22px]">
+        <BlocoGrande>
+          <IconeSvg src={iconeGrafico} tamanho={40} />
+        </BlocoGrande>
+        <div className="min-w-0">
+          <h3 className="text-[20px] leading-tight font-semibold text-foreground">
+            Destaques do mês
+          </h3>
+          <p className="text-sm leading-[1.1] text-foreground mt-1.5 max-w-[338px]">
+            {resumoNoFormatoDoFigma(destaques)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-[30px]">
+        <DestaquesDoMes destaques={destaques} />
+      </div>
+    </section>
   );
 }
 
@@ -861,22 +1114,27 @@ function MaisNumeros({ r }: { r: Relatorio }) {
   const { resumo: a, variacoes: v } = r;
   const itens: Array<{
     rotulo: string;
+    prefixo?: string;
     valor: string;
     ajuda: string;
     vari?: number | null;
     sufixo?: string;
+    comSinal?: boolean;
   }> = [
     {
       rotulo: 'Preço médio do kWh',
-      valor: a.precoMedioKwh === null ? '—' : fmtBRL(a.precoMedioKwh, 2),
+      prefixo: a.precoMedioKwh === null ? undefined : 'R$',
+      valor: a.precoMedioKwh === null ? '—' : fmtNum(a.precoMedioKwh, 2),
       ajuda: EXPLICA.preco,
       vari: v.precoMedioKwh,
     },
     {
       rotulo: 'Valor médio por recarga',
-      valor: a.ticketMedio === null ? '—' : fmtBRL(a.ticketMedio, 2),
+      prefixo: a.ticketMedio === null ? undefined : 'R$',
+      valor: a.ticketMedio === null ? '—' : fmtNum(a.ticketMedio, 2),
       ajuda: EXPLICA.ticket,
       vari: v.ticketMedio,
+      comSinal: true,
     },
     {
       rotulo: 'Duração média da recarga',
@@ -888,21 +1146,37 @@ function MaisNumeros({ r }: { r: Relatorio }) {
       valor: fmtPct(a.ocupacaoPct, 0),
       ajuda: EXPLICA.uso,
       vari: v.ocupacaoPp,
-      sufixo: ' pontos',
+      sufixo: ' p.p',
+      comSinal: true,
     },
   ];
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 3xl:grid-cols-[repeat(4,297px)] gap-[25px] 3xl:gap-[37px]">
       {itens.map(i => (
-        <div key={i.rotulo} className="rounded-xl bg-surface-container-high/40 px-4 py-3">
-          <p className="text-xs text-on-surface-variant flex items-center gap-1">
-            {i.rotulo} <Ajuda texto={i.ajuda} />
-          </p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="text-lg font-semibold text-on-surface">{i.valor}</span>
-            {i.vari !== undefined && <Variacao valor={i.vari} sufixo={i.sufixo} />}
+        <section
+          key={i.rotulo}
+          aria-label={i.rotulo}
+          className={`${classeDoCartao} pl-[27px] pr-4 pt-[25px] pb-[18px] min-h-[124px] flex flex-col gap-3 print-avoid`}
+        >
+          <h3
+            title={i.ajuda}
+            className="flex items-center gap-[13px] text-base leading-tight font-semibold text-[#001119] dark:text-foreground 3xl:whitespace-nowrap"
+          >
+            <span className="text-primary-strong">
+              <IconeSvg src={iconeRaio} tamanho={14} altura={17} />
+            </span>
+            {i.rotulo}
+          </h3>
+          <div className="flex flex-wrap items-center gap-x-9 gap-y-2">
+            <p className="flex items-baseline gap-3 font-semibold tabular-nums text-foreground">
+              {i.prefixo && <span className="text-[20px]">{i.prefixo}</span>}
+              <span className="text-[24px] leading-tight">{i.valor}</span>
+            </p>
+            {i.vari !== undefined && (
+              <PilulaDeVariacao valor={i.vari} sufixo={i.sufixo} comSinal={i.comSinal} />
+            )}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );
@@ -936,27 +1210,34 @@ function Motoristas({ r }: { r: Relatorio }) {
       detalhe: `${fmtInt(a.usuariosAtivos)} de ${fmtInt(a.baseAcumulada)} voltaram a carregar`,
       ajuda: EXPLICA.ativos,
       vari: v.baseAtivaPp,
-      sufixo: ' pontos',
+      sufixo: ' p.p',
     },
   ];
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-[25px]">
       {cards.map(c => (
-        <div
+        <section
           key={c.rotulo}
-          className="glass-panel rounded-xl border border-outline-variant/10 p-5 print-avoid"
+          aria-label={c.rotulo}
+          className={`${classeDoCartao} p-[22px] print-avoid`}
         >
-          <div className="flex items-center gap-2 text-on-surface-variant">
-            <span className="material-symbols-outlined text-lg text-primary">{c.icone}</span>
-            <span className="text-sm font-medium">{c.rotulo}</span>
-            <Ajuda texto={c.ajuda} />
+          <div className="flex items-center gap-[18px]">
+            <BlocoDeIcone>
+              <span className="material-symbols-outlined text-[22px]">{c.icone}</span>
+            </BlocoDeIcone>
+            <h3 className="text-[20px] leading-tight font-semibold text-[#001119] dark:text-foreground flex items-center gap-1.5">
+              {c.rotulo}
+              <Ajuda texto={c.ajuda} />
+            </h3>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-3xl font-headline font-bold text-on-surface">{c.valor}</span>
-            <Variacao valor={c.vari} sufixo={c.sufixo} />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span className="text-[32px] leading-tight font-semibold tabular-nums text-foreground">
+              {c.valor}
+            </span>
+            <PilulaDeVariacao valor={c.vari} sufixo={c.sufixo} />
           </div>
-          <p className="text-sm text-on-surface-variant mt-1">{c.detalhe}</p>
-        </div>
+          <p className="text-[15px] font-medium text-muted-foreground mt-1">{c.detalhe}</p>
+        </section>
       ))}
     </div>
   );
@@ -966,73 +1247,119 @@ function Motoristas({ r }: { r: Relatorio }) {
 // Gráficos e tabelas
 // ---------------------------------------------------------------------------
 
+/** "Evolução nos últimos 12 meses": barras verdes, a do mês escolhido mais forte. */
 function Trajetoria({
   serie,
   metrica,
+  onMetrica,
   mesSelecionado,
+  comRotulos,
 }: {
   serie: PontoSerie[];
   metrica: ChaveSerie;
+  onMetrica: (m: ChaveSerie) => void;
   mesSelecionado: string;
+  /** Valor em cima das barras (na impressão, que não tem o tooltip). */
+  comRotulos: boolean;
 }) {
   const cfg = METRICAS_SERIE.find(m => m.id === metrica)!;
   const dados = serie.map(p => ({ mes: mesCurto(p.mes), chave: p.mes, valor: p[metrica] }));
-  if (!dados.some(d => d.valor > 0)) return <Vazio texto="Sem dados no período" />;
-  // No celular os rótulos em cima das barras se sobrepõem; o tooltip mostra o valor.
-  const comRotulos = typeof window === 'undefined' || window.innerWidth >= 640;
+  const temDados = dados.some(d => d.valor > 0);
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={dados} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid
-          strokeDasharray="3 3"
-          stroke="#494847"
-          strokeOpacity={0.3}
-          vertical={false}
-        />
-        <XAxis
-          dataKey="mes"
-          tick={{ fill: '#adaaaa', fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-        />
-        <YAxis
-          tick={{ fill: '#adaaaa', fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-          width={60}
-          tickFormatter={v => fmtCompacto(Number(v))}
-        />
-        <Tooltip
-          {...tooltipStyle}
-          cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-          formatter={(v: number) => [cfg.fmt(v), cfg.rotulo]}
-        />
-        <Bar
-          isAnimationActive={false}
-          dataKey="valor"
-          radius={[6, 6, 0, 0]}
-          maxBarSize={48}
-          label={
-            comRotulos
-              ? {
-                  position: 'top',
-                  fill: '#adaaaa',
-                  fontSize: 10,
-                  formatter: (v: number) => fmtCompacto(v),
+    <section
+      aria-label="Evolução nos últimos 12 meses"
+      className={`${classeDoCartao} pl-[22px] pr-[22px] 3xl:pl-[27px] 3xl:pr-[48px] pt-[25px] pb-[22px] print-avoid`}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex flex-1 items-start gap-[18px] 3xl:gap-[41px] min-w-0 sm:mt-[11px]">
+          <BlocoGrande>
+            <IconeSvg src={iconeGrafico} tamanho={40} />
+          </BlocoGrande>
+          <div className="min-w-0 pt-px">
+            <h3 className="text-[20px] leading-tight font-semibold text-foreground">
+              Evolução nos últimos 12 meses
+            </h3>
+            <p className="text-sm text-foreground mt-1">
+              {cfg.rotulo}
+              {cfg.unidade ? ` (${cfg.unidade})` : ''}
+            </p>
+          </div>
+        </div>
+        <Select value={metrica} onValueChange={v => onMetrica(v as ChaveSerie)}>
+          <SelectTrigger
+            aria-label="Indicador do gráfico"
+            className="no-print shrink-0 h-[43px] data-[size=default]:h-[43px] w-full sm:w-[190px] rounded-[25px] border border-foreground dark:border-primary bg-card px-[28px] text-[15px] font-medium text-foreground dark:text-primary-strong [&_svg:not([class*='text-'])]:text-foreground [&_svg]:opacity-100"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-popover border-border">
+            {METRICAS_SERIE.map(m => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.rotulo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="mt-[30px]">
+        {!temDados ? (
+          <Vazio texto="Sem dados no período" />
+        ) : (
+          <ResponsiveContainer width="100%" height={310}>
+            <BarChart
+              data={dados}
+              margin={{ top: 20, right: 8, left: 0, bottom: 0 }}
+              barCategoryGap="12%"
+            >
+              <CartesianGrid stroke={COR_DA_GRADE} vertical={false} />
+              <XAxis
+                dataKey="mes"
+                tick={EIXO}
+                axisLine={false}
+                tickLine={false}
+                interval={0}
+                dy={6}
+              />
+              <YAxis
+                tick={{ ...EIXO, fontSize: 14, fill: 'var(--color-foreground)' }}
+                axisLine={false}
+                tickLine={false}
+                width={60}
+                tickFormatter={v => fmtCompacto(Number(v))}
+              />
+              <Tooltip
+                {...tooltipStyle}
+                cursor={CURSOR}
+                formatter={(v: number) => [cfg.fmt(v), cfg.rotulo]}
+              />
+              <Bar
+                isAnimationActive={false}
+                dataKey="valor"
+                maxBarSize={63}
+                label={
+                  comRotulos
+                    ? {
+                        position: 'top',
+                        fill: 'var(--color-muted-foreground)',
+                        fontSize: 10,
+                        formatter: (v: number) => fmtCompacto(v),
+                      }
+                    : false
                 }
-              : false
-          }
-        >
-          {dados.map(d => (
-            <Cell
-              key={d.chave}
-              fill="var(--primary)"
-              fillOpacity={d.chave === mesSelecionado ? 1 : 0.4}
-            />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+              >
+                {dados.map(d => (
+                  <Cell
+                    key={d.chave}
+                    fill="var(--primary)"
+                    fillOpacity={d.chave === mesSelecionado ? 1 : 0.51}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -1056,7 +1383,7 @@ function ThOrdenavel({
       <button
         type="button"
         onClick={() => onOrdenar(coluna)}
-        className={`inline-flex items-center gap-0.5 hover:text-primary ${ordem.coluna === coluna ? 'text-primary' : ''}`}
+        className={`inline-flex items-center gap-0.5 hover:text-primary-strong ${ordem.coluna === coluna ? 'text-primary-strong' : ''}`}
       >
         {children}
         {ordem.coluna === coluna && (
@@ -1072,10 +1399,10 @@ function ThOrdenavel({
 function Delta({ atual, anterior }: { atual: number; anterior: number }) {
   const v = variacaoPct(atual, anterior);
   if (v === null)
-    return atual > 0 ? <span className="block text-[11px] text-sky-500">novo</span> : null;
+    return atual > 0 ? <span className="block text-[11px] text-tom-azul-icone">novo</span> : null;
   return (
     <span
-      className={`block text-[11px] font-medium ${v >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+      className={`block text-[11px] font-medium ${v >= 0 ? 'text-estado-livre-forte' : 'text-destructive'}`}
     >
       {fmtVar(v)}
     </span>
@@ -1102,7 +1429,7 @@ function TabelaCarregadores({
     <div className="space-y-3">
       <div className="overflow-x-auto -mx-2">
         <table className={`w-full text-sm ${maisColunas ? 'min-w-[980px]' : 'min-w-[720px]'}`}>
-          <thead className="text-xs text-on-surface-variant border-b border-outline-variant/20">
+          <thead className={classeDoCabecalhoDaTabela}>
             <tr>
               <ThOrdenavel coluna="nome" alinhar="left" {...th}>
                 Carregador
@@ -1143,29 +1470,26 @@ function TabelaCarregadores({
                 totalFaturamento > 0 ? (c.faturamento / totalFaturamento) * 100 : 0;
               const cor = corDoUso(c.ocupacaoPct);
               return (
-                <tr
-                  key={c.chargePointId}
-                  className="border-b border-outline-variant/10 hover:bg-surface-container-high/40"
-                >
+                <tr key={c.chargePointId} className="border-b border-border hover:bg-muted/60">
                   <td className="px-3 py-3">
-                    <p className="font-medium text-on-surface">{c.nome}</p>
-                    <p className="text-xs text-on-surface-variant">
+                    <p className="font-medium text-foreground">{c.nome}</p>
+                    <p className="text-xs text-muted-foreground">
                       {c.bairro || c.chargePointId}
                       {c.potenciaKw ? ` · ${fmtNum(c.potenciaKw, 0)} kW` : ''}
                     </p>
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <span className="font-semibold text-on-surface">{fmtBRL(c.faturamento)}</span>
-                    <span className="block text-[11px] text-on-surface-variant">
+                    <span className="font-semibold text-foreground">{fmtBRL(c.faturamento)}</span>
+                    <span className="block text-[11px] text-muted-foreground">
                       {fmtPct(participacao, 0)} do total
                     </span>
                     <Delta atual={c.faturamento} anterior={c.anterior.faturamento} />
                   </td>
-                  <td className="px-3 py-3 text-right text-on-surface">
+                  <td className="px-3 py-3 text-right text-foreground">
                     {fmtInt(c.operacoes)}
                     <Delta atual={c.operacoes} anterior={c.anterior.operacoes} />
                   </td>
-                  <td className="px-3 py-3 text-right text-on-surface">
+                  <td className="px-3 py-3 text-right text-foreground">
                     {fmtKwh(c.energiaKwh)}
                     <Delta atual={c.energiaKwh} anterior={c.anterior.energiaKwh} />
                   </td>
@@ -1173,7 +1497,7 @@ function TabelaCarregadores({
                     <span className="font-semibold" style={{ color: cor }}>
                       {fmtPct(c.ocupacaoPct, 0)}
                     </span>
-                    <div className="mt-1 h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                    <div className="mt-1 h-1.5 rounded-full bg-muted overflow-hidden">
                       <div
                         className="h-full rounded-full"
                         style={{ width: `${Math.min(100, c.ocupacaoPct)}%`, backgroundColor: cor }}
@@ -1182,14 +1506,14 @@ function TabelaCarregadores({
                   </td>
                   {maisColunas && (
                     <>
-                      <td className="px-3 py-3 text-right text-on-surface">{fmtInt(c.usuarios)}</td>
-                      <td className="px-3 py-3 text-right text-on-surface">
+                      <td className="px-3 py-3 text-right text-foreground">{fmtInt(c.usuarios)}</td>
+                      <td className="px-3 py-3 text-right text-foreground">
                         {fmtInt(c.novosUsuarios)}
                       </td>
-                      <td className="px-3 py-3 text-right text-on-surface">
+                      <td className="px-3 py-3 text-right text-foreground">
                         {c.precoMedioKwh === null ? '—' : fmtBRL(c.precoMedioKwh, 2)}
                       </td>
-                      <td className="px-3 py-3 text-right text-on-surface">
+                      <td className="px-3 py-3 text-right text-foreground">
                         {c.ticketMedio === null ? '—' : fmtBRL(c.ticketMedio, 2)}
                       </td>
                     </>
@@ -1203,7 +1527,7 @@ function TabelaCarregadores({
       <button
         type="button"
         onClick={() => setMaisColunas(m => !m)}
-        className="no-print inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        className="no-print inline-flex items-center gap-1 text-xs font-semibold text-primary-strong hover:underline"
       >
         <span className="material-symbols-outlined text-base">
           {maisColunas ? 'unfold_less' : 'unfold_more'}
@@ -1243,13 +1567,13 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
             type="category"
             dataKey="nome"
             width={190}
-            tick={{ fill: '#adaaaa', fontSize: 11 }}
+            tick={EIXO}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
             {...tooltipStyle}
-            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            cursor={CURSOR}
             formatter={(v: number, _n, p) => [
               `${fmtPct(v, 0)} do tempo · ${fmtInt((p.payload as { horas: number }).horas)} horas`,
               'Uso',
@@ -1263,7 +1587,7 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
             maxBarSize={20}
             label={{
               position: 'right',
-              fill: '#adaaaa',
+              fill: 'var(--color-muted-foreground)',
               fontSize: 10,
               formatter: (v: number) => fmtPct(v, 0),
             }}
@@ -1274,7 +1598,7 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: VERDE }} />
           até 40%: tranquilo
@@ -1289,7 +1613,7 @@ function Ocupacao({ lista }: { lista: Carregador[] }) {
         </span>
       </div>
       {lotados.length > 0 && (
-        <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-3 rounded-[10px] bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <b>{lotados.map(c => c.nome).join(', ')}</b> {lotados.length === 1 ? 'está' : 'estão'} com
           muito uso e pode haver fila nos horários de pico. Vale considerar mais conectores ou um
           ponto próximo.
@@ -1313,11 +1637,11 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
           type="category"
           dataKey="nome"
           width={170}
-          tick={{ fill: '#adaaaa', fontSize: 11 }}
+          tick={EIXO}
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip {...tooltipStyle} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <Tooltip {...tooltipStyle} cursor={CURSOR} />
         <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" height={28} />
         <Bar
           isAnimationActive={false}
@@ -1326,7 +1650,7 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
           fill={AZUL}
           radius={[0, 6, 6, 0]}
           maxBarSize={14}
-          label={{ position: 'right', fill: '#adaaaa', fontSize: 10 }}
+          label={{ position: 'right', fill: 'var(--color-muted-foreground)', fontSize: 10 }}
         />
         <Bar
           isAnimationActive={false}
@@ -1335,7 +1659,7 @@ function Usuarios({ lista }: { lista: Carregador[] }) {
           fill="var(--primary)"
           radius={[0, 6, 6, 0]}
           maxBarSize={14}
-          label={{ position: 'right', fill: '#adaaaa', fontSize: 10 }}
+          label={{ position: 'right', fill: 'var(--color-muted-foreground)', fontSize: 10 }}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -1356,17 +1680,15 @@ function Bairros({ r }: { r: Relatorio }) {
       {lideres.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {lideres.map((c, i) => (
-            <div key={c.chargePointId} className="rounded-xl bg-surface-container-high/50 p-3">
-              <p className="text-xs text-primary font-semibold">
+            <div key={c.chargePointId} className="rounded-[10px] bg-muted/60 p-3">
+              <p className="text-xs text-primary-strong font-semibold">
                 {['🥇', '🥈', '🥉'][i]} {i + 1}º lugar
               </p>
-              <p className="text-2xl font-headline font-bold text-on-surface">
-                {fmtInt(c.novosUsuarios)}
-              </p>
-              <p className="text-xs text-on-surface truncate" title={c.nome}>
+              <p className="text-2xl font-bold text-foreground">{fmtInt(c.novosUsuarios)}</p>
+              <p className="text-xs text-foreground truncate" title={c.nome}>
                 {c.nome}
               </p>
-              <p className="text-[11px] text-on-surface-variant">
+              <p className="text-[11px] text-muted-foreground">
                 {c.bairro || 'Bairro não informado'}
               </p>
             </div>
@@ -1378,16 +1700,16 @@ function Bairros({ r }: { r: Relatorio }) {
           <div key={b.bairro}>
             <div className="flex justify-between text-sm mb-1">
               <span
-                className={`font-medium ${b.bairro === 'Sem bairro' ? 'text-on-surface-variant italic' : 'text-on-surface'}`}
+                className={`font-medium ${b.bairro === 'Sem bairro' ? 'text-muted-foreground italic' : 'text-foreground'}`}
               >
                 {b.bairro === 'Sem bairro' ? 'Bairro não informado' : b.bairro}
               </span>
-              <span className="text-on-surface-variant">
-                <b className="text-on-surface">{fmtInt(b.novosUsuarios)}</b>{' '}
+              <span className="text-muted-foreground">
+                <b className="text-foreground">{fmtInt(b.novosUsuarios)}</b>{' '}
                 {b.novosUsuarios === 1 ? 'novo' : 'novos'} · {fmtBRL(b.faturamento)}
               </span>
             </div>
-            <div className="h-2 rounded-full bg-surface-container-highest overflow-hidden">
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
               <div
                 className="h-full rounded-full bg-primary"
                 style={{ width: `${(b.novosUsuarios / maxNovos) * 100}%` }}
@@ -1397,7 +1719,7 @@ function Bairros({ r }: { r: Relatorio }) {
         ))}
       </div>
       {semBairro && (
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-muted-foreground">
           Alguns locais estão sem bairro. Preencha em Locais › detalhes do local.
         </p>
       )}
@@ -1433,7 +1755,7 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
           >
             <span />
             {Array.from({ length: 24 }, (_, h) => (
-              <span key={h} className="text-[9px] text-center text-on-surface-variant">
+              <span key={h} className="text-[9px] text-center text-muted-foreground">
                 {h % 3 === 0 ? `${h}h` : ''}
               </span>
             ))}
@@ -1446,7 +1768,7 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
                     <div
                       key={h}
                       title={`${dia}, ${h}h: ${fmtInt(cel?.operacoes ?? 0)} recargas · ${fmtKwh(cel?.energiaKwh ?? 0)}`}
-                      className="aspect-square rounded-[4px] bg-surface-container-highest"
+                      className="aspect-square rounded-[4px] bg-muted"
                       style={
                         valor
                           ? {
@@ -1463,13 +1785,13 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
           </div>
         </div>
       </div>
-      <p className="text-sm text-on-surface-variant">
+      <p className="text-sm text-muted-foreground">
         Horário mais procurado:{' '}
-        <b className="text-on-surface">
+        <b className="text-foreground">
           {horaPico}h às {horaPico + 1}h
         </b>
         . Dia e hora de maior movimento:{' '}
-        <b className="text-on-surface">
+        <b className="text-foreground">
           {DIAS_SEMANA[pico.dia - 1]}, {pico.hora}h
         </b>
         .
@@ -1480,7 +1802,7 @@ function MapaDeCalor({ r }: { r: Relatorio }) {
 
 const FragmentoDia = ({ dia, children }: { dia: string; children: ReactNode }) => (
   <>
-    <span className="text-[10px] text-on-surface-variant self-center">{dia}</span>
+    <span className="text-[10px] text-muted-foreground self-center">{dia}</span>
     {children}
   </>
 );
@@ -1491,15 +1813,15 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
   if (!definidas.length && !itens.length) {
     return (
       <div className="flex flex-col items-center text-center gap-3 py-6">
-        <span className="material-symbols-outlined text-4xl text-outline">flag</span>
-        <p className="text-sm text-on-surface-variant max-w-md">
+        <span className="material-symbols-outlined text-4xl text-muted-foreground">flag</span>
+        <p className="text-sm text-muted-foreground max-w-md">
           Defina quanto quer faturar, quantas recargas espera e outras metas do mês. O resultado é
           comparado automaticamente e aparece também na apresentação.
         </p>
         <button
           type="button"
           onClick={onDefinir}
-          className="no-print rounded-full bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
+          className="no-print rounded-[25px] bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
         >
           Definir metas de {nomeDoMes(r.mes)}
         </button>
@@ -1527,9 +1849,9 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
             const st = n.avaliacao ? STATUS_META[n.avaliacao.status] : null;
             const pct = Math.min(100, n.avaliacao?.atingidoPct ?? 0);
             return (
-              <div key={n.chave} className="rounded-xl bg-surface-container-high/50 p-4">
+              <div key={n.chave} className="rounded-[10px] bg-muted/60 p-4">
                 <div className="flex justify-between items-start gap-2">
-                  <p className="text-sm font-medium text-on-surface-variant">
+                  <p className="text-sm font-medium text-muted-foreground">
                     {ROTULO_META[n.chave] ?? n.rotulo}
                   </p>
                   {st && (
@@ -1540,16 +1862,16 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
                     </span>
                   )}
                 </div>
-                <p className="mt-2 text-2xl font-headline font-bold text-on-surface">
+                <p className="mt-2 text-2xl font-bold text-foreground">
                   {fmtMeta(n.unidade, n.resultado)}
                 </p>
-                <p className="text-xs text-on-surface-variant">
+                <p className="text-xs text-muted-foreground">
                   de {fmtMeta(n.unidade, n.meta!)}
                   {n.avaliacao?.atingidoPct != null && n.unidade !== '%'
                     ? ` · ${fmtPct(n.avaliacao.atingidoPct, 0)} da meta`
                     : ''}
                 </p>
-                <div className="mt-2 h-2 rounded-full bg-surface-container-highest overflow-hidden">
+                <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full"
                     style={{ width: `${pct}%`, backgroundColor: `#${st?.cor ?? '64748B'}` }}
@@ -1564,8 +1886,8 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
       {itens.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {areas.map(area => (
-            <div key={area} className="rounded-xl border border-outline-variant/15 p-4">
-              <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">
+            <div key={area} className="rounded-[10px] border border-border p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary-strong mb-2">
                 {area}
               </p>
               <ul className="space-y-2.5">
@@ -1574,11 +1896,9 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
                   .map((it, idx) => (
                     <li key={idx} className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm text-on-surface">{it.descricao}</p>
+                        <p className="text-sm text-foreground">{it.descricao}</p>
                         {it.resultado && (
-                          <p className="text-xs text-on-surface-variant">
-                            Resultado: {it.resultado}
-                          </p>
+                          <p className="text-xs text-muted-foreground">Resultado: {it.resultado}</p>
                         )}
                       </div>
                       <span
@@ -1594,7 +1914,7 @@ function Metas({ r, onDefinir }: { r: Relatorio; onDefinir: () => void }) {
         </div>
       )}
 
-      <p className="text-sm text-on-surface">
+      <p className="text-sm text-foreground">
         <b>{contagem('bateu')}</b> batidas · <b>{contagem('nao_bateu')}</b> não batidas ·{' '}
         <b>{contagem('quase')}</b> quase lá
         {contagem('em_andamento') ? ` · ${contagem('em_andamento')} em andamento` : ''}
@@ -1648,15 +1968,15 @@ function ProjecaoView({
           return (
             <div
               key={x.chave}
-              className={`rounded-xl p-3 ${x.chave === metrica ? 'bg-primary/10 ring-1 ring-primary/30' : 'bg-surface-container-high/50'}`}
+              className={`rounded-[10px] p-3 ${x.chave === metrica ? 'bg-primary-soft ring-1 ring-primary/40' : 'bg-muted/60'}`}
             >
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-muted-foreground">
                 {x.rotulo} em {mesCurto(ultimo.mes)}
               </p>
-              <p className="text-lg font-headline font-bold text-on-surface">
+              <p className="text-lg font-bold text-foreground">
                 {ultimo[x.chave] === null ? '—' : cfgFmt(ultimo[x.chave]!)}
               </p>
-              <p className="text-xs text-on-surface-variant">
+              <p className="text-xs text-muted-foreground">
                 {taxa === null ? 'histórico insuficiente' : `crescendo ${fmtNum(taxa, 0)}% ao mês`}
               </p>
             </div>
@@ -1667,18 +1987,13 @@ function ProjecaoView({
         <BarChart data={dados} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="#494847"
+            stroke={COR_DA_GRADE}
             strokeOpacity={0.3}
             vertical={false}
           />
-          <XAxis
-            dataKey="mes"
-            tick={{ fill: '#adaaaa', fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <XAxis dataKey="mes" tick={EIXO} axisLine={false} tickLine={false} />
           <YAxis
-            tick={{ fill: '#adaaaa', fontSize: 11 }}
+            tick={EIXO}
             axisLine={false}
             tickLine={false}
             width={60}
@@ -1686,7 +2001,7 @@ function ProjecaoView({
           />
           <Tooltip
             {...tooltipStyle}
-            cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+            cursor={CURSOR}
             formatter={(v: number, nome: string) => [fmt(v), nome]}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" height={28} />
@@ -1700,7 +2015,7 @@ function ProjecaoView({
             maxBarSize={44}
             label={{
               position: 'top',
-              fill: '#adaaaa',
+              fill: 'var(--color-muted-foreground)',
               fontSize: 10,
               formatter: (v: number | null) => (v ? fmtCompacto(v) : ''),
             }}
@@ -1718,14 +2033,14 @@ function ProjecaoView({
             maxBarSize={44}
             label={{
               position: 'top',
-              fill: '#adaaaa',
+              fill: 'var(--color-muted-foreground)',
               fontSize: 10,
               formatter: (v: number | null) => (v ? fmtCompacto(v) : ''),
             }}
           />
         </BarChart>
       </ResponsiveContainer>
-      <p className="text-xs text-on-surface-variant">
+      <p className="text-xs text-muted-foreground">
         É uma estimativa simples: não leva em conta novos pontos, carregadores lotados ou meses mais
         fracos do ano.
       </p>

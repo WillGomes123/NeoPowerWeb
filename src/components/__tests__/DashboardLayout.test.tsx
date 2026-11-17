@@ -107,6 +107,47 @@ describe('DashboardLayout (redesenho)', () => {
     expect(menu().getByRole('link', { name: 'Usuários' })).toBeInTheDocument();
   });
 
+  it('na Energia, mostra as seções do módulo como subitens e marca a da URL', () => {
+    abrir('/energia?aba=rateio');
+    const secoes = within(screen.getByRole('list', { name: 'Seções do módulo Energia' }));
+    for (const [rotulo, aba] of [
+      ['Usinas', 'usinas'],
+      ['Pontos consumidores', 'pontos'],
+      ['Conexões', 'conexoes'],
+      ['Rateio', 'rateio'],
+      ['Apuração e Split', 'apuracao'],
+      ['Modalidades', 'modalidades'],
+    ]) {
+      expect(secoes.getByRole('link', { name: rotulo })).toHaveAttribute(
+        'href',
+        `/energia?aba=${aba}`
+      );
+    }
+    expect(secoes.getByRole('link', { name: 'Rateio' })).toHaveAttribute('aria-current', 'page');
+    expect(secoes.getByRole('link', { name: 'Usinas' })).not.toHaveAttribute('aria-current');
+    // Com uma seção aberta, a seção é a página atual, e não o "Energia"
+    expect(menu().getByRole('link', { name: /Energia/ })).not.toHaveAttribute('aria-current');
+  });
+
+  it('na visão geral da Energia, o "Energia" é o item atual e nenhuma seção', () => {
+    abrir('/energia');
+    expect(menu().getByRole('link', { name: /Energia/ })).toHaveAttribute('aria-current', 'page');
+    const secoes = within(screen.getByRole('list', { name: 'Seções do módulo Energia' }));
+    expect(secoes.getAllByRole('link')).toHaveLength(6);
+    expect(secoes.queryByRole('link', { current: 'page' })).not.toBeInTheDocument();
+  });
+
+  it('fora da Energia, as seções do módulo não aparecem', () => {
+    abrir('/estacoes');
+    expect(menu().queryByRole('link', { name: 'Usinas' })).not.toBeInTheDocument();
+  });
+
+  it('as seções da Energia são só de quem vê a Energia (plataforma)', () => {
+    estado.user = operadorDaMarca;
+    abrir('/energia?aba=usinas');
+    expect(menu().queryByRole('link', { name: 'Usinas' })).not.toBeInTheDocument();
+  });
+
   it('esconde do operador de marca os itens da plataforma e os de admin', async () => {
     estado.user = operadorDaMarca;
     abrir('/estacoes');

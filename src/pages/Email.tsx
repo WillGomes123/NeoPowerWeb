@@ -3,6 +3,35 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import {
+    ArrowLeft,
+    ArrowRight,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Filter,
+    Inbox,
+    Loader2,
+    MailCheck,
+    Paperclip,
+    PenSquare,
+    Send,
+    User,
+    X,
+} from 'lucide-react';
+import {
+    AbasDaPagina,
+    BotaoAtualizar,
+    CabecalhoDaPagina,
+    classeDoCartao,
+} from '../components/painel/Pagina';
+import {
+    BarraDeFiltros,
+    CampoDeBusca,
+    classeDoBotaoContorno,
+    classeDoBotaoPrincipal,
+} from '../components/painel/Pecas';
+import { EstadoVazio, classeDaEtiqueta } from '../components/configuracoes/Pecas';
 
 interface UserContact {
     id: number;
@@ -23,9 +52,19 @@ interface EmailMessage {
     isRead: boolean;
 }
 
+/** Campo do formulário de envio: borda fina, cantos de 10 px, fundo do cartão. */
+const classeDoCampoDoEmail =
+    'bg-card border border-border rounded-[10px] px-3 h-10 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20';
+
+/** Data do filtro em pílula, na altura da busca. */
+const classeDaData =
+    'h-[43px] rounded-[25px] border border-foreground/80 dark:border-border bg-card px-4 text-sm font-medium text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 [color-scheme:light] dark:[color-scheme:dark]';
+
 export const Email = () => {
     const [emails, setEmails] = useState<EmailMessage[]>([]);
     const [loading, setLoading] = useState(true);
+    const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+    const [falhou, setFalhou] = useState(false);
     const [composing, setComposing] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
 
@@ -35,7 +74,7 @@ export const Email = () => {
     const [selectedUsers, setSelectedUsers] = useState<UserContact[]>([]);
     const [allUsers, setAllUsers] = useState<UserContact[]>([]);
     const [previewMode, setPreviewMode] = useState(false);
-    
+
     const [to, setTo] = useState('');
     const [subject, setSubject] = useState('');
     const [htmlMessage, setHtmlMessage] = useState('');
@@ -69,11 +108,15 @@ export const Email = () => {
                 const data = await res.json();
                 setEmails(data.emails || data.payload || []);
                 setTotalEmails(data.total || 0);
+                setAtualizadoEm(new Date());
+                setFalhou(false);
             } else {
+                setFalhou(true);
                 toast.error('Erro ao buscar emails');
             }
         } catch (error) {
             console.error(error);
+            setFalhou(true);
             toast.error('Erro de conexão ao carregar e-mails');
         } finally {
             setLoading(false);
@@ -109,7 +152,7 @@ export const Email = () => {
 
     const handleSend = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        
+
         if (!subject || !htmlMessage) {
             toast.error('Preencha os campos obrigatórios (Assunto e Mensagem)');
             return;
@@ -119,7 +162,7 @@ export const Email = () => {
             toast.error('Informe um destinatário');
             return;
         }
-        
+
         if (sendMode === 'group' && selectedUsers.length === 0) {
             toast.error('Selecione ao menos um destinatário');
             return;
@@ -135,7 +178,7 @@ export const Email = () => {
             const formData = new FormData();
             formData.append('subject', subject);
             formData.append('html', htmlMessage);
-            
+
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = htmlMessage;
             formData.append('text', tempDiv.textContent || tempDiv.innerText || '');
@@ -205,207 +248,199 @@ export const Email = () => {
     };
 
     return (
-        <div className="space-y-8 pb-12">
-            {/* Page Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <span className="text-xs font-bold text-primary font-headline tracking-[0.2em] uppercase mb-1 block">COMMUNICATIONS</span>
-                    <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">
-                        {activeTab === 'inbox' ? 'Caixa de Entrada' : 'Enviados'}
-                    </h2>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        onClick={fetchEmails}
-                        disabled={loading}
-                        className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors"
-                    >
-                        <span className={`material-symbols-outlined text-sm ${loading ? 'animate-spin' : ''}`}>refresh</span>
-                        <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
-                    </button>
-                    <button
-                        onClick={() => setComposing(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-xs font-headline uppercase tracking-wider transition-all hover:shadow-lg hover:shadow-primary/20"
-                    >
-                        <span className="material-symbols-outlined text-sm">edit</span>
-                        Nova Mensagem
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-[25px] pb-12">
+            <CabecalhoDaPagina
+                rotulo="Comunicação"
+                titulo={activeTab === 'inbox' ? 'Caixa de entrada' : 'Enviados'}
+                acoes={
+                    <>
+                        <button type="button" onClick={() => setComposing(true)} className={classeDoBotaoPrincipal}>
+                            <PenSquare className="w-5 h-5" aria-hidden="true" />
+                            Nova mensagem
+                        </button>
+                        <BotaoAtualizar
+                            aoAtualizar={() => void fetchEmails()}
+                            carregando={loading}
+                            atualizadoEm={atualizadoEm}
+                            falhou={falhou}
+                        />
+                    </>
+                }
+            />
 
-            {/* Tabs */}
-            <div className="flex items-center gap-1 border-b border-outline-variant/20 pb-0">
-                <button
-                    onClick={() => setActiveTab('inbox')}
-                    className={`px-6 py-2.5 text-sm font-bold transition-colors border-b-2 ${activeTab === 'inbox' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
-                >
-                    Caixa de Entrada
-                </button>
-                <button
-                    onClick={() => setActiveTab('sent')}
-                    className={`px-6 py-2.5 text-sm font-bold transition-colors border-b-2 ${activeTab === 'sent' ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container'}`}
-                >
-                    E-mails Enviados
-                </button>
-            </div>
+            <AbasDaPagina
+                rotulo="Pastas do e-mail"
+                ativa={activeTab}
+                aoMudar={setActiveTab}
+                abas={[
+                    { id: 'inbox', rotulo: 'Caixa de entrada', icone: <Inbox className="w-5 h-5" aria-hidden="true" /> },
+                    { id: 'sent', rotulo: 'E-mails enviados', icone: <Send className="w-5 h-5" aria-hidden="true" /> },
+                ]}
+            />
 
-            {/* Filters Bar */}
-            <form onSubmit={handleSearch} className="glass-panel flex flex-col md:flex-row items-center gap-3 p-4 rounded-xl border border-outline-variant/10">
-                <div className="flex-1 relative w-full">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base text-on-surface-variant">search</span>
-                    <input
-                        type="text"
+            {/* Filtros */}
+            <form onSubmit={handleSearch}>
+                <BarraDeFiltros>
+                    <CampoDeBusca
                         placeholder="Buscar nos emails..."
+                        aria-label="Buscar nos emails"
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder-on-surface-variant/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
                     />
-                </div>
-
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                    <input
-                        type="date"
-                        value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
-                        className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 h-[42px]"
-                    />
-                    <span className="text-on-surface-variant text-xs font-bold uppercase tracking-wider">até</span>
-                    <input
-                        type="date"
-                        value={endDate}
-                        onChange={e => setEndDate(e.target.value)}
-                        className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50 h-[42px]"
-                    />
-                    <button type="submit" className="p-2.5 bg-surface-container-highest hover:text-primary text-on-surface-variant rounded-lg transition-colors border border-outline-variant/10">
-                        <span className="material-symbols-outlined text-base">filter_list</span>
-                    </button>
-                </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <input
+                            type="date"
+                            aria-label="De"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                            className={classeDaData}
+                        />
+                        <span className="text-muted-foreground text-sm font-medium">até</span>
+                        <input
+                            type="date"
+                            aria-label="Até"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                            className={classeDaData}
+                        />
+                        <button type="submit" className={classeDoBotaoContorno}>
+                            <Filter className="w-4 h-4" aria-hidden="true" />
+                            Filtrar
+                        </button>
+                    </div>
+                </BarraDeFiltros>
             </form>
 
-            {/* 2-Panel Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:h-[calc(100vh-20rem)] min-h-[800px] lg:min-h-[600px]">
-                {/* Inbox List */}
-                <div className="col-span-1 bg-surface-container-low rounded-xl border border-outline-variant/10 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-outline-variant/10 flex items-center gap-2 shrink-0">
-                        <span className="material-symbols-outlined text-primary">inbox</span>
-                        <h3 className="text-lg font-headline font-bold text-on-surface">Mensagens</h3>
+            {/* Lista e leitura */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-[25px] lg:h-[calc(100vh-20rem)] min-h-[800px] lg:min-h-[600px]">
+                {/* Lista */}
+                <section className={`${classeDoCartao} col-span-1 flex flex-col overflow-hidden`} aria-label="Mensagens">
+                    <div className="px-5 py-4 border-b border-border flex items-center gap-2 shrink-0">
+                        <h2 className="text-[20px] leading-tight font-semibold text-foreground">Mensagens</h2>
                     </div>
 
                     <div className="flex-1 overflow-y-auto min-h-0">
                         {loading ? (
-                            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3" />
-                                <p className="text-sm text-on-surface-variant">Carregando e-mails...</p>
+                            <div className="p-8 text-center flex flex-col items-center justify-center h-full gap-3">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary-strong" aria-hidden="true" />
+                                <p className="text-sm text-muted-foreground">Carregando e-mails…</p>
                             </div>
                         ) : emails.length === 0 ? (
-                            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-                                <span className="material-symbols-outlined text-5xl text-outline mb-3">inbox</span>
-                                <p className="text-sm text-on-surface-variant">Nenhum e-mail recebido.</p>
-                            </div>
+                            <EstadoVazio icone={<Inbox className="w-10 h-10" />}>Nenhum e-mail recebido.</EstadoVazio>
                         ) : (
-                            <div className="divide-y divide-outline-variant/5">
-                                {emails.map((email) => (
-                                    <div
-                                        key={email.id}
-                                        onClick={() => setSelectedEmail(email)}
-                                        className={`p-4 cursor-pointer transition-colors hover:bg-surface-container-highest/30 flex flex-col gap-2
-                                            ${selectedEmail?.id === email.id
-                                                ? 'bg-surface-container-highest'
-                                                : !email.isRead
-                                                    ? 'border-l-2 border-primary bg-primary/5'
-                                                    : 'border-l-2 border-transparent'
+                            <ul className="divide-y divide-border">
+                                {emails.map((email) => {
+                                    const aberto = selectedEmail?.id === email.id;
+                                    const naoLido = !email.isRead && activeTab === 'inbox';
+                                    return (
+                                    <li key={email.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedEmail(email)}
+                                            aria-current={aberto ? 'true' : undefined}
+                                            className={`w-full text-left px-5 py-4 transition-colors flex flex-col gap-1.5 border-l-[3px] ${
+                                                aberto
+                                                    ? 'bg-primary-soft border-primary'
+                                                    : !email.isRead
+                                                        ? 'border-primary hover:bg-muted/60'
+                                                        : 'border-transparent hover:bg-muted/60'
                                             }`}
-                                    >
-                                        <div className="flex justify-between items-start gap-2">
-                                            <div className={`text-sm truncate w-full ${!email.isRead && activeTab === 'inbox' ? 'font-bold text-on-surface' : 'text-on-surface-variant'}`} title={activeTab === 'inbox' ? email.from : email.to}>
-                                                {activeTab === 'inbox' ? email.from : `Para: ${email.to}`}
-                                            </div>
-                                            <div className="text-[10px] text-on-surface-variant uppercase tracking-widest whitespace-nowrap shrink-0 pt-0.5">
-                                                {formatDate(email.date).split(',')[0]}
-                                            </div>
-                                        </div>
-                                        <div className={`text-sm truncate w-full ${!email.isRead ? 'font-headline font-bold text-primary' : 'font-headline font-bold text-on-surface'}`} title={email.subject}>
-                                            {email.subject}
-                                        </div>
-                                        <div className="text-xs text-on-surface-variant leading-relaxed overflow-hidden text-ellipsis whitespace-nowrap">
-                                            {getCleanPreview(email.text)}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                                        >
+                                            <span className="flex justify-between items-start gap-2 w-full">
+                                                <span className={`text-sm truncate ${naoLido ? 'font-semibold text-foreground' : 'text-muted-foreground'}`} title={activeTab === 'inbox' ? email.from : email.to}>
+                                                    {activeTab === 'inbox' ? email.from : `Para: ${email.to}`}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 pt-0.5">
+                                                    {formatDate(email.date).split(',')[0]}
+                                                </span>
+                                            </span>
+                                            <span className={`text-[15px] truncate w-full font-semibold ${!email.isRead ? 'text-primary-strong' : 'text-foreground'}`} title={email.subject}>
+                                                {email.subject}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground leading-relaxed truncate w-full">
+                                                {getCleanPreview(email.text)}
+                                            </span>
+                                        </button>
+                                    </li>
+                                    );
+                                })}
+                            </ul>
                         )}
                     </div>
 
-                    {/* Pagination */}
+                    {/* Paginação */}
                     {totalEmails > 0 && (
-                        <div className="flex flex-col gap-3 p-4 border-t border-outline-variant/10 shrink-0">
-                            <div className="flex items-center justify-between text-xs text-on-surface-variant">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold uppercase tracking-wider">Mostrar:</span>
+                        <div className="flex flex-col gap-3 px-5 py-4 border-t border-border shrink-0">
+                            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                <label className="flex items-center gap-2">
+                                    <span className="font-medium">Mostrar</span>
                                     <select
                                         value={limit}
                                         onChange={(e) => {
                                             setLimit(Number(e.target.value));
                                             setPage(1);
                                         }}
-                                        className="bg-surface-container-highest border border-outline-variant/10 rounded px-1.5 py-1 min-w-[3rem] text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                        className="h-9 rounded-[25px] border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary"
                                     >
                                         <option value={10}>10</option>
                                         <option value={20}>20</option>
                                         <option value={50}>50</option>
                                         <option value={100}>100</option>
                                     </select>
-                                </div>
-                                <span className="font-bold text-on-surface">Total: {totalEmails}</span>
+                                </label>
+                                <span className="font-semibold text-foreground">Total: {totalEmails}</span>
                             </div>
 
                             <div className="flex items-center justify-between">
                                 <button
+                                    type="button"
                                     onClick={() => setPage(p => Math.max(1, p - 1))}
                                     disabled={page === 1}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                                    className={`${classeDoBotaoContorno} px-3`}
+                                    aria-label="Página anterior"
                                 >
-                                    <span className="material-symbols-outlined text-base">chevron_left</span>
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
-                                <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">
+                                <span className={`${classeDaEtiqueta} bg-primary-soft text-primary-strong`}>
                                     Página {page}
                                 </span>
                                 <button
+                                    type="button"
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={page * limit >= totalEmails}
-                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                                    className={`${classeDoBotaoContorno} px-3`}
+                                    aria-label="Próxima página"
                                 >
-                                    <span className="material-symbols-outlined text-base">chevron_right</span>
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     )}
-                </div>
+                </section>
 
-                {/* Email Viewer */}
-                <div className="col-span-1 lg:col-span-2 bg-surface-container-low rounded-xl border border-outline-variant/10 flex flex-col overflow-hidden relative">
+                {/* Leitura */}
+                <section className={`${classeDoCartao} col-span-1 lg:col-span-2 flex flex-col overflow-hidden relative`} aria-label="Leitura do e-mail">
                     {selectedEmail ? (
                         <>
-                            <div className="p-4 sm:p-6 border-b border-outline-variant/10 shrink-0 relative overflow-hidden">
-                                <div className="absolute -right-16 -top-16 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
-
-                                <h2 className="text-xl sm:text-2xl font-headline font-bold text-on-surface mb-4 break-words leading-tight relative">{selectedEmail.subject}</h2>
-                                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative">
+                            <div className="p-5 sm:p-6 border-b border-border shrink-0">
+                                <h2 className="text-[20px] sm:text-2xl font-semibold text-foreground mb-4 break-words leading-tight">{selectedEmail.subject}</h2>
+                                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                                     <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 border border-outline-variant/10 shrink-0 flex items-center justify-center text-primary">
-                                            <span className="material-symbols-outlined text-xl">person</span>
-                                        </div>
+                                        <span className="w-11 h-11 rounded-full bg-primary-soft text-primary-strong shrink-0 flex items-center justify-center" aria-hidden="true">
+                                            <User className="w-5 h-5" />
+                                        </span>
                                         <div className="min-w-0 flex flex-col justify-center">
-                                            <span className="text-[10px] text-on-surface-variant uppercase tracking-widest mb-0.5">{activeTab === 'inbox' ? 'De' : 'Para'}</span>
-                                            <div className="text-sm font-bold text-on-surface truncate" title={activeTab === 'inbox' ? selectedEmail.from : selectedEmail.to}>{activeTab === 'inbox' ? selectedEmail.from : selectedEmail.to}</div>
+                                            <span className="text-xs text-muted-foreground mb-0.5">{activeTab === 'inbox' ? 'De' : 'Para'}</span>
+                                            <div className="text-sm font-semibold text-foreground truncate" title={activeTab === 'inbox' ? selectedEmail.from : selectedEmail.to}>{activeTab === 'inbox' ? selectedEmail.from : selectedEmail.to}</div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest bg-surface-container-highest px-3 py-1.5 rounded-full shrink-0 border border-outline-variant/10">
-                                        <span className="material-symbols-outlined text-sm text-primary">schedule</span>
+                                    <span className={`${classeDaEtiqueta} bg-muted text-foreground shrink-0`}>
+                                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                                         {formatDate(selectedEmail.date)}
-                                    </div>
+                                    </span>
                                 </div>
                             </div>
+                            {/* O corpo do e-mail fica em fundo branco, como num cliente de e-mail. */}
                             <div className="flex-1 bg-white overflow-hidden min-h-0 relative">
                                 {selectedEmail.html ? (
                                     <iframe
@@ -422,72 +457,85 @@ export const Email = () => {
                             </div>
                         </>
                     ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 relative overflow-hidden h-full">
-                            <span className="material-symbols-outlined text-6xl text-outline mb-4">mark_email_read</span>
-                            <h3 className="text-xl font-headline font-bold text-on-surface">Tudo pronto!</h3>
-                            <p className="text-sm mt-3 text-on-surface-variant text-center max-w-sm leading-relaxed">
+                        <div className="flex-1 flex items-center justify-center">
+                            <EstadoVazio icone={<MailCheck className="w-12 h-12" />} titulo="Tudo pronto!">
                                 Selecione uma mensagem na lista lateral para visualizar todo o conteúdo com segurança e rapidez.
-                            </p>
+                            </EstadoVazio>
                         </div>
                     )}
-                </div>
+                </section>
             </div>
 
-            {/* Compose Modal */}
+            {/* Nova mensagem */}
             {composing && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200">
-                    <div className="bg-surface-container border border-outline-variant/20 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-outline-variant/20 relative overflow-hidden shrink-0">
-                            <div className="absolute -right-12 -top-12 w-48 h-48 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
-                            <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-3 relative z-10">
-                                <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
-                                    <span className="material-symbols-outlined text-base text-primary">send</span>
-                                </div>
-                                {previewMode ? 'Pré-visualização do Envio' : 'Nova Mensagem'}
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50 animate-in fade-in duration-200">
+                    <div role="dialog" aria-modal="true" aria-label={previewMode ? 'Pré-visualização do envio' : 'Nova mensagem'} className="bg-card text-card-foreground rounded-[15px] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+                        {/* Cabeçalho */}
+                        <div className="flex items-center justify-between px-6 py-5 border-b border-border shrink-0">
+                            <h3 className="text-[20px] font-semibold text-foreground flex items-center gap-3">
+                                <span className="w-9 h-9 rounded-[5px] bg-primary-soft text-primary-strong inline-flex items-center justify-center" aria-hidden="true">
+                                    <Send className="w-4 h-4" />
+                                </span>
+                                {previewMode ? 'Pré-visualização do envio' : 'Nova mensagem'}
                             </h3>
                             <button
+                                type="button"
                                 onClick={() => {
                                     if (previewMode) setPreviewMode(false);
                                     else setComposing(false);
                                 }}
-                                className="text-on-surface-variant hover:text-on-surface p-2 rounded-lg hover:bg-surface-container-highest transition-all relative z-10 focus:outline-none"
+                                className="w-9 h-9 rounded-full inline-flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                aria-label={previewMode ? 'Voltar para a edição' : 'Fechar'}
                             >
-                                <span className="material-symbols-outlined text-xl">{previewMode ? 'arrow_back' : 'close'}</span>
+                                {previewMode ? <ArrowLeft className="w-5 h-5" /> : <X className="w-5 h-5" />}
                             </button>
                         </div>
 
-                        {/* Form / Preview Area */}
+                        {/* Formulário / prévia */}
                         {!previewMode ? (
                             <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex-1 flex flex-col overflow-y-auto">
-                                <div className="p-4 border-b border-outline-variant/20 flex flex-col gap-4">
-                                    {/* Send Mode Selection */}
-                                    <div className="flex items-center gap-4 border-b border-outline-variant/10 pb-4">
-                                        <label className="text-sm font-bold text-on-surface-variant uppercase tracking-wider text-[10px] w-20">Modo</label>
-                                        <div className="flex gap-2 bg-surface-container-low p-1 rounded-lg">
-                                            <button type="button" onClick={() => setSendMode('individual')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${sendMode === 'individual' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>Individual</button>
-                                            <button type="button" onClick={() => setSendMode('group')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${sendMode === 'group' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>Grupo</button>
-                                            <button type="button" onClick={() => setSendMode('all')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${sendMode === 'all' ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>Em Massa</button>
+                                <div className="px-6 py-4 border-b border-border flex flex-col gap-4">
+                                    {/* Modo de envio */}
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <span className="text-sm font-medium text-muted-foreground w-20">Modo</span>
+                                        <div className="flex gap-1 bg-muted/60 p-1 rounded-[25px]" role="group" aria-label="Modo de envio">
+                                            {([
+                                                ['individual', 'Individual'],
+                                                ['group', 'Grupo'],
+                                                ['all', 'Em massa'],
+                                            ] as const).map(([modo, rotulo]) => (
+                                                <button
+                                                    key={modo}
+                                                    type="button"
+                                                    onClick={() => setSendMode(modo)}
+                                                    aria-pressed={sendMode === modo}
+                                                    className={`h-9 px-4 rounded-[25px] text-sm font-semibold transition ${sendMode === modo ? 'bg-primary text-primary-foreground shadow-pilula' : 'text-foreground hover:bg-card'}`}
+                                                >
+                                                    {rotulo}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
 
-                                    {/* To / Target Selection */}
-                                    <div className="flex items-center gap-4">
-                                        <label className="text-sm font-bold text-on-surface-variant uppercase tracking-wider text-[10px] w-20 shrink-0">Para</label>
-                                        
+                                    {/* Destinatários */}
+                                    <div className="flex flex-wrap items-start gap-4">
+                                        <span className="text-sm font-medium text-muted-foreground w-20 shrink-0 pt-2.5">Para</span>
+
                                         {sendMode === 'individual' && (
                                             <input
                                                 type="text"
                                                 value={to}
                                                 onChange={(e) => setTo(e.target.value)}
-                                                placeholder="Email ou nome (busca simples)..."
-                                                className="flex-1 bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/50"
+                                                placeholder="E-mail ou nome (busca simples)..."
+                                                aria-label="Para"
+                                                className={`flex-1 min-w-[200px] ${classeDoCampoDoEmail}`}
                                             />
                                         )}
 
                                         {sendMode === 'group' && (
-                                            <div className="flex-1 flex flex-col gap-2">
+                                            <div className="flex-1 min-w-[200px] flex flex-col gap-2">
                                                 <select
+                                                    aria-label="Adicionar destinatário"
                                                     onChange={(e) => {
                                                         const user = allUsers.find(u => u.id === parseInt(e.target.value));
                                                         if (user && !selectedUsers.find(u => u.id === user.id)) {
@@ -495,7 +543,7 @@ export const Email = () => {
                                                         }
                                                         e.target.value = "";
                                                     }}
-                                                    className="w-full bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/50"
+                                                    className={`w-full ${classeDoCampoDoEmail}`}
                                                 >
                                                     <option value="">Selecione usuários para adicionar...</option>
                                                     {allUsers.map(u => (
@@ -503,14 +551,19 @@ export const Email = () => {
                                                     ))}
                                                 </select>
                                                 {selectedUsers.length > 0 && (
-                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                    <div className="flex flex-wrap gap-2 mt-1">
                                                         {selectedUsers.map(user => (
-                                                            <div key={user.id} className="flex items-center gap-1.5 bg-primary/10 text-primary px-2.5 py-1 rounded-full text-xs font-bold">
+                                                            <span key={user.id} className={`${classeDaEtiqueta} bg-primary-soft text-primary-strong pr-1.5`}>
                                                                 {user.name || user.email}
-                                                                <button type="button" onClick={() => setSelectedUsers(selectedUsers.filter(u => u.id !== user.id))} className="hover:text-error">
-                                                                    <span className="material-symbols-outlined text-[14px]">close</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setSelectedUsers(selectedUsers.filter(u => u.id !== user.id))}
+                                                                    className="w-5 h-5 rounded-full inline-flex items-center justify-center hover:bg-destructive/10 hover:text-destructive"
+                                                                    aria-label={`Tirar ${user.name || user.email}`}
+                                                                >
+                                                                    <X className="w-3.5 h-3.5" />
                                                                 </button>
-                                                            </div>
+                                                            </span>
                                                         ))}
                                                     </div>
                                                 )}
@@ -518,12 +571,13 @@ export const Email = () => {
                                         )}
 
                                         {sendMode === 'all' && (
-                                            <div className="flex-1 flex gap-3 items-center">
-                                                <span className="text-sm text-on-surface">Todos os usuários cadastrados. Filtrar plataforma:</span>
+                                            <div className="flex-1 flex flex-wrap gap-3 items-center">
+                                                <span className="text-sm text-foreground">Todos os usuários cadastrados. Filtrar plataforma:</span>
                                                 <select
                                                     value={targetPlatform}
                                                     onChange={(e) => setTargetPlatform(e.target.value as any)}
-                                                    className="bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-1.5 text-sm text-on-surface outline-none focus:border-primary/50 font-bold"
+                                                    aria-label="Plataforma"
+                                                    className={`${classeDoCampoDoEmail} font-medium`}
                                                 >
                                                     <option value="all">Ambas (Web e App)</option>
                                                     <option value="web">Apenas Web</option>
@@ -533,28 +587,30 @@ export const Email = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex items-center gap-4 pt-2">
-                                        <label className="text-sm font-bold text-on-surface-variant uppercase tracking-wider text-[10px] w-20 shrink-0">Assunto</label>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <label htmlFor="email-assunto" className="text-sm font-medium text-muted-foreground w-20 shrink-0">Assunto</label>
                                         <input
+                                            id="email-assunto"
                                             type="text"
                                             value={subject}
                                             onChange={(e) => setSubject(e.target.value)}
                                             placeholder="Qual o tema da sua mensagem?"
-                                            className="flex-1 bg-surface-container-low border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface outline-none focus:border-primary/50 font-medium"
+                                            className={`flex-1 min-w-[200px] ${classeDoCampoDoEmail} font-medium`}
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div className="flex-1 flex flex-col p-4">
-                                    <div className="flex justify-between items-end mb-2">
-                                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Mensagem</label>
-                                        <span className="text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded font-mono">Variáveis: {`{nome_do_usuario}`}, {`{email}`}</span>
+                                <div className="flex-1 flex flex-col px-6 py-4">
+                                    <div className="flex flex-wrap justify-between items-end gap-2 mb-2">
+                                        <span className="text-sm font-medium text-foreground">Mensagem</span>
+                                        <span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-[5px] font-mono">Variáveis: {`{nome_do_usuario}`}, {`{email}`}</span>
                                     </div>
-                                    <div className="flex-1 border border-outline-variant/20 rounded-lg overflow-hidden bg-white text-zinc-800 flex flex-col min-h-[250px]">
-                                        <ReactQuill 
-                                            theme="snow" 
-                                            value={htmlMessage} 
+                                    {/* O editor fica branco: é como o e-mail chega ao destinatário. */}
+                                    <div className="flex-1 border border-border rounded-[10px] overflow-hidden bg-white text-zinc-800 flex flex-col min-h-[250px]">
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={htmlMessage}
                                             onChange={setHtmlMessage}
                                             className="flex-1 flex flex-col [&_.ql-container]:flex-1 [&_.ql-editor]:min-h-[200px]"
                                             modules={{
@@ -570,35 +626,34 @@ export const Email = () => {
                                     </div>
                                 </div>
 
-                                {/* Attachments Area */}
+                                {/* Anexos */}
                                 <div className="px-6 pb-4 shrink-0">
                                     {attachments.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 pt-4 border-t border-outline-variant/10">
+                                        <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
                                             {attachments.map((file, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 bg-surface-container-low border border-outline-variant/20 px-3 py-1.5 rounded-full text-xs text-on-surface group hover:border-primary/50 transition-colors">
-                                                    <span className="material-symbols-outlined text-sm text-primary">attach_file</span>
-                                                    <span className="truncate max-w-[150px] font-medium">{file.name}</span>
-                                                    <span className="text-[10px] text-on-surface-variant uppercase font-mono tracking-wider">{(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                                                <span key={idx} className={`${classeDaEtiqueta} bg-muted text-foreground pr-1.5`}>
+                                                    <Paperclip className="w-3.5 h-3.5 text-primary-strong" aria-hidden="true" />
+                                                    <span className="truncate max-w-[150px]">{file.name}</span>
+                                                    <span className="text-[11px] text-muted-foreground font-mono">{(file.size / 1024 / 1024).toFixed(1)}MB</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setAttachments(attachments.filter((_, i) => i !== idx))}
-                                                        className="hover:bg-error/10 hover:text-error p-0.5 rounded-full text-on-surface-variant transition-colors ml-1 focus:outline-none"
+                                                        className="w-5 h-5 rounded-full inline-flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                                        aria-label={`Tirar o anexo ${file.name}`}
                                                     >
-                                                        <span className="material-symbols-outlined text-sm">close</span>
+                                                        <X className="w-3.5 h-3.5" />
                                                     </button>
-                                                </div>
+                                                </span>
                                             ))}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Footer */}
-                                <div className="flex justify-between items-center px-6 py-4 bg-surface-container border-t border-outline-variant/20 shrink-0">
-                                    <label className="flex items-center gap-2.5 px-4 py-2 hover:bg-surface-container-highest border border-transparent hover:border-outline-variant/10 rounded-lg cursor-pointer transition-all text-on-surface-variant hover:text-on-surface group focus-within:ring-2 focus-within:ring-primary/50">
-                                        <div className="bg-surface-container-highest group-hover:bg-primary/10 p-1.5 rounded-md transition-colors">
-                                            <span className="material-symbols-outlined text-base text-primary">attach_file</span>
-                                        </div>
-                                        <span className="text-sm font-bold">Anexar</span>
+                                {/* Rodapé */}
+                                <div className="flex flex-wrap justify-between items-center gap-3 px-6 py-4 border-t border-border shrink-0">
+                                    <label className={`${classeDoBotaoContorno} cursor-pointer focus-within:ring-2 focus-within:ring-primary/40`}>
+                                        <Paperclip className="w-4 h-4" aria-hidden="true" />
+                                        Anexar
                                         <input
                                             type="file"
                                             multiple
@@ -625,31 +680,28 @@ export const Email = () => {
                                         />
                                     </label>
 
-                                    <button
-                                        type="submit"
-                                        className="px-8 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
-                                    >
-                                        Revisar e Enviar
-                                        <span className="material-symbols-outlined text-base ml-1">arrow_forward</span>
+                                    <button type="submit" className={classeDoBotaoPrincipal}>
+                                        Revisar e enviar
+                                        <ArrowRight className="w-4 h-4" aria-hidden="true" />
                                     </button>
                                 </div>
                             </form>
                         ) : (
-                            // Preview Mode
+                            // Prévia
                             <div className="flex-1 flex flex-col overflow-hidden">
-                                <div className="p-6 border-b border-outline-variant/20 bg-surface-container-low flex flex-col gap-2 shrink-0">
-                                    <div className="flex justify-between items-center">
-                                        <h4 className="text-lg font-headline font-bold text-on-surface">Confirmar Detalhes</h4>
-                                        <span className="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
-                                            {sendMode === 'all' ? `Em Massa (${targetPlatform})` : sendMode === 'group' ? `Grupo (${selectedUsers.length})` : 'Individual'}
+                                <div className="px-6 py-5 border-b border-border bg-muted/40 flex flex-col gap-2 shrink-0">
+                                    <div className="flex flex-wrap justify-between items-center gap-2">
+                                        <h4 className="text-base font-semibold text-foreground">Confirmar detalhes</h4>
+                                        <span className={`${classeDaEtiqueta} bg-tom-azul text-tom-azul-icone`}>
+                                            {sendMode === 'all' ? `Em massa (${targetPlatform})` : sendMode === 'group' ? `Grupo (${selectedUsers.length})` : 'Individual'}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-on-surface-variant">
+                                    <p className="text-sm text-muted-foreground">
                                         As variáveis serão substituídas pelos dados de cada usuário. Abaixo, um exemplo de como a mensagem aparecerá para o destinatário:
                                     </p>
                                 </div>
                                 <div className="flex-1 overflow-y-auto p-6">
-                                    <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-white p-8">
+                                    <div className="border border-border rounded-[15px] overflow-hidden bg-white p-8">
                                         <div className="border-b border-gray-200 pb-4 mb-4">
                                             <p className="text-sm text-gray-500 mb-1"><strong>Assunto:</strong> {subject}</p>
                                             <p className="text-sm text-gray-500"><strong>Para:</strong> {sendMode === 'all' ? 'Todos os usuários' : sendMode === 'group' ? selectedUsers.map(u => u.name || u.email).join(', ') : to}</p>
@@ -661,24 +713,26 @@ export const Email = () => {
                                         }} />
                                     </div>
                                 </div>
-                                <div className="flex justify-between items-center px-6 py-4 bg-surface-container border-t border-outline-variant/20 shrink-0">
-                                    <button onClick={() => setPreviewMode(false)} className="px-6 py-2 rounded-full border border-outline-variant/20 text-on-surface-variant font-bold hover:bg-surface-container-highest transition-colors">
+                                <div className="flex flex-wrap justify-between items-center gap-3 px-6 py-4 border-t border-border shrink-0">
+                                    <button type="button" onClick={() => setPreviewMode(false)} className={classeDoBotaoContorno}>
+                                        <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                                         Voltar
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleSend()}
                                         disabled={sending}
-                                        className="px-8 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl hover:shadow-primary/30"
+                                        className={classeDoBotaoPrincipal}
                                     >
                                         {sending ? (
                                             <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-on-primary" />
-                                                Enviando...
+                                                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                                                Enviando…
                                             </>
                                         ) : (
                                             <>
-                                                Confirmar Envio
-                                                <span className="material-symbols-outlined text-base ml-1">send</span>
+                                                Confirmar envio
+                                                <Send className="w-4 h-4" aria-hidden="true" />
                                             </>
                                         )}
                                     </button>

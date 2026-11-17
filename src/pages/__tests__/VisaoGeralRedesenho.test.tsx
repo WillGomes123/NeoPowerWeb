@@ -1,7 +1,9 @@
 /**
- * Visão geral no redesenho de nov/2026: os cartões do Figma com os números da
- * API, o "Atualizar" com a hora e o aviso de falha, o atalho para os
- * carregadores offline, o filtro por estação e o "Limpar filtros".
+ * Visão geral no redesenho de nov/2026, à risca do Figma (Frame 14): os
+ * cartões com os números da API e sem rodapé, os textos dos gráficos, o
+ * "Atualizar" com a hora e o aviso de falha, o bloco Offline que leva aos
+ * carregadores offline e o filtro por estação (sem a linha de escopo nem o
+ * "Limpar filtros", que o Figma não tem).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -103,6 +105,11 @@ describe('Visão geral (redesenho)', () => {
       within(screen.getByRole('region', { name: 'Receita líquida' })).getByText('990,00')
     ).toBeInTheDocument();
     expect(screen.getByText(/Última atualização hoje às/)).toBeInTheDocument();
+    // Como no Figma: sem a linha de escopo no cabeçalho e sem rodapé nos cartões
+    expect(screen.queryByText(/Período: todo/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ao vivo/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Taxa Mercado Pago')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recargas (consumo)')).not.toBeInTheDocument();
   });
 
   it('a marca não vê o cartão de depósitos', async () => {
@@ -112,14 +119,19 @@ describe('Visão geral (redesenho)', () => {
     expect(screen.queryByRole('region', { name: 'Depósitos recebidos' })).not.toBeInTheDocument();
   });
 
-  it('o gráfico diz de que período fala', async () => {
+  it('os gráficos têm os subtítulos e os selos do Figma', async () => {
     abrir();
+    const receita = await screen.findByRole('region', { name: 'Análise da receita' });
     expect(
-      await screen.findByText(/Receita diária das recargas · últimos 7 dias/)
+      within(receita).getByText('Evolução da receita no período selecionado')
     ).toBeInTheDocument();
+    expect(within(receita).getByText('Receita líquida')).toBeInTheDocument();
+    // O Figma repetiu o subtítulo da receita no de energia; aqui fala do consumo.
+    const energia = screen.getByRole('region', { name: 'Consumo de energia' });
     expect(
-      screen.getByText(/Energia diária entregue \(kWh\) · últimos 7 dias/)
+      within(energia).getByText('Evolução do consumo no período selecionado')
     ).toBeInTheDocument();
+    expect(within(energia).getByText('Diária')).toBeInTheDocument();
   });
 
   it('status dos carregadores: conectados, por estado e atalho para os offline', async () => {
@@ -130,7 +142,8 @@ describe('Visão geral (redesenho)', () => {
     expect(within(status).getByText('Em uso')).toBeInTheDocument();
     const offline = within(status).getByTitle('Ver os carregadores offline');
     expect(offline).toHaveAttribute('href', '/estacoes?estado=offline');
-    expect(within(status).getByText(/10 carregadores sem conexão/)).toBeInTheDocument();
+    // A frase "N carregadores sem conexão. Ver quais →" não está no Figma.
+    expect(within(status).queryByText(/sem conexão/)).not.toBeInTheDocument();
   });
 
   it('atualização que falha mantém os números e avisa', async () => {
@@ -142,21 +155,26 @@ describe('Visão geral (redesenho)', () => {
     expect(screen.getByRole('region', { name: 'Receita operacional' })).toBeInTheDocument();
   });
 
-  it('escolher uma estação filtra a API e aparece "Limpar filtros"', async () => {
+  it('escolher uma estação filtra a API, e "Todas as estações" volta à rede toda', async () => {
     abrir();
     await screen.findByRole('heading', { name: 'Visão geral' });
+    // O Figma não tem "Limpar filtros": cada pílula volta ao "todos" sozinha.
     expect(screen.queryByRole('button', { name: /Limpar filtros/ })).not.toBeInTheDocument();
 
-    await userEvent.click(await screen.findByRole('combobox', { name: 'Filtrar por estação' }));
+    const estacao = await screen.findByRole('combobox', { name: 'Filtrar por estação' });
+    await userEvent.click(estacao);
     await userEvent.click(await screen.findByRole('option', { name: 'Carregador da entrada' }));
 
     await waitFor(() => expect(estado.pedidos.some(u => u.includes('chargerId=CP-1'))).toBe(true));
-    expect(await screen.findByText(/Estação: Carregador da entrada/)).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: /Limpar filtros/ }));
-    expect(
-      await screen.findByText('Período: todo · Todos os locais · Todas as estações')
-    ).toBeInTheDocument();
+    expect(estacao).toHaveTextContent('Carregador da entrada');
     expect(screen.queryByRole('button', { name: /Limpar filtros/ })).not.toBeInTheDocument();
+
+    estado.pedidos = [];
+    await userEvent.click(estacao);
+    await userEvent.click(await screen.findByRole('option', { name: 'Todas as estações' }));
+    const pedidosDaVisao = () => estado.pedidos.filter(u => u.startsWith('/overview-stats'));
+    await waitFor(() => expect(pedidosDaVisao().length).toBeGreaterThan(0));
+    expect(pedidosDaVisao().some(u => u.includes('chargerId'))).toBe(false);
+    expect(estacao).toHaveTextContent('Todas as estações');
   });
 });

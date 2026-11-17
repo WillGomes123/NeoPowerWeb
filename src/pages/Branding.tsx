@@ -11,7 +11,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../components/ui/dialog';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -19,6 +18,19 @@ import { PagamentosDaMarca } from '../components/branding/PagamentosDaMarca';
 import { PromotionsDialog } from '../components/PromotionsDialog';
 import { camposDaMarcaCompleta, COR_HEX, STATUS_DA_MARCA } from '../lib/marcaCompleta';
 import type { CoresDeStatus } from '../types';
+import { Image as IconeImagem, Palette, Plus, Shapes } from 'lucide-react';
+import { CabecalhoDaPagina, CartaoContador } from '../components/painel/Pagina';
+import { classeDoBotaoPrincipal } from '../components/painel/Pecas';
+import {
+  CabecalhoDoCartao,
+  ConfirmarExclusao,
+  classeDaLinha,
+  classeDaLinhaDoCabecalho,
+  classeDaTabela,
+  classeDoBotaoDeIcone,
+  classeDoBotaoDeIconePerigo,
+  classeDoCartaoDaTabela,
+} from '../components/configuracoes/Pecas';
 
 interface BrandingConfig {
   clientId: string;
@@ -83,6 +95,9 @@ export const Branding = () => {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [buildingClientId, setBuildingClientId] = useState<string | null>(null);
   const [promoDialogClient, setPromoDialogClient] = useState<BrandingConfig | null>(null);
+  // Exclusão confirmada num diálogo que diz a consequência (antes era o confirm() do navegador).
+  const [marcaAExcluir, setMarcaAExcluir] = useState<BrandingConfig | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   // Build Dialog State
   const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false);
@@ -251,16 +266,18 @@ export const Branding = () => {
       return;
     }
 
-    if (!confirm('Tem certeza que deseja excluir esta configuração?')) return;
-
+    setExcluindo(true);
     try {
       const response = await api.delete(`/admin/branding/${encodeURIComponent(clientId)}`);
       if (response.ok) {
         toast.success('Configuração excluída');
+        setMarcaAExcluir(null);
         void fetchConfigs();
       }
     } catch {
       toast.error('Erro ao excluir');
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -504,57 +521,44 @@ export const Branding = () => {
   }
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">
-            WHITE LABEL ENGINE
-          </span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">
-            Branding
-          </h1>
-          <p className="text-on-surface-variant mt-1">
-            Gerencie a identidade visual de cada cliente
-          </p>
-        </div>
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="White Label"
+        subtitulo="Gerencie a identidade visual de cada cliente"
+        acoes={
+          <button
+            type="button"
+            className={classeDoBotaoPrincipal}
+            onClick={() => {
+              setFormData({
+                clientId: '',
+                companyName: '',
+                slogan: '',
+                logoType: 'programmatic',
+                logoUri: '',
+                logoUriLight: '',
+                logoUriDark: '',
+                splashUri: '',
+                splashBgColor: '#000000',
+                primaryColor: '#00FF88',
+                primaryColorLight: '',
+                primaryColorDark: '',
+                splashBgColorLight: '',
+                splashBgColorDark: '',
+                theme: 'dark',
+                cashbackEnabled: false,
+                cashbackPercentage: 3,
+              });
+              setUseSameColors(true);
+              setIsDialogOpen(true);
+            }}
+          >
+            <Plus className="w-5 h-5" aria-hidden="true" />
+            Nova marca
+          </button>
+        }
+      />
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <button
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
-              onClick={() => {
-                setFormData({
-                  clientId: '',
-                  companyName: '',
-                  slogan: '',
-                  logoType: 'programmatic',
-                  logoUri: '',
-                  logoUriLight: '',
-                  logoUriDark: '',
-                  splashUri: '',
-                  splashBgColor: '#000000',
-                  primaryColor: '#00FF88',
-                  primaryColorLight: '',
-                  primaryColorDark: '',
-                  splashBgColorLight: '',
-                  splashBgColorDark: '',
-                  theme: 'dark',
-                  cashbackEnabled: false,
-                  cashbackPercentage: 3,
-                });
-                setUseSameColors(true);
-              }}
-            >
-              <span
-                className="material-symbols-outlined text-lg"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                add
-              </span>
-              Nova Marca
-            </button>
-          </DialogTrigger>
-
           {/* Create/Edit Dialog */}
           <DialogContent
             className="bg-surface-container border-outline-variant/20 !p-0 overflow-hidden"
@@ -1643,53 +1647,48 @@ export const Branding = () => {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <SummaryCard icon="palette" label="TOTAL MARCAS" value={String(configs.length)} />
-        <SummaryCard
-          icon="public"
-          label="PROGRAMATICAS"
-          value={String(configs.filter(c => c.logoType === 'programmatic').length)}
-          color="text-primary"
+      {/* Contadores */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[25px]">
+        <CartaoContador
+          icone={<Palette className="w-7 h-7" />}
+          rotulo="Total de marcas"
+          valor={configs.length}
         />
-        <SummaryCard
-          icon="image"
-          label="COM LOGO CUSTOM"
-          value={String(configs.filter(c => c.logoType === 'image').length)}
-          color="text-tertiary"
+        <CartaoContador
+          icone={<Shapes className="w-7 h-7" />}
+          rotulo="Programáticas"
+          valor={configs.filter(c => c.logoType === 'programmatic').length}
+          fundoDoIcone="bg-tom-azul text-tom-azul-icone"
+        />
+        <CartaoContador
+          icone={<IconeImagem className="w-7 h-7" />}
+          rotulo="Com logo personalizada"
+          valor={configs.filter(c => c.logoType === 'image').length}
+          fundoDoIcone="bg-tom-amarelo text-tom-amarelo-icone"
         />
       </div>
 
       {/* Configs Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface">Marcas Ativas</h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
-            {configs.length} registros
-          </span>
-        </div>
+      <section className={classeDoCartaoDaTabela} aria-label="Marcas">
+        <CabecalhoDoCartao titulo="Marcas ativas" detalhe={`${configs.length} registros`} />
         {configs.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className={classeDaTabela}>
               <thead>
-                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                  <th className="px-6 py-4">ID Cliente</th>
-                  <th className="px-6 py-4">Empresa</th>
-                  <th className="px-6 py-4">Cores</th>
-                  <th className="px-6 py-4">Tipo Logo</th>
-                  <th className="px-6 py-4 text-center">Tema Web</th>
-                  <th className="px-6 py-4 text-center">Cashback</th>
-                  <th className="px-6 py-4 text-right">Acoes</th>
+                <tr className={classeDaLinhaDoCabecalho}>
+                  <th className="px-6 py-3">ID do cliente</th>
+                  <th className="px-6 py-3">Empresa</th>
+                  <th className="px-6 py-3">Cores</th>
+                  <th className="px-6 py-3">Tipo de logo</th>
+                  <th className="px-6 py-3 text-center">Tema web</th>
+                  <th className="px-6 py-3 text-center">Cashback</th>
+                  <th className="px-6 py-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
+              <tbody>
                 {configs.map(config => (
-                  <tr
-                    key={config.clientId}
-                    className="hover:bg-surface-container-highest/30 transition-colors group"
-                  >
+                  <tr key={config.clientId} className={classeDaLinha}>
                     <td className="px-6 py-4">
                       <span className="font-mono text-sm text-on-surface">{config.clientId}</span>
                     </td>
@@ -1746,12 +1745,12 @@ export const Branding = () => {
                     </td>
                     <td className="px-6 py-4">
                       {config.logoType === 'programmatic' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-soft text-primary-strong text-[10px] font-bold">
                           <span className="material-symbols-outlined text-xs">public</span>
                           App Icon
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tertiary/10 text-tertiary text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tom-azul text-tom-azul-icone text-[10px] font-bold">
                           <span className="material-symbols-outlined text-xs">image</span>
                           Imagem
                         </span>
@@ -1773,7 +1772,7 @@ export const Branding = () => {
                     </td>
                     <td className="px-6 py-4 text-center">
                       {config.cashbackEnabled ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-soft text-primary-strong text-[10px] font-bold">
                           <span className="material-symbols-outlined text-xs">savings</span>
                           {Number(config.cashbackPercentage ?? 0)}%
                         </span>
@@ -1784,21 +1783,21 @@ export const Branding = () => {
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-1.5">
                         <button
-                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                          className={classeDoBotaoDeIcone}
                           title="Gerenciar usuarios desta marca"
                           onClick={() => handleOpenUsersDialog(config.clientId)}
                         >
                           <span className="material-symbols-outlined text-lg">group</span>
                         </button>
                         <button
-                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                          className={classeDoBotaoDeIcone}
                           title="Promoções desta marca"
                           onClick={() => setPromoDialogClient(config)}
                         >
                           <span className="material-symbols-outlined text-lg">campaign</span>
                         </button>
                         <button
-                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all disabled:opacity-40"
+                          className={classeDoBotaoDeIcone}
                           title="Gerar build do App (EAS)"
                           disabled={buildingClientId !== null}
                           onClick={() => openBuildDialog(config)}
@@ -1810,15 +1809,17 @@ export const Branding = () => {
                           )}
                         </button>
                         <button
-                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-surface-container-high hover:text-on-surface transition-all"
+                          className={classeDoBotaoDeIcone}
+                          title="Editar marca"
                           onClick={() => handleEdit(config)}
                         >
                           <span className="material-symbols-outlined text-lg">edit</span>
                         </button>
                         <button
-                          className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-error/10 hover:text-error hover:border-error/20 transition-all disabled:opacity-40"
+                          className={`${classeDoBotaoDeIconePerigo} ml-2`}
+                          title="Excluir marca"
                           disabled={config.clientId === 'neopower-default'}
-                          onClick={() => handleDelete(config.clientId)}
+                          onClick={() => setMarcaAExcluir(config)}
                         >
                           <span className="material-symbols-outlined text-lg">delete</span>
                         </button>
@@ -1831,12 +1832,12 @@ export const Branding = () => {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-on-surface-variant italic">
-              Nenhuma configuracao encontrada no banco de dados.
+            <p className="text-muted-foreground">
+              Nenhuma configuração encontrada no banco de dados.
             </p>
           </div>
         )}
-      </div>
+      </section>
 
       {/* Users Management Dialog */}
       <Dialog
@@ -2242,6 +2243,23 @@ export const Branding = () => {
         </DialogContent>
       </Dialog>
 
+      <ConfirmarExclusao
+        aberto={!!marcaAExcluir}
+        aoMudar={aberto => !aberto && setMarcaAExcluir(null)}
+        titulo="Excluir configuração"
+        rotuloDoBotao="Sim, excluir"
+        carregando={excluindo}
+        aoConfirmar={() => marcaAExcluir && void handleDelete(marcaAExcluir.clientId)}
+      >
+        <p>
+          Tem certeza que deseja excluir a configuração de{' '}
+          <strong className="text-foreground">
+            {marcaAExcluir?.companyName || marcaAExcluir?.clientId}
+          </strong>{' '}
+          ({marcaAExcluir?.clientId})? A identidade visual da marca é apagada e não dá para desfazer.
+        </p>
+      </ConfirmarExclusao>
+
       {promoDialogClient && (
         <PromotionsDialog
           open={!!promoDialogClient}
@@ -2386,30 +2404,6 @@ function PreviaDaPaleta({ marca }: { marca: Partial<BrandingConfig> }) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-  color,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  color?: string;
-}) {
-  return (
-    <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 flex flex-col justify-between h-28 hover:border-primary/30 transition-colors">
-      <div className="flex justify-between items-start">
-        <span className="text-on-surface-variant text-xs uppercase tracking-widest">{label}</span>
-        <span className={`material-symbols-outlined text-sm ${color || 'text-primary'}`}>
-          {icon}
-        </span>
-      </div>
-      <span className="text-3xl font-headline font-bold text-on-surface">{value}</span>
     </div>
   );
 }

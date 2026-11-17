@@ -112,10 +112,10 @@ export function MetasDialog({ aberto, onFechar, mes, numericas, itens, onSalvo }
 
   return (
     <Dialog open={aberto} onOpenChange={o => !o && onFechar()}>
-      <DialogContent className="bg-surface-container border-outline-variant/20 sm:max-w-[760px] max-h-[88vh] overflow-y-auto">
+      <DialogContent className="bg-card border-border rounded-[15px] sm:max-w-[760px] max-h-[88vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-on-surface font-headline flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">flag</span>
+          <DialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary-strong">flag</span>
             Metas de {mesPorExtenso(mes)}
           </DialogTitle>
           <DialogDescription className="text-on-surface-variant">
@@ -247,7 +247,7 @@ export function MetasDialog({ aberto, onFechar, mes, numericas, itens, onSalvo }
           <button
             type="button"
             onClick={onFechar}
-            className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:bg-surface-container-highest"
+            className="h-10 px-5 rounded-[25px] border border-foreground/70 dark:border-primary bg-card text-sm font-medium text-foreground dark:text-primary-strong hover:bg-muted"
           >
             Cancelar
           </button>
@@ -255,7 +255,7 @@ export function MetasDialog({ aberto, onFechar, mes, numericas, itens, onSalvo }
             type="button"
             onClick={salvar}
             disabled={salvando}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-on-primary disabled:opacity-60"
+            className="h-10 px-5 rounded-[25px] text-sm font-semibold bg-primary text-primary-foreground disabled:opacity-60"
           >
             {salvando ? 'Salvando…' : 'Salvar metas'}
           </button>

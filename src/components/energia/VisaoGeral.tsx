@@ -50,12 +50,14 @@ function Comecar({ painel, podeEditar, irPara }: AbaProps) {
   return (
     <section
       aria-label="Comece por aqui"
-      className="bg-card rounded-[25px] shadow-pilula p-6 xl:p-[30px] grid grid-cols-1 xl:grid-cols-[510px_1fr] gap-6 xl:gap-8 items-center"
+      // Abaixo de 1700 px a ilustração encolhe na proporção: com 510 px fixos, o
+      // botão das etapas saía do cartão em 1366.
+      className="bg-card rounded-[25px] shadow-pilula p-6 xl:p-[30px] grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] 3xl:grid-cols-[510px_1fr] gap-6 xl:gap-8 items-center"
     >
       <img
         src={predioSolar}
         alt="Prédio com painéis solares no telhado"
-        className="hidden xl:block w-[510px] h-auto"
+        className="hidden xl:block w-full max-w-[510px] h-auto"
       />
       <div className="min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -93,7 +95,7 @@ function Comecar({ painel, podeEditar, irPara }: AbaProps) {
             return (
               <li
                 key={p.aba}
-                className="min-h-[92px] rounded-[30px] bg-background shadow-pilula px-5 py-3 flex flex-wrap sm:flex-nowrap items-center gap-4"
+                className="min-h-[92px] rounded-[30px] bg-background shadow-pilula px-5 py-3 flex flex-wrap 3xl:flex-nowrap items-center gap-4"
               >
                 <span
                   aria-hidden="true"

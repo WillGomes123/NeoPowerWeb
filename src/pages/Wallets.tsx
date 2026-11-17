@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
+import { cn } from '../components/ui/utils';
 import { ExportButton } from '../components/ExportButton';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -6,7 +7,45 @@ import type { ExportColumn } from '../lib/export';
 import { WalletsReportTemplate } from '../components/WalletsReportTemplate';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { Search, Filter } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Receipt,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+import {
+  AbasDaPagina,
+  BlocoDeIcone,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDoCartao,
+  type Tom,
+} from '../components/painel/Pagina';
+import {
+  BarraDeFiltros,
+  CampoDeBusca,
+  classeDoBotaoContorno,
+} from '../components/painel/Pecas';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  CabecalhoDoCartao,
+  CarregandoPagina,
+  EstadoVazio,
+  classeDaEtiqueta,
+  classeDaTabela,
+  classeDoCartaoDaTabela,
+  classeDoFiltro,
+  classeDoTd,
+  classeDoTh,
+} from '../components/configuracoes/Pecas';
 
 interface WalletData {
   id: number;
@@ -29,7 +68,7 @@ interface WalletTransaction {
   amount: number;
   balanceBefore: number;
   balanceAfter: number;
-  description: string | null;  
+  description: string | null;
   referenceId: string | null;
   createdAt: string;
 }
@@ -55,13 +94,49 @@ const transactionExportColumns: ExportColumn[] = [
   { key: 'createdAt', header: 'Data', format: 'date' },
 ];
 
+/** Filtro de tipo das transações (as opções do select de antes). */
+const FILTROS_DE_TIPO: { id: string; rotulo: string }[] = [
+  { id: 'all', rotulo: 'Todos os tipos' },
+  { id: 'deposit', rotulo: 'Depósito' },
+  { id: 'withdrawal', rotulo: 'Saque' },
+  { id: 'charge', rotulo: 'Cobrança' },
+  { id: 'refund', rotulo: 'Reembolso' },
+];
+
+/** Cartão de total (como os da Visão geral): bloco de ícone, rótulo, valor e o detalhe, se houver. */
+function CartaoDeTotal({
+  icone,
+  tom = 'marca',
+  rotulo,
+  valor,
+  detalhe,
+}: {
+  icone: ReactNode;
+  tom?: Tom;
+  rotulo: string;
+  valor: string;
+  detalhe?: string;
+}) {
+  return (
+    <section className={`${classeDoCartao} p-[22px]`} aria-label={rotulo}>
+      <div className="flex items-center gap-3 mb-3">
+        <BlocoDeIcone tom={tom}>{icone}</BlocoDeIcone>
+        <h2 className="text-base leading-tight font-semibold text-foreground">{rotulo}</h2>
+      </div>
+      <p className="text-[28px] leading-tight font-semibold tabular-nums text-foreground">{valor}</p>
+      {detalhe && <p className="text-sm text-muted-foreground mt-1">{detalhe}</p>}
+    </section>
+  );
+}
+
 export const Wallets = () => {
   const [wallets, setWallets] = useState<WalletData[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loadingWallets, setLoadingWallets] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+
   const [activeTab, setActiveTab] = useState<'wallets' | 'transactions'>('wallets');
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -74,36 +149,45 @@ export const Wallets = () => {
   }, []);
 
   const fetchData = async () => {
-    await Promise.all([fetchWallets(), fetchTransactions()]);
+    // As duas listas chegaram: guarda a hora; se uma falhou, o erro fica à mostra.
+    const [okCarteiras, okTransacoes] = await Promise.all([fetchWallets(), fetchTransactions()]);
+    if (okCarteiras && okTransacoes) {
+      setError(null);
+      setAtualizadoEm(new Date());
+    }
   };
 
-  const fetchWallets = async () => {
+  const fetchWallets = async (): Promise<boolean> => {
     setLoadingWallets(true);
     try {
       const response = await api.get('/admin/wallets');
       if (!response.ok) throw new Error('Falha ao buscar carteiras');
       const data = await response.json();
       setWallets(Array.isArray(data) ? data : []);
+      return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
       toast.error(errorMessage);
+      return false;
     } finally {
       setLoadingWallets(false);
     }
   };
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (): Promise<boolean> => {
     setLoadingTransactions(true);
     try {
       const response = await api.get('/admin/wallet-transactions');
       if (!response.ok) throw new Error('Falha ao buscar transacoes');
       const data = await response.json();
       setTransactions(Array.isArray(data) ? data : []);
+      return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
       toast.error(errorMessage);
+      return false;
     } finally {
       setLoadingTransactions(false);
     }
@@ -158,22 +242,23 @@ export const Wallets = () => {
 
   const getTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
-      deposit: 'Deposito',
+      deposit: 'Depósito',
       withdrawal: 'Saque',
-      charge: 'Cobranca',
+      charge: 'Cobrança',
       refund: 'Reembolso',
     };
     return labels[type] || type;
   };
 
+  // Tons fixos (não a cor da marca), legíveis no claro e no escuro.
   const getTypePill = (type: string) => {
     const styles: Record<string, string> = {
-      deposit: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-      withdrawal: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-      charge: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-      refund: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+      deposit: 'bg-estado-livre text-estado-livre-forte',
+      withdrawal: 'bg-estado-problema text-estado-problema-forte',
+      charge: 'bg-tom-cinza text-foreground',
+      refund: 'bg-estado-uso text-estado-uso-forte',
     };
-    return styles[type] || 'bg-surface-container-highest text-on-surface-variant border-outline-variant/20';
+    return styles[type] || 'bg-muted text-muted-foreground';
   };
 
   const handleCustomPdfExport = async () => {
@@ -199,7 +284,7 @@ export const Wallets = () => {
       const imgProps = pdf.getImageProperties(imgData);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
-      
+
       let heightLeft = pdfHeight;
       let position = 0;
 
@@ -224,292 +309,263 @@ export const Wallets = () => {
   };
 
   const loading = loadingWallets || loadingTransactions;
+  const semDados = wallets.length === 0 && transactions.length === 0;
 
-  if (loading) {
+  // Só a primeira carga troca a tela pelo carregando; depois, o "Atualizar" mostra.
+  if (loading && !atualizadoEm && semDados && !error) {
+    return <CarregandoPagina />;
+  }
+
+  // Erro sem nenhum dado na tela: diz o que houve e deixa tentar de novo.
+  if (error && !atualizadoEm && semDados) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="space-y-[25px] pb-12">
+        <CabecalhoDaPagina
+          rotulo="Carteiras digitais"
+          titulo="Carteiras"
+          acoes={
+            <BotaoAtualizar aoAtualizar={() => void fetchData()} carregando={loading} atualizadoEm={null} falhou />
+          }
+        />
+        <section className={classeDoCartao}>
+          <EstadoVazio icone={<Wallet className="w-10 h-10" />}>
+            <span className="text-destructive">{error}</span>
+          </EstadoVazio>
+        </section>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-error">{error}</div>
-      </div>
-    );
-  }
+  const mudarDeAba = (aba: 'wallets' | 'transactions') => {
+    setActiveTab(aba);
+    setCurrentPage(1);
+    setSearchTerm('');
+    if (aba === 'wallets') setTxTypeFilter('all');
+  };
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">DIGITAL WALLETS</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Carteiras</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button onClick={() => void fetchData()} className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors">
-            <span className="material-symbols-outlined text-sm">refresh</span>
-            <span className="text-xs font-bold font-headline uppercase tracking-wider">Atualizar</span>
-          </button>
-          <ExportButton
-            data={activeTab === 'wallets' ? filteredWallets as unknown as Record<string, unknown>[] : filteredTransactions as unknown as Record<string, unknown>[]}
-            columns={activeTab === 'wallets' ? walletExportColumns : transactionExportColumns}
-            filename={activeTab === 'wallets' ? 'carteiras_neopower' : 'transacoes_carteira_neopower'}
-            title={activeTab === 'wallets' ? 'Carteiras - NeoPower' : 'Transacoes de Carteira - NeoPower'}
-            disabled={currentItems.length === 0}
-            onCustomPdfExport={handleCustomPdfExport}
-            pdfLoading={pdfLoading}
-          />
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
-              <span className="material-symbols-outlined">account_balance_wallet</span>
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        rotulo="Carteiras digitais"
+        titulo="Carteiras"
+        acoes={
+          <>
+            {/* O botão de exportar é comum a outras telas: aqui ganha o formato de pílula. */}
+            <div className="[&>button]:h-12 [&>button]:rounded-[25px] [&>button]:px-6 [&>button]:text-[15px] [&>button]:bg-card [&>button]:border-foreground/70 dark:[&>button]:border-primary dark:[&>button]:text-primary-strong">
+              <ExportButton
+                data={activeTab === 'wallets' ? filteredWallets as unknown as Record<string, unknown>[] : filteredTransactions as unknown as Record<string, unknown>[]}
+                columns={activeTab === 'wallets' ? walletExportColumns : transactionExportColumns}
+                filename={activeTab === 'wallets' ? 'carteiras_neopower' : 'transacoes_carteira_neopower'}
+                title={activeTab === 'wallets' ? 'Carteiras - NeoPower' : 'Transacoes de Carteira - NeoPower'}
+                disabled={currentItems.length === 0}
+                onCustomPdfExport={handleCustomPdfExport}
+                pdfLoading={pdfLoading}
+              />
             </div>
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full text-on-surface-variant bg-surface-container-highest border border-outline-variant/15">{filteredWallets.length} carteiras</span>
-          </div>
-          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">SALDO TOTAL</p>
-          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalBalance)}</h3>
-        </div>
-
-        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl group-hover:bg-primary/10 transition-all" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
-              <span className="material-symbols-outlined">trending_up</span>
-            </div>
-          </div>
-          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL DEPOSITOS</p>
-          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalDeposits)}</h3>
-        </div>
-
-        <div className="glass-panel p-6 rounded-lg border border-outline-variant/10 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-error/5 rounded-full blur-2xl group-hover:bg-error/10 transition-all" />
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center text-on-surface-variant">
-              <span className="material-symbols-outlined">trending_down</span>
-            </div>
-          </div>
-          <p className="text-xs font-medium text-on-surface-variant uppercase tracking-widest mb-1">TOTAL COBRADO</p>
-          <h3 className="text-2xl font-headline font-bold text-on-surface">{formatCurrency(totalCharges)}</h3>
-        </div>
-      </div>
-
-      {/* Filters and Tabs Row */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        {/* Tab Pills */}
-        <div className="bg-surface-container-low p-1 rounded-lg flex items-center border border-outline-variant/10 w-fit shrink-0">
-          <button
-            onClick={() => { setActiveTab('wallets'); setCurrentPage(1); setSearchTerm(''); setTxTypeFilter('all'); }}
-            className={`px-4 py-2 text-xs font-bold font-headline rounded-md transition-all ${
-              activeTab === 'wallets'
-                ? 'bg-surface-container-highest text-primary'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            CARTEIRAS ({filteredWallets.length})
-          </button>
-          <button
-            onClick={() => { setActiveTab('transactions'); setCurrentPage(1); setSearchTerm(''); }}
-            className={`px-4 py-2 text-xs font-bold font-headline rounded-md transition-all ${
-              activeTab === 'transactions'
-                ? 'bg-surface-container-highest text-primary'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            TRANSACOES ({filteredTransactions.length})
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-            <input
-              type="text"
-              placeholder="Buscar por nome ou email..."
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              className="w-full sm:w-64 pl-9 pr-4 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary transition-colors placeholder:text-on-surface-variant"
+            <BotaoAtualizar
+              aoAtualizar={() => void fetchData()}
+              carregando={loading}
+              atualizadoEm={atualizadoEm}
+              falhou={!!error}
             />
-          </div>
-          {activeTab === 'transactions' && (
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-on-surface-variant" />
-              <select
-                value={txTypeFilter}
-                onChange={(e) => { setTxTypeFilter(e.target.value); setCurrentPage(1); }}
-                className="w-full sm:w-48 pl-9 pr-8 py-2.5 bg-surface-container-low border border-outline-variant/20 rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
-              >
-                <option value="all">Todos os tipos</option>
-                <option value="deposit">Depósito</option>
-                <option value="withdrawal">Saque</option>
-                <option value="charge">Cobrança</option>
-                <option value="refund">Reembolso</option>
-              </select>
-            </div>
-          )}
-        </div>
+          </>
+        }
+      />
+
+      {/* Totais */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[25px]">
+        <CartaoDeTotal
+          icone={<Wallet className="w-5 h-5" />}
+          rotulo="Saldo total"
+          valor={formatCurrency(totalBalance)}
+          detalhe={`${filteredWallets.length} ${filteredWallets.length === 1 ? 'carteira' : 'carteiras'}`}
+        />
+        <CartaoDeTotal
+          icone={<TrendingUp className="w-5 h-5" />}
+          tom="azul"
+          rotulo="Total de depósitos"
+          valor={formatCurrency(totalDeposits)}
+        />
+        <CartaoDeTotal
+          icone={<TrendingDown className="w-5 h-5" />}
+          tom="amarelo"
+          rotulo="Total cobrado"
+          valor={formatCurrency(totalCharges)}
+        />
       </div>
 
-      {/* Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-headline font-bold text-on-surface">
-              {activeTab === 'wallets' ? 'Carteiras dos Usuarios' : 'Historico de Transacoes'}
-            </h3>
-            <p className="text-xs text-on-surface-variant mt-1">
-              {activeTab === 'wallets'
-                ? `Mostrando ${currentItems.length} carteira(s)`
-                : `Mostrando ${currentItems.length} transacao(oes)`}
-            </p>
-          </div>
-        </div>
+      <AbasDaPagina
+        rotulo="Carteiras e transações"
+        ativa={activeTab}
+        aoMudar={mudarDeAba}
+        abas={[
+          { id: 'wallets', rotulo: 'Carteiras', icone: <Wallet className="w-5 h-5" aria-hidden="true" />, contador: filteredWallets.length },
+          { id: 'transactions', rotulo: 'Transações', icone: <Receipt className="w-5 h-5" aria-hidden="true" />, contador: filteredTransactions.length },
+        ]}
+      />
+
+      <BarraDeFiltros>
+        <CampoDeBusca
+          placeholder="Buscar por nome ou email..."
+          aria-label="Buscar por nome ou email"
+          value={searchTerm}
+          onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+        />
+        {activeTab === 'transactions' && (
+          <Select value={txTypeFilter} onValueChange={v => { setTxTypeFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className={classeDoFiltro} aria-label="Tipo de transação">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FILTROS_DE_TIPO.map(f => (
+                <SelectItem key={f.id} value={f.id}>{f.rotulo}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </BarraDeFiltros>
+
+      {/* Tabela (linhas verdes arredondadas, como Notificações e Alarmes no Figma) */}
+      <section className={classeDoCartaoDaTabela} aria-label={activeTab === 'wallets' ? 'Carteiras dos usuários' : 'Histórico de transações'}>
+        <CabecalhoDoCartao
+          titulo={activeTab === 'wallets' ? 'Carteiras dos usuários' : 'Histórico de transações'}
+          detalhe={
+            activeTab === 'wallets'
+              ? `Mostrando ${currentItems.length} carteira(s)`
+              : `Mostrando ${currentItems.length} transação(ões)`
+          }
+        />
 
         <div className="overflow-x-auto">
           {activeTab === 'wallets' ? (
-            <table className="w-full text-left border-collapse">
+            filteredWallets.slice(startIndex, endIndex).length === 0 ? (
+              <EstadoVazio icone={<Wallet className="w-10 h-10" />} titulo="Nenhuma carteira encontrada" />
+            ) : (
+            <table className={classeDaTabela}>
               <thead>
-                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                  <th className="px-6 py-4">ID</th>
-                  <th className="px-6 py-4">Usuario</th>
-                  <th className="px-6 py-4">Email</th>
-                  <th className="px-6 py-4">Saldo</th>
-                  <th className="px-6 py-4">Ultima Atualizacao</th>
+                <tr>
+                  <th className={classeDoTh}>ID</th>
+                  <th className={classeDoTh}>Usuário</th>
+                  <th className={classeDoTh}>Email</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Saldo</th>
+                  <th className={classeDoTh}>Última atualização</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
-                {filteredWallets.slice(startIndex, endIndex).length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-16 text-center">
-                      <span className="material-symbols-outlined text-4xl text-outline mb-3 block">account_balance_wallet</span>
-                      <p className="text-sm text-on-surface-variant">Nenhuma carteira encontrada</p>
+              <tbody>
+                {filteredWallets.slice(startIndex, endIndex).map(wallet => (
+                  <tr key={wallet.id}>
+                    <td className={classeDoTd}>
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">#{wallet.id}</span>
                     </td>
-                  </tr>
-                ) : filteredWallets.slice(startIndex, endIndex).map(wallet => (
-                  <tr key={wallet.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-on-surface-variant text-xs font-mono font-bold">
-                        #{wallet.id}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-sm text-on-surface">
+                    <td className={`${classeDoTd} font-semibold`}>
                       {wallet.userName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className={`${classeDoTd} text-muted-foreground`}>
                       {wallet.userEmail}
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold font-headline text-on-surface">
+                    <td className={`${classeDoTd} font-semibold tabular-nums text-right whitespace-nowrap`}>
                       {formatCurrency(wallet.balance)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className={`${classeDoTd} text-muted-foreground whitespace-nowrap`}>
                       {formatDateTime(wallet.updatedAt)}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            )
+          ) : filteredTransactions.slice(startIndex, endIndex).length === 0 ? (
+            <EstadoVazio icone={<Receipt className="w-10 h-10" />} titulo="Nenhuma transação encontrada" />
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className={classeDaTabela}>
               <thead>
-                <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
-                  <th className="px-6 py-4">ID</th>
-                  <th className="px-6 py-4">Usuario</th>
-                  <th className="px-6 py-4">Tipo</th>
-                  <th className="px-6 py-4">Valor</th>
-                  <th className="px-6 py-4">Saldo Anterior</th>
-                  <th className="px-6 py-4">Saldo Atual</th>
-                  <th className="px-6 py-4">Descricao</th>
-                  <th className="px-6 py-4">Data</th>
+                <tr>
+                  <th className={classeDoTh}>ID</th>
+                  <th className={classeDoTh}>Usuário</th>
+                  <th className={classeDoTh}>Tipo</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Valor</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Saldo anterior</th>
+                  <th className={cn(classeDoTh, 'text-right')}>Saldo atual</th>
+                  <th className={classeDoTh}>Descrição</th>
+                  <th className={classeDoTh}>Data</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/5">
-                {filteredTransactions.slice(startIndex, endIndex).length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-16 text-center">
-                      <span className="material-symbols-outlined text-4xl text-outline mb-3 block">receipt_long</span>
-                      <p className="text-sm text-on-surface-variant">Nenhuma transacao encontrada</p>
+              <tbody>
+                {filteredTransactions.slice(startIndex, endIndex).map(tx => {
+                  const entra = tx.type === 'deposit' || tx.type === 'refund';
+                  return (
+                  <tr key={tx.id}>
+                    <td className={classeDoTd}>
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">#{tx.id}</span>
                     </td>
-                  </tr>
-                ) : filteredTransactions.slice(startIndex, endIndex).map(tx => (
-                  <tr key={tx.id} className="hover:bg-surface-container-highest/30 transition-colors group">
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-on-surface-variant text-xs font-mono font-bold">
-                        #{tx.id}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-sm text-on-surface">
+                    <td className={`${classeDoTd} font-semibold min-w-[150px]`}>
                       {tx.userName}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold border ${getTypePill(tx.type)}`}>
+                    <td className={classeDoTd}>
+                      <span className={`${classeDaEtiqueta} ${getTypePill(tx.type)}`}>
                         {getTypeLabel(tx.type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm font-bold font-headline">
-                      <span className={tx.type === 'deposit' || tx.type === 'refund' ? 'text-emerald-400' : 'text-rose-400'}>
-                        {tx.type === 'deposit' || tx.type === 'refund' ? '+' : '-'}{formatCurrency(tx.amount)}
+                    <td className={`${classeDoTd} font-semibold tabular-nums text-right whitespace-nowrap`}>
+                      {/* Sinal e cor: entrada em verde, saída em vermelho */}
+                      <span className={entra ? 'text-estado-livre-forte' : 'text-destructive'}>
+                        {/* O sinal vem daqui: o valor da cobrança já chega negativo e aparecia "--R$". */}
+                        {entra ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className={`${classeDoTd} tabular-nums text-right text-muted-foreground whitespace-nowrap`}>
                       {formatCurrency(tx.balanceBefore)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className={`${classeDoTd} tabular-nums text-right text-muted-foreground whitespace-nowrap`}>
                       {formatCurrency(tx.balanceAfter)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant max-w-[200px] truncate">
+                    <td className={`${classeDoTd} text-muted-foreground max-w-[160px] 3xl:max-w-[220px] truncate`} title={tx.description || undefined}>
                       {tx.description || '---'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                    <td className={`${classeDoTd} text-muted-foreground whitespace-nowrap`}>
                       {formatDateTime(tx.createdAt)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Paginação */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-outline-variant/10 flex justify-between items-center">
-            <p className="text-xs text-on-surface-variant">
-              Pagina <span className="font-bold text-on-surface">{currentPage}</span> de <span className="font-bold text-on-surface">{totalPages || 1}</span>
-              <span className="ml-2 text-outline">({currentItems.length} itens)</span>
+          <div className="px-3 3xl:px-5 pt-2 pb-1 flex flex-wrap justify-between items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              Página <span className="font-semibold text-foreground">{currentPage}</span> de <span className="font-semibold text-foreground">{totalPages || 1}</span>
+              <span className="ml-2">({currentItems.length} itens)</span>
             </p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                 disabled={currentPage === 1}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                className={classeDoBotaoContorno}
               >
-                <span className="material-symbols-outlined text-base">chevron_left</span>
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
                 Anterior
               </button>
               <button
+                type="button"
                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="flex items-center gap-1 px-4 py-2 rounded-lg bg-surface-container-highest text-sm font-bold text-on-surface-variant hover:text-on-surface disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-outline-variant/10"
+                className={classeDoBotaoContorno}
               >
-                Proxima
-                <span className="material-symbols-outlined text-base">chevron_right</span>
+                Próxima
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
           </div>
         )}
-      </div>
+      </section>
 
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
-        <WalletsReportTemplate 
+        <WalletsReportTemplate
           data={{
             walletsCount: filteredWallets.length,
             totalBalance,
