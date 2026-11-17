@@ -318,7 +318,7 @@ export function Cameras() {
               value={localId || 'todos'}
               onValueChange={v => setLocalId(v === 'todos' ? '' : v)}
             >
-              <SelectTrigger className={classeDaPilula} aria-label="Filtrar por local">
+              <SelectTrigger className={`${classeDaPilula} gap-1`} aria-label="Filtrar por local">
                 <span className="flex flex-1 items-center gap-3 min-w-0">
                   <Icone nome="local" />
                   <span className="min-w-0 truncate"><SelectValue placeholder="Todos os locais" /></span>
