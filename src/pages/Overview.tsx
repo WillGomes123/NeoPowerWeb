@@ -131,6 +131,16 @@ interface RecargaAgora {
 const INTERVALO_DO_AGORA_MS = 15_000;
 const INTERVALO_DOS_TOTAIS_MS = 60_000;
 
+/** Os filtros da tela na busca de /overview-stats ('' = rede toda, todo o período). */
+function buscaDosFiltros(f: { startDate: string; endDate: string; locationId: string; chargerId: string }) {
+  const p = new URLSearchParams();
+  if (f.startDate) p.append('startDate', f.startDate);
+  if (f.endDate) p.append('endDate', f.endDate);
+  if (f.locationId) p.append('locationId', f.locationId);
+  if (f.chargerId) p.append('chargerId', f.chargerId);
+  return p.toString();
+}
+
 const fmt = (v: number, decimals = 2) =>
   v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
@@ -330,6 +340,11 @@ export const Overview = () => {
 
   const { chargerStatuses } = useSocket();
 
+  // Filtro que a tela mostra agora, no formato da busca: as respostas de outro
+  // filtro, que chegam atrasadas, são descartadas em fetchOverview.
+  const escopoDaTela = useRef('');
+  escopoDaTela.current = buscaDosFiltros({ startDate, endDate, locationId, chargerId });
+
   const chargerCountRef = useRef(0);
   useEffect(() => {
     const onlineCount = Array.from(chargerStatuses.values()).filter(
@@ -350,23 +365,25 @@ export const Overview = () => {
       setAtualizando(true);
       setError(null);
     }
+    const escopo = buscaDosFiltros({ startDate, endDate, locationId, chargerId });
     try {
-      let endpoint = '/overview-stats';
-      const params = new URLSearchParams();
-      if (startDate) params.append('startDate', startDate);
-      if (endDate) params.append('endDate', endDate);
-      if (locationId) params.append('locationId', locationId);
-      if (chargerId) params.append('chargerId', chargerId);
-      if (params.toString()) endpoint += `?${params.toString()}`;
-
+      const endpoint = escopo ? `/overview-stats?${escopo}` : '/overview-stats';
       const response = await api.get(endpoint);
+      // Resposta de um filtro que já não é o da tela: descarta. Na produção a
+      // rede toda leva 13 a 17 s, e a atualização automática dela (a cada
+      // minuto e a cada mudança de status de carregador) chegava DEPOIS da do
+      // local escolhido e trocava os números do local pelos da rede, com o
+      // aviso "Servidor ainda não filtra por local".
+      if (escopo !== escopoDaTela.current) return;
       if (!response.ok) throw new Error('Falha ao buscar dados.');
       const overviewData = await response.json();
+      if (escopo !== escopoDaTela.current) return;
       if (!silencioso) setPreviousData(mesmoEscopo && data ? data : null);
       setData(overviewData);
       setAtualizadoEm(new Date());
       setFalhou(false);
     } catch (err: any) {
+      if (escopo !== escopoDaTela.current) return;
       if (!silencioso) {
         // Sem números ainda: a tela de erro. Com números: eles ficam e o
         // botão avisa que a atualização não veio.
@@ -635,9 +652,9 @@ export const Overview = () => {
                 onValueChange={v => setLocationId(v === 'todos' ? '' : v)}
               >
                 <SelectTrigger className={classeDaPilula} aria-label="Filtrar por local">
-                  <span className="flex items-center gap-3 min-w-0">
+                  <span className="flex flex-1 items-center gap-3 min-w-0">
                     <Icone nome="local" />
-                    <SelectValue placeholder="Todos os locais" />
+                    <span className="min-w-0 truncate"><SelectValue placeholder="Todos os locais" /></span>
                   </span>
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
@@ -656,9 +673,9 @@ export const Overview = () => {
                 onValueChange={v => setChargerId(v === 'todas' ? '' : v)}
               >
                 <SelectTrigger className={classeDaPilula} aria-label="Filtrar por estação">
-                  <span className="flex items-center gap-3 min-w-0">
+                  <span className="flex flex-1 items-center gap-3 min-w-0">
                     <Icone nome="estacao" />
-                    <SelectValue placeholder="Todas as estações" />
+                    <span className="min-w-0 truncate"><SelectValue placeholder="Todas as estações" /></span>
                   </span>
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
