@@ -66,7 +66,7 @@ export function CabecalhoDaPagina({
   acoes,
 }: CabecalhoProps) {
   return (
-    <header className="flex flex-col min-[1700px]:flex-row min-[1700px]:items-start justify-between gap-6">
+    <header className="flex flex-col 3xl:flex-row 3xl:items-start justify-between gap-6">
       <div className="min-w-0 flex-1 pt-2">
         {rotulo && <p className="text-[15px] uppercase text-foreground/80 mb-1">{rotulo}</p>}
         <h1 className="text-[32px] leading-tight font-semibold text-foreground dark:text-primary-strong">
@@ -76,9 +76,9 @@ export function CabecalhoDaPagina({
         {detalhe && <div className="text-sm text-muted-foreground mt-2">{detalhe}</div>}
       </div>
       {(filtros || acoes) && (
-        <div className="flex flex-col sm:flex-row sm:flex-wrap min-[1700px]:flex-nowrap items-stretch sm:items-start gap-4 min-[1700px]:gap-8 min-[1700px]:justify-end shrink-0">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap 3xl:flex-nowrap items-stretch sm:items-start gap-4 3xl:gap-8 3xl:justify-end shrink-0">
           {filtros && (
-            <div className="flex flex-col sm:flex-row sm:flex-wrap min-[1700px]:flex-nowrap gap-4 min-[1700px]:gap-8 sm:pt-[7px]">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap 3xl:flex-nowrap gap-4 3xl:gap-8 sm:pt-[7px]">
               {filtros}
             </div>
           )}
@@ -144,5 +144,96 @@ export function BotaoAtualizar({
             : ' '}
       </p>
     </div>
+  );
+}
+
+export interface AbaDaPagina<T extends string> {
+  id: T;
+  rotulo: string;
+  icone: ReactNode;
+  /** Número ao lado do rótulo (ex.: resultados novos). */
+  contador?: number;
+}
+
+/**
+ * Abas do Figma (Energia): faixa larga com a aba ativa numa pílula branca, ícone
+ * e texto na cor da marca; as outras só com ícone e texto.
+ */
+export function AbasDaPagina<T extends string>({
+  abas,
+  ativa,
+  aoMudar,
+  rotulo,
+}: {
+  abas: AbaDaPagina<T>[];
+  ativa: T;
+  aoMudar: (id: T) => void;
+  rotulo: string;
+}) {
+  return (
+    <nav
+      aria-label={rotulo}
+      className="flex gap-1 overflow-x-auto rounded-[25px] bg-muted/60 dark:bg-card/60 p-0"
+    >
+      {abas.map(a => {
+        const eAtiva = a.id === ativa;
+        return (
+          <button
+            key={a.id}
+            type="button"
+            onClick={() => aoMudar(a.id)}
+            aria-current={eAtiva ? 'page' : undefined}
+            className={`h-[60px] xl:h-[68px] shrink-0 inline-flex items-center gap-3 rounded-[25px] px-6 text-base font-semibold whitespace-nowrap transition-colors ${
+              eAtiva
+                ? 'bg-card text-primary-strong shadow-[0_1px_4px_rgba(0,0,0,0.08)]'
+                : 'text-foreground hover:bg-card/70'
+            }`}
+          >
+            {a.icone}
+            {a.rotulo}
+            {!!a.contador && (
+              <span className="min-w-6 h-6 px-1.5 rounded-full bg-primary-soft text-primary-strong text-xs font-bold inline-flex items-center justify-center">
+                {a.contador}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Contador do Figma (Locais, Operações): bloco de ícone, rótulo e o número grande. */
+export function CartaoContador({
+  icone,
+  rotulo,
+  valor,
+  fundoDoIcone = 'bg-primary-soft text-primary-strong',
+}: {
+  icone: ReactNode;
+  rotulo: string;
+  valor: ReactNode;
+  fundoDoIcone?: string;
+}) {
+  return (
+    <section
+      className={`${classeDoCartao} min-h-[112px] px-[30px] py-4 flex items-center gap-[20px]`}
+      aria-label={rotulo}
+    >
+      <span
+        aria-hidden="true"
+        className={`${fundoDoIcone} w-[57px] h-[53px] rounded-[5px] flex items-center justify-center shrink-0`}
+      >
+        {icone}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-base font-semibold text-[#001119] dark:text-foreground truncate">
+          {rotulo}
+        </span>
+        <span className="block text-[36px] leading-tight font-semibold tabular-nums text-foreground">
+          {valor}
+        </span>
+      </span>
+    </section>
   );
 }

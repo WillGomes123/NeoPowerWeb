@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState, type ComponentType } from 'react';
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { Cable, ListChecks, PieChart, Receipt } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -12,6 +13,19 @@ import { Conexoes } from '../components/energia/Conexoes';
 import { Rateio } from '../components/energia/Rateio';
 import { Apuracao } from '../components/energia/Apuracao';
 import { Modalidades } from '../components/energia/Modalidades';
+import { Icone } from '../components/painel/Icone';
+import { AbasDaPagina, BotaoAtualizar, CabecalhoDaPagina } from '../components/painel/Pagina';
+
+/** Ícone de cada aba: os do Figma (visão geral, usinas, pontos); os outros do Lucide. */
+const ICONE_DA_ABA: Record<AbaEnergia, ReactNode> = {
+  visao: <Icone nome="visao-geral" />,
+  usinas: <Icone nome="usinas" />,
+  pontos: <Icone nome="pontos-consumidores" />,
+  conexoes: <Cable aria-hidden="true" className="w-6 h-6" />,
+  rateio: <PieChart aria-hidden="true" className="w-6 h-6" />,
+  apuracao: <Receipt aria-hidden="true" className="w-6 h-6" />,
+  modalidades: <ListChecks aria-hidden="true" className="w-6 h-6" />,
+};
 
 /**
  * Energia — usinas de geração distribuída ligadas à rede de recarga.
@@ -49,6 +63,8 @@ export const Energia = () => {
   const [painel, setPainel] = useState<PainelEnergia | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [bloqueio, setBloqueio] = useState<string | null>(null);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
 
   const aba = (
     ABAS.some(a => a.id === params.get('aba')) ? params.get('aba') : 'visao'
@@ -65,12 +81,16 @@ export const Energia = () => {
       if (r.ok) {
         setPainel((await r.json()) as PainelEnergia);
         setBloqueio(null);
+        setAtualizadoEm(new Date());
+        setFalhou(false);
       } else if (r.status === 403) {
         setBloqueio(await mensagemDeErro(r));
       } else {
+        setFalhou(true);
         toast.error(await mensagemDeErro(r));
       }
     } catch {
+      setFalhou(true);
       toast.error('Não foi possível carregar o módulo Energia.');
     } finally {
       setCarregando(false);
@@ -108,9 +128,9 @@ export const Energia = () => {
   if (bloqueio || !painel) {
     return (
       <div className="max-w-xl mx-auto mt-16 text-center space-y-3">
-        <span className="material-symbols-outlined text-5xl text-outline">lock</span>
-        <h2 className="text-2xl font-headline font-bold text-on-surface">Energia</h2>
-        <p className="text-sm text-on-surface-variant">
+        <span className="material-symbols-outlined text-5xl text-muted-foreground">lock</span>
+        <h1 className="text-[32px] font-semibold text-foreground">Energia</h1>
+        <p className="text-[15px] text-muted-foreground">
           {bloqueio || 'Não foi possível carregar o módulo.'}
         </p>
       </div>
@@ -121,53 +141,31 @@ export const Energia = () => {
   const atual = ABAS.find(a => a.id === aba)!;
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">
-            Geração distribuída
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        rotulo="Geração distribuída"
+        titulo={`Energia - ${atual.label}`}
+        subtitulo={
+          <span className="text-muted-foreground">
+            Configure e monitore suas usinas, pontos de consumo e distribuição de energia.
           </span>
-          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">
-            Energia · {atual.label}
-          </h2>
-          <p className="text-on-surface-variant text-sm mt-1">
-            Usinas ligadas à rede de recarga: quem abastece qual ponto, quanto cada um economiza e o
-            que vai para a usina.
-          </p>
-        </div>
-        <button
-          onClick={() => void carregar()}
-          className="flex items-center gap-2 bg-surface-container-low px-4 py-2.5 rounded-lg border border-outline-variant/10 text-on-surface-variant hover:text-primary transition-colors self-start md:self-auto"
-        >
-          <span className={`material-symbols-outlined text-sm ${carregando ? 'animate-spin' : ''}`}>
-            refresh
-          </span>
-          <span className="text-xs font-bold font-headline uppercase tracking-wider">
-            Atualizar
-          </span>
-        </button>
-      </div>
+        }
+        acoes={
+          <BotaoAtualizar
+            aoAtualizar={() => void carregar()}
+            carregando={carregando}
+            atualizadoEm={atualizadoEm}
+            falhou={falhou}
+          />
+        }
+      />
 
-      <nav
-        className="bg-surface-container-low p-1 rounded-lg border border-outline-variant/10 flex gap-1 overflow-x-auto"
-        aria-label="Seções do módulo Energia"
-      >
-        {ABAS.map(a => (
-          <button
-            key={a.id}
-            onClick={() => irPara(a.id)}
-            aria-current={aba === a.id ? 'page' : undefined}
-            className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-bold font-headline rounded-md transition-all ${
-              aba === a.id
-                ? 'bg-surface-container-highest text-primary'
-                : 'text-on-surface-variant hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">{a.icon}</span>
-            {a.label}
-          </button>
-        ))}
-      </nav>
+      <AbasDaPagina
+        rotulo="Seções do módulo Energia"
+        abas={ABAS.map(a => ({ id: a.id, rotulo: a.label, icone: ICONE_DA_ABA[a.id] }))}
+        ativa={aba}
+        aoMudar={irPara}
+      />
 
       <Conteudo painel={painel} podeEditar={user?.role === 'admin'} mudar={mudar} irPara={irPara} />
     </div>
