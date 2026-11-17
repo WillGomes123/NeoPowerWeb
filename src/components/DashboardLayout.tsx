@@ -3,11 +3,27 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { ehAdminDaPlataforma } from '../lib/plataforma';
 import { UserRole } from '../types';
-import { LogOut, Sun, Moon, Search, Menu, X } from 'lucide-react';
+import {
+  Bug,
+  ChartColumn,
+  LogOut,
+  Mail,
+  Menu,
+  Palette,
+  Receipt,
+  Search,
+  Tag,
+  Ticket,
+  Users,
+  Wallet,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
 import { KairosPanel } from './KairosPanel';
+import { Icone, type NomeDoIcone } from './painel/Icone';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +32,123 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+
+/*
+ * Moldura do painel no redesenho de nov/2026 (Figma da Lauriane, telas de
+ * 1920 px): menu lateral branco de 276 px com o item ativo em fundo suave e
+ * barra na cor da marca; barra do topo com a busca à esquerda e, à direita,
+ * tema, notificações e a conta.
+ */
+
+/** Ícone do menu: os do Figma pelo nome; os que o Figma não desenhou, do Lucide (mesmo traço). */
+type IconeDoMenu = NomeDoIcone | LucideIcon;
+
+interface ItemDoMenu {
+  path: string;
+  label: string;
+  icone: IconeDoMenu;
+  roles: string[];
+  somentePlataforma?: boolean;
+  novo?: boolean;
+}
+
+const TODOS = ['admin', 'operador', 'comum'];
+
+const VISAO_GERAL: ItemDoMenu = {
+  path: '/',
+  label: 'Visão Geral',
+  icone: 'visao-geral',
+  roles: TODOS,
+};
+
+const GRUPOS: { id: string; label: string; icone: NomeDoIcone; items: ItemDoMenu[] }[] = [
+  {
+    id: 'gestao',
+    label: 'Gestão',
+    icone: 'gestao',
+    items: [
+      { path: '/estacoes', label: 'Estações', icone: 'estacao', roles: TODOS },
+      { path: '/locais', label: 'Locais', icone: 'local', roles: TODOS },
+      // Usinas, rateio e split com a Ecofin são da operação própria: só a NeoPower vê.
+      {
+        path: '/energia',
+        label: 'Energia',
+        icone: 'energia',
+        roles: ['admin'],
+        somentePlataforma: true,
+        novo: true,
+      },
+      { path: '/cameras', label: 'Câmeras', icone: 'cameras', roles: TODOS },
+      { path: '/operacoes', label: 'Operações', icone: 'operacoes', roles: TODOS },
+      { path: '/indicadores', label: 'Indicadores', icone: 'indicadores', roles: TODOS },
+      { path: '/notificacoes', label: 'Notificações', icone: 'notificacoes', roles: TODOS },
+      { path: '/alarmes', label: 'Alarmes', icone: 'alarmes', roles: TODOS },
+      // Atendimento por WhatsApp do suporte: só a NeoPower vê.
+      {
+        path: '/atendimento',
+        label: 'Atendimento',
+        icone: 'atendimento',
+        roles: ['admin'],
+        somentePlataforma: true,
+        novo: true,
+      },
+    ],
+  },
+  {
+    id: 'financeiro',
+    label: 'Financeiro',
+    icone: 'financeiro',
+    items: [
+      { path: '/transacoes', label: 'Transações', icone: Receipt, roles: TODOS },
+      {
+        path: '/relatorio-financeiro',
+        label: 'Relatório Financeiro',
+        icone: ChartColumn,
+        roles: TODOS,
+      },
+      { path: '/vouchers', label: 'Vouchers', icone: Ticket, roles: TODOS },
+      { path: '/tarifas', label: 'Tarifas', icone: Tag, roles: TODOS },
+    ],
+  },
+  {
+    id: 'configuracoes',
+    label: 'Configurações',
+    icone: 'configuracoes',
+    items: [
+      { path: '/usuarios', label: 'Usuários', icone: Users, roles: ['admin'] },
+      { path: '/carteiras', label: 'Carteiras', icone: Wallet, roles: ['admin'] },
+      {
+        path: '/branding',
+        label: 'White Label',
+        icone: Palette,
+        roles: ['admin'],
+        somentePlataforma: true,
+      },
+      { path: '/email', label: 'Email', icone: Mail, roles: ['admin'], somentePlataforma: true },
+      // Relatos de erro dos apps de todas as marcas: só a NeoPower vê.
+      {
+        path: '/erros-do-app',
+        label: 'Erros do app',
+        icone: Bug,
+        roles: ['admin'],
+        somentePlataforma: true,
+        novo: true,
+      },
+    ],
+  },
+];
+
+const estaNaRota = (pathname: string, path: string) =>
+  path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(path + '/');
+
+function IconeDoItem({ icone, tamanho = 24 }: { icone: IconeDoMenu; tamanho?: number }) {
+  if (typeof icone === 'string') return <Icone nome={icone} tamanho={tamanho} />;
+  const Lucide = icone;
+  return <Lucide aria-hidden="true" size={tamanho} strokeWidth={2} className="shrink-0" />;
+}
+
+/** Iniciais da conta no círculo (Figma: "L" de Lauriane). */
+const inicial = (nome?: string) => nome?.trim().charAt(0).toUpperCase() || 'U';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -26,7 +159,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme, tenantBranding } = useTenant();
-  
+
   const activeBranding = user?.branding || tenantBranding;
   // Logo do tema: o de fundo escuro no menu escuro, o de fundo claro no claro.
   // É o logo horizontal, que já traz o nome da marca.
@@ -39,120 +172,38 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   // A partir de lg ela é fixa e este estado não tem efeito.
   const [menuAberto, setMenuAberto] = useState(false);
 
-  // Close KAIROS when route changes
   useEffect(() => {
     setIsKairosOpen(false);
     // Navegou: fecha a gaveta, senão o menu cobriria a página recém-aberta.
     setMenuAberto(false);
   }, [location.pathname]);
 
-
-  const navItems = [
-    { path: '/', label: 'Visão Geral', icon: 'dashboard', roles: ['admin', 'operador', 'comum'] },
-    { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
-    { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
-    { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true },
-    { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'operador', 'comum'] },
-    {
-      path: '/indicadores',
-      label: 'Indicadores',
-      icon: 'leaderboard',
-      roles: ['admin', 'operador', 'comum'],
-    },
-    { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'operador', 'comum'] },
-    {
-      path: '/relatorio-financeiro',
-      label: 'Relatório Financeiro',
-      icon: 'payments',
-      roles: ['admin', 'operador', 'comum'],
-    },
-    { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
-    { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'operador', 'comum'] },
-    { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
-    { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-    { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
-    { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
-    { path: '/atendimento', label: 'Atendimento', icon: 'support_agent', roles: ['admin'], somentePlataforma: true },
-    { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
-    { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
-    { path: '/erros-do-app', label: 'Erros do app', icon: 'bug_report', roles: ['admin'], somentePlataforma: true },
-  ];
-
-  const navigationGroups = [
-    {
-      id: 'gestao',
-      label: 'Gestão',
-      icon: 'business_center',
-      items: [
-        { path: '/estacoes', label: 'Estações', icon: 'ev_station', roles: ['admin', 'operador', 'comum'] },
-        { path: '/locais', label: 'Locais', icon: 'location_on', roles: ['admin', 'operador', 'comum'] },
-        // Usinas, rateio e split com a Ecofin são da operação própria: só a NeoPower vê.
-        { path: '/energia', label: 'Energia', icon: 'solar_power', roles: ['admin'], somentePlataforma: true, novo: true },
-        { path: '/cameras', label: 'Câmeras', icon: 'videocam', roles: ['admin', 'operador', 'comum'] },
-        { path: '/operacoes', label: 'Operações', icon: 'settings_input_component', roles: ['admin', 'operador', 'comum'] },
-        { path: '/indicadores', label: 'Indicadores', icon: 'leaderboard', roles: ['admin', 'operador', 'comum'] },
-        { path: '/notificacoes', label: 'Notificações', icon: 'notifications', roles: ['admin', 'operador', 'comum'] },
-        { path: '/alarmes', label: 'Alarmes', icon: 'notification_important', roles: ['admin', 'operador', 'comum'] },
-        // Atendimento por WhatsApp do suporte: só a NeoPower vê.
-        { path: '/atendimento', label: 'Atendimento', icon: 'support_agent', roles: ['admin'], somentePlataforma: true, novo: true },
-      ],
-    },
-    {
-      id: 'financeiro',
-      label: 'Financeiro',
-      icon: 'payments',
-      items: [
-        { path: '/transacoes', label: 'Transações', icon: 'receipt_long', roles: ['admin', 'operador', 'comum'] },
-        { path: '/relatorio-financeiro', label: 'Relatório Financeiro', icon: 'payments', roles: ['admin', 'operador', 'comum'] },
-        { path: '/vouchers', label: 'Vouchers', icon: 'confirmation_number', roles: ['admin', 'operador', 'comum'] },
-        { path: '/tarifas', label: 'Tarifas', icon: 'sell', roles: ['admin', 'operador', 'comum'] },
-      ],
-    },
-    {
-      id: 'configuracoes',
-      label: 'Configurações',
-      icon: 'settings',
-      items: [
-        { path: '/usuarios', label: 'Usuários', icon: 'group', roles: ['admin'] },
-        { path: '/carteiras', label: 'Carteiras', icon: 'account_balance_wallet', roles: ['admin'] },
-        { path: '/branding', label: 'White Label', icon: 'palette', roles: ['admin'], somentePlataforma: true },
-        { path: '/email', label: 'Email', icon: 'mail', roles: ['admin'], somentePlataforma: true },
-        // Relatos de erro dos apps de todas as marcas: só a NeoPower vê.
-        { path: '/erros-do-app', label: 'Erros do app', icon: 'bug_report', roles: ['admin'], somentePlataforma: true, novo: true },
-      ],
-    },
-  ];
-
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    const path = location.pathname;
-    return {
-      gestao: ['/estacoes', '/locais', '/energia', '/cameras', '/operacoes', '/indicadores', '/notificacoes', '/alarmes', '/atendimento'].some(p => path === p || path.startsWith(p + '/')),
-      financeiro: ['/transacoes', '/relatorio-financeiro', '/vouchers', '/tarifas'].some(p => path === p || path.startsWith(p + '/')),
-      configuracoes: ['/usuarios', '/carteiras', '/branding', '/email', '/erros-do-app'].some(p => path === p || path.startsWith(p + '/')),
-    };
-  });
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      GRUPOS.map(g => [g.id, g.items.some(item => estaNaRota(location.pathname, item.path))])
+    )
+  );
 
   const toggleGroup = (groupId: string) => {
-    setOpenGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }));
+    setOpenGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   };
 
   // Email e White Label são só da plataforma NeoPower (admin sem marca); admins
   // de marca, operadores e contas comuns não veem.
   const ehPlataforma = ehAdminDaPlataforma(user);
-  const podeVerItem = (item: { roles: string[]; somentePlataforma?: boolean }) =>
+  const podeVerItem = (item: ItemDoMenu) =>
     item.roles.includes(user?.role || 'comum') && (!item.somentePlataforma || ehPlataforma);
 
-  const visibleNavItems = navItems.filter(podeVerItem);
+  const visibleNavItems = useMemo(
+    () => [VISAO_GERAL, ...GRUPOS.flatMap(g => g.items)].filter(podeVerItem),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.role, ehPlataforma]
+  );
 
   const filteredResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const query = searchQuery.toLowerCase();
-    return visibleNavItems.filter(item => 
-      item.label.toLowerCase().includes(query)
-    );
+    return visibleNavItems.filter(item => item.label.toLowerCase().includes(query));
   }, [searchQuery, visibleNavItems]);
 
   const roleLabels: Record<UserRole, string> = {
@@ -166,6 +217,37 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     void navigate('/login');
   };
 
+  // Item do menu: fundo suave e barra na cor da marca quando ativo.
+  const classeDoItem = (ativo: boolean, sub = false) =>
+    `relative flex items-center gap-5 rounded-[5px] transition-colors duration-200 ${
+      sub
+        ? 'min-h-[48px] pl-[31px] pr-3 gap-[18px] text-base font-medium'
+        : 'min-h-[56px] pl-[27px] pr-3 text-base font-semibold'
+    } ${
+      ativo
+        ? 'bg-primary-soft text-primary-strong'
+        : 'text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+    }`;
+
+  const menuDaConta = (gatilho: ReactNode, rotulo: string, classe = '') => (
+    <DropdownMenu>
+      <DropdownMenuTrigger aria-label={rotulo} className={`text-left outline-none ${classe}`}>
+        {gatilho}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
+        <DropdownMenuLabel className="text-muted-foreground">Minha Conta</DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-border" />
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sair
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div className="flex h-screen bg-background">
       {/* Fundo escurecido da gaveta (só no celular) — tocar fora fecha o menu */}
@@ -177,25 +259,25 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Menu lateral */}
       <aside
-        className={`fixed left-0 top-0 h-full flex flex-col pt-3 pb-6 overflow-y-auto bg-sidebar border-r border-sidebar-border/15 w-64 z-50
+        className={`fixed left-0 top-0 h-full w-[276px] flex flex-col overflow-y-auto bg-sidebar shadow-[0_4px_4px_rgba(0,0,0,0.25)] z-50
           transition-transform duration-300 lg:translate-x-0 ${menuAberto ? 'translate-x-0' : '-translate-x-full'}`}
       >
         {/* Fechar (só no celular) */}
         <button
           onClick={() => setMenuAberto(false)}
-          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+          className="lg:hidden absolute top-3 right-3 w-9 h-9 rounded-[10px] bg-sidebar-accent flex items-center justify-center text-muted-foreground hover:text-primary-strong transition-colors"
           aria-label="Fechar menu"
         >
           <X className="w-[18px] h-[18px]" />
         </button>
 
-        {/* Logo */}
-        <div className="px-2 mb-3">
+        {/* Marca */}
+        <div className="px-6 pt-10 pb-[46px]">
           {activeBranding?.logoType === 'image' && logoDoTema ? (
-            // Vai largo, sem a caixa branca do ícone e sem repetir o nome.
-            <div className="flex items-center h-12 px-2">
+            // Vai largo, sem repetir o nome: o logo horizontal já o traz.
+            <div className="flex items-center h-[39px]">
               <img
                 src={logoDoTema}
                 alt={activeBranding.companyName || 'Logo'}
@@ -203,109 +285,98 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               />
             </div>
           ) : activeBranding?.logoType === 'image' ? (
-            <div className={activeBranding?.companyName ? "flex items-center gap-3" : "flex items-center justify-center w-full"}>
+            <div className="flex items-center gap-3">
               <img
                 src={activeBranding.logoUri || NeoPowerLogo}
                 alt="Logo"
-                className={activeBranding?.companyName 
-                  ? "w-8 h-8 rounded-lg object-contain shrink-0 bg-white" 
-                  : "max-h-24 w-full object-contain"
-                }
+                className="w-[39px] h-[39px] rounded-full object-contain shrink-0 bg-white"
               />
               {activeBranding?.companyName && (
-                <div>
-                  <h2 className="font-headline font-bold text-lg leading-none tracking-tight text-sidebar-foreground">
-                    {activeBranding.companyName}
-                  </h2>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white/95 rounded-lg p-2 shadow-xl shadow-white/5 flex items-center gap-3 w-fit">
-              <img
-                src={NeoPowerLogo}
-                alt="NeoPower"
-                className="h-6 w-auto"
-              />
-              {activeBranding?.companyName && (
-                <span className="font-headline font-bold text-lg text-sidebar-foreground">
+                <span className="text-2xl font-semibold leading-none text-sidebar-foreground truncate">
                   {activeBranding.companyName}
                 </span>
               )}
             </div>
+          ) : (
+            // Marca desenhada (NeoPower e marcas sem logo): o círculo com o raio do Figma.
+            <div className="flex items-center gap-[14px]">
+              <span className="w-[39px] h-[39px] rounded-full bg-black/70 dark:bg-primary text-white dark:text-sidebar flex items-center justify-center shrink-0">
+                <Icone nome="marca-raio" tamanho={14} altura={20} />
+              </span>
+              <span className="text-2xl font-semibold leading-none text-sidebar-foreground truncate">
+                {activeBranding?.companyName || 'NeoPower'}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 space-y-2 overflow-y-auto">
-          {/* Visão Geral (Standalone) */}
-          {visibleNavItems.find(item => item.path === '/') && (() => {
-            const item = navItems[0]; // Visão Geral
-            const isActive = location.pathname === '/' && !isKairosOpen;
-            return (
-              <Link
-                to="/"
-                onClick={() => setIsKairosOpen(false)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors duration-200 text-sm ${
-                  isActive
-                    ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-semibold'
-                    : 'text-muted-foreground hover:bg-surface-container-highest hover:text-primary'
-                }`}
-              >
-                <span className="material-symbols-outlined text-xl">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            );
-          })()}
+        {/* Navegação */}
+        <nav aria-label="Menu principal" className="flex-1 px-[6px] space-y-1">
+          {podeVerItem(VISAO_GERAL) &&
+            (() => {
+              const ativo = location.pathname === '/' && !isKairosOpen;
+              return (
+                <Link
+                  to="/"
+                  aria-current={ativo ? 'page' : undefined}
+                  onClick={() => setIsKairosOpen(false)}
+                  className={classeDoItem(ativo)}
+                >
+                  {ativo && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-0 inset-y-0 w-3 rounded-[5px] bg-primary"
+                    />
+                  )}
+                  <IconeDoItem icone={VISAO_GERAL.icone} />
+                  <span>{VISAO_GERAL.label}</span>
+                </Link>
+              );
+            })()}
 
-
-
-          {/* Grouped Items */}
-          {navigationGroups.map(group => {
+          {GRUPOS.map(group => {
             const groupVisibleItems = group.items.filter(podeVerItem);
             if (groupVisibleItems.length === 0) return null;
 
-            const isGroupActive = groupVisibleItems.some(item => location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;
+            const isGroupActive =
+              groupVisibleItems.some(item => estaNaRota(location.pathname, item.path)) &&
+              !isKairosOpen;
             const isOpen = openGroups[group.id];
 
             return (
               <div key={group.id} className="space-y-1">
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className={`w-full flex items-center justify-between px-4 py-2 rounded-lg text-sm transition-all duration-200 text-left ${
-                    isGroupActive
-                      ? 'text-primary font-semibold bg-surface-container-highest/20'
-                      : 'text-muted-foreground hover:bg-surface-container-highest/40 hover:text-foreground'
-                  }`}
+                  aria-expanded={isOpen}
+                  className={`w-full text-left ${classeDoItem(false)} ${isGroupActive ? '!text-primary-strong' : ''}`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`material-symbols-outlined text-xl ${isGroupActive ? 'text-primary' : 'text-muted-foreground'}`}>{group.icon}</span>
-                    <span>{group.label}</span>
-                  </div>
-                  <span className={`material-symbols-outlined text-lg transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
-                    expand_more
+                  <IconeDoItem icone={group.icone} />
+                  <span className="flex-1">{group.label}</span>
+                  <span
+                    className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}
+                  >
+                    <Icone nome="seta-grupo" tamanho={19} altura={18} />
                   </span>
                 </button>
-                
+
                 {isOpen && (
-                  <div className="pl-4 space-y-1 border-l border-sidebar-border/10 ml-6 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <div className="pl-[18px] space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                     {groupVisibleItems.map(item => {
-                      const isActive = (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isKairosOpen;
+                      const ativo = estaNaRota(location.pathname, item.path) && !isKairosOpen;
                       return (
                         <Link
                           key={item.path}
                           to={item.path}
+                          aria-current={ativo ? 'page' : undefined}
                           onClick={() => setIsKairosOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200 text-sm ${
-                            isActive
-                              ? 'bg-surface-container-highest text-primary border-r-2 border-primary shadow-[inset_0_0_10px_rgba(57,255,20,0.1)] font-medium'
-                              : 'text-muted-foreground hover:bg-surface-container-highest hover:text-primary'
-                          }`}
+                          className={classeDoItem(ativo, true)}
                         >
-                          <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                          <IconeDoItem icone={item.icone} />
                           <span>{item.label}</span>
-                          {'novo' in item && item.novo === true && (
-                            <span className="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-primary">NOVO</span>
+                          {item.novo && (
+                            <span className="ml-auto rounded-full bg-primary-soft px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-primary-strong">
+                              NOVO
+                            </span>
                           )}
                         </Link>
                       );
@@ -317,134 +388,139 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           })}
         </nav>
 
-        {/* KAIROS Trigger Button (Círculo Brilhante) */}
-        <div className="flex flex-col items-center justify-center pb-6 pt-2 mt-auto shrink-0">
+        {/* KAIROS (assistente): fica no pé do menu, no mesmo desenho dos itens */}
+        <div className="px-[6px] pt-4 shrink-0">
           <button
             onClick={() => {
               setIsKairosOpen(!isKairosOpen);
               setMenuAberto(false);
             }}
-            className={`relative w-14 h-14 rounded-full bg-zinc-950 border flex items-center justify-center shadow-lg active:scale-95 transition-all hover:scale-105 group ${
-              isKairosOpen 
-                ? 'border-primary shadow-[0_0_20px_rgba(142,255,113,0.3)] text-primary' 
-                : 'border-outline-variant/30 text-muted-foreground hover:border-primary hover:text-primary hover:shadow-[0_0_15px_rgba(142,255,113,0.15)]'
-            }`}
+            aria-pressed={isKairosOpen}
+            className={`w-full text-left ${classeDoItem(isKairosOpen)}`}
             title="Falar com o KAIROS"
           >
-            {!isKairosOpen && (
-              <span className="absolute inset-0 rounded-full border border-primary/40 animate-ping opacity-60 pointer-events-none" />
+            {isKairosOpen && (
+              <span
+                aria-hidden="true"
+                className="absolute left-0 inset-y-0 w-3 rounded-[5px] bg-primary"
+              />
             )}
-            <span className="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform duration-300">smart_toy</span>
+            <span className="material-symbols-outlined text-2xl leading-none w-6 shrink-0">
+              smart_toy
+            </span>
+            <span>KAIROS IA</span>
           </button>
-          <span className={`text-[9px] font-bold uppercase tracking-wider mt-2 transition-colors ${
-            isKairosOpen ? 'text-primary shadow-sm' : 'text-muted-foreground/60'
-          }`}>
-            KAIROS IA
-          </span>
         </div>
 
-        {/* User Profile at bottom */}
-        <div className="px-6 border-t border-sidebar-border/15 pt-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="w-full flex items-center gap-3 text-left">
-              <div className="w-10 h-10 rounded-full bg-primary/15 overflow-hidden flex items-center justify-center shrink-0">
-                <span className="text-primary text-base font-bold">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
-                <p className="text-xs text-muted-foreground truncate uppercase tracking-wide">
+        {/* Conta */}
+        <div className="px-6 pt-6 pb-[25px] shrink-0">
+          {menuDaConta(
+            <div className="flex items-center gap-[14px] min-w-0">
+              <span className="w-[50px] h-[50px] rounded-full bg-black/70 dark:bg-white/15 text-white text-2xl font-semibold flex items-center justify-center shrink-0">
+                {inicial(user?.name)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-semibold text-foreground truncate" title={user?.name}>
+                  {user?.name}
+                </span>
+                <span className="block text-sm font-semibold text-foreground uppercase truncate">
                   {user ? roleLabels[user.role] : ''}
-                </p>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
-              <DropdownMenuLabel className="text-muted-foreground">Minha Conta</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-red-400 focus:bg-red-500/10 focus:text-red-400 cursor-pointer"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </span>
+              </span>
+            </div>,
+            'Abrir menu da conta',
+            'block w-full'
+          )}
         </div>
       </aside>
 
-      {/* Top Navbar */}
-      <header className="fixed top-0 right-0 left-0 lg:left-64 flex justify-between items-center px-4 lg:px-8 h-16 bg-background/80 backdrop-blur-xl border-b border-border/15 z-40">
-        <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
+      {/* Barra do topo */}
+      <header className="fixed top-0 right-0 left-0 lg:left-[276px] flex justify-between items-center gap-3 px-4 lg:px-6 h-20 lg:h-24 bg-background z-40">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           {/* Abre a gaveta — some a partir de lg, onde a lateral já é fixa */}
           <button
             onClick={() => setMenuAberto(true)}
-            className="lg:hidden w-9 h-9 shrink-0 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+            className="lg:hidden w-[46px] h-[45px] shrink-0 rounded-[10px] bg-card flex items-center justify-center text-foreground hover:text-primary-strong transition-colors"
             aria-label="Abrir menu"
           >
-            <Menu className="w-[18px] h-[18px]" />
+            <Menu className="w-6 h-6" />
           </button>
           {/* A busca ocupa a largura toda no celular e competiria com o menu */}
-          <div className="relative w-72 group hidden md:block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 transition-colors group-focus-within:text-primary" />
+          <div className="relative w-full max-w-[566px] group hidden md:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 transition-colors group-focus-within:text-primary-strong" />
             <input
-              className={`w-full bg-surface-container-low border border-neutral-200 rounded-lg pl-10 pr-4 py-2 text-sm text-foreground 
-                focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none placeholder:text-muted-foreground/50 transition-all shadow-sm`}
-              placeholder="Buscar no sistema..."
+              className="w-full h-[47px] bg-card rounded-[10px] pl-12 pr-4 text-[15px] text-foreground border border-transparent
+                focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none placeholder:text-muted-foreground transition-all"
+              placeholder="Pesquisar"
+              aria-label="Pesquisar no painel"
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
             />
 
-            {/* Live Search Dropdown */}
+            {/* Resultados da busca */}
             {isSearchFocused && searchQuery.trim() !== '' && (
-              <div className="absolute top-full left-0 w-full mt-2 bg-card border border-neutral-200 rounded-xl shadow-soft py-2 min-w-[300px] z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-0 w-full mt-2 bg-card border border-border rounded-[10px] shadow-cartao py-2 min-w-[300px] z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="px-3 py-1.5 mb-1">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Resultados da Busca</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Resultados da busca
+                  </span>
                 </div>
                 {filteredResults.length > 0 ? (
-                  filteredResults.map((item) => (
+                  filteredResults.map(item => (
                     <button
                       key={item.path}
                       onClick={() => {
-                        navigate(item.path);
+                        void navigate(item.path);
                         setSearchQuery('');
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container-highest transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                        <span className="material-symbols-outlined text-lg">{item.icon}</span>
-                      </div>
-                      <span className="text-sm font-medium">{item.label}</span>
+                      <span className="w-8 h-8 rounded-[5px] bg-primary-soft flex items-center justify-center text-primary-strong">
+                        <IconeDoItem icone={item.icone} tamanho={18} />
+                      </span>
+                      <span className="text-sm font-medium text-foreground">{item.label}</span>
                     </button>
                   ))
                 ) : (
                   <div className="px-4 py-8 text-center">
-                    <p className="text-sm text-muted-foreground">Nenhum resultado para "{searchQuery}"</p>
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum resultado para "{searchQuery}"
+                    </p>
                   </div>
                 )}
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 lg:gap-4 shrink-0">
+        <div className="flex items-center gap-[29px] shrink-0">
           <button
             onClick={toggleTheme}
-            className="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-            title={isDark ? 'Modo Claro' : 'Modo Escuro'}
+            className="w-[46px] h-[45px] rounded-[10px] bg-card flex items-center justify-center text-foreground hover:text-primary-strong transition-colors"
+            title={isDark ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'}
+            aria-label={isDark ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'}
           >
-            {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
+            <Icone nome="tema" />
           </button>
-          <NotificationBell />
+          <div className="w-[46px] h-[45px] rounded-[10px] bg-card flex items-center justify-center text-foreground">
+            <NotificationBell />
+          </div>
+          {menuDaConta(
+            <span className="w-[46px] h-[46px] rounded-full bg-[#b9b7b7] dark:bg-white/20 text-white text-lg font-semibold flex items-center justify-center">
+              {inicial(user?.name)}
+            </span>,
+            'Abrir menu da conta (topo)'
+          )}
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Conteúdo */}
       {/* min-w-0 impede que uma tabela larga estique o main e crie rolagem
           horizontal na página inteira — a rolagem fica dentro da tabela. */}
-      <main className="pl-0 lg:pl-64 pt-16 flex-1 min-w-0 min-h-screen overflow-auto">
-        <div className="p-4 lg:p-8 max-w-[1600px] mx-auto">{children}</div>
+      <main className="pl-0 lg:pl-[276px] pt-20 lg:pt-24 flex-1 min-w-0 min-h-screen overflow-auto">
+        <div className="px-4 pb-4 pt-2 lg:px-6 lg:pb-8 max-w-[1640px] mx-auto">{children}</div>
       </main>
       {isKairosOpen && <KairosPanel onClose={() => setIsKairosOpen(false)} />}
     </div>
