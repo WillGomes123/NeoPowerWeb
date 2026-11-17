@@ -29,7 +29,6 @@ import {
   CabecalhoDaPagina,
   classeDaPilula,
   classeDoCartao,
-  type Tom,
 } from '../components/painel/Pagina';
 import {
   BarraDeFiltros,
@@ -151,23 +150,24 @@ interface EscopoDaEdicao {
 }
 
 /**
- * Cor de cada tipo de preço. O dono acha a tarifa pela cor (15/10/2026). No
- * redesenho (nov/2026) as cores são os tons do bloco de ícone do Figma: global
- * na cor da marca, local em azul, carregador em amarelo e perfil em cinza.
+ * Cor de cada tipo de preço. O dono acha a tarifa pela cor (15/10/2026): local
+ * em ciano, carregador em violeta, perfil na cor secundária, global na cor da
+ * marca. A tela de Tarifas não tem desenho da Lauriane, então vale o pedido do
+ * dono; do redesenho vem só o formato (bloco de ícone de 41×38, cantos de 5 px).
  */
 type Destaque = 'global' | 'local' | 'carregador' | 'perfil';
-const TOM_DO_TIPO: Record<Destaque, Tom> = {
-  global: 'marca',
-  local: 'azul',
-  carregador: 'amarelo',
-  perfil: 'cinza',
+const BLOCO_DO_TIPO: Record<Destaque, string> = {
+  global: 'bg-primary-soft text-primary-strong',
+  local: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-400/15 dark:text-cyan-300',
+  carregador: 'bg-violet-100 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300',
+  perfil: 'bg-secondary/30 text-secondary-foreground dark:bg-secondary/15 dark:text-secondary',
 };
 /** O mesmo tom, só no ícone (histórico e títulos dos grupos). */
 const COR_DO_ICONE: Record<Destaque, string> = {
   global: 'text-primary-strong',
-  local: 'text-tom-azul-icone',
-  carregador: 'text-tom-amarelo-icone',
-  perfil: 'text-tom-cinza-icone',
+  local: 'text-cyan-700 dark:text-cyan-300',
+  carregador: 'text-violet-700 dark:text-violet-300',
+  perfil: 'text-secondary-foreground dark:text-secondary',
 };
 
 /** Selo dos cartões: pílula com ícone e texto, nos tons de estado do Figma. */
@@ -618,11 +618,14 @@ const CartaoDePreco = ({
 }: CartaoDePrecoProps) => (
   <article className={`${classeDoCartao} p-5 3xl:p-[22px] flex flex-col gap-4 min-h-[190px]`}>
     <div className="flex items-start gap-4">
-      <BlocoDeIcone tom={TOM_DO_TIPO[destaque]}>
-        <span aria-hidden="true" className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+      <span
+        aria-hidden="true"
+        className={`${BLOCO_DO_TIPO[destaque]} w-[41px] h-[38px] rounded-[5px] flex items-center justify-center shrink-0`}
+      >
+        <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
           {icone}
         </span>
-      </BlocoDeIcone>
+      </span>
       <div className="min-w-0">
         <h3 className="text-[18px] leading-tight font-semibold text-foreground line-clamp-2" title={titulo}>
           {titulo}
