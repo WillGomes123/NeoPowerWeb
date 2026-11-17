@@ -1,7 +1,8 @@
-import { ReactNode, useState, useMemo, useEffect } from 'react';
+import { Fragment, ReactNode, useState, useMemo, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { ehAdminDaPlataforma } from '../lib/plataforma';
+import type { AbaEnergia } from '../lib/energia';
 import { UserRole } from '../types';
 import {
   Bug,
@@ -23,7 +24,8 @@ import { NotificationBell } from './NotificationBell';
 import { useTenant } from '../contexts/TenantContext';
 import NeoPowerLogo from '../assets/NeoPower.png';
 import { KairosPanel } from './KairosPanel';
-import { Icone, type NomeDoIcone } from './painel/Icone';
+import { Icone, IconeSvg, type NomeDoIcone } from './painel/Icone';
+import iconeConexoes from '../assets/icones/fid-conexoes.svg';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -138,6 +140,33 @@ const GRUPOS: { id: string; label: string; icone: NomeDoIcone; items: ItemDoMenu
   },
 ];
 
+/**
+ * Seções do módulo Energia, como subitens do item "Energia" (Figma: menu do
+ * Frame 18 e o submenu solto ao lado do Frame 14). Levam à aba da página
+ * (`/energia?aba=…`). Ícones do Figma; onde ela não desenhou um, os quatro
+ * pontinhos da "Visão Geral", como ela fez.
+ */
+const SECOES_DA_ENERGIA: { aba: AbaEnergia; label: string; icone: ReactNode }[] = [
+  { aba: 'usinas', label: 'Usinas', icone: <Icone nome="usinas" tamanho={20} /> },
+  {
+    aba: 'pontos',
+    label: 'Pontos consumidores',
+    icone: <Icone nome="pontos-consumidores" tamanho={20} />,
+  },
+  {
+    aba: 'conexoes',
+    label: 'Conexões',
+    icone: <IconeSvg src={iconeConexoes} tamanho={20} nome="fid-conexoes" />,
+  },
+  { aba: 'rateio', label: 'Rateio', icone: <Icone nome="visao-geral" tamanho={20} /> },
+  {
+    aba: 'apuracao',
+    label: 'Apuração e Split',
+    icone: <Icone nome="visao-geral" tamanho={20} />,
+  },
+  { aba: 'modalidades', label: 'Modalidades', icone: <Icone nome="visao-geral" tamanho={20} /> },
+];
+
 const estaNaRota = (pathname: string, path: string) =>
   path === '/' ? pathname === '/' : pathname === path || pathname.startsWith(path + '/');
 
@@ -216,6 +245,22 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     logout();
     void navigate('/login');
   };
+
+  // Seção do módulo Energia aberta (o `?aba=` da página); null = visão geral.
+  const secaoDaEnergia = useMemo(() => {
+    if (!estaNaRota(location.pathname, '/energia')) return null;
+    const aba = new URLSearchParams(location.search).get('aba');
+    return SECOES_DA_ENERGIA.find(s => s.aba === aba)?.aba ?? null;
+  }, [location.pathname, location.search]);
+
+  // Subitem da Energia: um nível abaixo dos itens do grupo, um pouco menor; o
+  // texto alinha com o de "Energia" e cabe numa linha na lateral de 276 px.
+  const classeDaSecao = (ativo: boolean) =>
+    `relative flex items-center gap-[10px] min-h-[44px] pl-[43px] pr-1 rounded-[5px] text-[15px] font-medium whitespace-nowrap transition-colors duration-200 ${
+      ativo
+        ? 'bg-primary-soft text-primary-strong'
+        : 'text-sidebar-foreground/90 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+    }`;
 
   // Item do menu: fundo suave e barra na cor da marca quando ativo.
   const classeDoItem = (ativo: boolean, sub = false) =>
@@ -362,23 +407,58 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 {isOpen && (
                   <div className="pl-[18px] space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                     {groupVisibleItems.map(item => {
-                      const ativo = estaNaRota(location.pathname, item.path) && !isKairosOpen;
+                      const naRota = estaNaRota(location.pathname, item.path) && !isKairosOpen;
+                      // Na Energia, as seções do módulo aparecem embaixo do item;
+                      // com uma delas aberta, ela é que fica marcada.
+                      const comSecoes = item.path === '/energia' && naRota;
+                      const secaoAberta = comSecoes ? secaoDaEnergia : null;
+                      const ativo = naRota && !secaoAberta;
                       return (
-                        <Link
-                          key={item.path}
-                          to={item.path}
-                          aria-current={ativo ? 'page' : undefined}
-                          onClick={() => setIsKairosOpen(false)}
-                          className={classeDoItem(ativo, true)}
-                        >
-                          <IconeDoItem icone={item.icone} />
-                          <span>{item.label}</span>
-                          {item.novo && (
-                            <span className="ml-auto rounded-full bg-primary-soft px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-primary-strong">
-                              NOVO
+                        <Fragment key={item.path}>
+                          <Link
+                            to={item.path}
+                            aria-current={ativo ? 'page' : undefined}
+                            onClick={() => setIsKairosOpen(false)}
+                            className={`${classeDoItem(ativo, true)} ${secaoAberta ? '!text-primary-strong' : ''}`}
+                          >
+                            <IconeDoItem icone={item.icone} />
+                            {/* Rótulo e selo numa linha só: o selo não encolhe e fica
+                                a 8 px do rótulo ("Erros do app NOVO" quebrava). */}
+                            <span className="flex-1 min-w-0 flex items-center gap-2">
+                              <span className="min-w-0 truncate">{item.label}</span>
+                              {item.novo && (
+                                <span className="ml-auto shrink-0 rounded-full bg-primary-soft px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-primary-strong">
+                                  NOVO
+                                </span>
+                              )}
                             </span>
+                          </Link>
+                          {comSecoes && (
+                            <ul aria-label="Seções do módulo Energia" className="space-y-0.5">
+                              {SECOES_DA_ENERGIA.map(secao => {
+                                const daVez = secao.aba === secaoAberta;
+                                return (
+                                  <li key={secao.aba}>
+                                    <Link
+                                      to={`/energia?aba=${secao.aba}`}
+                                      aria-current={daVez ? 'page' : undefined}
+                                      onClick={() => {
+                                        // Só o ?aba= muda: o fechamento da gaveta
+                                        // pela troca de página não acontece.
+                                        setIsKairosOpen(false);
+                                        setMenuAberto(false);
+                                      }}
+                                      className={classeDaSecao(daVez)}
+                                    >
+                                      {secao.icone}
+                                      <span className="min-w-0 truncate">{secao.label}</span>
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
                           )}
-                        </Link>
+                        </Fragment>
                       );
                     })}
                   </div>

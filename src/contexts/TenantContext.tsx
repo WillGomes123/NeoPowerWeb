@@ -60,7 +60,8 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
 
         if (!potentialTenant || APP_ROUTES.includes(potentialTenant)) {
           const originalPath = window.location.pathname;
-          // Leva junto a busca e o âncora: /estacoes?estado=offline perdia o filtro.
+          // Leva junto a busca e o âncora: sem eles /estacoes?estado=offline perdia o
+          // filtro e /energia?aba=usinas abria a visão geral.
           const resto = originalPath === '/' ? '' : window.location.search + window.location.hash;
           window.location.replace(`/neopower${originalPath === '/' ? '/login' : originalPath}${resto}`);
           return;

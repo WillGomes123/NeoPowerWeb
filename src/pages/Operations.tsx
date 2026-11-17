@@ -21,15 +21,19 @@ import {
 } from '../components/ui/dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
-import { Icone } from '../components/painel/Icone';
+import { Icone, IconeSvg } from '../components/painel/Icone';
 import {
-  AbasDaPagina,
   BotaoAtualizar,
   CabecalhoDaPagina,
-  CartaoContador,
   classeDaPilula,
   classeDoCartao,
 } from '../components/painel/Pagina';
+import {
+  AbasSublinhadas,
+  BarraDeExecucao,
+  ContadorDaOperacao,
+  ListaDeCarregadores,
+} from '../components/operacoes/PecasDaOperacao';
 import iconeCarregadores from '../assets/icones/op-carregadores.svg';
 import iconeOffline from '../assets/icones/op-offline.svg';
 import {
@@ -43,6 +47,10 @@ import {
   Shield,
   Battery,
   FileText,
+  FileSearch,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  ChevronDown,
   Download,
   Upload,
   Trash2,
@@ -58,6 +66,7 @@ import {
   Activity,
   Send,
   Wifi,
+  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -197,7 +206,7 @@ const operations: Operation[] = [
 ];
 
 const categoryConfig: Record<OperationCategory, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  basic: { label: 'Comandos Básicos', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+  basic: { label: 'Comandos básicos', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
   configuration: { label: 'Configuração', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
   transactions: { label: 'Transações', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
   reservations: { label: 'Reservas', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
@@ -205,6 +214,18 @@ const categoryConfig: Record<OperationCategory, { label: string; color: string; 
   locallist: { label: 'Local Auth List', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
   firmware: { label: 'Firmware & Diagnósticos', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
   security: { label: 'Security Extensions', color: 'text-foreground', bgColor: 'from-card to-card', borderColor: 'border-border' },
+};
+
+/** Ícone de cada categoria no "Escolha um comando" (os da imagem de referência). */
+const ICONE_DA_CATEGORIA: Record<OperationCategory, LucideIcon> = {
+  basic: RefreshCw,
+  configuration: Settings,
+  transactions: Play,
+  reservations: Calendar,
+  smartcharging: Battery,
+  locallist: Database,
+  firmware: Upload,
+  security: Shield,
 };
 
 // ============================================================================
@@ -225,8 +246,8 @@ export const Operations = () => {
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
-  // Categoria de comandos aberta no quadro "Escolha um comando" (Figma).
-  const [categoriaAberta, setCategoriaAberta] = useState<OperationCategory>('basic');
+  // Categoria de comandos aberta no quadro "Escolha um comando" (Figma); null = todas fechadas.
+  const [categoriaAberta, setCategoriaAberta] = useState<OperationCategory | null>('basic');
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const [atualizando, setAtualizando] = useState(false);
   // Transactions ativas dos chargers selecionados — populadas quando o admin
@@ -1485,12 +1506,19 @@ export const Operations = () => {
   ).size;
   const categorias = Object.keys(categoryConfig) as OperationCategory[];
   const operacaoEscolhida = operations.find(op => op.id === selectedOperation);
+  const totalDeCarregadores = mergedChargePoints.length;
+  const offlineCount = totalDeCarregadores - connectedCount;
+  // Parte da rede (referência: "Online 63%", "Offline 37%").
+  const parteDaRede = (n: number) =>
+    totalDeCarregadores > 0 ? `${Math.round((n / totalDeCarregadores) * 100)}%` : undefined;
+  const nSelecionados = selectedChargePoints.length;
 
   return (
     <div className="space-y-[25px] pb-12">
       <CabecalhoDaPagina
         titulo="Centro de operações"
-        subtitulo="Envie comandos OCPP aos carregadores e acompanhe o resultado."
+        // Subtítulo da referência: o do frame foi copiado da tela de câmeras.
+        subtitulo="Execute e gerencie comandos OCPP nos carregadores conectados."
         acoes={
           <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 3xl:gap-8">
             {/* "Tempo real" do Figma: diz se a tela está recebendo o status ao vivo */}
@@ -1529,113 +1557,57 @@ export const Operations = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[25px] xl:max-w-[1100px]">
-        <CartaoContador icone={<Icone nome="op-locais" tamanho={37} altura={38} />} rotulo="Locais" valor={locaisComCarregador} />
-        <CartaoContador icone={<img src={iconeCarregadores} alt="" className="w-[37px] h-[38px]" />} rotulo="Carregadores" valor={mergedChargePoints.length} />
-        <CartaoContador icone={<img src={iconeCarregadores} alt="" className="w-[37px] h-[38px]" />} rotulo="Online" valor={connectedCount} />
-        <CartaoContador
-          icone={<img src={iconeOffline} alt="" className="w-[37px] h-[38px]" />}
-          rotulo="Offline"
-          valor={mergedChargePoints.length - connectedCount}
-          fundoDoIcone="bg-[#fedbd5] dark:bg-destructive/20"
-        />
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-[25px]">
-        <AbasDaPagina
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-[25px]">
+        {/* Abas da referência: sublinhado verde na ativa, logo abaixo do cabeçalho */}
+        <AbasSublinhadas
           rotulo="Seções do Centro de operações"
           ativa={activeTab as 'operations' | 'results' | 'diagnosticos'}
           aoMudar={setActiveTab}
           abas={[
-            { id: 'operations', rotulo: 'Comandos', icone: <Zap aria-hidden="true" className="w-5 h-5" /> },
-            { id: 'results', rotulo: 'Resultados', icone: <Activity aria-hidden="true" className="w-5 h-5" />, contador: results.length },
-            { id: 'diagnosticos', rotulo: 'Diagnósticos', icone: <FileText aria-hidden="true" className="w-5 h-5" />, contador: enviosAguardando },
+            { id: 'operations', rotulo: 'Operações', icone: <Zap aria-hidden="true" className="w-5 h-5" /> },
+            { id: 'results', rotulo: 'Resultados', icone: <ChartNoAxesColumnIncreasing aria-hidden="true" className="w-5 h-5" />, contador: results.length },
+            { id: 'diagnosticos', rotulo: 'Diagnósticos', icone: <FileSearch aria-hidden="true" className="w-5 h-5" />, contador: enviosAguardando },
           ]}
         />
 
-        {/* Comandos: carregadores à esquerda, "Escolha um comando" à direita (Figma) */}
-        <TabsContent value="operations">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,797fr)_minmax(0,770fr)] gap-[30px] items-start">
-            <section className={`${classeDoCartao} p-[22px]`} aria-label="Carregadores">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-[20px] font-semibold text-foreground">Carregadores</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedChargePoints.length} de {mergedChargePoints.length} selecionados
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={selectAllConnected}
-                    className="h-10 px-4 rounded-[25px] bg-primary-soft text-primary-strong text-sm font-semibold"
-                  >
-                    Todos online ({connectedCount})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearSelection}
-                    className="h-10 px-4 rounded-[25px] bg-[#d9d9d9] dark:bg-muted text-foreground text-sm font-semibold"
-                  >
-                    Limpar
-                  </button>
-                </div>
-              </div>
-              <ScrollArea className="h-[620px] mt-4 pr-3">
-                <div className="space-y-5 pr-1 min-w-0">
-                  {chargersByLocation.map(([locId, group]) => (
-                    <div key={locId} className="space-y-2 min-w-0">
-                      <p className="flex items-center gap-2 text-sm font-semibold text-foreground min-w-0">
-                        <span className="text-primary-strong shrink-0"><Icone nome="local" tamanho={18} /></span>
-                        <span className="truncate">{group.name}</span>
-                        <span className="text-muted-foreground font-medium shrink-0">· {group.chargers.length}</span>
-                      </p>
-                      {group.chargers.map(cp => {
-                        const escolhido = selectedChargePoints.includes(cp.charge_point_id);
-                        const tipo = `${cp.vendor || ''} ${cp.model || ''}`.trim();
-                        return (
-                          <button
-                            key={cp.charge_point_id}
-                            type="button"
-                            onClick={() => toggleChargePointSelection(cp.charge_point_id)}
-                            aria-pressed={escolhido}
-                            className={`w-full min-h-[56px] px-4 py-2.5 rounded-[20px] border text-left transition flex items-center gap-3 min-w-0 ${
-                              escolhido ? 'bg-primary-soft border-primary' : 'bg-card border-border hover:border-primary/60'
-                            }`}
-                          >
-                            <span
-                              className={`shrink-0 h-6 px-2.5 rounded-[25px] text-xs font-semibold inline-flex items-center ${
-                                cp.isConnected ? 'bg-estado-livre text-estado-livre-forte' : 'bg-estado-offline text-estado-offline-forte'
-                              }`}
-                            >
-                              {cp.isConnected ? 'Online' : 'Offline'}
-                            </span>
-                            <span className="flex-1 min-w-0">
-                              <span className="block text-[15px] font-semibold text-foreground truncate">
-                                {cp.description || tipo || cp.charge_point_id}
-                              </span>
-                              <span className="block text-xs text-muted-foreground truncate">
-                                {cp.charge_point_id}
-                                {tipo && cp.description ? ` · ${tipo}` : ''}
-                              </span>
-                            </span>
-                            {escolhido && <CheckCircle2 className="w-5 h-5 text-primary-strong shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </section>
+        {/* Contadores do frame; Online e Offline com a parte da rede (referência) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[25px] xl:max-w-[1100px]">
+          <ContadorDaOperacao icone={<Icone nome="op-locais" tamanho={37} altura={38} />} rotulo="Locais" valor={locaisComCarregador} />
+          <ContadorDaOperacao icone={<IconeSvg src={iconeCarregadores} tamanho={37} altura={38} nome="op-carregadores" />} rotulo="Carregadores" valor={totalDeCarregadores} />
+          <ContadorDaOperacao
+            icone={<IconeSvg src={iconeCarregadores} tamanho={37} altura={38} nome="op-carregadores" />}
+            rotulo="Online"
+            valor={connectedCount}
+            parte={parteDaRede(connectedCount)}
+          />
+          <ContadorDaOperacao
+            icone={<img src={iconeOffline} alt="" className="w-[37px] h-[38px]" />}
+            rotulo="Offline"
+            valor={offlineCount}
+            parte={parteDaRede(offlineCount)}
+            fundoDoIcone="bg-[#fedbd5] dark:bg-destructive/20"
+          />
+        </div>
 
-            <section className={`${classeDoCartao} p-[22px] space-y-4`} aria-label="Escolha um comando">
-              <div>
-                <h2 className="text-[20px] font-semibold text-foreground">Escolha um comando</h2>
-                <p className="text-sm text-foreground">
-                  {selectedChargePoints.length === 0
-                    ? 'Selecione ao lado os carregadores que vão receber o comando.'
-                    : `Vai para ${selectedChargePoints.length} carregador${selectedChargePoints.length === 1 ? '' : 'es'}.`}
+        {/* Operações: carregadores à esquerda, "Escolha um comando" à direita e a barra de execução embaixo */}
+        <TabsContent value="operations" className="space-y-[25px]">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,797fr)_minmax(0,770fr)] gap-[30px] items-start">
+            <ListaDeCarregadores
+              grupos={chargersByLocation}
+              total={totalDeCarregadores}
+              online={connectedCount}
+              selecionados={selectedChargePoints}
+              aoAlternar={toggleChargePointSelection}
+              aoSelecionarOnline={selectAllConnected}
+              aoLimpar={clearSelection}
+            />
+
+            <section className={`${classeDoCartao} p-[22px] space-y-[11px]`} aria-label="Escolha um comando">
+              <div className="pb-[7px]">
+                <h2 className="text-[20px] leading-tight font-semibold text-foreground">Escolha um comando</h2>
+                <p className="text-sm text-foreground mt-1">
+                  Selecione o tipo de operação que deseja executar nos carregadores ({nSelecionados}{' '}
+                  {nSelecionados === 1 ? 'selecionado' : 'selecionados'}).
                 </p>
               </div>
 
@@ -1643,8 +1615,27 @@ export const Operations = () => {
                 const ops = getOperationsByCategory(categoria);
                 if (ops.length === 0) return null;
                 const aberta = categoria === categoriaAberta;
+                const IconeDaCategoria = ICONE_DA_CATEGORIA[categoria];
+                // Cabeçalho da categoria (referência): ícone, nome, quantidade e a seta.
+                const cabecalho = (
+                  <>
+                    <span className="w-[27px] h-[27px] rounded-[5px] bg-primary/60 text-primary-foreground flex items-center justify-center shrink-0">
+                      <IconeDaCategoria aria-hidden="true" className="w-4 h-4" />
+                    </span>
+                    <span className={`font-semibold text-foreground ${aberta ? 'text-[15px]' : 'text-[13px]'}`}>
+                      {categoryConfig[categoria].label}
+                    </span>
+                    <span className="h-[18px] min-w-[44px] px-2 rounded-[10px] bg-primary/60 text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
+                      {ops.length}
+                    </span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={`ml-auto w-5 h-5 shrink-0 text-foreground transition-transform ${aberta ? 'rotate-180' : ''}`}
+                    />
+                  </>
+                );
                 if (!aberta) {
-                  // Categoria fechada: linha do Figma (ícone, nome, quantidade)
+                  // Categoria fechada: a linha do frame
                   return (
                     <button
                       key={categoria}
@@ -1653,24 +1644,25 @@ export const Operations = () => {
                       aria-expanded={false}
                       className="w-full min-h-[51px] px-[34px] rounded-[20px] border border-primary flex items-center gap-4 text-left hover:bg-primary-soft/50 transition"
                     >
-                      <span className="w-[27px] h-[27px] rounded-[5px] bg-primary/60 text-primary-foreground flex items-center justify-center shrink-0">
-                        {ops[0]?.icon}
-                      </span>
-                      <span className="flex-1 text-[13px] font-semibold text-foreground">{categoryConfig[categoria].label}</span>
-                      <span className="h-[18px] min-w-[44px] px-2 rounded-[10px] bg-primary/60 text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
-                        {ops.length}
-                      </span>
+                      {cabecalho}
                     </button>
                   );
                 }
-                // Categoria aberta: bloco em degradê com os cartões dos comandos
+                // Categoria aberta: bloco em degradê com borda verde e os cartões dos comandos
                 return (
                   <div
                     key={categoria}
-                    className="rounded-[25px] border border-primary bg-gradient-to-r from-primary/30 to-transparent p-[22px] pt-[26px]"
+                    className="rounded-[25px] border border-primary bg-gradient-to-r from-primary/30 to-transparent px-[22px] pt-[12px] pb-[22px]"
                   >
-                    <p className="text-[15px] font-semibold text-foreground mb-4">{categoryConfig[categoria].label}</p>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setCategoriaAberta(null)}
+                      aria-expanded={true}
+                      className="w-full min-h-[44px] px-3 flex items-center gap-4 text-left"
+                    >
+                      {cabecalho}
+                    </button>
+                    <div className="mt-3 grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
                       {ops.map(op => {
                         const escolhido = selectedOperation === op.id;
                         return (
@@ -1680,15 +1672,24 @@ export const Operations = () => {
                             onClick={() => setSelectedOperation(op.id)}
                             aria-pressed={escolhido}
                             title={op.description}
-                            className={`min-h-[165px] p-[22px] rounded-[15px] border text-left flex flex-col gap-2 transition ${
-                              escolhido ? 'bg-primary-soft border-primary ring-2 ring-primary/40' : 'bg-card border-primary hover:bg-primary-soft/40'
+                            className={`relative min-h-[165px] p-[18px] rounded-[15px] border border-primary text-left flex flex-col gap-2 transition ${
+                              escolhido ? 'bg-primary-soft ring-2 ring-primary' : 'bg-card hover:bg-primary-soft/40'
                             }`}
                           >
+                            {/* ✓ no comando escolhido (referência) */}
+                            {escolhido && (
+                              <span
+                                aria-hidden="true"
+                                className="absolute top-3 right-3 w-[22px] h-[22px] rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                              >
+                                <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                              </span>
+                            )}
                             <span className="w-[27px] h-[27px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center">
                               {op.icon}
                             </span>
                             <span className="text-[13px] font-semibold text-foreground">{op.name}</span>
-                            <span className="text-[11px] leading-snug text-foreground/80 line-clamp-4">{op.description}</span>
+                            <span className="text-[11px] leading-snug text-foreground/80 line-clamp-6">{op.description}</span>
                           </button>
                         );
                       })}
@@ -1696,31 +1697,16 @@ export const Operations = () => {
                   </div>
                 );
               })}
-
-              {/* Executar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <p className="text-sm text-foreground">
-                  {operacaoEscolhida ? (
-                    <>
-                      <span className="font-semibold">{operacaoEscolhida.name}</span>
-                      {selectedChargePoints.length > 0 && ` · ${selectedChargePoints.length} carregador${selectedChargePoints.length === 1 ? '' : 'es'}`}
-                    </>
-                  ) : (
-                    'Escolha um comando acima.'
-                  )}
-                </p>
-                <button
-                  type="button"
-                  onClick={handleExecute}
-                  disabled={!selectedOperation || selectedChargePoints.length === 0}
-                  className="h-12 px-8 rounded-[25px] bg-primary text-primary-foreground text-[15px] font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Play className="w-4 h-4" aria-hidden="true" />
-                  Executar
-                </button>
-              </div>
             </section>
           </div>
+
+          {/* Barra de execução de largura total (referência); os parâmetros seguem no diálogo */}
+          <BarraDeExecucao
+            operacao={operacaoEscolhida?.name}
+            quantidade={nSelecionados}
+            aoExecutar={handleExecute}
+            desabilitado={!selectedOperation || nSelecionados === 0}
+          />
         </TabsContent>
 
         {/* Tab: Results */}

@@ -74,6 +74,12 @@ export const Energia = () => {
     window.scrollTo({ top: 0 });
   };
 
+  // A seção também muda pelo submenu da Energia no menu lateral (só o ?aba=
+  // muda). A página rola dentro do <main> da moldura: volta ao topo dele.
+  useEffect(() => {
+    document.querySelector('main')?.scrollTo?.({ top: 0 });
+  }, [aba]);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
