@@ -84,6 +84,20 @@ const redirectToLogin = (): void => {
   window.location.href = `/${tenant}/login?expired=true`;
 };
 
+/**
+ * Fuso do navegador ("America/Sao_Paulo", "America/Manaus"). A API fecha o
+ * "hoje" e os dias das telas nele; sem o cabeçalho, ela usa Brasília. Antes o
+ * dia virava à meia-noite de Greenwich: 21:00 em Santa Catarina (Gelux, 12/11).
+ */
+export const fusoDoNavegador = (): string | null => {
+  try {
+    const fuso = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof fuso === 'string' && fuso ? fuso : null;
+  } catch {
+    return null;
+  }
+};
+
 // Create headers with authentication
 const getAuthHeaders = (): HeadersInit => {
   const token = getAuthToken();
@@ -94,6 +108,9 @@ const getAuthHeaders = (): HeadersInit => {
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+
+  const fuso = fusoDoNavegador();
+  if (fuso) headers['X-Timezone'] = fuso;
 
   return headers;
 };
