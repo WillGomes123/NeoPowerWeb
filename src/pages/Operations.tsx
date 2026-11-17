@@ -1670,7 +1670,7 @@ export const Operations = () => {
                     className="rounded-[25px] border border-primary bg-gradient-to-r from-primary/30 to-transparent p-[22px] pt-[26px]"
                   >
                     <p className="text-[15px] font-semibold text-foreground mb-4">{categoryConfig[categoria].label}</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-4">
                       {ops.map(op => {
                         const escolhido = selectedOperation === op.id;
                         return (
