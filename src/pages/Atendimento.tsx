@@ -9,6 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import { History, MessageSquarePlus, MessagesSquare } from 'lucide-react';
+import { AbasDaPagina, CabecalhoDaPagina, classeDoCartao } from '../components/painel/Pagina';
+import { CampoDeBusca, classeDoBotaoPrincipal } from '../components/painel/Pecas';
+import {
+  classeDaLinha,
+  classeDaLinhaDoCabecalho,
+  classeDaTabela,
+  classeDoFiltro,
+} from '../components/configuracoes/Pecas';
 
 // ============================================================================
 // Atendimento por WhatsApp (só a plataforma NeoPower).
@@ -133,9 +142,9 @@ interface StatusSuporte {
 }
 
 const ROTULO_STATUS: Record<StatusChamado, { texto: string; classe: string }> = {
-  aberto: { texto: 'Aberto', classe: 'bg-tertiary/10 text-tertiary' },
-  em_atendimento: { texto: 'Em atendimento', classe: 'bg-secondary/10 text-secondary' },
-  resolvido: { texto: 'Resolvido', classe: 'bg-primary/10 text-primary' },
+  aberto: { texto: 'Aberto', classe: 'bg-estado-problema text-estado-problema-forte' },
+  em_atendimento: { texto: 'Em atendimento', classe: 'bg-estado-uso text-estado-uso-forte' },
+  resolvido: { texto: 'Resolvido', classe: 'bg-estado-livre text-estado-livre-forte' },
 };
 
 const ICONE_ENVIO: Record<string, string> = {
@@ -183,7 +192,7 @@ function Pilula({ status }: { status: StatusChamado | null }) {
   const r = ROTULO_STATUS[status];
   return (
     <span
-      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${r.classe}`}
+      className={`px-2.5 py-0.5 rounded-[25px] text-[11px] font-semibold whitespace-nowrap ${r.classe}`}
     >
       {r.texto}
     </span>
@@ -410,56 +419,56 @@ export const Atendimento = () => {
   const conversaAtual = conversas.find(c => c.id === selecionada);
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <span className="text-xs font-bold text-primary font-headline tracking-[0.2em] uppercase mb-1 block">
-            SUPORTE
-          </span>
-          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">
-            Atendimento
-          </h2>
-          <p className="text-on-surface-variant text-sm mt-1">
+    <div className="space-y-[25px] pb-8">
+      <CabecalhoDaPagina
+        rotulo="Suporte"
+        titulo="Atendimento"
+        subtitulo={
+          <span className="text-muted-foreground">
             WhatsApp do suporte NeoPower. Tudo fica registrado, e o resumo vai por e-mail ao
             encerrar.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex rounded-lg border border-outline-variant/20 overflow-hidden">
-            {(['conversas', 'chamados'] as const).map(a => (
-              <button
-                key={a}
-                onClick={() => setAba(a)}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-wider ${
-                  aba === a
-                    ? 'bg-primary/15 text-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {a === 'conversas' ? 'Conversas' : 'Histórico de chamados'}
-              </button>
-            ))}
-          </div>
+          </span>
+        }
+        acoes={
           <button
+            type="button"
             onClick={() => setDialogoNova(true)}
             disabled={!status?.ativo}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-xs uppercase tracking-wider disabled:opacity-40"
+            className={classeDoBotaoPrincipal}
           >
-            <span className="material-symbols-outlined text-sm">add_comment</span>
+            <MessageSquarePlus className="w-5 h-5" aria-hidden="true" />
             Nova conversa
           </button>
-        </div>
-      </div>
+        }
+      />
+
+      <AbasDaPagina
+        rotulo="Seções do atendimento"
+        ativa={aba}
+        aoMudar={setAba}
+        abas={[
+          {
+            id: 'conversas',
+            rotulo: 'Conversas',
+            icone: <MessagesSquare className="w-5 h-5" aria-hidden="true" />,
+          },
+          {
+            id: 'chamados',
+            rotulo: 'Histórico de chamados',
+            icone: <History className="w-5 h-5" aria-hidden="true" />,
+          },
+        ]}
+      />
 
       {status && !status.ativo && (
-        <div className="rounded-xl border border-tertiary/30 bg-tertiary/10 p-4 text-sm text-on-surface">
+        <div className="rounded-[15px] bg-estado-problema text-estado-problema-forte px-5 py-4 text-sm font-medium">
           <strong>WhatsApp de suporte ainda não configurado.</strong> Falta cadastrar o número na
           Meta e definir as variáveis <code>WHATSAPP_SUPORTE_*</code> na API. O histórico abaixo
           continua disponível.
         </div>
       )}
       {status?.ativo && !status.assinaturaConfigurada && (
-        <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-on-surface">
+        <div className="rounded-[15px] bg-destructive/10 text-destructive px-5 py-4 text-sm font-medium">
           Falta <code>WHATSAPP_SUPORTE_APP_SECRET</code>: sem ele a API recusa as mensagens
           recebidas.
         </div>
@@ -474,9 +483,9 @@ export const Atendimento = () => {
           }}
         />
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_340px] gap-4 xl:h-[calc(100vh-17rem)] min-h-[600px]">
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_340px] gap-[25px] xl:h-[calc(100vh-17rem)] min-h-[600px]">
           {/* Lista */}
-          <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 flex flex-col overflow-hidden">
+          <div className={`${classeDoCartao} flex flex-col overflow-hidden`}>
             <div className="p-3 space-y-2 border-b border-outline-variant/10">
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-base text-on-surface-variant">
@@ -553,7 +562,7 @@ export const Atendimento = () => {
           </div>
 
           {/* Conversa */}
-          <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 flex flex-col overflow-hidden">
+          <div className={`${classeDoCartao} flex flex-col overflow-hidden`}>
             {!selecionada ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
                 <span className="material-symbols-outlined text-6xl text-outline">
@@ -707,7 +716,7 @@ export const Atendimento = () => {
           </div>
 
           {/* Chamado e cliente */}
-          <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-y-auto min-h-0">
+          <div className={`${classeDoCartao} overflow-y-auto min-h-0`}>
             {detalhe && chamadoAtual ? (
               <PainelLateral
                 key={`${detalhe.conversa.id}-${chamadoAtual.id}`}
@@ -1269,18 +1278,19 @@ function HistoricoDeChamados({ abrirConversa }: { abrirConversa: (conversaId: nu
   }, [status, busca]);
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-      <div className="p-4 flex flex-col md:flex-row gap-3 border-b border-outline-variant/10">
-        <input
+    <div className={`${classeDoCartao} overflow-hidden`}>
+      <div className="p-4 flex flex-col md:flex-row gap-3">
+        <CampoDeBusca
           value={busca}
           onChange={e => setBusca(e.target.value)}
           placeholder="Protocolo, cliente, telefone ou assunto"
-          className="flex-1 bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary/50"
+          aria-label="Buscar chamado"
         />
         <select
           value={status}
           onChange={e => setStatus(e.target.value)}
-          className="bg-surface-container border border-outline-variant/20 rounded-lg px-3 py-2 text-sm text-on-surface"
+          aria-label="Status do chamado"
+          className={`${classeDoFiltro} dark:[color-scheme:dark]`}
         >
           <option value="">Todos os status</option>
           <option value="aberto">Aberto</option>
@@ -1288,10 +1298,10 @@ function HistoricoDeChamados({ abrirConversa }: { abrirConversa: (conversaId: nu
           <option value="resolvido">Resolvido</option>
         </select>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="overflow-x-auto px-3 pb-3">
+        <table className={classeDaTabela}>
           <thead>
-            <tr className="text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.15em] bg-surface-container/50">
+            <tr className={classeDaLinhaDoCabecalho}>
               <th className="px-4 py-3">Protocolo</th>
               <th className="px-4 py-3">Cliente</th>
               <th className="px-4 py-3">Assunto</th>
@@ -1302,7 +1312,7 @@ function HistoricoDeChamados({ abrirConversa }: { abrirConversa: (conversaId: nu
               <th className="px-4 py-3">E-mail</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-outline-variant/5">
+          <tbody>
             {carregando ? (
               <tr>
                 <td colSpan={8} className="p-6 text-center text-sm text-on-surface-variant">
@@ -1320,7 +1330,7 @@ function HistoricoDeChamados({ abrirConversa }: { abrirConversa: (conversaId: nu
                 <tr
                   key={c.id}
                   onClick={() => abrirConversa(c.conversa_id)}
-                  className="hover:bg-surface-container-highest/30 cursor-pointer text-sm"
+                  className={`${classeDaLinha} cursor-pointer text-sm`}
                 >
                   <td className="px-4 py-3 font-semibold text-on-surface">#{c.protocolo}</td>
                   <td className="px-4 py-3 text-on-surface-variant">
