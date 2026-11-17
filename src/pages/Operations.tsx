@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Tabs, TabsContent } from '../components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -22,7 +21,17 @@ import {
 } from '../components/ui/dialog';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
-import { Badge } from '../components/ui/badge';
+import { Icone } from '../components/painel/Icone';
+import {
+  AbasDaPagina,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  CartaoContador,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import iconeCarregadores from '../assets/icones/op-carregadores.svg';
+import iconeOffline from '../assets/icones/op-offline.svg';
 import {
   Play,
   Square,
@@ -39,7 +48,6 @@ import {
   Trash2,
   Clock,
   Key,
-  Server,
   RefreshCw,
   CheckCircle2,
   XCircle,
@@ -52,7 +60,6 @@ import {
   Wifi,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { api } from '../lib/api';
 import { ehTagDeCliente, mensagemDoInicioRemoto } from '../lib/inicioRemoto';
 import { useSocket } from '../lib/hooks/useSocket';
@@ -218,6 +225,10 @@ export const Operations = () => {
   const [executing, setExecuting] = useState(false);
   const [results, setResults] = useState<OperationResult[]>([]);
   const [activeTab, setActiveTab] = useState('operations');
+  // Categoria de comandos aberta no quadro "Escolha um comando" (Figma).
+  const [categoriaAberta, setCategoriaAberta] = useState<OperationCategory>('basic');
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [atualizando, setAtualizando] = useState(false);
   // Transactions ativas dos chargers selecionados — populadas quando o admin
   // abre o command "remoteStopTransaction" pra escolher qual sessão parar.
   const [activeTransactions, setActiveTransactions] = useState<Array<{
@@ -317,6 +328,7 @@ export const Operations = () => {
       const list = Array.isArray(data) ? data : (data.data || []);
       setChargePoints(list);
       setApiError(null);
+      setAtualizadoEm(new Date());
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
       setApiError(message === 'Unauthorized' ? 'Sessão expirada' : 'Sem conexão com o servidor (OCPP_API offline?)');
@@ -1445,6 +1457,15 @@ export const Operations = () => {
     }
   };
 
+  const atualizarTudo = async () => {
+    setAtualizando(true);
+    try {
+      await Promise.all([fetchChargePoints(), fetchLocations()]);
+    } finally {
+      setAtualizando(false);
+    }
+  };
+
   // ============================================================================
   // Render
   // ============================================================================
@@ -1458,277 +1479,253 @@ export const Operations = () => {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <Server className="w-8 h-8 text-foreground" />
-            Centro de Operações OCPP
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Execute comandos OCPP nos carregadores conectados
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-surface-container-highest">
-            {socketConnected ? (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                </span>
-                <span className="text-xs text-on-surface-variant">Tempo real</span>
-              </>
-            ) : (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-outline" />
-                </span>
-                <span className="text-xs text-muted-foreground">Sem socket</span>
-              </>
-            )}
-          </div>
-          <Button onClick={() => void fetchChargePoints()} variant="outline" className="border-border text-muted-foreground hover:bg-accent">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Atualizar
-          </Button>
-        </div>
-      </div>
+  // Contadores do topo (Figma): locais com carregador, carregadores, online e offline.
+  const locaisComCarregador = new Set(
+    mergedChargePoints.map(cp => cp.locationId).filter(id => id != null)
+  ).size;
+  const categorias = Object.keys(categoryConfig) as OperationCategory[];
+  const operacaoEscolhida = operations.find(op => op.id === selectedOperation);
 
-      {/* API Connection Error Banner */}
-      {apiError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
-          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-red-300">{apiError}</p>
-            <p className="text-xs text-red-600 dark:text-red-400/60 mt-0.5">Verifique se o OCPP_API está rodando na porta 3000</p>
+  return (
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="Centro de operações"
+        subtitulo="Envie comandos OCPP aos carregadores e acompanhe o resultado."
+        acoes={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 3xl:gap-8">
+            {/* "Tempo real" do Figma: diz se a tela está recebendo o status ao vivo */}
+            <span
+              className={`${classeDaPilula} sm:w-[193px] inline-flex items-center justify-center`}
+              title={socketConnected ? 'Status dos carregadores ao vivo' : 'Sem conexão ao vivo: use Atualizar'}
+            >
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${socketConnected ? 'bg-estado-livre-forte animate-pulse' : 'bg-estado-offline-forte'}`}
+                aria-hidden="true"
+              />
+              {socketConnected ? 'Tempo real' : 'Sem tempo real'}
+            </span>
+            <BotaoAtualizar
+              aoAtualizar={() => void atualizarTudo()}
+              carregando={atualizando}
+              atualizadoEm={atualizadoEm}
+              falhou={!!apiError && !!atualizadoEm}
+            />
           </div>
-          <Button size="sm" variant="outline" onClick={() => void fetchChargePoints()} className="border-red-700 text-red-300 hover:bg-red-900/50">
-            <RefreshCw className="w-3 h-3 mr-1" />
+        }
+      />
+
+      {/* Sem conexão com a API */}
+      {apiError && (
+        <div className="flex flex-wrap items-center gap-3 p-4 rounded-[15px] bg-destructive/10 text-destructive">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <p className="flex-1 text-[15px] font-medium">{apiError}</p>
+          <button
+            type="button"
+            onClick={() => void atualizarTudo()}
+            className="h-10 px-5 rounded-[25px] bg-card text-destructive text-sm font-semibold"
+          >
             Reconectar
-          </Button>
+          </button>
         </div>
       )}
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-[25px] xl:max-w-[1100px]">
+        <CartaoContador icone={<Icone nome="op-locais" tamanho={37} altura={38} />} rotulo="Locais" valor={locaisComCarregador} />
+        <CartaoContador icone={<img src={iconeCarregadores} alt="" className="w-[37px] h-[38px]" />} rotulo="Carregadores" valor={mergedChargePoints.length} />
+        <CartaoContador icone={<img src={iconeCarregadores} alt="" className="w-[37px] h-[38px]" />} rotulo="Online" valor={connectedCount} />
+        <CartaoContador
+          icone={<img src={iconeOffline} alt="" className="w-[37px] h-[38px]" />}
+          rotulo="Offline"
+          valor={mergedChargePoints.length - connectedCount}
+          fundoDoIcone="bg-[#fedbd5] dark:bg-destructive/20"
+        />
+      </div>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-[25px]">
+        <AbasDaPagina
+          rotulo="Seções do Centro de operações"
+          ativa={activeTab as 'operations' | 'results' | 'diagnosticos'}
+          aoMudar={setActiveTab}
+          abas={[
+            { id: 'operations', rotulo: 'Comandos', icone: <Zap aria-hidden="true" className="w-5 h-5" /> },
+            { id: 'results', rotulo: 'Resultados', icone: <Activity aria-hidden="true" className="w-5 h-5" />, contador: results.length },
+            { id: 'diagnosticos', rotulo: 'Diagnósticos', icone: <FileText aria-hidden="true" className="w-5 h-5" />, contador: enviosAguardando },
+          ]}
+        />
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-surface-container border border-border max-w-full overflow-x-auto justify-start">
-          <TabsTrigger value="operations" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
-            <Zap className="hidden sm:block w-4 h-4 mr-2" />
-            Operações
-          </TabsTrigger>
-          <TabsTrigger value="results" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
-            <Activity className="hidden sm:block w-4 h-4 mr-2" />
-            Resultados
-            {results.length > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-primary/20 text-primary">{results.length}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="diagnosticos" className="data-[state=active]:bg-primary data-[state=active]:text-on-primary">
-            <FileText className="hidden sm:block w-4 h-4 mr-2" />
-            Diagnósticos
-            {enviosAguardando > 0 && (
-              <Badge variant="secondary" className="ml-2 bg-amber-500/20 text-amber-700 dark:text-amber-300">{enviosAguardando}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab: Operations */}
-        <TabsContent value="operations" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Charge Point Selection */}
-            <Card className="lg:col-span-4 bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-foreground text-lg">Carregadores</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  {selectedChargePoints.length} de {mergedChargePoints.length} selecionados
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={selectAllConnected} className="flex-1 border-border text-muted-foreground hover:bg-accent text-xs">
-                    Online ({connectedCount})
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={clearSelection} className="border-border text-muted-foreground hover:bg-accent text-xs">
-                    Limpar
-                  </Button>
-                </div>
-                <ScrollArea className="h-[400px] pr-3">
-                  <div className="space-y-4 pr-1 min-w-0">
-                    {chargersByLocation.map(([locId, group]) => (
-                      <div key={locId} className="space-y-1.5 min-w-0">
-                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 px-1.5 py-1 bg-surface-container-highest/20 rounded border-b border-outline-variant/5 min-w-0">
-                          <span className="material-symbols-outlined text-[12px] text-primary flex-shrink-0">location_on</span>
-                          <span className="truncate flex-1 min-w-0">{group.name}</span>
-                        </div>
-                        <div className="space-y-1 pl-1 min-w-0">
-                          {group.chargers.map(cp => {
-                            const hasName = !!cp.description;
-                            const typeStr = `${cp.vendor || 'N/A'} ${cp.model || ''}`.trim();
-                            const displayName = cp.description || typeStr || cp.charge_point_id;
-                            
-                            return (
-                              <button
-                                key={cp.charge_point_id}
-                                onClick={() => toggleChargePointSelection(cp.charge_point_id)}
-                                className={`w-full p-2.5 rounded-lg border text-left transition-all min-w-0 ${
-                                  selectedChargePoints.includes(cp.charge_point_id)
-                                    ? 'bg-primary/20 border-primary'
-                                    : 'bg-surface-container border-border hover:border-primary/50'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="relative flex-shrink-0">
-                                    <span className={`w-2.5 h-2.5 rounded-full block ${cp.isConnected ? 'bg-primary' : 'bg-outline'}`} />
-                                    {cp.isConnected && (
-                                      <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-primary animate-ping opacity-75" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className={`text-xs truncate ${hasName ? 'font-medium text-foreground' : 'font-bold text-primary dark:text-primary'}`}>
-                                      {displayName}
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                                      {hasName ? `${typeStr} • ` : ''}{cp.charge_point_id}
-                                    </p>
-                                    <p className="text-[9px] text-muted-foreground/60 truncate flex items-center gap-0.5 mt-0.5">
-                                      <span className="material-symbols-outlined text-[9px] text-primary/70 flex-shrink-0">location_on</span>
-                                      <span className="truncate">{group.name}</span>
-                                    </p>
-                                  </div>
-                                  {selectedChargePoints.includes(cp.charge_point_id) && (
-                                    <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {/* Operations Panel */}
-            <div className="lg:col-span-8 space-y-4">
-              {selectedChargePoints.length === 0 ? (
-                /* Empty State */
-                <div className="flex flex-col items-center justify-center p-12 border border-dashed border-outline-variant/30 rounded-xl bg-surface-container/30 text-center h-[400px]">
-                  <div className="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant mb-4">
-                    <span className="material-symbols-outlined text-3xl">ev_station</span>
-                  </div>
-                  <h3 className="text-lg font-headline font-bold text-foreground mb-1">Nenhum carregador selecionado</h3>
-                  <p className="text-sm text-muted-foreground max-w-sm">
-                    Selecione um ou mais carregadores no painel lateral esquerdo para liberar e enviar comandos operacionais.
+        {/* Comandos: carregadores à esquerda, "Escolha um comando" à direita (Figma) */}
+        <TabsContent value="operations">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,797fr)_minmax(0,770fr)] gap-[30px] items-start">
+            <section className={`${classeDoCartao} p-[22px]`} aria-label="Carregadores">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-[20px] font-semibold text-foreground">Carregadores</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedChargePoints.length} de {mergedChargePoints.length} selecionados
                   </p>
                 </div>
-              ) : (
-                /* Grouped Operations in Accordion */
-                <Accordion type="multiple" defaultValue={['basic']} className="space-y-4">
-                  {(Object.entries(categoryConfig) as [OperationCategory, typeof categoryConfig[OperationCategory]][]).map(([category, config]) => {
-                    const categoryOps = getOperationsByCategory(category);
-                    if (categoryOps.length === 0) return null;
-
-                    return (
-                      <AccordionItem key={category} value={category} className="border border-outline-variant/10 rounded-xl bg-card overflow-hidden">
-                        <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-surface-container-highest/30 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <span className={`text-base ${config.color}`}>
-                              {categoryOps[0]?.icon}
-                            </span>
-                            <span className="font-headline font-bold text-on-surface">{config.label}</span>
-                            <span className="text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded-full font-bold">
-                              {categoryOps.length}
-                            </span>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-6 pb-6 pt-2 bg-surface-container/10 border-t border-outline-variant/5">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {categoryOps.map(op => {
-                              const isSelected = selectedOperation === op.id;
-                              return (
-                                <Tooltip key={op.id}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      onClick={() => setSelectedOperation(op.id)}
-                                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-36 w-full ${
-                                        isSelected
-                                          ? 'bg-primary/20 border-primary ring-1 ring-primary/20'
-                                          : 'bg-surface-container border-outline-variant/10 hover:border-primary/50 hover:bg-primary/5'
-                                      }`}
-                                    >
-                                      <div className="flex justify-between items-start gap-2 w-full">
-                                        <span className={`text-xs font-bold font-headline truncate ${isSelected ? 'text-primary' : 'text-foreground'}`}>{op.name}</span>
-                                        <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-primary/20 text-primary' : 'bg-surface-container-highest text-on-surface-variant'}`}>
-                                          {op.icon}
-                                        </div>
-                                      </div>
-                                      <p className="text-[10px] text-muted-foreground line-clamp-3 leading-relaxed mt-2 flex-1">
-                                        {op.description}
-                                      </p>
-                                      <div className="flex justify-end mt-2 w-full">
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-primary' : 'text-on-surface-variant'}`}>
-                                          {isSelected ? 'Selecionado' : 'Selecionar'}
-                                        </span>
-                                      </div>
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="bottom" className="max-w-[220px] text-xs leading-snug">
-                                    {op.description}
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
-              )}
-
-              {/* Execute Button */}
-              <div className="flex items-center justify-between p-4 bg-surface-container rounded-xl border border-zinc-700">
-                <div className="flex items-center gap-4 flex-wrap">
-                  {selectedOperation && (
-                    <Badge variant="outline" className="border-primary text-primary bg-primary/10">
-                      {operations.find(op => op.id === selectedOperation)?.name}
-                    </Badge>
-                  )}
-                  {selectedChargePoints.length > 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      {selectedChargePoints.length} carregador(es)
-                    </span>
-                  )}
-                  {!selectedOperation && selectedChargePoints.length === 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      Selecione carregadores e um comando
-                    </span>
-                  )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={selectAllConnected}
+                    className="h-10 px-4 rounded-[25px] bg-primary-soft text-primary-strong text-sm font-semibold"
+                  >
+                    Todos online ({connectedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="h-10 px-4 rounded-[25px] bg-[#d9d9d9] dark:bg-muted text-foreground text-sm font-semibold"
+                  >
+                    Limpar
+                  </button>
                 </div>
-                <Button
-                  size="lg"
+              </div>
+              <ScrollArea className="h-[620px] mt-4 pr-3">
+                <div className="space-y-5 pr-1 min-w-0">
+                  {chargersByLocation.map(([locId, group]) => (
+                    <div key={locId} className="space-y-2 min-w-0">
+                      <p className="flex items-center gap-2 text-sm font-semibold text-foreground min-w-0">
+                        <span className="text-primary-strong shrink-0"><Icone nome="local" tamanho={18} /></span>
+                        <span className="truncate">{group.name}</span>
+                        <span className="text-muted-foreground font-medium shrink-0">· {group.chargers.length}</span>
+                      </p>
+                      {group.chargers.map(cp => {
+                        const escolhido = selectedChargePoints.includes(cp.charge_point_id);
+                        const tipo = `${cp.vendor || ''} ${cp.model || ''}`.trim();
+                        return (
+                          <button
+                            key={cp.charge_point_id}
+                            type="button"
+                            onClick={() => toggleChargePointSelection(cp.charge_point_id)}
+                            aria-pressed={escolhido}
+                            className={`w-full min-h-[56px] px-4 py-2.5 rounded-[20px] border text-left transition flex items-center gap-3 min-w-0 ${
+                              escolhido ? 'bg-primary-soft border-primary' : 'bg-card border-border hover:border-primary/60'
+                            }`}
+                          >
+                            <span
+                              className={`shrink-0 h-6 px-2.5 rounded-[25px] text-xs font-semibold inline-flex items-center ${
+                                cp.isConnected ? 'bg-estado-livre text-estado-livre-forte' : 'bg-estado-offline text-estado-offline-forte'
+                              }`}
+                            >
+                              {cp.isConnected ? 'Online' : 'Offline'}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-[15px] font-semibold text-foreground truncate">
+                                {cp.description || tipo || cp.charge_point_id}
+                              </span>
+                              <span className="block text-xs text-muted-foreground truncate">
+                                {cp.charge_point_id}
+                                {tipo && cp.description ? ` · ${tipo}` : ''}
+                              </span>
+                            </span>
+                            {escolhido && <CheckCircle2 className="w-5 h-5 text-primary-strong shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </section>
+
+            <section className={`${classeDoCartao} p-[22px] space-y-4`} aria-label="Escolha um comando">
+              <div>
+                <h2 className="text-[20px] font-semibold text-foreground">Escolha um comando</h2>
+                <p className="text-sm text-foreground">
+                  {selectedChargePoints.length === 0
+                    ? 'Selecione ao lado os carregadores que vão receber o comando.'
+                    : `Vai para ${selectedChargePoints.length} carregador${selectedChargePoints.length === 1 ? '' : 'es'}.`}
+                </p>
+              </div>
+
+              {categorias.map(categoria => {
+                const ops = getOperationsByCategory(categoria);
+                if (ops.length === 0) return null;
+                const aberta = categoria === categoriaAberta;
+                if (!aberta) {
+                  // Categoria fechada: linha do Figma (ícone, nome, quantidade)
+                  return (
+                    <button
+                      key={categoria}
+                      type="button"
+                      onClick={() => setCategoriaAberta(categoria)}
+                      aria-expanded={false}
+                      className="w-full min-h-[51px] px-[34px] rounded-[20px] border border-primary flex items-center gap-4 text-left hover:bg-primary-soft/50 transition"
+                    >
+                      <span className="w-[27px] h-[27px] rounded-[5px] bg-primary/60 text-primary-foreground flex items-center justify-center shrink-0">
+                        {ops[0]?.icon}
+                      </span>
+                      <span className="flex-1 text-[13px] font-semibold text-foreground">{categoryConfig[categoria].label}</span>
+                      <span className="h-[18px] min-w-[44px] px-2 rounded-[10px] bg-primary/60 text-primary-foreground text-[11px] font-bold inline-flex items-center justify-center">
+                        {ops.length}
+                      </span>
+                    </button>
+                  );
+                }
+                // Categoria aberta: bloco em degradê com os cartões dos comandos
+                return (
+                  <div
+                    key={categoria}
+                    className="rounded-[25px] border border-primary bg-gradient-to-r from-primary/30 to-transparent p-[22px] pt-[26px]"
+                  >
+                    <p className="text-[15px] font-semibold text-foreground mb-4">{categoryConfig[categoria].label}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {ops.map(op => {
+                        const escolhido = selectedOperation === op.id;
+                        return (
+                          <button
+                            key={op.id}
+                            type="button"
+                            onClick={() => setSelectedOperation(op.id)}
+                            aria-pressed={escolhido}
+                            title={op.description}
+                            className={`min-h-[165px] p-[22px] rounded-[15px] border text-left flex flex-col gap-2 transition ${
+                              escolhido ? 'bg-primary-soft border-primary ring-2 ring-primary/40' : 'bg-card border-primary hover:bg-primary-soft/40'
+                            }`}
+                          >
+                            <span className="w-[27px] h-[27px] rounded-[5px] bg-primary-soft text-primary-strong flex items-center justify-center">
+                              {op.icon}
+                            </span>
+                            <span className="text-[13px] font-semibold text-foreground">{op.name}</span>
+                            <span className="text-[11px] leading-snug text-foreground/80 line-clamp-4">{op.description}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Executar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <p className="text-sm text-foreground">
+                  {operacaoEscolhida ? (
+                    <>
+                      <span className="font-semibold">{operacaoEscolhida.name}</span>
+                      {selectedChargePoints.length > 0 && ` · ${selectedChargePoints.length} carregador${selectedChargePoints.length === 1 ? '' : 'es'}`}
+                    </>
+                  ) : (
+                    'Escolha um comando acima.'
+                  )}
+                </p>
+                <button
+                  type="button"
                   onClick={handleExecute}
                   disabled={!selectedOperation || selectedChargePoints.length === 0}
-                  className="bg-primary hover:bg-primary/80 text-on-primary disabled:opacity-50"
+                  className="h-12 px-8 rounded-[25px] bg-primary text-primary-foreground text-[15px] font-semibold inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Play className="w-4 h-4 mr-2" />
+                  <Play className="w-4 h-4" aria-hidden="true" />
                   Executar
-                </Button>
+                </button>
               </div>
-            </div>
+            </section>
           </div>
         </TabsContent>
 
         {/* Tab: Results */}
         <TabsContent value="results">
-          <Card className="bg-gradient-to-br from-gray-100 to-gray-50 dark:from-zinc-900/80 dark:to-zinc-800/50 border-gray-200 dark:border-border">
+          <Card className={`${classeDoCartao} border-0 gap-0`}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-foreground">Histórico de Comandos</CardTitle>
@@ -1810,7 +1807,7 @@ export const Operations = () => {
 
       {/* Command Dialog */}
       <Dialog open={showCommandDialog} onOpenChange={setShowCommandDialog}>
-        <DialogContent className="sm:max-w-[500px] bg-zinc-900 border-zinc-700">
+        <DialogContent className="sm:max-w-[500px] bg-card border-border rounded-[15px]">
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2">
               {operations.find(op => op.id === selectedOperation)?.icon}

@@ -24,6 +24,11 @@ import recibo from '../../assets/icones/recibo.svg';
 import kpiReceitaLiquida from '../../assets/icones/kpi-receita-liquida.svg';
 import kpiEnergia from '../../assets/icones/kpi-energia.svg';
 import estadoOffline from '../../assets/icones/estado-offline.svg';
+import setaDireita from '../../assets/icones/seta-direita.svg';
+import usinas from '../../assets/icones/usinas.svg';
+import pontosConsumidores from '../../assets/icones/pontos-consumidores.svg';
+import kpiUsinas from '../../assets/icones/kpi-usinas.svg';
+import opLocais from '../../assets/icones/op-locais.svg';
 
 /**
  * Ícones do redesenho (Figma da Lauriane, nov/2026), usados como máscara:
@@ -56,6 +61,11 @@ export const ICONES = {
   'kpi-receita-liquida': kpiReceitaLiquida,
   'kpi-energia': kpiEnergia,
   'estado-offline': estadoOffline,
+  'seta-direita': setaDireita,
+  usinas,
+  'pontos-consumidores': pontosConsumidores,
+  'kpi-usinas': kpiUsinas,
+  'op-locais': opLocais,
 } as const;
 
 export type NomeDoIcone = keyof typeof ICONES;
