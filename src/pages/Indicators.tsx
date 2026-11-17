@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { differenceInCalendarDays, format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -21,6 +20,12 @@ import { RelatorioMensal } from '../components/indicadores/RelatorioMensal';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { dataLocal } from '../components/ui/utils';
 import {
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import {
   fmtBRL,
   fmtCompacto,
   fmtInt,
@@ -28,6 +33,13 @@ import {
   fmtVar,
   variacaoPct,
 } from '../components/indicadores/tipos';
+
+/*
+ * Indicadores — redesenho de nov/2026 (Figma da Lauriane, frame "Indicadores").
+ * Quem vê o relatório mensal (admin e operador da marca) recebe a tela do Figma,
+ * com a evolução diária recolhida no pé da página (o Figma não a mostra). Os
+ * outros veem só a evolução diária, com o mesmo cabeçalho.
+ */
 
 type MetricType = 'sessions' | 'revenue' | 'energy' | 'users';
 type ChartType = 'area' | 'bar' | 'line';
@@ -45,6 +57,7 @@ interface MetricaConfig {
   /** Como o card resume o período: soma dos dias ou média por dia. */
   resumo: 'soma' | 'media';
   detalhe: string;
+  /** Cor do gráfico e do ícone, dos tokens do tema (claro e escuro). */
   color: string;
   icon: string;
   fmt: (v: number) => string;
@@ -56,7 +69,7 @@ const metricsConfig: Record<MetricType, MetricaConfig> = {
     label: 'Receita',
     resumo: 'soma',
     detalhe: 'total no período',
-    color: '#90f9a3',
+    color: 'var(--primary)',
     icon: 'payments',
     fmt: v => fmtBRL(v, 2),
     fmtEixo: v => `R$ ${fmtCompacto(v)}`,
@@ -65,7 +78,7 @@ const metricsConfig: Record<MetricType, MetricaConfig> = {
     label: 'Recargas',
     resumo: 'soma',
     detalhe: 'sessões iniciadas',
-    color: 'var(--primary)',
+    color: 'var(--color-primary-strong)',
     icon: 'bolt',
     fmt: v => fmtInt(v),
     fmtEixo: v => fmtCompacto(v),
@@ -74,7 +87,7 @@ const metricsConfig: Record<MetricType, MetricaConfig> = {
     label: 'Energia',
     resumo: 'soma',
     detalhe: 'entregue no período',
-    color: '#88f6ff',
+    color: 'var(--color-tom-azul-icone)',
     icon: 'electric_bolt',
     fmt: v => `${fmtNum(v, 1)} kWh`,
     fmtEixo: v => `${fmtCompacto(v)} kWh`,
@@ -83,7 +96,7 @@ const metricsConfig: Record<MetricType, MetricaConfig> = {
     label: 'Motoristas por dia',
     resumo: 'media',
     detalhe: 'média de pessoas diferentes por dia',
-    color: '#00deea',
+    color: 'var(--color-tom-amarelo-icone)',
     icon: 'group',
     fmt: v => fmtNum(v, v >= 100 ? 0 : 1),
     fmtEixo: v => fmtCompacto(v),
@@ -112,26 +125,32 @@ const somaOuMedia = (dados: PerformanceData[], m: MetricType) => {
 
 const tooltipStyle = {
   contentStyle: {
-    backgroundColor: '#1a1919',
-    border: '1px solid #494847',
-    borderRadius: 8,
+    backgroundColor: 'var(--color-card)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 10,
     padding: 10,
+    color: 'var(--color-foreground)',
   },
-  labelStyle: { color: '#adaaaa', marginBottom: 4, fontSize: 12 },
+  labelStyle: {
+    color: 'var(--color-muted-foreground)',
+    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: 600,
+  },
 };
 
 function Variacao({ valor }: { valor: number | null }) {
   if (valor === null) return null;
   if (valor === 0)
     return (
-      <span className="inline-flex items-center rounded-full bg-surface-container-highest px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
         igual
       </span>
     );
   const subiu = valor > 0;
   return (
     <span
-      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${subiu ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/10 text-red-600 dark:text-red-400'}`}
+      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${subiu ? 'bg-estado-livre text-estado-livre-forte' : 'bg-destructive/10 text-destructive'}`}
     >
       <span className="material-symbols-outlined text-[14px] leading-none">
         {subiu ? 'arrow_upward' : 'arrow_downward'}
@@ -141,7 +160,21 @@ function Variacao({ valor }: { valor: number | null }) {
   );
 }
 
-const EvolucaoDiaria = () => {
+const TITULO = { rotulo: 'Desempenho da rede', titulo: 'Indicadores' };
+
+/**
+ * Receita, recargas, energia e motoristas dia a dia, no período escolhido.
+ * `comCabecalho`: a tela inteira (quem não vê o relatório mensal). Sem ele, é
+ * a "Evolução diária" do pé do relatório, que busca de novo quando
+ * `atualizacao` muda (o "Atualizar" do cabeçalho do relatório).
+ */
+const EvolucaoDiaria = ({
+  comCabecalho = false,
+  atualizacao = 0,
+}: {
+  comCabecalho?: boolean;
+  atualizacao?: number;
+}) => {
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [anteriores, setAnteriores] = useState<PerformanceData[] | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('revenue');
@@ -150,6 +183,10 @@ const EvolucaoDiaria = () => {
   const [chartType, setChartType] = useState<ChartType>('area');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  // Período cujos números estão na tela: se a atualização dele falhar, eles ficam.
+  const periodoNaTela = useRef<string | null>(null);
 
   const periodoValido = !!startDate && !!endDate && startDate <= endDate;
   const anterior = periodoValido ? periodoAnterior(startDate, endDate) : null;
@@ -163,6 +200,18 @@ const EvolucaoDiaria = () => {
 
   const fetchData = useCallback(async () => {
     if (!periodoValido || !anterior) return;
+    const periodo = `${startDate}|${endDate}`;
+    const manterSeFalhar = periodoNaTela.current === periodo;
+    const falhar = (mensagem: string) => {
+      if (manterSeFalhar) {
+        setFalhou(true);
+      } else {
+        periodoNaTela.current = null;
+        setPerformanceData([]);
+        setAnteriores(null);
+        setError(mensagem);
+      }
+    };
     setLoading(true);
     setError(null);
     try {
@@ -171,16 +220,16 @@ const EvolucaoDiaria = () => {
         buscar(anterior.inicio, anterior.fim).catch(() => null),
       ]);
       if (atual === null) {
-        setPerformanceData([]);
-        setError('Não foi possível carregar os dados do período.');
+        falhar('Não foi possível carregar os dados do período.');
       } else {
         setPerformanceData(atual);
+        setAnteriores(antes);
+        periodoNaTela.current = periodo;
+        setFalhou(false);
+        setAtualizadoEm(new Date());
       }
-      setAnteriores(antes);
     } catch {
-      setError('Erro ao conectar com o servidor.');
-      setPerformanceData([]);
-      setAnteriores(null);
+      falhar('Erro ao conectar com o servidor.');
     } finally {
       setLoading(false);
     }
@@ -192,10 +241,13 @@ const EvolucaoDiaria = () => {
     void fetchData();
   }, [fetchData]);
 
-  const atualizar = async () => {
-    await fetchData();
-    toast.success('Dados atualizados');
-  };
+  // "Atualizar" do cabeçalho do relatório mensal (a primeira busca já veio acima).
+  const ultimaAtualizacao = useRef(atualizacao);
+  useEffect(() => {
+    if (atualizacao === ultimaAtualizacao.current) return;
+    ultimaAtualizacao.current = atualizacao;
+    void fetchData();
+  }, [atualizacao, fetchData]);
 
   const config = metricsConfig[selectedMetric];
 
@@ -222,28 +274,26 @@ const EvolucaoDiaria = () => {
   const renderChart = () => {
     const eixoX = {
       dataKey: 'rotulo',
-      tick: { fill: '#adaaaa', fontSize: 11 },
+      tick: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
       axisLine: false,
       tickLine: false,
       minTickGap: 16,
       dy: 6,
     };
     const eixoY = {
-      tick: { fill: '#adaaaa', fontSize: 11 },
+      tick: { fill: 'var(--color-muted-foreground)', fontSize: 11 },
       axisLine: false,
       tickLine: false,
       width: 72,
       tickFormatter: (v: number) => config.fmtEixo(Number(v)),
     };
     const grade = {
-      strokeDasharray: '3 3',
-      stroke: '#494847',
-      strokeOpacity: 0.3,
+      stroke: 'var(--color-border)',
       vertical: false as const,
     };
     const dica = {
       ...tooltipStyle,
-      itemStyle: { color: config.color, fontSize: 13 },
+      itemStyle: { color: 'var(--color-foreground)', fontSize: 13, fontWeight: 600 },
       labelFormatter: (_: unknown, p: Array<{ payload?: { dia: string } }>) =>
         p?.[0]?.payload?.dia
           ? format(dataLocal(p[0].payload.dia), "EEEE, dd 'de' MMMM", { locale: ptBR })
@@ -251,7 +301,13 @@ const EvolucaoDiaria = () => {
       formatter: (value: number) => [config.fmt(Number(value)), config.label] as [string, string],
     };
     const comum = { data: chartData, margin: { top: 10, right: 12, left: 0, bottom: 0 } };
-    const pontoAtivo = { r: 5, stroke: '#0e0e0e', strokeWidth: 2, fill: config.color };
+    const pontoAtivo = {
+      r: 5,
+      stroke: 'var(--color-card)',
+      strokeWidth: 2,
+      fill: config.color,
+    };
+    const cursor = { fill: 'var(--color-muted)', fillOpacity: 0.6 };
 
     if (chartType === 'bar')
       return (
@@ -259,7 +315,7 @@ const EvolucaoDiaria = () => {
           <CartesianGrid {...grade} />
           <XAxis {...eixoX} />
           <YAxis {...eixoY} />
-          <Tooltip {...dica} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+          <Tooltip {...dica} cursor={cursor} />
           <Bar dataKey="valor" fill={config.color} radius={[4, 4, 0, 0]} maxBarSize={32} />
         </BarChart>
       );
@@ -286,7 +342,7 @@ const EvolucaoDiaria = () => {
       <AreaChart {...comum}>
         <defs>
           <linearGradient id={`grad-${selectedMetric}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={config.color} stopOpacity={0.25} />
+            <stop offset="5%" stopColor={config.color} stopOpacity={0.3} />
             <stop offset="95%" stopColor={config.color} stopOpacity={0} />
           </linearGradient>
         </defs>
@@ -307,72 +363,72 @@ const EvolucaoDiaria = () => {
     );
   };
 
+  const seletorDoPeriodo = (
+    <DateRangePicker
+      startDate={startDate}
+      endDate={endDate}
+      onStartDateChange={setStartDate}
+      onEndDateChange={setEndDate}
+      onClear={() => {
+        setStartDate(trintaDiasAtrasIso());
+        setEndDate(hojeIso());
+      }}
+      className={`${classeDaPilula} justify-start`}
+    />
+  );
+
+  const comparacao = anterior && (
+    <span className="inline-flex items-center gap-1.5 h-[43px] px-5 rounded-[25px] border border-tom-azul-icone bg-tom-azul/50 text-[#0670b0] dark:text-tom-azul-icone text-[13px] font-medium">
+      <span className="material-symbols-outlined text-base">compare_arrows</span>
+      {anterior.dias} {anterior.dias === 1 ? 'dia' : 'dias'} · comparado com{' '}
+      {dataCurta(anterior.inicio)}–{dataCurta(anterior.fim)}
+    </span>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* Período e ações */}
-      <div className="space-y-2 no-print">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 sm:flex-none">
-            <DateRangePicker
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onClear={() => {
-                setStartDate(trintaDiasAtrasIso());
-                setEndDate(hojeIso());
-              }}
-              className="h-10 rounded-full w-full sm:w-auto"
-            />
-          </div>
-          {anterior && (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-surface-container-high px-3 py-1 text-xs text-on-surface-variant">
-              <span className="material-symbols-outlined text-sm">compare_arrows</span>
-              {anterior.dias} {anterior.dias === 1 ? 'dia' : 'dias'} · comparado com{' '}
-              {dataCurta(anterior.inicio)}–{dataCurta(anterior.fim)}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void atualizar()}
-            disabled={loading || !periodoValido}
-            title="Atualizar dados"
-            aria-label="Atualizar dados"
-            className="ml-auto h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant hover:text-primary disabled:opacity-60"
-          >
-            <span className={`material-symbols-outlined text-xl ${loading ? 'animate-spin' : ''}`}>
-              refresh
-            </span>
-          </button>
+    <div className="space-y-[25px]">
+      {comCabecalho ? (
+        <div className="no-print">
+          <CabecalhoDaPagina
+            rotulo={TITULO.rotulo}
+            titulo={TITULO.titulo}
+            subtitulo="Receita, recargas, energia e motoristas dia a dia, no período que você escolher"
+            detalhe={comparacao && <div className="mt-1">{comparacao}</div>}
+            filtros={seletorDoPeriodo}
+            acoes={
+              <BotaoAtualizar
+                aoAtualizar={() => void fetchData()}
+                carregando={loading}
+                atualizadoEm={atualizadoEm}
+                falhou={falhou}
+              />
+            }
+          />
         </div>
-        {anterior && (
-          <span className="inline-flex sm:hidden items-center gap-1 rounded-full bg-surface-container-high px-3 py-1 text-xs text-on-surface-variant">
-            <span className="material-symbols-outlined text-sm">compare_arrows</span>
-            {anterior.dias} {anterior.dias === 1 ? 'dia' : 'dias'} · comparado com{' '}
-            {dataCurta(anterior.inicio)}–{dataCurta(anterior.fim)}
-          </span>
-        )}
-      </div>
+      ) : (
+        /* Período e comparação (o "Atualizar" é o do cabeçalho do relatório) */
+        <div className="no-print flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-[17px]">
+          {seletorDoPeriodo}
+          {comparacao}
+        </div>
+      )}
 
       {!periodoValido && (
-        <div className="rounded-lg border border-outline-variant/20 bg-surface-container-high/40 p-4 text-sm text-on-surface-variant">
+        <div className={`${classeDoCartao} p-4 text-sm text-muted-foreground`}>
           Escolha a data inicial e a final para ver os indicadores.
         </div>
       )}
 
       {error && (
-        <div className="bg-error/10 border border-error/30 rounded-lg p-4 text-error text-sm">
+        <div className="rounded-[15px] bg-destructive/10 p-4 text-destructive text-[15px] font-medium">
           {error}
         </div>
       )}
 
       {/* Indicadores do período (clique para ver no gráfico) */}
       <section aria-label="Indicadores do período" className="space-y-3">
-        <h3 className="font-headline text-base font-bold text-on-surface flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-xl">insights</span>
-          Resumo do período
-        </h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <h3 className="text-[20px] font-semibold text-foreground">Resumo do período</h3>
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 lg:gap-[25px]">
           {ORDEM_METRICAS.map(key => {
             const cfg = metricsConfig[key];
             const total = somaOuMedia(performanceData, key);
@@ -385,31 +441,36 @@ const EvolucaoDiaria = () => {
                 type="button"
                 onClick={() => setSelectedMetric(key)}
                 aria-pressed={ativo}
-                className={`glass-panel text-left rounded-xl border p-4 lg:p-5 flex flex-col gap-2 min-w-0 transition-all ${
-                  ativo
-                    ? 'border-primary/60 ring-2 ring-primary/20 bg-primary/5'
-                    : 'border-outline-variant/10 hover:border-primary/30'
+                className={`${classeDoCartao} text-left p-4 lg:p-[22px] flex flex-col gap-2 min-w-0 transition-shadow ${
+                  ativo ? 'ring-2 ring-primary' : 'hover:ring-1 hover:ring-primary/50'
                 }`}
               >
-                <div className="flex items-center gap-2 text-on-surface-variant min-w-0">
+                <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className="material-symbols-outlined text-lg shrink-0"
-                    style={{ color: cfg.color }}
+                    aria-hidden="true"
+                    className="w-[41px] h-[38px] rounded-[5px] bg-muted flex items-center justify-center shrink-0"
                   >
-                    {cfg.icon}
+                    <span
+                      className="material-symbols-outlined text-xl"
+                      style={{ color: cfg.color }}
+                    >
+                      {cfg.icon}
+                    </span>
                   </span>
-                  <span className="text-sm font-medium leading-tight">{cfg.label}</span>
+                  <span className="text-base font-semibold leading-tight text-foreground">
+                    {cfg.label}
+                  </span>
                 </div>
                 {loading ? (
-                  <span className="h-8 w-3/4 rounded-md bg-surface-container-highest animate-pulse" />
+                  <span className="h-8 w-3/4 rounded-md bg-muted animate-pulse" />
                 ) : (
-                  <span className="text-xl sm:text-2xl lg:text-[1.7rem] font-headline font-bold text-on-surface tabular-nums leading-tight break-words">
+                  <span className="text-xl sm:text-2xl lg:text-[28px] font-semibold text-foreground tabular-nums leading-tight break-words">
                     {cfg.fmt(total)}
                   </span>
                 )}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[22px]">
                   {!loading && <Variacao valor={vari} />}
-                  <span className="text-xs text-on-surface-variant">
+                  <span className="text-xs text-muted-foreground">
                     {!loading && antes !== null ? `antes: ${cfg.fmt(antes)}` : cfg.detalhe}
                   </span>
                 </div>
@@ -420,18 +481,17 @@ const EvolucaoDiaria = () => {
       </section>
 
       {/* Gráfico */}
-      <section className="glass-panel rounded-xl border border-outline-variant/10 p-5 lg:p-6">
+      <section className={`${classeDoCartao} p-[22px] 3xl:p-[26px]`}>
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-5">
           <div className="min-w-0">
-            <h3 className="font-headline text-base font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-xl">show_chart</span>
+            <h3 className="text-[20px] leading-tight font-semibold text-foreground">
               {config.label} dia a dia
             </h3>
-            <p className="text-sm text-on-surface-variant mt-1">
+            <p className="text-sm font-medium text-muted-foreground mt-1">
               Escolha um indicador acima para trocar o gráfico.
             </p>
           </div>
-          <div className="inline-flex self-start rounded-full bg-surface-container-high p-1 no-print">
+          <div className="inline-flex self-start rounded-[25px] bg-muted p-1 no-print">
             {(
               [
                 { type: 'area', icon: 'area_chart', label: 'Área' },
@@ -444,10 +504,10 @@ const EvolucaoDiaria = () => {
                 type="button"
                 onClick={() => setChartType(ct.type)}
                 aria-pressed={chartType === ct.type}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                className={`inline-flex items-center gap-1 h-[35px] px-4 rounded-[25px] text-sm font-medium transition-colors ${
                   chartType === ct.type
-                    ? 'bg-surface-container-lowest text-primary shadow'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-card text-primary-strong shadow-pilula'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <span className="material-symbols-outlined text-base">{ct.icon}</span>
@@ -459,26 +519,26 @@ const EvolucaoDiaria = () => {
 
         {estatisticas && hasData && !loading && (
           <dl className="grid grid-cols-3 gap-2 mb-5">
-            <div className="rounded-lg bg-surface-container-high/40 px-2.5 sm:px-3 py-2 min-w-0">
-              <dt className="text-xs text-on-surface-variant">Média por dia</dt>
-              <dd className="text-[13px] sm:text-sm font-semibold text-on-surface tabular-nums break-words">
+            <div className="rounded-[10px] bg-muted/60 px-2.5 sm:px-3 py-2 min-w-0">
+              <dt className="text-xs text-muted-foreground">Média por dia</dt>
+              <dd className="text-[13px] sm:text-sm font-semibold text-foreground tabular-nums break-words">
                 {config.fmt(estatisticas.media)}
               </dd>
             </div>
-            <div className="rounded-lg bg-surface-container-high/40 px-2.5 sm:px-3 py-2 min-w-0">
-              <dt className="text-xs text-on-surface-variant">Melhor dia</dt>
-              <dd className="text-[13px] sm:text-sm font-semibold text-on-surface tabular-nums break-words">
+            <div className="rounded-[10px] bg-muted/60 px-2.5 sm:px-3 py-2 min-w-0">
+              <dt className="text-xs text-muted-foreground">Melhor dia</dt>
+              <dd className="text-[13px] sm:text-sm font-semibold text-foreground tabular-nums break-words">
                 {config.fmt(estatisticas.melhor.valor)}{' '}
-                <span className="font-normal text-on-surface-variant">
+                <span className="font-normal text-muted-foreground">
                   <span className="block sm:inline text-xs sm:text-sm">
                     em {estatisticas.melhor.rotulo}
                   </span>
                 </span>
               </dd>
             </div>
-            <div className="rounded-lg bg-surface-container-high/40 px-2.5 sm:px-3 py-2 min-w-0">
-              <dt className="text-xs text-on-surface-variant">Dias com recarga</dt>
-              <dd className="text-[13px] sm:text-sm font-semibold text-on-surface tabular-nums break-words">
+            <div className="rounded-[10px] bg-muted/60 px-2.5 sm:px-3 py-2 min-w-0">
+              <dt className="text-xs text-muted-foreground">Dias com recarga</dt>
+              <dd className="text-[13px] sm:text-sm font-semibold text-foreground tabular-nums break-words">
                 {estatisticas.comMovimento} de {estatisticas.dias}
               </dd>
             </div>
@@ -488,15 +548,18 @@ const EvolucaoDiaria = () => {
         {loading ? (
           <div className="h-[300px] flex flex-col items-center justify-center gap-3">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            <p className="text-on-surface-variant text-sm">Carregando indicadores…</p>
+            <p className="text-muted-foreground text-sm">Carregando indicadores…</p>
           </div>
         ) : !hasData ? (
-          <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-center px-4">
-            <span className="material-symbols-outlined text-outline" style={{ fontSize: 44 }}>
+          <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-center px-4 rounded-[10px] border border-dashed border-border">
+            <span
+              className="material-symbols-outlined text-muted-foreground"
+              style={{ fontSize: 44 }}
+            >
               event_busy
             </span>
-            <p className="text-on-surface font-medium">Nenhuma recarga neste período</p>
-            <p className="text-on-surface-variant text-sm max-w-sm">
+            <p className="text-foreground font-medium">Nenhuma recarga neste período</p>
+            <p className="text-muted-foreground text-sm max-w-sm">
               Escolha outro período no calendário acima ou volte depois que houver novas recargas.
             </p>
           </div>
@@ -510,72 +573,19 @@ const EvolucaoDiaria = () => {
   );
 };
 
-type Aba = 'mensal' | 'diario';
-
 export const Indicators = () => {
   const { user } = useAuth();
   const podeVerMensal = user?.role === 'admin' || (user?.role === 'operador' && !!user?.clientId);
-  const [aba, setAba] = useState<Aba>(podeVerMensal ? 'mensal' : 'diario');
-
-  const abas: Array<{ id: Aba; rotulo: string; icone: string; descricao: string }> = [
-    ...(podeVerMensal
-      ? [
-          {
-            id: 'mensal' as Aba,
-            rotulo: 'Relatório mensal',
-            icone: 'calendar_month',
-            descricao: 'Fechamento do mês, destaques, metas e comparação com o mês anterior.',
-          },
-        ]
-      : []),
-    {
-      id: 'diario',
-      rotulo: 'Evolução diária',
-      icone: 'show_chart',
-      descricao: 'Receita, recargas, energia e motoristas dia a dia, no período que você escolher.',
-    },
-  ];
-  const atual = abas.find(a => a.id === aba) ?? abas[0];
 
   return (
-    <div className="space-y-6 pb-12">
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 no-print">
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-primary text-xs tracking-[0.2em] uppercase font-bold">
-            Desempenho da rede
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-headline font-bold text-on-surface tracking-tight">
-            Indicadores
-          </h2>
-          <p className="text-sm text-on-surface-variant">{atual.descricao}</p>
-        </div>
-        {abas.length > 1 && (
-          <div
-            role="tablist"
-            className="grid grid-cols-2 sm:inline-flex rounded-full bg-surface-container-high p-1 self-stretch sm:self-start lg:self-auto"
-          >
-            {abas.map(a => (
-              <button
-                key={a.id}
-                type="button"
-                role="tab"
-                aria-selected={aba === a.id}
-                onClick={() => setAba(a.id)}
-                className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  aba === a.id
-                    ? 'bg-primary text-on-primary shadow'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                <span className="material-symbols-outlined text-lg">{a.icone}</span>
-                {a.rotulo}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {aba === 'mensal' ? <RelatorioMensal /> : <EvolucaoDiaria />}
+    <div className="pb-12">
+      {podeVerMensal ? (
+        <RelatorioMensal
+          evolucaoDiaria={atualizacao => <EvolucaoDiaria atualizacao={atualizacao} />}
+        />
+      ) : (
+        <EvolucaoDiaria comCabecalho />
+      )}
     </div>
   );
 };
