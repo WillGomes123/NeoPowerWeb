@@ -21,7 +21,23 @@ import {
 } from '../components/ui/alert-dialog';
 import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
+import { CirclePlus } from 'lucide-react';
 import { api } from '../lib/api';
+import {
+  BlocoDeIcone,
+  BotaoAtualizar,
+  CabecalhoDaPagina,
+  classeDaPilula,
+  classeDoCartao,
+} from '../components/painel/Pagina';
+import {
+  BarraDeFiltros,
+  CampoDeBusca,
+  classeDoBotaoContorno,
+  classeDoBotaoPrincipal,
+  classeDoBotaoSecundario,
+} from '../components/painel/Pecas';
+import { classeDoConteinerDaTabela } from '../components/financeiro/Pecas';
 
 interface Voucher {
   id?: number;
@@ -89,6 +105,11 @@ export const Vouchers = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
   const [deleteVoucherId, setDeleteVoucherId] = useState<number | null>(null);
+  // Botão Atualizar: hora da última busca boa e se a última falhou (a lista
+  // na tela fica, com o aviso no botão).
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
 
   // Filters
   const [filterCode, setFilterCode] = useState('');
@@ -125,8 +146,11 @@ export const Vouchers = () => {
     }
   };
 
-  const fetchVouchers = async () => {
-    setLoading(true);
+  // `manterNaFalha`: o Atualizar. Se a busca falha, a lista na tela fica e o
+  // botão avisa; na primeira carga, a tela vazia de antes.
+  const fetchVouchers = async ({ manterNaFalha = false }: { manterNaFalha?: boolean } = {}) => {
+    if (manterNaFalha) setAtualizando(true);
+    else setLoading(true);
     try {
       const response = await api.get('/vouchers');
       if (!response.ok) {
@@ -134,12 +158,16 @@ export const Vouchers = () => {
       }
       const data = await response.json();
       setVouchers(Array.isArray(data) ? data : []);
+      setAtualizadoEm(new Date());
+      setFalhou(false);
     } catch (error) {
       console.error('Erro ao buscar vouchers:', error);
       toast.error('Erro ao buscar vouchers');
-      setVouchers([]);
+      setFalhou(true);
+      if (!manterNaFalha) setVouchers([]);
     } finally {
       setLoading(false);
+      setAtualizando(false);
     }
   };
 
@@ -241,29 +269,19 @@ export const Vouchers = () => {
 
   if (isEditing && editingVoucher) {
     return (
-      <div className="space-y-8 pb-12">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleCancel}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm text-on-surface-variant"
-          >
-            <span className="material-symbols-outlined text-lg">arrow_back</span>
-            Voltar
-          </button>
-        </div>
+      <div className="space-y-[25px] pb-12">
+        <button type="button" onClick={handleCancel} className={classeDoBotaoContorno}>
+          <span aria-hidden="true" className="material-symbols-outlined text-lg">arrow_back</span>
+          Voltar
+        </button>
 
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">
-            {editingVoucher.id ? 'EDITAR' : 'CRIAR'} VOUCHER
-          </span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">
-            {editingVoucher.id ? 'Editar Voucher' : 'Novo Voucher'}
-          </h1>
-          <p className="text-on-surface-variant mt-1">Preencha os dados do voucher</p>
-        </div>
+        <CabecalhoDaPagina
+          rotulo={editingVoucher.id ? 'Editar voucher' : 'Criar voucher'}
+          titulo={editingVoucher.id ? 'Editar Voucher' : 'Novo Voucher'}
+          subtitulo="Preencha os dados do voucher"
+        />
 
-        <div className="glass-panel rounded-xl border border-outline-variant/10 p-6">
+        <div className={`${classeDoCartao} p-6 3xl:p-[30px]`}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="code" className="text-on-surface-variant text-xs uppercase tracking-widest">
@@ -561,18 +579,12 @@ export const Vouchers = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-outline-variant/10">
-            <button
-              onClick={handleCancel}
-              className="px-6 py-2.5 rounded-full border border-outline-variant/20 text-on-surface-variant font-medium text-sm hover:bg-surface-container-high transition-colors"
-            >
+          <div className="flex flex-wrap justify-end gap-3 mt-8 pt-6 border-t border-border">
+            <button type="button" onClick={handleCancel} className={classeDoBotaoSecundario}>
               Cancelar
             </button>
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">save</span>
+            <button type="button" onClick={handleSave} className={classeDoBotaoPrincipal}>
+              <span aria-hidden="true" className="material-symbols-outlined text-lg">save</span>
               Salvar Voucher
             </button>
           </div>
@@ -596,47 +608,45 @@ export const Vouchers = () => {
 
   const activeCount = vouchers.filter(v => getVoucherStatus(v) === 'active').length;
   const totalUsed = vouchers.reduce((s, v) => s + (v.used_quantity || 0), 0);
+  // Pílula de filtro na altura da barra de filtros (a do Figma de Notificações).
+  const pilulaDaBarra = `${classeDaPilula} h-[43px] data-[size=default]:h-[43px] sm:w-[220px]`;
+  const voucherAExcluir = vouchers.find(v => v.id === deleteVoucherId) ?? null;
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold block mb-1">PROMOTIONS</span>
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-on-surface">Vouchers</h1>
-          <p className="text-on-surface-variant mt-1">
-            Gerenciamento de cupons e descontos • <span className="text-primary font-semibold">{activeCount} ativos</span> • <span className="text-tertiary font-semibold">{totalUsed} utilizados</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => void fetchVouchers()} className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-outline-variant/20 hover:bg-surface-container-high transition-colors font-medium text-sm">
-            <span className="material-symbols-outlined text-lg">refresh</span>
-            Atualizar
-          </button>
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-tr from-primary to-secondary text-on-primary font-bold text-sm shadow-[0_4px_20px_rgba(142,255,113,0.3)] hover:scale-105 active:scale-95 transition-all"
-          >
-            <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
-            Novo Voucher
-          </button>
-        </div>
-      </div>
+    <div className="space-y-[25px] pb-12">
+      <CabecalhoDaPagina
+        titulo="Vouchers"
+        subtitulo={
+          <>
+            Gerenciamento de cupons e descontos • <span className="text-primary-strong font-semibold">{activeCount} ativos</span> • <span className="font-semibold">{totalUsed} utilizados</span>
+          </>
+        }
+        acoes={
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-4 3xl:gap-8">
+            <button type="button" onClick={handleCreate} className={`${classeDoBotaoPrincipal} sm:w-[201px]`}>
+              <CirclePlus aria-hidden="true" className="w-5 h-5" />
+              Novo Voucher
+            </button>
+            <BotaoAtualizar
+              aoAtualizar={() => void fetchVouchers({ manterNaFalha: true })}
+              carregando={atualizando}
+              atualizadoEm={atualizadoEm}
+              falhou={falhou}
+            />
+          </div>
+        }
+      />
 
       {/* Filters */}
-      <div className="glass-panel rounded-lg border border-outline-variant/10 p-4 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-          <Input
-            type="text"
-            placeholder="Buscar por código ou nome..."
-            value={filterCode}
-            onChange={e => setFilterCode(e.target.value)}
-            className="pl-10 bg-surface-container-low border-outline-variant/20 text-on-surface"
-          />
-        </div>
+      <BarraDeFiltros>
+        <CampoDeBusca
+          placeholder="Buscar por código ou nome..."
+          aria-label="Buscar voucher"
+          value={filterCode}
+          onChange={e => setFilterCode(e.target.value)}
+        />
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full md:w-[180px] bg-surface-container-low border-outline-variant/20 text-on-surface">
+          <SelectTrigger className={pilulaDaBarra} aria-label="Filtrar por status">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent className="bg-surface-container border-outline-variant/20">
@@ -646,7 +656,7 @@ export const Vouchers = () => {
           </SelectContent>
         </Select>
         <Select value={filterLocation} onValueChange={setFilterLocation}>
-          <SelectTrigger className="w-full md:w-[200px] bg-surface-container-low border-outline-variant/20 text-on-surface">
+          <SelectTrigger className={pilulaDaBarra} aria-label="Filtrar por local">
             <SelectValue placeholder="Local" />
           </SelectTrigger>
           <SelectContent className="bg-surface-container border-outline-variant/20">
@@ -658,23 +668,24 @@ export const Vouchers = () => {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </BarraDeFiltros>
 
       {/* Vouchers Table */}
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/10 overflow-hidden">
-        <div className="px-6 py-4 border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">confirmation_number</span>
-            Lista de Vouchers
-          </h3>
-          <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">{filteredVouchers.length} registros</span>
+      <div className={`${classeDoCartao} overflow-hidden`}>
+        <div className="px-6 py-5 border-b border-border flex flex-wrap gap-3 justify-between items-center">
+          <div className="flex items-center gap-4">
+            <BlocoDeIcone>
+              <span aria-hidden="true" className="material-symbols-outlined text-[22px]">confirmation_number</span>
+            </BlocoDeIcone>
+            <h2 className="text-[20px] leading-tight font-semibold text-foreground">Lista de Vouchers</h2>
+          </div>
+          <span className="text-sm font-medium text-muted-foreground">{filteredVouchers.length} registros</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className={classeDoConteinerDaTabela}>
           {filteredVouchers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <span className="material-symbols-outlined text-4xl text-outline mb-3">confirmation_number</span>
-              <p className="text-sm font-semibold text-on-surface">{vouchers.length === 0 ? 'Nenhum voucher criado' : 'Nenhum voucher encontrado'}</p>
-              <p className="text-xs text-on-surface-variant mt-1">{vouchers.length === 0 ? 'Clique em "Novo Voucher" para criar cupons de desconto' : 'Altere os filtros de busca acima'}</p>
+            <div className="my-4 py-10 flex flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-border text-center px-6">
+              <p className="text-[15px] font-semibold text-foreground">{vouchers.length === 0 ? 'Nenhum voucher criado' : 'Nenhum voucher encontrado'}</p>
+              <p className="text-sm text-muted-foreground">{vouchers.length === 0 ? 'Clique em "Novo Voucher" para criar cupons de desconto' : 'Altere os filtros de busca acima'}</p>
             </div>
           ) : (
             <table className="w-full text-left border-collapse">
@@ -843,18 +854,20 @@ export const Vouchers = () => {
                               e.stopPropagation();
                               handleEdit(voucher);
                             }}
-                            className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-primary/10 hover:text-primary hover:border-primary/20 transition-all"
+                            aria-label={`Editar o voucher ${voucher.code}`}
+                            className="w-9 h-9 rounded-full border border-foreground/70 dark:border-primary bg-card text-foreground dark:text-primary-strong flex items-center justify-center hover:bg-muted transition"
                           >
-                            <span className="material-symbols-outlined text-sm">edit</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-base">edit</span>
                           </button>
                           <button
                             onClick={e => {
                               e.stopPropagation();
                               if (voucher.id) handleDeleteClick(voucher.id);
                             }}
-                            className="w-8 h-8 rounded-lg bg-surface-container-highest border border-outline-variant/10 text-on-surface-variant flex items-center justify-center hover:bg-error/10 hover:text-error hover:border-error/20 transition-all"
+                            aria-label={`Excluir o voucher ${voucher.code}`}
+                            className="w-9 h-9 rounded-full border border-destructive/60 bg-card text-destructive flex items-center justify-center hover:bg-destructive/10 transition"
                           >
-                            <span className="material-symbols-outlined text-sm">delete</span>
+                            <span aria-hidden="true" className="material-symbols-outlined text-base">delete</span>
                           </button>
                         </div>
                       </td>
@@ -872,19 +885,21 @@ export const Vouchers = () => {
         open={deleteVoucherId !== null}
         onOpenChange={open => !open && setDeleteVoucherId(null)}
       >
-        <AlertDialogContent className="bg-surface-container border-outline-variant/20">
+        <AlertDialogContent className="bg-card border-border rounded-[15px]">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-on-surface font-headline flex items-center gap-2">
-              <span className="material-symbols-outlined text-error">warning</span>
+            <AlertDialogTitle className="text-[20px] font-semibold text-foreground flex items-center gap-2">
+              <span aria-hidden="true" className="material-symbols-outlined text-destructive">warning</span>
               Confirmar Exclusão
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-on-surface-variant">
-              Tem certeza que deseja excluir este voucher? Esta ação não pode ser desfeita.
+            <AlertDialogDescription className="text-muted-foreground">
+              {voucherAExcluir
+                ? `O voucher ${voucherAExcluir.code} deixa de valer e sai da lista. Esta ação não pode ser desfeita.`
+                : 'Tem certeza que deseja excluir este voucher? Esta ação não pode ser desfeita.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-outline-variant/20 text-on-surface-variant rounded-full px-6">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-error hover:bg-error/90 text-on-error rounded-full px-6 font-bold">
+            <AlertDialogCancel className="h-10 rounded-[25px] px-5 border-foreground/70 dark:border-border text-foreground">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="h-10 rounded-[25px] px-5 bg-destructive hover:bg-destructive/90 text-white font-semibold">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -7,6 +7,8 @@ import {
   sobraDepoisDaEnergia,
   textoPorCusto,
 } from '@/lib/custoDeEnergia';
+import { BlocoDeIcone, classeDoCartao } from '@/components/painel/Pagina';
+import { NumeroMiudo } from '@/components/financeiro/Pecas';
 
 interface Props {
   inicio: string;
@@ -57,47 +59,42 @@ export function ResumoDoCustoDeEnergia({ inicio, fim, locationId, clientId, repa
   const { total, locais } = dados;
   const semCustoNenhum = locais.filter(l => !l.temCusto).map(l => l.nome);
 
+  // Redesenho (nov/2026): cartão branco com bloco de ícone e os números no
+  // bloco "Agora" da Visão geral.
   return (
-    <div className="glass-card rounded-xl p-5 space-y-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary text-xl">bolt</span>
-          <h3 className="text-base font-semibold text-foreground">Custo de energia</h3>
+    <section aria-label="Custo de energia" className={`${classeDoCartao} p-5 3xl:p-[22px] space-y-4`}>
+      <div className="flex items-start gap-4">
+        <BlocoDeIcone tom="amarelo">
+          <span aria-hidden="true" className="material-symbols-outlined text-[22px]">
+            bolt
+          </span>
+        </BlocoDeIcone>
+        <div className="min-w-0">
+          <h3 className="text-[20px] leading-tight font-semibold text-foreground">Custo de energia</h3>
+          <p className="text-[15px] font-medium text-muted-foreground mt-0.5">
+            O que as recargas do período custaram na conta de luz. Só a gestão da marca vê; não muda o
+            preço cobrado do cliente.
+          </p>
         </div>
-        <p className="text-xs text-on-surface-variant mt-1">
-          O que as recargas do período custaram na conta de luz. Só a gestão da marca vê; não muda o
-          preço cobrado do cliente.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-          <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Conta de luz</p>
-          <p className="text-2xl font-bold text-foreground">{brl(total.custo)}</p>
-          <p className="text-xs text-on-surface-variant mt-1">{textoPorCusto(total.porCusto)}</p>
-        </div>
+        <NumeroMiudo rotulo="Conta de luz" valor={brl(total.custo)} detalhe={textoPorCusto(total.porCusto)} />
         {repasse != null && (
           <>
-            <div className="p-4 rounded-xl bg-background/50 border border-outline-variant/15">
-              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">Repasse</p>
-              <p className="text-2xl font-bold text-foreground">{brl(repasse)}</p>
-              <p className="text-xs text-on-surface-variant mt-1">Depois da comissão</p>
-            </div>
-            <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
-              <p className="text-xs text-on-surface-variant font-medium uppercase mb-1">
-                Sobra depois da energia
-              </p>
-              <p className="text-2xl font-bold text-primary">
-                {brl(sobraDepoisDaEnergia(repasse, total.custo))}
-              </p>
-              <p className="text-xs text-on-surface-variant mt-1">Repasse menos a conta de luz</p>
-            </div>
+            <NumeroMiudo rotulo="Repasse" valor={brl(repasse)} detalhe="Depois da comissão" />
+            <NumeroMiudo
+              rotulo="Sobra depois da energia"
+              valor={brl(sobraDepoisDaEnergia(repasse, total.custo))}
+              detalhe="Repasse menos a conta de luz"
+              destaque
+            />
           </>
         )}
       </div>
 
       {total.semCusto.recargas > 0 && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-sm text-estado-problema-forte">
           {total.semCusto.recargas} recarga(s) e{' '}
           {total.semCusto.energiaKwh.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kWh ficaram
           fora da conta, por não terem custo cadastrado na data delas
@@ -105,12 +102,12 @@ export function ResumoDoCustoDeEnergia({ inicio, fim, locationId, clientId, repa
         </p>
       )}
       {total.pelaProporcaoDoTempo > 0 && (
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-sm text-muted-foreground">
           {total.pelaProporcaoDoTempo} recarga(s) sem leitura do medidor tiveram a ponta estimada pelo
           horário de início e fim.
         </p>
       )}
-    </div>
+    </section>
   );
 }
 

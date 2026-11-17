@@ -168,13 +168,17 @@ const renderizar = (url: string) =>
     </MemoryRouter>
   );
 
-/** Seção do resumo do repasse (visão de uma marca). */
+/**
+ * Seção do resumo do repasse (visão de uma marca). Desde o redesenho (nov/2026)
+ * a seção e os cartões se acham pelo nome (`section` com o título), não pela
+ * classe de estilo.
+ */
 const resumoNaTela = async () =>
-  (await screen.findByText('Repasse ao dono por recarga')).closest('.glass-card') as HTMLElement;
+  screen.findByRole('region', { name: 'Repasse ao dono por recarga' });
 
 /** Cartão do resumo com este título. */
 const cartao = (secao: HTMLElement, titulo: string) =>
-  within(secao).getByText(titulo, { selector: 'p' }).closest('div.p-4') as HTMLElement;
+  within(secao).getByRole('region', { name: titulo });
 
 beforeEach(() => {
   mockGet.mockReset();
