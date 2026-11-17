@@ -22,7 +22,7 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { tenantBranding } = useTenant();
+  const { tenantBranding, isDark } = useTenant();
   // O logo do topo fica numa caixa branca: vai a versão de fundo claro. O logo
   // da NeoPower só entra no login da NeoPower; outra marca sem logo fica com o nome.
   const ehNeoPower = !tenantBranding?.companyName || tenantBranding.companyName === 'NeoPower';
@@ -100,7 +100,8 @@ export const Login = () => {
           style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 20%, transparent)' }} 
         />
 
-        {/* Login Container */}
+        {/* Login Container. O cartão é escuro em qualquer tema: o texto dele não usa as cores do
+            tema, que no tema claro são escuras e sumiam (FulGo, Retrofit, Guaru Charge, 03/11/2026). */}
         <div className="relative z-10 w-full max-w-md px-4 sm:px-6">
           <div
             className="rounded-xl p-8 md:p-10 flex flex-col gap-8"
@@ -116,11 +117,11 @@ export const Login = () => {
           >
             {/* Header */}
             <div className="space-y-2">
-              <span className="text-[10px] uppercase tracking-[0.2em] text-primary font-bold">Acesso Seguro</span>
+              <span className={`text-[10px] uppercase tracking-[0.2em] font-bold ${isDark ? 'text-primary' : 'text-white/80'}`}>Acesso Seguro</span>
               <h2 className="font-headline text-3xl font-bold tracking-tight text-white leading-none">
                 {tenantBranding?.companyName || 'NeoPower'}
               </h2>
-              <p className="text-on-surface-variant text-sm">Gestão inteligente de recarga para veículos elétricos.</p>
+              <p className="text-white/70 text-sm">Gestão inteligente de recarga para veículos elétricos.</p>
             </div>
 
             {/* Session Expired Alert */}
@@ -143,11 +144,11 @@ export const Login = () => {
             <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
               {/* Email Input */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-on-surface-variant tracking-wider uppercase px-1" htmlFor="command-id">
+                <label className="text-xs font-semibold text-white/70 tracking-wider uppercase px-1" htmlFor="command-id">
                   Usuário
                 </label>
                 <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">
+                  <span className={`material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/70 text-lg ${isDark ? 'group-focus-within:text-primary' : 'group-focus-within:text-white'} transition-colors`}>
                     alternate_email
                   </span>
                   <input
@@ -157,18 +158,18 @@ export const Login = () => {
                     onChange={e => setEmail(e.target.value)}
                     placeholder="seu@email.com"
                     required
-                    className="w-full bg-surface-container-highest/50 border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-white pl-12 pr-4 py-4 rounded-t-lg transition-all placeholder:text-on-surface-variant/40"
+                    className={`w-full bg-white/10 border-0 border-b-2 border-white/30 ${isDark ? 'focus:border-primary' : 'focus:border-white'} focus:ring-0 text-white pl-12 pr-4 py-4 rounded-t-lg transition-all placeholder:text-white/50`}
                   />
                 </div>
               </div>
 
               {/* Password Input */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-on-surface-variant tracking-wider uppercase px-1" htmlFor="access-cipher">
+                <label className="text-xs font-semibold text-white/70 tracking-wider uppercase px-1" htmlFor="access-cipher">
                  Senha
                 </label>
                 <div className="relative group">
-                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">
+                  <span className={`material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/70 text-lg ${isDark ? 'group-focus-within:text-primary' : 'group-focus-within:text-white'} transition-colors`}>
                     lock
                   </span>
                   <input
@@ -178,12 +179,12 @@ export const Login = () => {
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="w-full bg-surface-container-highest/50 border-0 border-b-2 border-outline-variant focus:border-primary focus:ring-0 text-white pl-12 pr-12 py-4 rounded-t-lg transition-all placeholder:text-on-surface-variant/40"
+                    className={`w-full bg-white/10 border-0 border-b-2 border-white/30 ${isDark ? 'focus:border-primary' : 'focus:border-white'} focus:ring-0 text-white pl-12 pr-12 py-4 rounded-t-lg transition-all placeholder:text-white/50`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-white transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/70 hover:text-white transition-colors"
                   >
                     <span className="material-symbols-outlined text-lg">
                       {showPassword ? 'visibility_off' : 'visibility'}
@@ -202,9 +203,9 @@ export const Login = () => {
                     type="checkbox"
                     checked={manterSessao}
                     onChange={e => setManterSessao(e.target.checked)}
-                    className="rounded border-outline-variant bg-surface-container-highest text-primary focus:ring-primary focus:ring-offset-background h-4 w-4"
+                    className="rounded border-white/30 bg-white/10 text-primary focus:ring-primary focus:ring-offset-background h-4 w-4"
                   />
-                  <span className="text-xs text-on-surface-variant group-hover:text-white transition-colors">Manter Sessão Ativa</span>
+                  <span className="text-xs text-white/70 group-hover:text-white transition-colors">Manter Sessão Ativa</span>
                 </label>
               </div>
 
