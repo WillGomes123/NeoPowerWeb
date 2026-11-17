@@ -20,6 +20,8 @@ interface DateRangePickerProps {
   onClear?: () => void;
   className?: string;
   showTime?: boolean;
+  /** Texto sem período escolhido (padrão: "Selecionar período"). */
+  placeholder?: string;
 }
 
 interface PresetRange {
@@ -94,6 +96,7 @@ export function DateRangePicker({
   onClear,
   className,
   showTime = false,
+  placeholder = 'Selecionar período',
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [customDays, setCustomDays] = useState<string>('');
@@ -164,7 +167,7 @@ export function DateRangePicker({
   // Format display text
   const getDisplayText = () => {
     if (!startDate && !endDate) {
-      return 'Selecionar período';
+      return placeholder;
     }
 
     const fromStr = startDate ? format(dataLocal(startDate), 'dd/MM/yyyy', { locale: ptBR }) : '';
@@ -178,7 +181,7 @@ export function DateRangePicker({
       return `${fromStr} - ${toStr}`;
     }
 
-    return fromStr || toStr || 'Selecionar período';
+    return fromStr || toStr || placeholder;
   };
 
   return (
