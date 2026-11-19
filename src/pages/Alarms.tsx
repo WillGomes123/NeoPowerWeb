@@ -345,10 +345,10 @@ export const Alarms = () => {
               value={filtroLocal || 'todos'}
               onValueChange={v => setFiltroLocal(v === 'todos' ? '' : v)}
             >
-              <SelectTrigger className={classeDaPilula} aria-label="Filtrar por local">
-                <span className="flex items-center gap-3 min-w-0">
+              <SelectTrigger className={`${classeDaPilula} gap-1`} aria-label="Filtrar por local">
+                <span className="flex flex-1 items-center gap-3 min-w-0">
                   <Icone nome="local" />
-                  <SelectValue placeholder="Todos os locais" />
+                  <span className="min-w-0 truncate"><SelectValue placeholder="Todos os locais" /></span>
                 </span>
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
@@ -364,10 +364,10 @@ export const Alarms = () => {
               value={filtroEstacao || 'todas'}
               onValueChange={v => setFiltroEstacao(v === 'todas' ? '' : v)}
             >
-              <SelectTrigger className={classeDaPilula} aria-label="Filtrar por estação">
-                <span className="flex items-center gap-3 min-w-0">
+              <SelectTrigger className={`${classeDaPilula} gap-1`} aria-label="Filtrar por estação">
+                <span className="flex flex-1 items-center gap-3 min-w-0">
                   <Icone nome="estacao" />
-                  <SelectValue placeholder="Todas as estações" />
+                  <span className="min-w-0 truncate"><SelectValue placeholder="Todas as estações" /></span>
                 </span>
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">

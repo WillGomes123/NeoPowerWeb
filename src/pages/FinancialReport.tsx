@@ -51,6 +51,7 @@ import {
   classeDoTh,
   fundoDaLinha,
 } from '../components/financeiro/Pecas';
+import { Paginacao, usePagina } from '../components/financeiro/Paginacao';
 import iconeDepositos from '../assets/icones/kpi-depositos.svg';
 
 interface TenantFinancialSummary {
@@ -130,6 +131,11 @@ interface FinancialReportItem extends Partial<LinhaDoLocal> {
   Status: string;
   recargaCruzada?: boolean;
   redeDoCliente?: string | null;
+  /**
+   * Nome completo de quem carregou: a API manda só para admin e operador no
+   * painel. Sem ele, a tabela usa o `cliente` abreviado do relatório por local.
+   */
+  clienteNome?: string | null;
   // Campos NFS-e vindos do backend
   invoice_id?: string;
   invoice_status?: string;
@@ -264,6 +270,9 @@ function taxaMpDoDeposito(t: { amount: number; paymentMethod: string | null; tax
   if (m === 'boleto') return 3.49; // valor fixo por boleto
   return t.amount * (TAXA_MP_METODO[m] ?? TAXA_MP_METODO.pix);
 }
+
+/** Lista vazia fixa: uma nova a cada render voltaria a tabela para a página 1. */
+const SEM_LINHAS_DO_LOCAL: LinhaDoLocal[] = [];
 
 /** Usado só até a API responder; o percentual real vem no relatório. */
 const COMISSAO_PADRAO_PERCENT = 5;
@@ -1010,6 +1019,21 @@ export const FinancialReport = () => {
     });
   }, [reportData]);
 
+  // Tabelas em páginas (components/financeiro/Paginacao): com milhares de
+  // recargas, desenhar todas travava a tela por quase um minuto.
+  const paginaDoDetalhe = usePagina(visibleReportData);
+  const paginaDoLocal = usePagina(relatorioDoLocal?.linhas ?? SEM_LINHAS_DO_LOCAL);
+  // NFS-e: as recargas com nota e as do status escolhido.
+  const notasRows = React.useMemo(
+    () => reportData.filter(r => r.invoice_status && r.invoice_status !== 'NotRequired'),
+    [reportData]
+  );
+  const notasDoFiltro = React.useMemo(
+    () => (nfseFilter === 'all' ? notasRows : notasRows.filter(r => r.invoice_status === nfseFilter)),
+    [notasRows, nfseFilter]
+  );
+  const paginaDasNotas = usePagina(notasDoFiltro);
+
   const dailyData = React.useMemo(() => {
     const groups: { [date: string]: { date: string; revenue: number; energy: number } } = {};
     
@@ -1709,7 +1733,7 @@ export const FinancialReport = () => {
                 </thead>
                 <tbody>
                   {rel.linhas.length > 0 ? (
-                    rel.linhas.map(l => (
+                    paginaDoLocal.itens.map(l => (
                       <tr key={l.numero}>
                         {rel.colunas.map(c => (
                           <td
@@ -1767,6 +1791,13 @@ export const FinancialReport = () => {
                 </tfoot>
               </table>
             </div>
+            <Paginacao
+              pagina={paginaDoLocal.pagina}
+              total={paginaDoLocal.total}
+              quantidade={rel.linhas.length}
+              rotulo="recargas"
+              aoMudar={paginaDoLocal.irPara}
+            />
             <div className="px-6 py-4 border-t border-border">
               <p className="text-sm font-semibold text-foreground mb-1.5">Notas</p>
               <ul className="space-y-1">
@@ -2206,15 +2237,12 @@ export const FinancialReport = () => {
 
       {/* ─── Seção NFS-e ──────────────────────────────────────────────────────────── */}
       {isAdmin && (() => {
-        // Transações que têm dados de NFS-e
-        const notasRows = reportData.filter(r => r.invoice_status && r.invoice_status !== 'NotRequired');
+        // Transações que têm dados de NFS-e (notasRows e notasDoFiltro, lá em cima)
         const emitidas  = notasRows.filter(r => r.invoice_status === 'Issued').length;
         const pendentes = notasRows.filter(r => r.invoice_status === 'Pending').length;
         const erros     = notasRows.filter(r => r.invoice_status === 'Error').length;
 
-        const filtered = nfseFilter === 'all'
-          ? notasRows
-          : notasRows.filter(r => r.invoice_status === nfseFilter);
+        const filtered = notasDoFiltro;
 
         // Etiqueta do status da nota: ícone e texto, não só a cor.
         const getNfseStatusBadge = (status: string) => {
@@ -2284,7 +2312,7 @@ export const FinancialReport = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((row, i) => (
+                    {paginaDasNotas.itens.map((row, i) => (
                       <tr key={i}>
                         <td className={`${classeDaCelula} ${fundoDaLinha}`}>
                           <span className="font-mono text-xs text-foreground">
@@ -2335,6 +2363,13 @@ export const FinancialReport = () => {
                 </table>
               )}
             </div>
+            <Paginacao
+              pagina={paginaDasNotas.pagina}
+              total={paginaDasNotas.total}
+              quantidade={filtered.length}
+              rotulo="notas"
+              aoMudar={paginaDasNotas.irPara}
+            />
           </section>
         );
       })()}
@@ -2381,8 +2416,9 @@ export const FinancialReport = () => {
         </section>
       )}
 
-      {/* Data Table (com um local escolhido, o relatório do local acima substitui) */}
-      <section aria-label="Detalhamento por transação" className={`${classeDoCartao} overflow-hidden ${relatorioDoLocal ? 'hidden' : ''}`}>
+      {/* Data Table (com um local escolhido, o relatório do local acima substitui; sem montar a tabela escondida) */}
+      {!relatorioDoLocal && (
+      <section aria-label="Detalhamento por transação" className={`${classeDoCartao} overflow-hidden`}>
         <div className="px-6 py-5 border-b border-border">
           <h2 className="text-[20px] leading-tight font-semibold text-foreground">Detalhamento por Transação</h2>
           <p className="text-[15px] font-medium text-muted-foreground mt-0.5">
@@ -2394,6 +2430,7 @@ export const FinancialReport = () => {
             <thead>
               <tr>
                 <th className={`${classeDoTh} pt-3 text-left`}>Estação</th>
+                <th className={`${classeDoTh} pt-3 text-left`}>Cliente</th>
                 <th className={`${classeDoTh} pt-3 text-left`}>Início</th>
                 <th className={`${classeDoTh} pt-3 text-left`}>Fim</th>
                 <th className={`${classeDoTh} pt-3 text-right`}>Energia</th>
@@ -2415,10 +2452,10 @@ export const FinancialReport = () => {
             </thead>
             <tbody>
               {visibleReportData.length > 0 ? (
-                visibleReportData.map((row, index) => {
+                paginaDoDetalhe.itens.map((row, index) => {
                   const v = valoresDaLinha(row);
                   return (
-                  <tr key={index}>
+                  <tr key={row.transaction_id ?? row.numero ?? index}>
                     <td className={`${classeDaCelula} ${fundoDaLinha} font-semibold text-foreground`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span>{row['Estação']}</span>
@@ -2429,8 +2466,11 @@ export const FinancialReport = () => {
                         )}
                       </div>
                     </td>
-                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{row['Início']}</td>
-                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground`}>{row['Fim']}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-foreground`}>
+                      {row.clienteNome || row.cliente || '—'}
+                    </td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground whitespace-nowrap`}>{row['Início']}</td>
+                    <td className={`${classeDaCelula} ${fundoDaLinha} text-muted-foreground whitespace-nowrap`}>{row['Fim'] || '—'}</td>
                     <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums text-foreground`}>{row['Recarga (kWh)']} kWh</td>
                     <td className={`${classeDaCelula} ${fundoDaLinha} text-right tabular-nums font-medium text-primary-strong`}>R$ {fmt(v.receita)}</td>
                     {!comissaoOculta && (
@@ -2451,7 +2491,7 @@ export const FinancialReport = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan={veCustoDaPlataforma ? 10 : 8} className="pt-2">
+                  <td colSpan={7 + (comissaoOculta ? 0 : 2) + (veCustoDaPlataforma ? 2 : 0)} className="pt-2">
                     <Vazio
                       titulo={
                         !isAdmin && userLocationNames.length === 0
@@ -2465,6 +2505,13 @@ export const FinancialReport = () => {
             </tbody>
           </table>
         </div>
+        <Paginacao
+          pagina={paginaDoDetalhe.pagina}
+          total={paginaDoDetalhe.total}
+          quantidade={visibleReportData.length}
+          rotulo="recargas"
+          aoMudar={paginaDoDetalhe.irPara}
+        />
 
         {visibleReportData.length > 0 && (
           <div className="px-6 py-5 border-t border-border">
@@ -2497,6 +2544,7 @@ export const FinancialReport = () => {
           </div>
         )}
       </section>
+      )}
 
       {/* PDF Template (off-screen) */}
       <div style={{ position: 'absolute', left: '-9999px', top: '-9999px', pointerEvents: 'none' }}>
