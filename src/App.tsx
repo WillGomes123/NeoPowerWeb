@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { DashboardLayout } from './components/DashboardLayout';
 import { Toaster } from './components/ui/sonner';
 import { TenantProvider, useTenant } from './contexts/TenantContext';
+import { AvisoDeInstalacao } from './components/AvisoDeInstalacao';
 
 // Eager load login (usada imediatamente)
 import { Login } from './pages/Login';
@@ -148,6 +149,7 @@ const AppRouter = () => {
       <ErrorBoundary>
         <AppRoutes />
       </ErrorBoundary>
+      <AvisoDeInstalacao />
       <Toaster
         position="top-right"
         toastOptions={{
