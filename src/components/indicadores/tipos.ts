@@ -50,6 +50,8 @@ export interface PontoSerie {
 export interface Carregador {
   chargePointId: string;
   nome: string;
+  /** Da rede NeoPower (false = de uma marca white label). API antiga: ausente. */
+  redeNeoPower?: boolean;
   local: string | null;
   bairro: string | null;
   cidade: string | null;

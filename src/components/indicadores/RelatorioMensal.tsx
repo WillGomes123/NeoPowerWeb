@@ -411,6 +411,10 @@ export function RelatorioMensal({
 } = {}) {
   const { user } = useAuth();
   const podeGerenciar = user?.role === 'admin' || (user?.role === 'operador' && !!user?.clientId);
+  // Admin da plataforma vê todas as marcas. Na aba Carregadores ficam só os da
+  // rede NeoPower; os das marcas white label seguem nos totais (pedido do dono,
+  // 19/11/2026).
+  const daPlataforma = user?.role === 'admin' && !user?.clientId;
   const empresa = user?.branding?.companyName || 'NeoPower';
 
   const [mes, setMes] = useState(mesAtualLocal());
@@ -491,9 +495,15 @@ export function RelatorioMensal({
     else setCarregando(false);
   }, [carregar, podeGerenciar]);
 
-  const carregadoresOrdenados = useMemo(() => {
+  const carregadoresDaAba = useMemo(() => {
     if (!dados) return [];
-    const lista = [...dados.carregadores];
+    if (!daPlataforma) return dados.carregadores;
+    return dados.carregadores.filter(c => c.redeNeoPower !== false);
+  }, [dados, daPlataforma]);
+  const soRedeNeoPower = !!dados && carregadoresDaAba.length < dados.carregadores.length;
+
+  const carregadoresOrdenados = useMemo(() => {
+    const lista = [...carregadoresDaAba];
     const { coluna, desc } = ordem;
     lista.sort((a, b) => {
       if (coluna === 'nome')
@@ -503,7 +513,7 @@ export function RelatorioMensal({
       return desc ? vb - va : va - vb;
     });
     return lista;
-  }, [dados, ordem]);
+  }, [carregadoresDaAba, ordem]);
 
   if (!podeGerenciar) {
     return (
@@ -555,7 +565,7 @@ export function RelatorioMensal({
       'Duração média (min)',
     ];
     const num = (v: number | null) => (v === null ? '' : String(v).replace('.', ','));
-    const linhas = dados.carregadores.map(c => [
+    const linhas = carregadoresDaAba.map(c => [
       c.nome,
       c.chargePointId,
       c.bairro ?? '',
@@ -762,7 +772,7 @@ export function RelatorioMensal({
             <div className="space-y-[25px]">
               <Secao
                 titulo="Como cada carregador foi"
-                subtitulo={`Comparado com ${r.comparacaoParcial ? `o mesmo período de ${mesAnteriorNome}` : mesAnteriorNome}. Toque no nome da coluna para ordenar.`}
+                subtitulo={`${soRedeNeoPower ? 'Rede NeoPower, comparada' : 'Comparado'} com ${r.comparacaoParcial ? `o mesmo período de ${mesAnteriorNome}` : mesAnteriorNome}. Toque no nome da coluna para ordenar.`}
                 icone="ev_station"
               >
                 <TabelaCarregadores
@@ -771,7 +781,11 @@ export function RelatorioMensal({
                   onOrdenar={coluna =>
                     setOrdem(o => ({ coluna, desc: o.coluna === coluna ? !o.desc : true }))
                   }
-                  totalFaturamento={r.resumo.faturamento}
+                  totalFaturamento={
+                    soRedeNeoPower
+                      ? carregadoresDaAba.reduce((t, c) => t + c.faturamento, 0)
+                      : r.resumo.faturamento
+                  }
                 />
               </Secao>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-[25px]">
@@ -780,14 +794,14 @@ export function RelatorioMensal({
                   subtitulo="Quanto tempo cada um ficou com carro conectado"
                   icone="timelapse"
                 >
-                  <Ocupacao lista={r.carregadores} />
+                  <Ocupacao lista={carregadoresDaAba} />
                 </Secao>
                 <Secao
                   titulo="Motoristas por carregador"
                   subtitulo="Total atendido e quantos eram novos"
                   icone="group_add"
                 >
-                  <Usuarios lista={r.carregadores} />
+                  <Usuarios lista={carregadoresDaAba} />
                 </Secao>
               </div>
             </div>
