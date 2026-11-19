@@ -27,6 +27,7 @@ import { BlocoDeIcone, BotaoAtualizar, CabecalhoDaPagina, classeDoCartao } from 
 import { classeDoCabecalhoDaTabela } from '../painel/Pecas';
 import { MetasDialog } from './MetasDialog';
 import { DestaquesDoMes } from './DestaquesDoMes';
+import { MelhoresClientes } from './MelhoresClientes';
 import { montarDestaques, type Destaque } from './destaques';
 import iconeFaturamento from '../../assets/icones/indicadores-faturamento.svg';
 import iconeRecargas from '../../assets/icones/indicadores-recargas.svg';
@@ -105,6 +106,11 @@ const CURSOR = { fill: 'var(--color-muted)', fillOpacity: 0.6 };
 const maiuscula = (s: string) => (s ? `${s.charAt(0).toUpperCase()}${s.slice(1)}` : s);
 /** "2026-10" → "Outubro de 2026" (o navegador de mês do Figma). */
 const mesComAno = (mes: string) => `${maiuscula(nomeDoMes(mes))} de ${mes.slice(0, 4)}`;
+/** "2026-11" → "2026-11-30". */
+const ultimoDiaDoMes = (mes: string) => {
+  const [ano, m] = mes.split('-').map(Number);
+  return `${mes}-${String(new Date(ano, m, 0).getDate()).padStart(2, '0')}`;
+};
 
 // ---------------------------------------------------------------------------
 // Peças pequenas
@@ -791,6 +797,13 @@ export function RelatorioMensal({
           {mostrar('motoristas') && (
             <div className="space-y-[25px]">
               <Motoristas r={r} />
+              {/* Ranking para premiar (pedido do dono, 19/11/2026; não está no Figma). */}
+              <MelhoresClientes
+                inicio={`${mes}-01`}
+                fim={ultimoDiaDoMes(mes)}
+                rotuloDoPeriodo={mesComAno(mes)}
+                atualizacao={atualizacao}
+              />
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-[25px]">
                 <Secao
                   titulo="De onde vêm os novos motoristas"

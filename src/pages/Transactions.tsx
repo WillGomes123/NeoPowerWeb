@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { CircleCheck, Receipt, TrendingUp, Users, Wallet, Zap } from 'lucide-react';
 import { ExportButton } from '../components/ExportButton';
 import { ChargingCurveDialog } from '../components/ChargingCurveDialog';
@@ -122,6 +122,26 @@ interface SessaoAtiva {
 /** De quanto em quanto tempo a tela busca as recargas em andamento. */
 const INTERVALO_AO_VIVO_MS = 10_000;
 
+/**
+ * Período da tela na busca de GET /transactions: o começo do primeiro dia e o
+ * fim do último, no relógio de quem vê. Sem isso a API mandava todas as
+ * recargas (6 MB para a plataforma) a cada 10 s e o navegador filtrava.
+ */
+function buscaDoPeriodo(inicio: string, fim: string): string {
+  const p = new URLSearchParams();
+  if (inicio) {
+    const d = dataLocal(inicio);
+    d.setHours(0, 0, 0, 0);
+    p.set('inicio', d.toISOString());
+  }
+  if (fim) {
+    const d = dataLocal(fim);
+    d.setHours(23, 59, 59, 999);
+    p.set('fim', d.toISOString());
+  }
+  return p.toString();
+}
+
 const exportColumns: ExportColumn[] = [
   { key: 'sequenciaNoLocal', header: 'No. no local', format: 'number' },
   { key: 'nomeDoLocal', header: 'Local', format: 'text' },
@@ -224,9 +244,13 @@ export const Transactions = () => {
   };
 
   useEffect(() => {
-    void fetchTransactions();
     void fetchAtivas();
   }, []);
+  // Período novo: busca de novo, só aquele recorte.
+  useEffect(() => {
+    void fetchTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
 
   // A recarga em andamento é acompanhada sozinha: sem isso, só recarregando a
   // página dava para ver o consumo crescer.
@@ -239,7 +263,7 @@ export const Transactions = () => {
     }, INTERVALO_AO_VIVO_MS);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [txTab]);
+  }, [txTab, startDate, endDate]);
   // As recargas de saldo também acompanham sozinhas: o operador (ex.: Vip
   // Energy) vê o depósito do cliente cair sem precisar recarregar a página.
   useEffect(() => {
@@ -253,13 +277,20 @@ export const Transactions = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txTab]);
 
+  // Período que a tela mostra agora: a resposta de um período anterior, que
+  // chega atrasada, é descartada.
+  const periodoDaTela = useRef('');
+  periodoDaTela.current = buscaDoPeriodo(startDate, endDate);
+
   const fetchTransactions = async ({ silencioso = false }: { silencioso?: boolean } = {}) => {
     if (!silencioso) setLoading(true);
     setError(null);
+    const periodo = buscaDoPeriodo(startDate, endDate);
     try {
-      const response = await api.get('/transactions');
+      const response = await api.get(periodo ? `/transactions?${periodo}` : '/transactions');
       if (!response.ok) throw new Error('Falha ao buscar transações.');
       const data = await response.json();
+      if (periodo !== periodoDaTela.current) return;
       setTransactions(Array.isArray(data) ? data : []);
       setAtualizadoEm(new Date());
       setFalhou(false);

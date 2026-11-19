@@ -120,6 +120,9 @@ interface RecargaAgora {
   estimatedCost?: number;
   userName?: string | null;
   locationId?: number | null;
+  /** Nome do local e do carregador (API: GET /transactions/active). */
+  nomeDoLocal?: string | null;
+  nomeDoCarregador?: string | null;
 }
 
 /**
@@ -1049,7 +1052,14 @@ export const Overview = () => {
                   key={r.transactionId}
                   className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-[15px]"
                 >
-                  <span className="font-semibold text-foreground min-w-[120px]">{r.chargerId}</span>
+                  {/* O local, não o id do equipamento (pedido do dono, 19/11/2026);
+                      o id fica na dica. Sem local, o nome do carregador. */}
+                  <span
+                    className="font-semibold text-foreground min-w-[120px] max-w-[280px] truncate"
+                    title={r.chargerId}
+                  >
+                    {r.nomeDoLocal || r.nomeDoCarregador || r.chargerId}
+                  </span>
                   <span className="text-muted-foreground basis-full sm:basis-auto sm:flex-1 min-w-0 truncate">
                     {r.userName || `#${r.transactionId}`}
                     {' · desde '}

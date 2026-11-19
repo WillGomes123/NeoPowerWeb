@@ -15,6 +15,7 @@ import { Overview } from '../Overview';
 
 const estado = vi.hoisted(() => ({
   segurarRedeToda: null as Promise<void> | null,
+  agora: [] as unknown[],
 }));
 
 const rede = {
@@ -57,7 +58,7 @@ vi.mock('../../lib/api', () => ({
         return ok(rede);
       }
       if (url.startsWith('/overview-stats?')) return ok(doLocal);
-      if (url === '/transactions/active') return ok([]);
+      if (url === '/transactions/active') return ok(estado.agora);
       if (url.startsWith('/locations/all'))
         return ok({
           locations: [{ id: 3, nomeDoLocal: 'Condomínio Residencial Jardim das Américas Torre 2' }],
@@ -142,5 +143,43 @@ describe('Visão geral — escolher um local', () => {
     // (o Radix descarta a classe do SelectValue, por isso o corte fica no span de fora)
     expect(valor.parentElement).toHaveClass('min-w-0', 'truncate');
     expect(valor.parentElement!.parentElement).toHaveClass('flex-1', 'min-w-0');
+  });
+
+  it('o bloco "Agora" mostra o local, não o id do carregador', async () => {
+    estado.agora = [
+      {
+        transactionId: 1,
+        chargerId: 'A300DAFF',
+        startTimestamp: new Date().toISOString(),
+        energyKwh: 27.8,
+        powerKw: 30.4,
+        estimatedCost: 33.36,
+        userName: 'Poliana Costa',
+        locationId: 3,
+        nomeDoLocal: 'Av. das Torres',
+        nomeDoCarregador: 'Torres DC',
+      },
+      // Sem local: o nome do carregador.
+      {
+        transactionId: 2,
+        chargerId: 'gx001',
+        startTimestamp: new Date().toISOString(),
+        energyKwh: 1.9,
+        userName: 'Marcelo Souza',
+        locationId: null,
+        nomeDoLocal: null,
+        nomeDoCarregador: 'Gelux 01',
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>
+    );
+    const torres = await screen.findByText('Av. das Torres');
+    expect(torres).toHaveAttribute('title', 'A300DAFF');
+    expect(screen.getByText('Gelux 01')).toHaveAttribute('title', 'gx001');
+    expect(screen.queryByText('A300DAFF')).not.toBeInTheDocument();
+    estado.agora = [];
   });
 });
