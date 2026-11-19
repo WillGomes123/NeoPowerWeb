@@ -13,13 +13,17 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 vi.mock('../../lib/auth', () => ({ useAuth: () => ({ user: { id: 1637, role: 'operador' } }) }));
 
 let recargas: unknown[] = [];
+const pedidos: string[] = [];
 vi.mock('../../lib/api', () => ({
   api: {
-    get: (endpoint: string) =>
-      Promise.resolve({
+    get: (endpoint: string) => {
+      pedidos.push(endpoint);
+      return Promise.resolve({
         ok: true,
-        json: async () => (endpoint === '/transactions' ? recargas : []),
-      }),
+        // A lista vem com o período da tela (?inicio=&fim=) desde 19/11/2026.
+        json: async () => (endpoint.split('?')[0] === '/transactions' ? recargas : []),
+      });
+    },
   },
 }));
 
@@ -43,6 +47,22 @@ const recarga = (id: number, extra: Record<string, unknown> = {}) => ({
 describe('Transações — cliente de cada recarga', () => {
   beforeEach(() => {
     recargas = [];
+    pedidos.length = 0;
+  });
+
+  it('pede à API só o período da tela (hoje), e não todas as recargas', async () => {
+    render(<Transactions />);
+    await waitFor(() => expect(pedidos.some(p => p.startsWith('/transactions?'))).toBe(true));
+    const busca = new URLSearchParams(pedidos.find(p => p.startsWith('/transactions?'))!.split('?')[1]);
+    const inicio = new Date(busca.get('inicio')!);
+    const fim = new Date(busca.get('fim')!);
+    const hoje = new Date();
+    // Do começo ao fim de hoje, no relógio de quem vê.
+    expect(inicio.getHours()).toBe(0);
+    expect(inicio.toDateString()).toBe(hoje.toDateString());
+    expect(fim.getHours()).toBe(23);
+    expect(fim.toDateString()).toBe(hoje.toDateString());
+    expect(pedidos).not.toContain('/transactions');
   });
 
   it('mostra nome e celular de quem carregou, e "sem celular" quando o cadastro não tem', async () => {

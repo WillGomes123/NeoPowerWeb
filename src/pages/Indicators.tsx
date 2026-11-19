@@ -17,6 +17,7 @@ import {
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { RelatorioMensal } from '../components/indicadores/RelatorioMensal';
+import { MelhoresClientes } from '../components/indicadores/MelhoresClientes';
 import { DateRangePicker } from '../components/ui/date-range-picker';
 import { dataLocal } from '../components/ui/utils';
 import {
@@ -584,7 +585,12 @@ export const Indicators = () => {
           evolucaoDiaria={atualizacao => <EvolucaoDiaria atualizacao={atualizacao} />}
         />
       ) : (
-        <EvolucaoDiaria comCabecalho />
+        <div className="space-y-[25px]">
+          <EvolucaoDiaria comCabecalho />
+          {/* Gestor de local (operador sem marca): o ranking com período próprio.
+              A conta comum não recebe o nome dos clientes. */}
+          {user?.role === 'operador' && <MelhoresClientes />}
+        </div>
       )}
     </div>
   );
