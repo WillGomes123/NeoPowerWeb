@@ -231,6 +231,56 @@ describe('RelatorioMensal', () => {
     expect(nomesNaTabela()).toEqual(['Tacacá', 'AP Brasil Compensa']);
   });
 
+  it('admin da plataforma vê na aba Carregadores só a rede NeoPower', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: '1', name: 'Admin', email: 'a@a', role: 'admin', clientId: null },
+    } as ReturnType<typeof useAuth>);
+    const comMarca: Relatorio = {
+      ...relatorio,
+      carregadores: [
+        carregador({
+          chargePointId: 'MDESTRI',
+          nome: 'POSTO MDESTRi',
+          redeNeoPower: false,
+          faturamento: 20000,
+        }),
+        ...relatorio.carregadores.map(c => ({ ...c, redeNeoPower: true })),
+      ],
+    };
+    vi.mocked(api.get).mockReturnValue(responder(comMarca));
+
+    render(<RelatorioMensal />);
+    await screen.findByText('Resumo de agosto');
+    fireEvent.click(screen.getByRole('button', { name: /Carregadores/ }));
+
+    const nomesNaTabela = Array.from(
+      document.querySelectorAll('tbody tr td:first-child p:first-child')
+    ).map(p => p.textContent);
+    expect(nomesNaTabela).toEqual(['AP Brasil Compensa', 'Tacacá']);
+    expect(screen.queryByText('POSTO MDESTRi')).not.toBeInTheDocument();
+    expect(document.body.textContent).toContain('Rede NeoPower, comparada com julho');
+    // Participação sobre a rede mostrada (14.793 de 18.234), não sobre o total geral.
+    expect(document.body.textContent).toContain('81% do total');
+  });
+
+  it('operador da marca continua vendo os carregadores dele', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: '3', name: 'Op', email: 'o@o', role: 'operador', clientId: 'gelux' },
+    } as ReturnType<typeof useAuth>);
+    vi.mocked(api.get).mockReturnValue(
+      responder({
+        ...relatorio,
+        carregadores: [carregador({ nome: 'POSTO MDESTRi', redeNeoPower: false })],
+      })
+    );
+
+    render(<RelatorioMensal />);
+    await screen.findByText('Resumo de agosto');
+    fireEvent.click(screen.getByRole('button', { name: /Carregadores/ }));
+    expect(screen.getAllByText('POSTO MDESTRi').length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('Rede NeoPower');
+  });
+
   it('mostra o erro da API', async () => {
     vi.mocked(useAuth).mockReturnValue({
       user: { id: '1', name: 'Op', email: 'o@o', role: 'operador', clientId: 'vipenergy' },
