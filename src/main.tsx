@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { escutarPedidoDeInstalacao } from './lib/instalarNoCelular';
 import './index.css';
 import './styles/globals.css';
 import './styles/scrollbar.css';
@@ -22,5 +23,9 @@ window.addEventListener('vite:preloadError', event => {
   event.preventDefault();
   window.location.reload();
 });
+
+// O Android avisa que o painel pode ser instalado antes de o React montar:
+// o aviso de instalação no celular depende desse evento (lib/instalarNoCelular.ts).
+escutarPedidoDeInstalacao();
 
 createRoot(document.getElementById('root')!).render(<App />);
